@@ -55,7 +55,7 @@ begin
    try
       FPlayer.Perform(Message);
    except
-      on E: EExternal do raise;
+      on EExternal do raise;
       on E: Exception do
       begin // for debugging
          WriteFrame('You feel a disturbance in the force that whispers "' + E.Message + '".');

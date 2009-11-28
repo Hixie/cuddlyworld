@@ -65,8 +65,10 @@ type
       function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetTitle(Perspective: TAvatar): AnsiString; virtual;
+      function GetContext(Perspective: TAvatar): AnsiString; virtual;
       function GetLook(Perspective: TAvatar): AnsiString; virtual;
       function GetLookAt(Perspective: TAvatar): AnsiString; virtual;
+      function GetExamine(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
       function GetBasicDescription(Perspective: TAvatar): AnsiString; virtual;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; virtual; abstract;
@@ -87,7 +89,7 @@ type
       function GetSurface(): TAtom; virtual;
       function CanSurfaceHold(const Size: TThingSize): Boolean;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual;
-      function CanEnter(Perspective: TAvatar; AFrom: TAtom): TAtom; virtual;
+      function CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom; virtual;
    end;
 
    PThing = ^TThing;
@@ -113,6 +115,7 @@ type
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function IsPlural(Perspective: TAvatar): Boolean; virtual;
+      function GetTitle(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; virtual;
       function GetLookIn(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
@@ -175,7 +178,7 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar);
-      function CanEnter(Perspective: TAvatar; AFrom: TAtom): TAtom; override;
+      function CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom; override;
    end;
 
    PLocationItem = ^TLocationItem;
@@ -277,7 +280,8 @@ begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
    Assert(Assigned(Perspective));
-   Destination := ATo.CanEnter(Perspective, AFrom);
+   Message := '';
+   Destination := ATo.CanEnter(Perspective, AFrom, Message);
    if (Assigned(Destination)) then
    begin
       Perspective.AnnounceDeparture(ATo, Direction);
@@ -291,9 +295,6 @@ begin
    end
    else
    begin
-      Message := ATo.GetDescriptionState(Perspective);
-      if (Length(Message) = 0) then
-         Message := Capitalise(ATo.GetDefiniteName(Perspective)) + ' blocks the way.';
       Perspective.AvatarMessage('You cannot go ' + CardinalDirectionToString(Direction) + '. ' + Message);
    end;
 end;
@@ -303,15 +304,15 @@ var
    Destination: TAtom;
    Message: AnsiString;
    Success: Boolean;
-   Current: TAtom;
+   Ancestor: TAtom;
 begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
    Assert(Assigned(Perspective));
-   Current := ATo;
-   while ((Current is TThing) and (Current <> Perspective)) do
-      Current := (Current as TThing).Parent;
-   if (Current = Perspective) then
+   Ancestor := ATo;
+   while ((Ancestor is TThing) and (Ancestor <> Perspective)) do
+      Ancestor := (Ancestor as TThing).Parent;
+   if (Ancestor = Perspective) then
    begin
       Assert(ATo is TThing);
       Perspective.AvatarMessage('That would prove rather challenging given where ' + ATo.GetDefiniteName(Perspective) + ' ' + TernaryConditional('is', 'are', (ATo as TThing).IsPlural(Perspective)) + ' relative to yourself.');
@@ -335,7 +336,7 @@ begin
    else
    if (Position = tpIn) then
    begin
-      Destination := ATo.CanEnter(Perspective, AFrom);
+      Destination := ATo.CanEnter(Perspective, AFrom, Message);
       if (Assigned(Destination)) then
       begin
          Perspective.AnnounceDeparture(ATo);
@@ -346,17 +347,7 @@ begin
       end
       else
       begin
-         Message := '';
-         Success := (ATo is TThing) and (ATo as TThing).CanPut(Perspective, Position, Perspective, Message);
-         if (Success) then
-         begin
-            ATo.Add(Perspective, Position);
-            Perspective.Look();
-         end
-         else
-         begin
-            Perspective.AvatarMessage('You cannot enter ' + ATo.GetDefiniteName(Perspective) + '. ' + Message);
-         end;
+         Perspective.AvatarMessage('You cannot enter ' + ATo.GetDefiniteName(Perspective) + '. ' + Message);
       end;
    end
    else
@@ -482,7 +473,7 @@ end;
 procedure TAtom.Add(Thing: TThing; APosition: TThingPosition);
 var
    Item: PThingItem;
-   {$IFOPT C+}  Position: TThingPosition; {$ENDIF}
+   {$IFOPT C+} Position: TThingPosition; {$ENDIF}
 begin
    {$IFOPT C+} Position := tpIn; {$ENDIF}
    Assert((APosition <> tpIn) or (GetInside(Position) = Self), 'tried to put something inside something without an inside');
@@ -500,9 +491,17 @@ end;
 procedure TAtom.Add(Thing: TThing; APosition: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
 var
    OldParent: TAtom;
+   {$IFOPT C+} ParentSearch: TAtom; {$ENDIF}
 begin
    OldParent := Thing.FParent;
    Add(Thing, APosition);
+   {$IFOPT C+}
+   ParentSearch := Thing;
+   repeat
+      ParentSearch := (ParentSearch as TThing).Parent;
+      Assert(ParentSearch <> Thing);
+   until (not (ParentSearch is TThing));
+   {$ENDIF}
    Thing.Moved(OldParent, Carefully, Perspective);
    HandleAdd(Thing);
 end;
@@ -551,14 +550,19 @@ begin
    begin
       Result := CanSurfaceHold(Thing.GetIntrinsicSize());
       if (not Result) then
-         Message := 'There is not enough room on ' + GetDefiniteName(Perspective) + '.';
+         Message := 'There is not enough room on ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetIndefiniteName(Perspective) + '.';
    end
    else
    if (Position = tpIn) then
    begin
       Result := CanInsideHold(Thing.GetOutsideSizeManifest());
       if (not Result) then
-         Message := 'There is not enough room in ' + GetDefiniteName(Perspective) + '.';
+      begin
+         if ((not Assigned(GetInside(Position))) and (Self is TThing)) then
+            Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('does', 'do', (Self as TThing).IsPlural(Perspective)) + ' not appear to have an opening.'
+         else
+            Message := 'There is not enough room in ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetIndefiniteName(Perspective) + '.';
+      end;
    end
    else
       raise EAssertionFailed.Create('Unexpected position ' + IntToStr(Cardinal(Position)));
@@ -672,13 +676,21 @@ end;
 
 function TAtom.GetTitle(Perspective: TAvatar): AnsiString;
 var
-   Thing: TThing;
-   Atom: TAtom;
-   Position: TThingPosition;
    Additional: AnsiString;
 begin
    Result := GetName(Perspective);
-   Additional := '';
+   Additional := GetContext(Perspective);
+   if (Length(Additional) > 0) then
+      Result := Result + ' (' + Additional + ')';
+end;
+
+function TAtom.GetContext(Perspective: TAvatar): AnsiString;
+var
+   Thing: TThing;
+   Atom: TAtom;
+   Position: TThingPosition;
+begin
+   Result := '';
    Atom := Self;
    while (Atom is TThing) do
    begin
@@ -690,12 +702,10 @@ begin
          Atom := Atom.GetDefaultAtom();
          Position := tpAt;
       end;
-      if (Length(Additional) > 0) then
-         Additional := Additional + ', ';
-      Additional := Additional + ThingPositionToString(Position) + ' ' + Atom.GetDefiniteName(Perspective);
+      if (Length(Result) > 0) then
+         Result := Result + ', ';
+      Result := Result + ThingPositionToString(Position) + ' ' + Atom.GetDefiniteName(Perspective);
    end;
-   if (Length(Additional) > 0) then
-      Result := Result + ' (' + Additional + ')';
 end;
 
 function TAtom.GetLook(Perspective: TAvatar): AnsiString;
@@ -707,6 +717,13 @@ begin
 end;
 
 function TAtom.GetLookAt(Perspective: TAvatar): AnsiString;
+begin
+   Result := GetBasicDescription(Perspective) +
+             WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn, optPrecise])) +
+             WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren]));
+end;
+
+function TAtom.GetExamine(Perspective: TAvatar): AnsiString;
 begin
    Result := GetBasicDescription(Perspective) +
              WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn, optPrecise])) +
@@ -871,15 +888,30 @@ begin
       Result := True;
 end;
 
-function TAtom.CanEnter(Perspective: TAvatar; AFrom: TAtom): TAtom;
+function TAtom.CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom;
 var
    Position: TThingPosition;
 begin
-   { this doesn't check sizes, because otherwise we could end up with traffic jams }
    Position := tpIn;
    Result := GetInside(Position);
-   if (Assigned(Result) and (Result <> Self)) then
-      Result := Result.CanEnter(Perspective, AFrom);
+   if (Assigned(Result)) then
+   begin
+      if (Result = Self) then
+      begin
+         if (not CanPut(Perspective, tpIn, Perspective, Message)) then
+            Result := nil;
+      end
+      else
+      begin
+         Result := Result.CanEnter(Perspective, AFrom, Message);
+      end;
+   end
+   else
+   begin
+      Message := GetDescriptionState(Perspective);
+      if (Length(Message) = 0) then
+         Message := Capitalise(GetDefiniteName(Perspective)) + ' blocks the way.';
+   end;
 end;
 
 
@@ -921,6 +953,15 @@ end;
 function TThing.IsPlural(Perspective: TAvatar): Boolean;
 begin
    Result := False;
+end;
+
+function TThing.GetTitle(Perspective: TAvatar): AnsiString;
+begin
+   Assert(Assigned(FParent));
+   if (Perspective.Parent = Self) then
+      Result := Capitalise(ThingPositionToString(Perspective.Position)) + ' ' + GetDefiniteName(Perspective) + ' (' + GetContext(Perspective) + ')'
+   else
+      Result := inherited;
 end;
 
 function TThing.GetLookUnder(Perspective: TAvatar): AnsiString;
@@ -1420,7 +1461,7 @@ begin
    Perspective.AvatarMessage('You can''t go ' + CardinalDirectionToString(Direction) + ' from here.');
 end;
 
-function TLocation.CanEnter(Perspective: TAvatar; AFrom: TAtom): TAtom;
+function TLocation.CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom;
 begin
    Result := GetSurface();
 end;

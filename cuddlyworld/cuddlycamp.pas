@@ -34,7 +34,8 @@ begin
    CampForest := TScenery.Create(['forest', 'trees', 'tree'], 'The forest is dense and impassable.');
    Camp.Add(CampForest, tpAroundImplicit);
    Camp.GetSurface().Add(TStaticThing.Create('MacGuffin', 'The MacGuffin displays outward signs of being avian in nature.', tmHeavy, tsBig), tpOn);
-   Camp.GetSurface().Add(TPile.Create(['leaves', 'leaf'], 'It appears someone has collected fallen leaves from the forest.', tmLight, tsSmall), tpOn);
+   Camp.GetSurface().Add(TStaticThing.Create('penny', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
+   Camp.GetSurface().Add(TPile.Create(['leaves', 'leaf'], 'It appears someone has collected fallen leaves from the forest.', tmLight, tsBig), tpOn);
    Camp.ConnectCardinals(Cliff, CampForest, CampForest, CampForest);
    Camp.ConnectDiagonals(CampForest, CampForest, CampForest, CampForest);
    World.AddLocation(Camp);

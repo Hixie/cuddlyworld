@@ -75,10 +75,10 @@ uses
 
 type
    TActionVerb = (avNone,
-                  avLook, avLookDirectional, avLookAt, avLookUnder, avLookIn, avInventory, avFind,
+                  avLook, avLookDirectional, avLookAt, avExamine, avLookUnder, avLookIn, avInventory, avFind,
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avShake,
-                  avTalk, avDance,       
+                  avTalk, avDance,
                   avHelp);
 
    PTalkMessage = ^TTalkMessage;
@@ -86,14 +86,13 @@ type
       Message: AnsiString;
    end;
 
-   PAction = ^TAction;
    TAction = record
-     Next: PAction;
      case Verb: TActionVerb of
       avNone: ();
       avLook: ();
       avLookDirectional: (LookDirection: TCardinalDirection);
       avLookAt: (LookAt: TThing);
+      avExamine: (ExamineSubject: TThing);
       avLookUnder: (LookUnder: TThing);
       avLookIn: (LookIn: TThing);
       avInventory: ();
@@ -104,7 +103,7 @@ type
       avTake: (TakeSubject: PThingItem);
       avPut: (PutSubject: PThingItem; PutTarget: TAtom; PutPosition: TThingPosition; PutCarefully: Boolean);
       avMove: (MoveSubject: PThingItem; MoveTarget: TAtom; MovePosition: TThingPosition);
-      avPush: (PushSubject: PThingItem; PushDirection: TCardinalDirection); // ...
+      avPush: (PushSubject: PThingItem; PushDirection: TCardinalDirection);
       avShake: (ShakeSubject: PThingItem);
       avTalk: (TalkTarget: TThing; TalkMessage: PTalkMessage; TalkVolume: TTalkVolume);
       avDance: ();
@@ -170,86 +169,81 @@ var
 
 {$INCLUDE parser.inc}
 
-   procedure ExecuteAction(Action: PAction);
+   procedure ExecuteAction(var Action: TAction);
    begin
-      case Action^.Verb of
+      case Action.Verb of
        avLook: Look();
-       avLookDirectional: AvatarMessage(FParent.GetDefaultAtom().GetLookDirection(Self, Action^.LookDirection));
-       avLookAt: AvatarMessage(Action^.LookAt.GetLookAt(Self));
-       avLookUnder: AvatarMessage(Action^.LookUnder.GetLookUnder(Self));
-       avLookIn: AvatarMessage(Action^.LookIn.GetLookIn(Self));
+       avLookDirectional: AvatarMessage(FParent.GetDefaultAtom().GetLookDirection(Self, Action.LookDirection));
+       avLookAt: AvatarMessage(Action.LookAt.GetLookAt(Self));
+       avExamine: AvatarMessage(Action.LookAt.GetExamine(Self));
+       avLookUnder: AvatarMessage(Action.LookUnder.GetLookUnder(Self));
+       avLookIn: AvatarMessage(Action.LookIn.GetLookIn(Self));
        avInventory: Inventory();
-       avFind: AvatarMessage(Action^.FindSubject.GetPresenceStatement(Self, psTheThingIsOnThatThing));
-       avGo: FParent.Navigate(Action^.GoDirection, Self);
-       avEnter: DoNavigation(FParent, Action^.EnterSubject, tpIn, Self);
-       avClimbOn: DoNavigation(FParent, Action^.ClimbOnSubject, tpOn, Self);
-       avTake: Take(Action^.TakeSubject);
-       avPut: Put(Action^.PutSubject, Action^.PutTarget, Action^.PutPosition, Action^.PutCarefully);
-       avMove: Move(Action^.MoveSubject, Action^.MoveTarget, Action^.MovePosition);
-       avShake: Shake(Action^.ShakeSubject);
-       avTalk: Talk(Action^.TalkTarget, Action^.TalkMessage^.Message, Action^.TalkVolume);
+       avFind: AvatarMessage(Action.FindSubject.GetPresenceStatement(Self, psTheThingIsOnThatThing));
+       avGo: FParent.Navigate(Action.GoDirection, Self);
+       avEnter: DoNavigation(FParent, Action.EnterSubject, tpIn, Self);
+       avClimbOn: DoNavigation(FParent, Action.ClimbOnSubject, tpOn, Self);
+       avTake: Take(Action.TakeSubject);
+       avPut: Put(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCarefully);
+       avMove: Move(Action.MoveSubject, Action.MoveTarget, Action.MovePosition);
+       avShake: Shake(Action.ShakeSubject);
+       avTalk: Talk(Action.TalkTarget, Action.TalkMessage^.Message, Action.TalkVolume);
        avDance: Dance();
        avHelp: Help();
       else
-       raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action^.Verb)));
+       raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
       end;
    end;
 
 var
-   Actions, ThisAction: PAction;
-   ParsedSuccessfully: Boolean;
+   Action: TAction;
+   More: Boolean;
+   Atom: TAtom;
+   Location: AnsiString;
 begin
-   New(Actions);
-   Actions^.Verb := avNone;
-   Actions^.Next := nil;
    try
-      ParsedSuccessfully := False;
-      try
-         Tokens := Tokenise(Command);
-         if (Length(Tokens) = 0) then
-            Exit;
-         CurrentToken := 0;
-         ThisAction := Actions;
-         while (ParseAction(ThisAction)) do
-         begin
-            New(ThisAction^.Next);
-            ThisAction^.Next^.Verb := avNone;
-            ThisAction := ThisAction^.Next;
-            ThisAction^.Next := nil;
+      Tokens := Tokenise(Command);
+      if (Length(Tokens) = 0) then
+         Exit;
+      CurrentToken := 0;
+      repeat
+         Action.Verb := avNone;
+         try
+            More := ParseAction(Action);
+            ExecuteAction(Action);
+         finally
+            case Action.Verb of
+             avTake: FreeThingList(Action.TakeSubject);
+             avPut: FreeThingList(Action.PutSubject);
+             avMove: FreeThingList(Action.MoveSubject);
+             avPush: FreeThingList(Action.PushSubject);
+             avShake: FreeThingList(Action.ShakeSubject);
+             avTalk: Dispose(Action.TalkMessage);
+            end;
          end;
-         ParsedSuccessfully := True;
-      except
-         on E: EParseError do
-         begin
-            Writeln(FailedCommandLog, '"', Command, '" in "' + FParent.GetName(Self) + '"', ': ', E.Message);
-            AvatarMessage(E.Message);
-         end;
-      end;
-      if (ParsedSuccessfully) then
-      begin
-         ThisAction := Actions;
-         while (Assigned(ThisAction)) do
-         begin
-            ExecuteAction(ThisAction);
-            AvatarMessage('');
-            ThisAction := ThisAction^.Next;
-         end;
-      end
-      else
          AvatarMessage('');
-   finally
-      while (Assigned(Actions)) do
+      until not More;
+   except
+      on E: EParseError do
       begin
-         ThisAction := Actions;
-         Actions := Actions^.Next;
-         case ThisAction^.Verb of
-          avTake: FreeThingList(ThisAction^.TakeSubject);
-          avPut: FreeThingList(ThisAction^.PutSubject);
-          avMove: FreeThingList(ThisAction^.MoveSubject);
-          avShake: FreeThingList(ThisAction^.ShakeSubject);
-          avTalk: Dispose(ThisAction^.TalkMessage);
+         Location := '"' + FName + '"';
+         Atom := FParent;
+         try
+            while (Assigned(Atom)) do
+            begin
+               Location := '"' + Atom.GetName(Self) + '"->' + Location;
+               if (Atom is TThing) then
+                  Atom := (Atom as TThing).Parent
+               else
+                  Atom := nil;
+            end;
+         except
+           on EExternal do raise;
+           on E: Exception do Location := '(while finding location: ' + E.Message + ')';
          end;
-         Dispose(ThisAction);
+         Writeln(FailedCommandLog, '"', Command, '" for ' + Location + ': ', E.Message);
+         AvatarMessage(E.Message);
+         AvatarMessage('');
       end;
    end;
 end;
@@ -275,7 +269,8 @@ begin
                  'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
                  'More elaborate constructions are also possible. You can "take something", or "put something in something else", for instance.' + #10 +
                  'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
-                 'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''.');
+                 'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''". ' + 'Please be descriptive and include as much information as possible about how to reproduce the bug. Thanks!' + #10 +
+                 'Have fun!');
 end;
 
 procedure TPlayer.SetContext(Context: AnsiString);
@@ -368,7 +363,7 @@ begin
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' here.'
    else
    if ((Mode = psOnThatThingIsAThing) or (Mode = psTheThingIsOnThatThing)) then
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + 
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' +
                            ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
    else
       raise EAssertionFailed.Create('unknown mode');
@@ -509,9 +504,12 @@ begin
          end
          else
          begin
-            Ancestor := Self.FParent;
-            while (Assigned(Ancestor) and (Ancestor is TThing) and (Ancestor <> Subject^.Value)) do
+            Ancestor := Self;
+            repeat
+               Assert(Ancestor is TThing);
+               Assert(Assigned((Ancestor as TThing).Parent));
                Ancestor := (Ancestor as TThing).Parent;
+            until ((not (Ancestor is TThing)) or (Ancestor = Subject^.Value));
             if (Ancestor = Subject^.Value) then
             begin
                { we're (possibly indirectly) standing on it }
@@ -553,9 +551,10 @@ end;
 
 procedure TPlayer.Put(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
 var
-   Multiple: Boolean;
+   Multiple, Success: Boolean;
    Message: AnsiString;
    SingleThingItem: PThingItem;
+   Ancestor: TAtom;
 begin
    Assert(Assigned(Subject));
    Assert(Assigned(Target));
@@ -566,30 +565,65 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(Subject^.Value.GetName(Self)));
-         if (Subject^.Value.Parent <> Self) then
+         if (Target = Subject^.Value) then
          begin
-            AutoDisambiguated('first taking ' + Subject^.Value.GetDefiniteName(Self));
-            New(SingleThingItem);
-            try
-               SingleThingItem^.Next := nil;
-               SingleThingItem^.Value := Subject^.Value;
-               Take(SingleThingItem);
-            finally
-               Dispose(SingleThingItem);
-            end;
-         end;
-         if (Subject^.Value.Parent = Self) then
+            AvatarMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
+         end
+         else
          begin
-            if (PutCarefully) then
-               Message := 'Placed'
+            Ancestor := Target;
+            repeat
+               Assert(Ancestor is TThing);
+               Assert(Assigned((Ancestor as TThing).Parent));
+               Ancestor := (Ancestor as TThing).Parent;
+            until ((not (Ancestor is TThing)) or (Ancestor = Subject^.Value));
+            if (Ancestor = Subject^.Value) then
+            begin
+               { the target is on the thing }
+               Assert(Target is TThing);
+               Assert(Assigned((Target as TThing).Parent));
+               Message := (Target as TThing).GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', (Target as TThing).IsPlural(Self)) + ' ' + ThingPositionToString((Target as TThing).Position) + ' ';
+               Ancestor := (Target as TThing).Parent;
+               while (Ancestor <> Subject^.Value) do
+               begin
+                  Assert(Ancestor is TThing);
+                  Assert(Assigned((Ancestor as TThing).Parent));
+                  Message := Message + Ancestor.GetDefiniteName(Self) + ', which ' + TernaryConditional('is', 'are', (Ancestor as TThing).IsPlural(Self)) + ' ' + ThingPositionToString((Ancestor as TThing).Position) + ' ';
+                  Ancestor := (Ancestor as TThing).Parent;
+               end;
+               Assert(Ancestor = Subject^.Value);
+               Message := Message + Ancestor.GetDefiniteName(Self);
+               AvatarMessage('That would be difficult, since ' + Message + '.');
+            end
             else
-               Message := 'Dropped';
-            if (Target <> FParent.GetSurface()) then
-               Message := Message + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
-            Message := Message + '.';
-            // need to check size capacities here
-            AvatarMessage(Message);
-            Target.Add(Subject^.Value, ThingPosition, PutCarefully, Self);
+            begin
+               if (Subject^.Value.Parent <> Self) then
+               begin
+                  AutoDisambiguated('first taking ' + Subject^.Value.GetDefiniteName(Self));
+                  New(SingleThingItem);
+                  try
+                     SingleThingItem^.Next := nil;
+                     SingleThingItem^.Value := Subject^.Value;
+                     Take(SingleThingItem);
+                  finally
+                     Dispose(SingleThingItem);
+                  end;
+               end;
+               if (Subject^.Value.Parent = Self) then
+               begin
+                  if (PutCarefully) then
+                     Message := 'Placed'
+                  else
+                     Message := 'Dropped';
+                  if (Target <> FParent.GetSurface()) then
+                     Message := Message + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
+                  Message := Message + '.';
+                  Success := Target.CanPut(Subject^.Value, ThingPosition, Self, Message);
+                  AvatarMessage(Message);
+                  if (Success) then
+                     Target.Add(Subject^.Value, ThingPosition, PutCarefully, Self);
+               end;
+            end;
          end;
          Subject := Subject^.Next;
       end;
@@ -600,6 +634,7 @@ begin
 end;
 
 procedure TPlayer.Move(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
+// this is somewhat convoluted -- feel free to refactor it...
 var
    Multiple, NavigateToTarget, Success: Boolean;
    SingleThingItem: PThingItem;
@@ -681,26 +716,34 @@ begin
                end
                else
                   SurrogateTarget := Target;
-               if (SurrogateTarget = Subject^.Value.Parent) then
+               if ((SurrogateTarget = Subject^.Value.Parent) and (ThingPosition = Subject^.Value.Position)) then
                begin
-                  New(SingleThingItem);
-                  try
-                     SingleThingItem^.Next := nil;
-                     SingleThingItem^.Value := Subject^.Value;
-                     Shake(SingleThingItem);
-                  finally
-                     Dispose(SingleThingItem);
+                  if (not Assigned(Target)) then
+                  begin
+                     New(SingleThingItem);
+                     try
+                        SingleThingItem^.Next := nil;
+                        SingleThingItem^.Value := Subject^.Value;
+                        Shake(SingleThingItem);
+                     finally
+                        Dispose(SingleThingItem);
+                     end;
+                  end
+                  else
+                  begin
+                     AvatarMessage(Capitalise(Subject^.Value.GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' already ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Target.GetDefiniteName(Self) + '.'));
                   end;
                end
                else
-               if (((ThingPosition = tpOn) and ((not (Subject^.Value.Parent is TThing)) or 
+               if (((ThingPosition = tpOn) and ((not (Subject^.Value.Parent is TThing)) or
                                                 ((Subject^.Value.Parent as TThing).Parent <> SurrogateTarget))) or
                    ((ThingPosition = tpIn) and ((not (SurrogateTarget is TThing)) or
                                                 (Subject^.Value.Parent <> (SurrogateTarget as TThing).Parent)))) then
                begin
-                  // need to lift it there. just take it and drop it there for now.
-                  // maybe we can make this check the CanCarry() and CanTake() aspects first
-                  // maybe we shouldn't even check the CanTake() aspects; you can shovel dirt or leaves from a pile into a bag you're holding even if you can't hold the pile
+                  // need to lift it there. if it wasn't explicit, assume they wanted to shae. otherwise, just take it and drop it there.
+                  // maybe we can make this check the CanCarry() and CanTake() aspects first.
+                  // maybe we shouldn't even check the CanTake() aspects; you can shovel dirt or leaves from a pile into a bag you're holding even if you can't hold the pile.
+                  // (if you don't just call put, then make sure to check that we're not allowing a parenthood loop)
                   New(SingleThingItem);
                   try
                      SingleThingItem^.Next := nil;
@@ -714,10 +757,15 @@ begin
                   end;
                end
                else
+               if (SurrogateTarget = Subject^.Value) then
+               begin
+                  AvatarMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
+               end
+               else
                begin
                   { if we get here then we have a target that makes sense }
                   Message := 'Moved ' + ThingPositionToDirectionString(ThingPosition) + ' ' + SurrogateTarget.GetDefiniteName(Self) + '.';
-                  Success := Subject^.Value.CanMove(Self, Message) and CanPush(Subject^.Value, Message);
+                  Success := Subject^.Value.CanMove(Self, Message) and CanPush(Subject^.Value, Message) and SurrogateTarget.CanPut(Subject^.Value, ThingPosition, Self, Message);
                   AvatarMessage(Message);
                   if (Success) then
                      SurrogateTarget.Add(Subject^.Value, ThingPosition, True, Self);
