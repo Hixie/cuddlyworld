@@ -64,7 +64,7 @@ type
       procedure Write(Stream: TWriteStream); override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
-      function CanEnter(Perspective: TAvatar; AFrom: TAtom): TAtom; override;
+      function CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom; override;
    end;
 
    TSurface = class(TStaticThing)
@@ -345,9 +345,9 @@ begin
    end;
 end;
 
-function TInternalLocationProxy.CanEnter(Perspective: TAvatar; AFrom: TAtom): TAtom;
+function TInternalLocationProxy.CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom;
 begin
-   Result := FDestination.CanEnter(Perspective, AFrom);
+   Result := FDestination.CanEnter(Perspective, AFrom, Message);
 end;
 
 

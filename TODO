@@ -1,20 +1,13 @@
-X "move me to leaves then out" then rejoin crashes server
-X "take macguffin then move me to leaves then drop macguffin then look in leaves" shows you and macguffin twice
-X "carry mountain"
-X "pick up mountain"
-X "put mountain in bag": "I can't see a "bag" here to put in." - "to put in"?
-X "take <ingredient>" from pile ("leaf" from "pile of leaves")
-X "take tree": I can't see any "tree" here - should say trees are far away.
-X "yell": I don't understand how to "yell".
-X "find bag": I don't understand how to "find".
-X split the creation of world.dat from the game
-o "bug foo" should file bug
-o add exception handling around login...
-o find mountain shouldn't say it's at the cliff base
-. "help": I don't understand how to "help".
-subversion it all
-"drop macguffin then n then take macguffin" works. We should execute the steps in between each parse attempt instead of reading the chain.
-put macguffin in leaves: leaves don't complain about being too small to hide the macguffin
+X the log should not say everything happened in "ground", it should give the whole parent chain for the player
+X made the room titles when you enter the pile of leaves, etc, clearer
+X put macguffin in leaves: leaves don't complain about being too small to hide the macguffin
+X memory leak in "move all onto leaves then move all into leaves"
+X "move all onto leaves then move all into leaves": NotImplemented
+X "put penny on macguffin then put macguffin on penny" makes them disappear
+X "move leaves into leaves" doesn't mention that that's stupid
+X you can enter the leaves
+you can move onto the leaves
+"enter penny" says "You cannot enter the penny. The penny blocks the way." -- blocks the way?! a penny?!
 moving things without picking them up
  + move leaves north
  + move leaves through door
@@ -26,7 +19,7 @@ change the way announcements work so that you instead do Broadcast(@AnnounceShak
  + then implement dancing
 tools to shape the world - digging - forming a tunnel... if digging in a tunnel without moving dirt away, encloses you in
  + fill hole with pile of leaves
-you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it)
+you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain
 When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
 taking something with things on it should make the things fall off
 support "it". In particular, if "look" only mentions one thing, "take it" should work.
@@ -35,13 +28,14 @@ exit things by name
  - "get out of pile": That's a direction, I don't know how to take it.
 "The player arrives from the hut." when another player is seen exiting the hut: would be better if it said "The player leaves the hut"?
 it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
-"climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
+"climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
 "climb cliff": I don't understand how to "climb".
 "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
 "take macguffin then move me to leaves then drop macguffin" parses as "drop macguffin on ground", not "drop macguffin on leaves"
 password command
 player safe where they can keep things while disconnected
 player savepoint so that players can reappear in a specific place after disconnecting
+change use of FParent to just be Parent when referring to another thing's parent
 throwing
 - "throw MacGuffin north": I don't understand how to "throw".
 "Take a carinda" to take just one.
@@ -54,6 +48,8 @@ Sometimes the server just dies silently (killed by the kernel?).
 tools to shape the world - walking through the forest autocreating more forest, fields, rivers, mountains, caves
 tools to shape the world - cutting down the forest to form fields, piles of wood
 tools to shape the world - making small huts from piles of wood
+"look out" while on the leaves talks about the ground
+should separate "look at" from "examine" and make "examine" a superset of "look in"
 Players should have PartOfs: eyes, hands, etc
 Players should have Implicits: "you", "time" ("take time"), etc
 Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
@@ -64,6 +60,7 @@ Looking should check for illumination by walking all the objects (FUp-not-in-FCh
 - also check for FChildren that block Visibility from Perspective to Subject (e.g. smoke, fog)
 well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
 move build.sh options to a configuration file
+make build.sh filter out useless warnings
 TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
 food:
  + "go eat": I don't understand how to go "eat".
@@ -77,7 +74,6 @@ food:
 "harvest forest": I don't understand how to "harvest".
 "chop down forest": I don't understand how to "chop".
 "quit": I don't understand how to "quit".
-"help": I don't understand how to "help".
 "repair", "unbreak system": I don't understand how to "unbreak".
 "poke head out of leaves": I don't understand how to "poke".
 "hide in leaves": I don't understand how to "hide".
