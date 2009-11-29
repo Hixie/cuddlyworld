@@ -5,7 +5,13 @@ unit player;
 interface
 
 uses
-   storable, world, grammarian;
+   storable, world, grammarian, thingdim;
+
+const
+   MaxCarryMass = tmHeavy;
+   MaxCarrySize = tsMassive;
+   MaxPushMass = tmPonderous;
+   MaxPushSize = tsGigantic;
 
 type
 
@@ -22,15 +28,22 @@ type
       FOnAvatarMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: AnsiString; { transient }
-      procedure Take(Subject: PThingItem);
-      procedure Put(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
-      procedure Move(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
-      procedure Shake(Subject: PThingItem);
+      procedure DoTake(Subject: PThingItem);
+      procedure DoPut(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
+      procedure DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
+      procedure DoPush(Subject: PThingItem; Direction: TCardinalDirection);
+      procedure DoPress(Subject: PThingItem);
+      procedure DoShake(Subject: PThingItem);
+      procedure DoDig(Target: TThing; Spade: TThing);
+      procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
+      procedure DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
+      procedure DoDance();
+      procedure DoHelp();
+      procedure HandleAdd(Thing: TThing); override;
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
-      procedure Talk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
-      procedure Dance();
       function GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
+      function GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;
       function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
       procedure SetContext(Context: AnsiString);
       procedure ResetContext();
@@ -40,9 +53,8 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       procedure Perform(Command: AnsiString);
-      procedure Look(); override;
-      procedure Inventory();
-      procedure Help();
+      procedure DoLook(); override;
+      procedure DoInventory();
       procedure AvatarMessage(Message: AnsiString); override;
       procedure AutoDisambiguated(Message: AnsiString);
       function GetIntrinsicMass(): TThingMass; override;
@@ -77,7 +89,7 @@ type
    TActionVerb = (avNone,
                   avLook, avLookDirectional, avLookAt, avExamine, avLookUnder, avLookIn, avInventory, avFind,
                   avGo, avEnter, avClimbOn,
-                  avTake, avPut, avMove, avPush, avShake,
+                  avTake, avPut, avMove, avPush, avPress, avShake, avDig, avDigDirection,
                   avTalk, avDance,
                   avHelp);
 
@@ -104,7 +116,9 @@ type
       avPut: (PutSubject: PThingItem; PutTarget: TAtom; PutPosition: TThingPosition; PutCarefully: Boolean);
       avMove: (MoveSubject: PThingItem; MoveTarget: TAtom; MovePosition: TThingPosition);
       avPush: (PushSubject: PThingItem; PushDirection: TCardinalDirection);
+      avPress: (PressSubject: PThingItem);
       avShake: (ShakeSubject: PThingItem);
+      avDig {and avDigDirection}: (DigSpade: TThing; case TActionVerb of avDig: (DigTarget: TThing); avDigDirection: (DigDirection: TCardinalDirection));
       avTalk: (TalkTarget: TThing; TalkMessage: PTalkMessage; TalkVolume: TTalkVolume);
       avDance: ();
       avHelp: ();
@@ -172,24 +186,28 @@ var
    procedure ExecuteAction(var Action: TAction);
    begin
       case Action.Verb of
-       avLook: Look();
+       avLook: DoLook();
        avLookDirectional: AvatarMessage(FParent.GetDefaultAtom().GetLookDirection(Self, Action.LookDirection));
        avLookAt: AvatarMessage(Action.LookAt.GetLookAt(Self));
        avExamine: AvatarMessage(Action.LookAt.GetExamine(Self));
        avLookUnder: AvatarMessage(Action.LookUnder.GetLookUnder(Self));
        avLookIn: AvatarMessage(Action.LookIn.GetLookIn(Self));
-       avInventory: Inventory();
+       avInventory: DoInventory();
        avFind: AvatarMessage(Action.FindSubject.GetPresenceStatement(Self, psTheThingIsOnThatThing));
        avGo: FParent.Navigate(Action.GoDirection, Self);
        avEnter: DoNavigation(FParent, Action.EnterSubject, tpIn, Self);
        avClimbOn: DoNavigation(FParent, Action.ClimbOnSubject, tpOn, Self);
-       avTake: Take(Action.TakeSubject);
-       avPut: Put(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCarefully);
-       avMove: Move(Action.MoveSubject, Action.MoveTarget, Action.MovePosition);
-       avShake: Shake(Action.ShakeSubject);
-       avTalk: Talk(Action.TalkTarget, Action.TalkMessage^.Message, Action.TalkVolume);
-       avDance: Dance();
-       avHelp: Help();
+       avTake: DoTake(Action.TakeSubject);
+       avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCarefully);
+       avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MovePosition);
+       avPush: DoPush(Action.PushSubject, Action.PushDirection);
+       avPress: DoPress(Action.PressSubject);
+       avShake: DoShake(Action.ShakeSubject);
+       avDig: DoDig(Action.DigTarget, Action.DigSpade);
+       avDigDirection: DoDig(Action.DigDirection, Action.DigSpade);
+       avTalk: DoTalk(Action.TalkTarget, Action.TalkMessage^.Message, Action.TalkVolume);
+       avDance: DoDance();
+       avHelp: DoHelp();
       else
        raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
       end;
@@ -217,6 +235,7 @@ begin
              avPut: FreeThingList(Action.PutSubject);
              avMove: FreeThingList(Action.MoveSubject);
              avPush: FreeThingList(Action.PushSubject);
+             avPress: FreeThingList(Action.PressSubject);
              avShake: FreeThingList(Action.ShakeSubject);
              avTalk: Dispose(Action.TalkMessage);
             end;
@@ -248,12 +267,12 @@ begin
    end;
 end;
 
-procedure TPlayer.Look();
+procedure TPlayer.DoLook();
 begin
    AvatarMessage(FParent.GetDefaultAtom().GetLook(Self));
 end;
 
-procedure TPlayer.Inventory();
+procedure TPlayer.DoInventory();
 var
    Contents: AnsiString;
 begin
@@ -263,7 +282,7 @@ begin
    AvatarMessage(Contents);
 end;
 
-procedure TPlayer.Help();
+procedure TPlayer.DoHelp();
 begin
    AvatarMessage('Welcome to CuddlyWorld!'+ #10 +
                  'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
@@ -478,7 +497,7 @@ begin
    end;
 end;
 
-procedure TPlayer.Take(Subject: PThingItem);
+procedure TPlayer.DoTake(Subject: PThingItem);
 var
    Multiple: Boolean;
    Success: Boolean;
@@ -532,24 +551,7 @@ begin
    end;
 end;
 
-function TPlayer.CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
-begin
-   if (MassAdder(Thing.GetMassManifest()) > tmHeavy) then
-   begin
-      Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too heavy.';
-   end
-   else
-   if (SizeAdder(Thing.GetOutsideSizeManifest()) > tsBig) then
-   begin
-      Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too big.';
-   end
-   else
-      Result := True;
-end;
-
-procedure TPlayer.Put(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
+procedure TPlayer.DoPut(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
 var
    Multiple, Success: Boolean;
    Message: AnsiString;
@@ -604,7 +606,7 @@ begin
                   try
                      SingleThingItem^.Next := nil;
                      SingleThingItem^.Value := Subject^.Value;
-                     Take(SingleThingItem);
+                     DoTake(SingleThingItem);
                   finally
                      Dispose(SingleThingItem);
                   end;
@@ -633,14 +635,14 @@ begin
    end;
 end;
 
-procedure TPlayer.Move(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
+procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
 // this is somewhat convoluted -- feel free to refactor it...
 var
    Multiple, NavigateToTarget, Success: Boolean;
    SingleThingItem: PThingItem;
    Ancestor, SurrogateTarget: TAtom;
    LocationSurface: TThing;
-   {$IFDEF DEBUG} PreviousParent: TAtom; {$ENDIF}
+   {$IFOPT C+} PreviousParent: TAtom; {$ENDIF}
    Message: AnsiString;
 begin
    Assert(Assigned(Subject));
@@ -659,9 +661,9 @@ begin
                SingleThingItem^.Next := nil;
                SingleThingItem^.Value := Subject^.Value;
                if (Assigned(Target)) then
-                  Put(SingleThingItem, Target, ThingPosition, True)
+                  DoPut(SingleThingItem, Target, ThingPosition, True)
                else
-                  Shake(SingleThingItem);
+                  DoShake(SingleThingItem);
             finally
                Dispose(SingleThingItem);
             end;
@@ -669,12 +671,12 @@ begin
          else
          if (Subject^.Value = Self) then
          begin
-            {$IFDEF DEBUG} PreviousParent := FParent; {$ENDIF}
+            {$IFOPT C+} PreviousParent := FParent; {$ENDIF}
             if (Assigned(Target)) then
                NavigateToTarget := True
             else
-               Dance();
-            {$IFDEF DEBUG} Assert(FParent = PreviousParent); {$ENDIF}
+               DoDance();
+            {$IFOPT C+} Assert(FParent = PreviousParent); {$ENDIF}
          end
          else
          begin
@@ -724,7 +726,7 @@ begin
                      try
                         SingleThingItem^.Next := nil;
                         SingleThingItem^.Value := Subject^.Value;
-                        Shake(SingleThingItem);
+                        DoShake(SingleThingItem);
                      finally
                         Dispose(SingleThingItem);
                      end;
@@ -749,9 +751,9 @@ begin
                      SingleThingItem^.Next := nil;
                      SingleThingItem^.Value := Subject^.Value;
                      if (Assigned(Target)) then
-                        Put(SingleThingItem, SurrogateTarget, ThingPosition, True)
+                        DoPut(SingleThingItem, SurrogateTarget, ThingPosition, True)
                      else
-                        Shake(SingleThingItem);
+                        DoShake(SingleThingItem);
                   finally
                      Dispose(SingleThingItem);
                   end;
@@ -786,31 +788,154 @@ begin
    end;
 end;
 
-function TPlayer.CanPush(Thing: TThing; var Message: AnsiString): Boolean;
+procedure TPlayer.DoPush(Subject: PThingItem; Direction: TCardinalDirection);
+var
+   Multiple, Success: Boolean;
+   Destination: TAtom;
+   Location: TLocation;
+   ThingPosition: TThingPosition;
+   Message: AnsiString;
 begin
-   if (MassAdder(Thing.GetMassManifest()) > tmPonderous) then
-   begin
-      Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too heavy.';
-   end
-   else
-   if (SizeAdder(Thing.GetOutsideSizeManifest()) > tsMassive) then
-   begin
-      Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too big.';
-   end
-   else
-      Result := True;
+   Assert(Assigned(Subject));
+   Multiple := Assigned(Subject^.Next);
+   try
+      while (Assigned(Subject)) do
+      begin
+         if (Multiple) then
+            SetContext(Capitalise(Subject^.Value.GetName(Self)));
+         Assert(Assigned(Subject^.Value.Parent));
+         Destination := Subject^.Value.Parent.GetDefaultAtom();
+         Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' immovable.';
+         if (Subject^.Value = Self) then
+         begin
+            AvatarMessage('You try to push yourself but find that a closed system cannot apply an external force on itself.');
+         end
+         else
+         if (Destination is TLocation) then
+         begin
+            Location := Destination as TLocation;
+            Destination := Location.GetAtomForDirection(Direction);
+            if (not Assigned(Destination)) then
+            begin
+               Location.FailNavigation(Direction, Self);
+            end
+            else
+            begin
+               ThingPosition := tpOn;
+               Message := 'Pushed.';
+               Destination := Destination.GetEntrance(Subject^.Value, Subject^.Value.Parent, Self, ThingPosition, Message);
+               if (Assigned(Destination)) then
+               begin
+                  Success := Subject^.Value.CanMove(Self, Message) and CanPush(Subject^.Value, Message) and Destination.CanPut(Subject^.Value, ThingPosition, Self, Message);
+                  AvatarMessage(Message);
+                  if (Success) then
+                     Destination.Add(Subject^.Value, ThingPosition, False, Self);
+               end
+               else
+               begin
+                  AvatarMessage(Message);
+               end;
+            end;
+         end
+         else
+         if (Subject^.Value.Position = tpOn) then
+         begin
+            AvatarMessage('You would have to push ' + Subject^.Value.GetDefiniteName(Self) + ' off ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' first.');
+         end
+         else
+         if (Subject^.Value.Position = tpIn) then
+         begin
+            AvatarMessage('You would have to move ' + Subject^.Value.GetDefiniteName(Self) + ' out of ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' first.');
+         end
+         else
+         begin
+            AvatarMessage(Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
+         end;
+         Subject := Subject^.Next;
+      end;
+   finally
+      if (Multiple) then
+         ResetContext();
+   end;
 end;
 
-procedure TPlayer.Shake(Subject: PThingItem);
+procedure TPlayer.DoPress(Subject: PThingItem);
+begin
+   // go through each object, calling its "press" method?
+   NotImplemented();
+end;
+
+procedure TPlayer.DoShake(Subject: PThingItem);
 begin
    // go through each object, calling its "shake" method?
    // maybe only if not ludicrous in size or mass or something?
    NotImplemented();
 end;
 
-procedure TPlayer.Talk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
+procedure TPlayer.DoDig(Target: TThing; Spade: TThing);
+var
+   SingleThingItem: PThingItem;
+   Success: Boolean;
+   Message: AnsiString;
+begin
+   Assert(Assigned(Spade));
+   Assert(Assigned(Spade.Parent));
+   Assert(Assigned(Target));
+   if (Spade.Parent <> Self) then
+   begin
+      AutoDisambiguated('first taking ' + Spade.GetDefiniteName(Self));
+      New(SingleThingItem);
+      try
+         SingleThingItem^.Next := nil;
+         SingleThingItem^.Value := Spade;
+         DoTake(SingleThingItem);
+      finally
+         Dispose(SingleThingItem);
+      end;
+   end;
+   if (Spade.Parent = Self) then
+   begin
+      Message := 'Dug.';
+      Success := Spade.CanDig(Target, Self, Message) and Target.Dig(Spade, Self, Message);
+      if (Success) then
+         Spade.Dug(Target, Self, Message);
+      AvatarMessage(Message);
+   end;
+end;
+
+procedure TPlayer.DoDig(Direction: TCardinalDirection; Spade: TThing);
+var
+   Destination: TAtom;
+   Location: TLocation;
+begin
+   Assert(Assigned(Spade));
+   Assert(Assigned(Spade.Parent));
+   Destination := Spade.Parent.GetDefaultAtom();
+   if (Destination is TLocation) then
+   begin
+      Location := Destination as TLocation;
+      Destination := Location.GetAtomForDirection(Direction);
+      if (not Assigned(Destination)) then
+      begin
+         Location.FailNavigation(Direction, Self);
+      end
+      else
+      if (Destination is TThing) then
+      begin
+         DoDig(Destination as TThing, Spade);
+      end
+      else
+      begin
+         AvatarMessage('You cannot dig ' + CardinalDirectionToString(Direction) + '.');
+      end;
+   end
+   else
+   begin
+      AvatarMessage('You are ' + ThingPositionToString(Position) + ' ' + FParent.GetDefiniteName(Self) + '.');
+   end;
+end;
+
+procedure TPlayer.DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
 var
    Avatars, LastAvatar: PAvatarItem;
    SingularVerb, PluralVerb: AnsiString;
@@ -845,10 +970,95 @@ begin
       AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + '.');
 end;
 
-procedure TPlayer.Dance();
+procedure TPlayer.DoDance();
 begin
    // need a general emoting mechanic
    NotImplemented();
+end;
+
+procedure TPlayer.HandleAdd(Thing: TThing);
+var
+   MassIndex: TThingMass;
+   SizeIndex: TThingSize;
+   Masses, CandidateMass, ThisMass: TThingMassManifest;
+   Sizes, CandidateSize, ThisSize: TThingSizeManifest;
+   Child: PThingItem;
+   Candidate: TThing;
+begin
+   for MassIndex := Low(TThingMass) to High(TThingMass) do
+      Masses[MassIndex] := 0;
+   for SizeIndex := Low(TThingSize) to High(TThingSize) do
+      Sizes[SizeIndex] := 0;
+   Child := FChildren;
+   while (Assigned(Child)) do
+   begin
+      if (Child^.Value.Position in [tpCarried]) then
+      begin
+         Masses := Masses + Child^.Value.GetMassManifest();
+         Sizes := Sizes + Child^.Value.GetOutsideSizeManifest();
+      end;
+      Child := Child^.Next;
+   end;
+   while ((Masses > MaxCarryMass) or (Sizes > MaxCarrySize)) do
+   begin
+      Assert(Assigned(FChildren));
+      for MassIndex := Low(TThingMass) to High(TThingMass) do
+         CandidateMass[MassIndex] := 0;
+      for SizeIndex := Low(TThingSize) to High(TThingSize) do
+         CandidateSize[SizeIndex] := 0;
+      Child := FChildren;
+      while (Assigned(Child)) do
+      begin
+         ThisMass := Child^.Value.GetMassManifest();
+         ThisSize := Child^.Value.GetOutsideSizeManifest();
+         if ((ThisMass > CandidateMass) or (ThisSize > CandidateSize)) then
+         begin
+            Candidate := Child^.Value;
+            CandidateMass := ThisMass;
+            CandidateSize := ThisSize;
+         end;
+         Child := Child^.Next;
+      end;
+      Assert(Assigned(Candidate));
+      Masses := Masses - CandidateMass;
+      Sizes := Sizes - CandidateSize;
+      AvatarMessage('Fumbled ' + Candidate.GetDefiniteName(Self) + '.');
+      FParent.Add(Candidate, tpOn, False, Self);
+   end;
+end;
+
+function TPlayer.CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
+begin
+   if (Thing.GetMassManifest() > MaxCarryMass) then
+   begin
+      Result := False;
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too heavy.';
+   end
+   else
+   if (Thing.GetOutsideSizeManifest() > MaxCarrySize) then
+   begin
+      Result := False;
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too big.';
+   end
+   else
+      Result := True;
+end;
+
+function TPlayer.CanPush(Thing: TThing; var Message: AnsiString): Boolean;
+begin
+   if (Thing.GetMassManifest() > MaxPushMass) then
+   begin
+      Result := False;
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too heavy.';
+   end
+   else
+   if (Thing.GetOutsideSizeManifest() > MaxPushSize) then
+   begin
+      Result := False;
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too big.';
+   end
+   else
+      Result := True;
 end;
 
 function TPlayer.GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
@@ -861,12 +1071,37 @@ begin
    if ((AllFilter <> []) and (Count = 1) and (MeansEverything(Tokens[Start]))) then
    begin
       if (afSurroundings in AllFilter) then
-         FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpExplicit, ListEnd)
+         FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpExplicit, [], ListEnd)
       else
-         Self.AddImplicitlyReferencedThings(Self, True, tpEverything, ListEnd);
+         Self.AddImplicitlyReferencedThings(Self, True, tpEverything, [], ListEnd);
    end
    else
       FParent.GetDefaultAtom().AddExplicitlyReferencedThings(Tokens, Start, Count, Self, ListEnd);
+end;
+
+function TPlayer.GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;
+var
+   ListStart: PThingItem;
+   ListEnd: PPThingItem;
+begin
+   Assert(Assigned(FParent));
+   Assert((afSelf in AllFilter) or (afSurroundings in AllFilter));
+   ListStart := nil;
+   ListEnd := @ListStart;
+   if (afSurroundings in AllFilter) then
+      FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpEverything, PropertyFilter, ListEnd)
+   else
+      Self.AddImplicitlyReferencedThings(Self, True, tpEverything, PropertyFilter, ListEnd);
+   if (Assigned(ListStart)) then
+   begin
+      // should implement some kind of prioritisation scheme
+      Result := ListStart^.Value;
+      FreeThingList(ListStart);
+   end
+   else
+   begin
+      Result := nil;
+   end;
 end;
 
 function TPlayer.HasConnectedPlayer(): Boolean;
@@ -896,7 +1131,7 @@ begin
          LastItem := Item;
          Child := Child^.Next;
       end;
-      Put(Item, FParent, tpOn, False);
+      DoPut(Item, FParent, tpOn, False);
       FreeThingList(Item);
    end;
    AnnounceDisappearance();

@@ -355,6 +355,7 @@
       end;
    end;
 
+   { You can assume EnsureNoPunctuation() has been called just before this returns, if it retuns true }
    function GetThing(Thing: PThing; VerbString: AnsiString): Boolean;
    var
       FoundDefiniteArticle: Boolean = False;
@@ -445,6 +446,7 @@
       end;
    end;
 
+   { You can assume EnsureNoPunctuation() has been called just before this returns, if it retuns true }
    function GetThings(Things: PPThingItem; AllFilter: TAllFilter; AllFail: AnsiString): Boolean;
    var
       Start: Cardinal;
@@ -489,7 +491,7 @@
       Result := Assigned(Things^);
    end;
 
-   { You can assume EnsureNoPunctuation() has been called just before this returns }
+   { You can assume EnsureNoPunctuation() has been called just before this returns, if it retuns true }
    function GetCompoundPrepositionThing(Prepositions: array of AnsiString; VerbString, PrepositionString: AnsiString; Thing: PThing): Boolean;
    var
       Direction: TCardinalDirection;
@@ -895,8 +897,7 @@
 
    function GetMove(var Action: TAction): Boolean;
    var
-      Direction: TCardinalDirection;
-      OverridePosition: TThingPosition;
+      PositionOverride: TThingPosition;
    begin
       if (Tokens[CurrentToken] = 'move') then
       begin
@@ -906,7 +907,9 @@
             // pick a random direction and imply it
             Fail('Move in what direction?');
          end;
-         if (TryDirection(@Action.GoDirection, [])) then
+         if (TryDirection(@Action.GoDirection, []) or
+             TryPrepositionDirection('to', @Action.GoDirection) or
+             TryPrepositionDirection('towards', @Action.GoDirection)) then
          begin
             Action.Verb := avGo;
             Result := True;
@@ -960,12 +963,12 @@
             else
             if (GetPrepositionThing('to', 'move things', @Action.MoveTarget)) then
             begin
-               OverridePosition := tpIn;
-               if (Assigned(Action.MoveTarget.GetInside(OverridePosition))) then
+               PositionOverride := tpIn;
+               if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
                begin
-                  // could mention OverridePosition - '(inside hut, on floor)' - if we could also parse that
+                  // could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
                   AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Self));
-                  Action.MovePosition := tpIn
+                  Action.MovePosition := tpIn;
                end
                else
                begin
@@ -973,17 +976,113 @@
                   Action.MovePosition := tpOn;
                end;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to move things into other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to move things to other things "' + Tokens[CurrentToken] + '".');
             end
             else
-            if (TryDirection(@Direction, [])) then
+            if (TryDirection(@Action.PushDirection, []) or
+                TryPrepositionDirection('to', @Action.PushDirection) or
+                TryPrepositionDirection('towards', @Action.PushDirection)) then
             begin
-               NotImplemented();
+               Assert(@Action.MoveSubject = @Action.PushSubject);
+               Action.Verb := avPush;
+               if (not CanEnd()) then
+               begin
+                  EnsureNoPunctuation();
+                  Fail('I don''t understand how to move things in a direction "' + Tokens[CurrentToken] + '".');
+               end;
             end
             else
             begin
                EnsureNoPunctuation();
                Fail('I don''t understand how to move things "' + Tokens[CurrentToken] + '".');
+            end;
+         end
+         else
+            Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+      end
+      else
+         Result := False;
+   end;
+
+   function GetPush(var Action: TAction): Boolean;
+   var
+      PositionOverride: TThingPosition;
+   begin
+      if (Tokens[CurrentToken] = 'push') then
+      begin
+         Inc(CurrentToken);
+         if (CanEnd()) then
+            Fail('Push what in what direction?');
+         if (GetThings(@Action.PushSubject, [afSurroundings], 'I can''t see anything to push.')) then
+         begin
+            Action.Verb := avPush;
+            Result := True;
+            if (CanEnd()) then
+            begin
+               Assert(@Action.PushSubject = @Action.PressSubject);
+               Action.Verb := avPress;
+            end
+            else
+            if (GetPrepositionThing('onto', 'push things', @Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on', 'to'], 'push things', 'onto', @Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on'], 'push things', 'onto', @Action.MoveTarget)) then
+            begin
+               Assert(@Action.PushSubject = @Action.MoveSubject);
+               Action.Verb := avMove;
+               Action.MovePosition := tpOn;
+               if (not CanEnd()) then
+                  Fail('I don''t understand how to push things onto other things "' + Tokens[CurrentToken] + '".');
+            end
+            else
+            if (GetPrepositionThing('into', 'push things', @Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in', 'to'], 'push things', 'into', @Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in'], 'push things', 'into', @Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside', 'of'], 'push things', 'into', @Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside'], 'push things', 'into', @Action.MoveTarget)) then
+            begin
+               Assert(@Action.PushSubject = @Action.MoveSubject);
+               Action.Verb := avMove;
+               Action.MovePosition := tpIn;
+               if (not CanEnd()) then
+                  Fail('I don''t understand how to push things into other things "' + Tokens[CurrentToken] + '".');
+            end
+            else
+            if (GetPrepositionThing('to', 'push things', @Action.MoveTarget)) then
+            begin
+               PositionOverride := tpIn;
+               if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
+               begin
+                  // could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
+                  AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Self));
+                  Assert(@Action.PushSubject = @Action.MoveSubject);
+                  Action.Verb := avMove;
+                  Action.MovePosition := tpIn;
+               end
+               else
+               begin
+                  AutoDisambiguated('on ' + Action.MoveTarget.GetDefiniteName(Self));
+                  Assert(@Action.PushSubject = @Action.MoveSubject);
+                  Action.Verb := avMove;
+                  Action.MovePosition := tpOn;
+               end;
+               if (not CanEnd()) then
+                  Fail('I don''t understand how to push things to other things "' + Tokens[CurrentToken] + '".');
+            end
+            else
+            if (TryDirection(@Action.PushDirection, []) or
+                TryPrepositionDirection('to', @Action.PushDirection) or
+                TryPrepositionDirection('towards', @Action.PushDirection)) then
+            begin
+               if (not CanEnd()) then
+               begin
+                  EnsureNoPunctuation();
+                  Fail('I don''t understand how to push things in a direction "' + Tokens[CurrentToken] + '".');
+               end;
+            end
+            else
+            begin
+               EnsureNoPunctuation();
+               Fail('I don''t understand how to push things "' + Tokens[CurrentToken] + '".');
             end;
          end
          else
@@ -1018,6 +1117,76 @@
             Fail('That''s a direction, I don''t know how to shake it.')
          else
             Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+      end
+      else
+         Result := False;
+   end;
+
+   function GetDig(var Action: TAction): Boolean;
+   var
+      Message: AnsiString;
+      GotThing: Boolean;
+   begin
+      if (Tokens[CurrentToken] = 'dig') then
+      begin
+         Inc(CurrentToken);
+         Result := True;
+         Action.Verb := avDig;
+         Action.DigSpade := nil;
+         Action.DigTarget := nil;
+         GotThing := False;
+         if (not CanEnd()) then
+         begin
+            if (TryDirection(@Action.DigDirection, [])) then
+            begin
+               Action.Verb := avDigDirection;
+            end
+            else
+            begin
+               GotThing := GetThing(@Action.DigTarget, 'dig');
+            end;
+            if (not CanEnd()) then
+            begin
+               if (GetPrepositionThing('with', 'dig', @Action.DigSpade)) then
+               begin
+                  if (not CanEnd()) then
+                     Fail('I don''t understand how to dig "' + Tokens[CurrentToken] + '".');
+               end
+               else
+               begin
+                  EnsureNoPunctuation();
+                  if (GotThing) then
+                     Fail('I don''t understand how to dig "' + Tokens[CurrentToken] + '".')
+                  else
+                     Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+               end;
+            end;
+         end;
+         Message := '';
+         if ((Action.Verb = avDig) and (not Assigned(Action.DigTarget))) then
+         begin
+            Action.DigTarget := GetImpliedThing([afSurroundings, afSelf], [tpDiggable]);
+            if (Assigned(Action.DigTarget)) then
+               Message := Action.DigTarget.GetDefiniteName(Self)
+            else
+               Fail('What do you want to dig?');
+         end;
+         if (not Assigned(Action.DigSpade)) then
+         begin
+            Action.DigSpade := GetImpliedThing([afSurroundings, afSelf], [tpCanDig]);
+            if (Assigned(Action.DigSpade)) then
+            begin
+               if (Length(Message) > 0) then
+                  Message := Message + ' ';
+               Message := Message + 'with ' + Action.DigSpade.GetDefiniteName(Self)
+            end
+            else
+            begin
+               Fail('What do you want to dig with?');
+            end;
+         end;
+         if (Length(Message) > 0) then
+            AutoDisambiguated(Message);
       end
       else
          Result := False;
@@ -1124,7 +1293,7 @@
    begin
       if (GetLook(Action) or GetExamine(Action) or GetInventory(Action) or GetFind(Action) or
           GetGo(Action) or GetEnter(Action) or GetLeave(Action) or
-          GetTake(Action) or GetPut(Action) or GetMove(Action) or GetShake(Action) or
+          GetTake(Action) or GetPut(Action) or GetMove(Action) or GetPush(Action) or GetShake(Action) or GetDig(Action) or
           GetTalk(Action) or GetDance(Action) or
           GetBug(Action) or GetHelp(Action)) then
          Result := GetContinuation() { consumes the "next" and verifies there's something else coming }
@@ -1134,5 +1303,4 @@
 
 {
    climb onto foo; avClimbOn
-   push
 }

@@ -5,15 +5,14 @@ unit world;
 interface
 
 uses
-   storable, grammarian;
-
-const
-   kMassScaleFactor = 5;
-   kSizeScaleFactor = 10;
+   storable, grammarian, thingdim;
 
 type
 
    TTokens = array of AnsiString;
+
+   TThingProperty = (tpDiggable, tpCanDig);
+   TThingProperties = set of TThingProperty;
 
    TThing = class;
    TAvatar = class;
@@ -33,18 +32,16 @@ type
    end;
 
    TGetDescriptionOnOptions = set of (optDeepOn, optPrecise);
-   TGetDescriptionChildrenOptions = set of (optDeepChildren, optFar, optThorough); { deep = bag and inside bag; far = door and inside door }
+   TGetDescriptionChildrenOptions = set of (optDeepChildren, optFar, optThorough, optOmitPerspective); { deep = bag and inside bag; far = door and inside door }
    TGetPresenceStatementMode = (psThereIsAThingHere { look }, psOnThatThingIsAThing { nested look }, psTheThingIsOnThatThing { find });
-
-   TThingMass = (tmLight, { < 5kg < } tmHeavy, { < 25kg < } tmPonderous, { < 125kg < } tmLudicrous);
-   TThingMassManifest = array[TThingMass] of Cardinal;
-   TThingSize = (tsSmall, { < 0.2m < } tsBig, { < 2m < } tsMassive, { < 20m < } tsLudicrous);
-   TThingSizeManifest = array[TThingSize] of Cardinal;
 
    PAtom = ^TAtom;
    TAtom = class(TStorable)
+    private
+      procedure Empty();
     protected
       FChildren: PThingItem;
+      procedure Removed(Thing: TThing); virtual;
     public
       constructor Create();
       destructor Destroy(); override;
@@ -53,7 +50,6 @@ type
       procedure Add(Thing: TThing; APosition: TThingPosition);
       procedure Add(Thing: TThing; APosition: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
       procedure Remove(Thing: TThing);
-      procedure Empty();
       function CanPut(Thing: TThing; Position: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { self and children that are tpOn, tpCarried; add tpIn children if container is flexible }
@@ -80,7 +76,7 @@ type
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract;
-      procedure AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; var ListEnd: PPThingItem); virtual;
+      procedure AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var ListEnd: PPThingItem); virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar; var ListEnd: PPThingItem); virtual;
       function GetDefaultAtom(): TAtom; virtual;
       function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
@@ -88,8 +84,8 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
       function GetSurface(): TAtom; virtual;
       function CanSurfaceHold(const Size: TThingSize): Boolean;
-      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual;
-      function CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom; virtual;
+      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom; virtual; abstract;
    end;
 
    PThing = ^TThing;
@@ -114,6 +110,8 @@ type
       function GetIntrinsicSize(): TThingSize; virtual; abstract;
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
+      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom; override;
       function IsPlural(Perspective: TAvatar): Boolean; virtual;
       function GetTitle(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; virtual;
@@ -132,10 +130,14 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      procedure AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; var ListEnd: PPThingItem); override;
+      procedure AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var ListEnd: PPThingItem); override;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar; var ListEnd: PPThingItem); override;
       procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
 //      procedure Shake(Perspective: TAvatar); virtual;
+      function GetProperties(): TThingProperties; virtual;
+      function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
+      function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
+      procedure Dug(Target: TThing; Perspective: TAvatar; var Message: AnsiString); virtual;
       property Parent: TAtom read FParent;
       property Position: TThingPosition read FPosition;
    end;
@@ -143,7 +145,7 @@ type
    { Thing that can move of its own volition }
    TAvatar = class(TThing)
     public
-      procedure Look(); virtual; abstract;
+      procedure DoLook(); virtual; abstract;
       procedure AvatarMessage(Message: AnsiString); virtual; abstract;
       procedure AnnounceAppearance(); virtual; abstract;
       procedure AnnounceDisappearance(); virtual; abstract;
@@ -161,7 +163,6 @@ type
     protected
       FNorth, FNorthEast, FEast, FSouthEast, FSouth, FSouthWest, FWest, FNorthWest, FUp, FDown, FOut: TAtom;
       function GetFieldForDirection(Direction: TCardinalDirection): PAtom;
-      function GetAtomForDirection(Direction: TCardinalDirection): TAtom;
     public
       constructor Create();
       destructor Destroy(); override;
@@ -171,14 +172,16 @@ type
       procedure ConnectDiagonals(ANorthEast, ASouthEast, ASouthWest, ANorthWest: TAtom);
       procedure ConnectVerticals(AUp, ADown: TAtom);
       procedure ConnectExits(AOut: TAtom);
+      function GetAtomForDirection(Direction: TCardinalDirection): TAtom;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionHere(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar);
-      function CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom; override;
+      procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom; override;
+      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
    end;
 
    PLocationItem = ^TLocationItem;
@@ -209,13 +212,6 @@ procedure FreeAvatarList(AAvatarItem: PAvatarItem);
 function MergeAvatarLists(List1, List2: PAvatarItem): PAvatarItem;
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);
-
-function MassAdder(const Masses: TThingMassManifest): TThingMass;
-function SizeAdder(const Sizes: TThingSizeManifest): TThingSize;
-operator + (const A, B: TThingMassManifest): TThingMassManifest;
-operator + (const A: TThingMassManifest; const B: TThingMass): TThingMassManifest;
-operator + (const A, B: TThingSizeManifest): TThingSizeManifest;
-operator + (const A: TThingSizeManifest; const B: TThingSize): TThingSizeManifest;
 
 implementation
 
@@ -276,22 +272,21 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; 
 var
    Destination: TAtom;
    Message: AnsiString;
+   Position: TThingPosition;
 begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
    Assert(Assigned(Perspective));
+   Position := tpOn;
    Message := '';
-   Destination := ATo.CanEnter(Perspective, AFrom, Message);
+   Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message);
    if (Assigned(Destination)) then
    begin
       Perspective.AnnounceDeparture(ATo, Direction);
       AFrom.Remove(Perspective);
-      Destination.Add(Perspective, tpOn);
-      if (Direction > cdLastPhysical) then
-         Perspective.AnnounceArrival(AFrom.GetDefaultAtom())
-      else
-         Perspective.AnnounceArrival(AFrom.GetDefaultAtom(), ReverseCardinalDirection(Direction));
-      Perspective.Look();
+      Destination.Add(Perspective, Position);
+      Perspective.AnnounceArrival(AFrom.GetDefaultAtom(), ReverseCardinalDirection(Direction));
+      Perspective.DoLook();
    end
    else
    begin
@@ -326,7 +321,7 @@ begin
       if (Success) then
       begin
          ATo.Add(Perspective, Position);
-         Perspective.Look();
+         Perspective.DoLook();
       end
       else
       begin
@@ -336,14 +331,14 @@ begin
    else
    if (Position = tpIn) then
    begin
-      Destination := ATo.CanEnter(Perspective, AFrom, Message);
+      Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message);
       if (Assigned(Destination)) then
       begin
          Perspective.AnnounceDeparture(ATo);
          AFrom.Remove(Perspective);
-         Destination.Add(Perspective, tpIn);
+         Destination.Add(Perspective, Position);
          Perspective.AnnounceArrival(AFrom.GetDefaultAtom());
-         Perspective.Look();
+         Perspective.DoLook();
       end
       else
       begin
@@ -353,78 +348,6 @@ begin
    else
       raise EAssertionFailed.Create('unexpected position for navigation: ' + IntToStr(Cardinal(Position)));
       // tpCarried would be for "jump into player's arms"? :-)
-end;
-
-function MassAdder(const Masses: TThingMassManifest): TThingMass;
-var
-   Mass: Cardinal;
-   Index: TThingMass;
-   Multiple: Cardinal;
-begin
-   Multiple := 1;
-   Mass := 0;
-   for Index := Low(TThingMass) to High(TThingMass) do
-   begin
-      Mass := Mass + Masses[Index] * Multiple;
-      Multiple := Multiple * kMassScaleFactor;
-   end;
-   Multiple := kMassScaleFactor;
-   Result := Low(TThingMass);
-   while ((Result < High(TThingMass)) and (Mass >= Multiple)) do
-   begin
-      Inc(Result);
-      Multiple := Multiple * kMassScaleFactor;
-   end;
-end;
-
-function SizeAdder(const Sizes: TThingSizeManifest): TThingSize;
-var
-   Size: Cardinal;
-   Index: TThingSize;
-   Multiple: Cardinal;
-begin
-   Multiple := 1;
-   Size := 0;
-   for Index := Low(TThingSize) to High(TThingSize) do
-   begin
-      Size := Size + Sizes[Index] * Multiple;
-      Multiple := Multiple * kSizeScaleFactor;
-   end;
-   Multiple := kSizeScaleFactor;
-   Result := Low(TThingSize);
-   while ((Result < High(TThingSize)) and (Size >= Multiple)) do
-   begin
-      Inc(Result);
-      Multiple := Multiple * kSizeScaleFactor;
-   end;
-end;
-
-operator + (const A, B: TThingMassManifest): TThingMassManifest;
-var
-   Index: TThingMass;
-begin
-   for Index := Low(TThingMass) to High(TThingMass) do
-      Result[Index] := A[Index] + B[Index];
-end;
-
-operator + (const A: TThingMassManifest; const B: TThingMass): TThingMassManifest;
-begin
-   Result := A;
-   Inc(Result[B]);
-end;
-
-operator + (const A, B: TThingSizeManifest): TThingSizeManifest;
-var
-   Index: TThingSize;
-begin
-   for Index := Low(TThingSize) to High(TThingSize) do
-      Result[Index] := A[Index] + B[Index];
-end;
-
-operator + (const A: TThingSizeManifest; const B: TThingSize): TThingSizeManifest;
-begin
-   Result := A;
-   Inc(Result[B]);
 end;
 
 
@@ -528,6 +451,11 @@ begin
          Item := Item^.Next;
       end;
    end;
+   Removed(Thing);
+end;
+
+procedure TAtom.Removed(Thing: TThing);
+begin
 end;
 
 procedure TAtom.Empty();
@@ -550,7 +478,7 @@ begin
    begin
       Result := CanSurfaceHold(Thing.GetIntrinsicSize());
       if (not Result) then
-         Message := 'There is not enough room on ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetIndefiniteName(Perspective) + '.';
+         Message := 'There is not enough room on ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetDefiniteName(Perspective) + '.';
    end
    else
    if (Position = tpIn) then
@@ -561,7 +489,7 @@ begin
          if ((not Assigned(GetInside(Position))) and (Self is TThing)) then
             Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('does', 'do', (Self as TThing).IsPlural(Perspective)) + ' not appear to have an opening.'
          else
-            Message := 'There is not enough room in ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetIndefiniteName(Perspective) + '.';
+            Message := 'There is not enough room in ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetDefiniteName(Perspective) + '.';
       end;
    end
    else
@@ -713,7 +641,7 @@ begin
    Result := Capitalise(GetTitle(Perspective)) + #10 +
              GetBasicDescription(Perspective) +
              WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn])) +
-             WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, []));
+             WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optOmitPerspective]));
 end;
 
 function TAtom.GetLookAt(Perspective: TAvatar): AnsiString;
@@ -793,7 +721,7 @@ begin
    Result := '';
 end;
 
-procedure TAtom.AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; var ListEnd: PPThingItem);
+procedure TAtom.AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var ListEnd: PPThingItem);
 var
    Child: PThingItem;
 begin
@@ -801,7 +729,7 @@ begin
    while (Assigned(Child)) do
    begin
       if ((IncludePerspectiveChildren) or (Child^.Value <> Perspective)) then
-         Child^.Value.AddImplicitlyReferencedThings(Perspective, IncludePerspectiveChildren, PositionFilter, ListEnd);
+         Child^.Value.AddImplicitlyReferencedThings(Perspective, IncludePerspectiveChildren, PositionFilter, PropertyFilter, ListEnd);
       Child := Child^.Next;
    end;
 end;
@@ -877,43 +805,6 @@ begin
    Result := CanSurfaceHold(Manifest);
 end;
 
-function TAtom.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
-var
-   Surface: TAtom;
-begin
-   Surface := GetSurface();
-   if (Assigned(Surface) and (Surface <> Self)) then
-      Result := Surface.CanSurfaceHold(Manifest)
-   else
-      Result := True;
-end;
-
-function TAtom.CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom;
-var
-   Position: TThingPosition;
-begin
-   Position := tpIn;
-   Result := GetInside(Position);
-   if (Assigned(Result)) then
-   begin
-      if (Result = Self) then
-      begin
-         if (not CanPut(Perspective, tpIn, Perspective, Message)) then
-            Result := nil;
-      end
-      else
-      begin
-         Result := Result.CanEnter(Perspective, AFrom, Message);
-      end;
-   end
-   else
-   begin
-      Message := GetDescriptionState(Perspective);
-      if (Length(Message) = 0) then
-         Message := Capitalise(GetDefiniteName(Perspective)) + ' blocks the way.';
-   end;
-end;
-
 
 constructor TThing.Create();
 begin
@@ -950,6 +841,45 @@ begin
    Result := inherited GetOutsideSizeManifest() + GetIntrinsicSize();
 end;
 
+function TThing.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
+var
+   Surface: TAtom;
+begin
+   Surface := GetSurface();
+   if (Assigned(Surface) and (Surface <> Self)) then
+      Result := Surface.CanSurfaceHold(Manifest)
+   else
+      Result := (GetSurfaceSizeManifest() + Manifest) <= (GetIntrinsicSize());
+end;
+
+function TThing.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom;
+begin
+   Result := GetInside(PositionOverride);
+   if (Assigned(Result)) then
+   begin
+      if (Result = Self) then
+      begin
+         if (not CanPut(Traveller, PositionOverride, Perspective, Message)) then
+            Result := nil;
+      end
+      else
+      begin
+         Result := Result.GetEntrance(Traveller, AFrom, Perspective, PositionOverride, Message);
+      end;
+   end
+   else
+   if (Perspective.GetIntrinsicSize() > GetOutsideSizeManifest()) then
+   begin
+      Message := Capitalise(Perspective.GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)) + ' bigger than ' + GetDefiniteName(Perspective) + '.';
+   end
+   else
+   begin
+      Message := GetDescriptionState(Perspective);
+      if (Length(Message) = 0) then
+         Message := Capitalise(GetDefiniteName(Perspective)) + ' has no discernible entrance.';
+   end;
+end;
+
 function TThing.IsPlural(Perspective: TAvatar): Boolean;
 begin
    Result := False;
@@ -972,20 +902,21 @@ end;
 function TThing.GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
 begin
    Assert(Direction <> cdIn);
+   Assert(Perspective.Parent = Self);
    if (Direction = cdOut) then
       Result := FParent.GetDescriptionRemoteDetailed(Perspective, Direction)
    else
-      Result := 'You are in ' + GetDefiniteName(Perspective) + '.';
+      Result := 'You are ' + ThingPositionToString(Perspective.Position) + ' ' + GetDefiniteName(Perspective) + '.';
 end;
 
 function TThing.GetLookIn(Perspective: TAvatar): AnsiString;
 var
-   OverridePosition: TThingPosition;
+   PositionOverride: TThingPosition;
    Inside: TAtom;
    Contents: AnsiString;
 begin // should add check for openability and openness
-   OverridePosition := tpIn;
-   Inside := GetInside(OverridePosition);
+   PositionOverride := tpIn;
+   Inside := GetInside(PositionOverride);
    if (Assigned(Inside)) then
       Result := Inside.GetDefaultAtom().GetDescriptionRemoteDetailed(Perspective, cdIn)
    else
@@ -1047,7 +978,7 @@ function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionC
    begin
       while (Assigned(Child)) do
       begin
-         if (Child^.Value.Position = ExpectedPosition) then
+         if (((Child^.Value <> Perspective) or (not (optOmitPerspective in Options))) and (Child^.Value.Position = ExpectedPosition)) then
          begin
             if (Length(Result) > 0) then
                Result := Result + #10;
@@ -1180,13 +1111,13 @@ begin
    Result := True;
 end;
 
-procedure TThing.AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; var ListEnd: PPThingItem);
+procedure TThing.AddImplicitlyReferencedThings(Perspective: TAvatar; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var ListEnd: PPThingItem);
 var
    Item: PThingItem;
 begin
    if (AreChildrenImplicitlyReferencable(Perspective, PositionFilter)) then
       inherited;
-   if ((FPosition in PositionFilter) and (Self <> Perspective) and IsImplicitlyReferencable(Perspective)) then
+   if ((FPosition in PositionFilter) and (PropertyFilter <= GetProperties()) and (Self <> Perspective) and IsImplicitlyReferencable(Perspective)) then
    begin
       New(Item);
       Item^.Next := nil;
@@ -1247,6 +1178,27 @@ begin
       Avatars := Avatars^.Next;
       Dispose(LastAvatar);
    end;
+end;
+
+function TThing.GetProperties(): TThingProperties;
+begin
+   Result := [];
+end;
+
+function TThing.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('does', 'do', IsPlural(Perspective)) + ' not make a good digging tool.';
+   Result := False;
+end;
+
+function TThing.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Message := 'You cannot dig here.';
+   Result := False;
+end;
+
+procedure TThing.Dug(Target: TThing; Perspective: TAvatar; var Message: AnsiString);
+begin
 end;
 
 
@@ -1461,9 +1413,20 @@ begin
    Perspective.AvatarMessage('You can''t go ' + CardinalDirectionToString(Direction) + ' from here.');
 end;
 
-function TLocation.CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom;
+function TLocation.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom;
 begin
    Result := GetSurface();
+end;
+
+function TLocation.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
+var
+   Surface: TAtom;
+begin
+   Surface := GetSurface();
+   if (Assigned(Surface) and (Surface <> Self)) then
+      Result := Surface.CanSurfaceHold(Manifest)
+   else
+      Result := True;
 end;
 
 
