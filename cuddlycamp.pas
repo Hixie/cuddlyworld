@@ -5,7 +5,7 @@ unit cuddlycamp;
 interface
 
 uses
-   storable, world, grammarian, locations;
+   storable, world, grammarian, locations, thingdim;
 
 const
    kWorldFileName = 'world.dat';
@@ -50,6 +50,7 @@ begin
    Cliff.Add(CliffForest, tpAroundImplicit);
    CliffCamp := TDistantScenery.Create('camp', cdSouth);
    Cliff.Add(CliffCamp, tpAroundImplicit);
+   Cliff.GetSurface().Add(TSpade.Create(), tpOn);
    Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
    Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
    World.AddLocation(Cliff);

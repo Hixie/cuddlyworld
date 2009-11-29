@@ -96,8 +96,8 @@ begin
             FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
             WriteFrame('Welcome back to CuddlyWorld, ' + FUsername + '!');
             WriteFrame('');
-            FPlayer.Look();
-            FPlayer.Inventory();
+            FPlayer.DoLook();
+            FPlayer.DoInventory();
             WriteFrame('');
          end
          else
@@ -115,7 +115,7 @@ begin
          FPlayer.AnnounceAppearance();
          WriteFrame('Welcome to CuddlyWorld, ' + FUsername + '!');
          WriteFrame('');
-         FPlayer.Look();
+         FPlayer.DoLook();
          WriteFrame('');
       end;
    except

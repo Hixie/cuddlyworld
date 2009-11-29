@@ -5,7 +5,7 @@ unit things;
 interface
 
 uses
-   storable, world, grammarian;
+   storable, world, thingdim, grammarian;
 
 type
    TMultinameThing = class(TThing)
@@ -18,6 +18,7 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      function GetName(Perspective: TAvatar): AnsiString; override;
    end;
 
    TStaticThing = class(TMultinameThing)
@@ -33,7 +34,6 @@ type
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
    end;
 
@@ -56,6 +56,7 @@ type
    end;
 
    TInternalLocationProxy = class(TScenery)
+    protected
       FDestination: TLocation;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
@@ -64,17 +65,26 @@ type
       procedure Write(Stream: TWriteStream); override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
-      function CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom; override;
    end;
 
+   THole = class;
    TSurface = class(TStaticThing)
+    protected
+      FHole: THole;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString);
       constructor Create(ANames: array of AnsiString; ADescription: AnsiString);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetDefaultAtom(): TAtom; override;
+      function GetProperties(): TThingProperties; override;
+      function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom; override;
+      procedure Removed(Thing: TThing); override;
    end;
 
    TDistantScenery = class(TMultinameThing)
@@ -88,11 +98,38 @@ type
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+   end;
+
+   TSpade = class(TStaticThing)
+    public
+      constructor Create();
+      function GetProperties(): TThingProperties; override;
+      function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+   end;
+
+   THole = class(TThing)
+    protected
+      FDescription: AnsiString;
+      FSize: TThingSize;
+    public
+      constructor Create(ADescription: AnsiString; ASize: TThingSize);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetName(Perspective: TAvatar): AnsiString; override;
+      function GetTitle(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
+      function GetIntrinsicMass(): TThingMass; override;
+      function GetIntrinsicSize(): TThingSize; override;
+      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
    end;
 
    TPileState = set of (psTidy);
@@ -108,7 +145,7 @@ type
       function IsMatchingIngredientWord(Word: AnsiString; Perspective: TAvatar): Boolean; virtual;
       function AreChildrenImplicitlyReferencable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean; override;
     public
-      constructor Create(AIngredients: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize); // first ingredient must be canonical plural form
+      constructor Create(AIngredients: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize); { first ingredient must be canonical plural form }
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -173,6 +210,11 @@ begin
       Stream.WriteAnsiString(FNames[Index]);
 end;
 
+function TMultinameThing.GetName(Perspective: TAvatar): AnsiString;
+begin
+   Result := FNames[0];
+end;
+
 function TMultinameThing.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
 var
    Index: Cardinal;
@@ -231,11 +273,6 @@ end;
 function TStaticThing.GetIntrinsicSize(): TThingSize;
 begin
    Result := FSize;
-end;
-
-function TStaticThing.GetName(Perspective: TAvatar): AnsiString;
-begin
-   Result := FNames[0];
 end;
 
 function TStaticThing.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
@@ -345,11 +382,6 @@ begin
    end;
 end;
 
-function TInternalLocationProxy.CanEnter(Perspective: TAvatar; AFrom: TAtom; var Message: AnsiString): TAtom;
-begin
-   Result := FDestination.CanEnter(Perspective, AFrom, Message);
-end;
-
 
 constructor TSurface.Create(AName: AnsiString; ADescription: AnsiString);
 begin
@@ -359,6 +391,18 @@ end;
 constructor TSurface.Create(ANames: array of AnsiString; ADescription: AnsiString);
 begin
    inherited Create(ANames, ADescription, tmLudicrous, tsLudicrous);
+end;
+
+constructor TSurface.Read(Stream: TReadStream);
+begin
+   inherited;
+   Stream.ReadReference(@FHole);
+end;
+
+procedure TSurface.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteReference(FHole);
 end;
 
 function TSurface.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -380,9 +424,63 @@ begin
    Result := FParent;
 end;
 
+function TSurface.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+begin
+   if ((Direction = cdDown) and (Assigned(FHole))) then
+      Result := FHole.GetDescriptionRemoteDetailed(Perspective, Direction)
+   else
+      Result := inherited;
+end;
+
 function TSurface.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
-   Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
+   if (Assigned(FHole)) then
+      Result := 'If the hole is any guide, there is a lot of earth under ' + GetDefiniteName(Perspective) + '.'
+   else
+      Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
+end;
+
+function TSurface.GetProperties(): TThingProperties;
+begin
+   Result := inherited;
+   Result := Result + [tpDiggable];
+end;
+
+function TSurface.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+const
+   Size = tsGigantic;
+   Mass = tmPonderous;
+var
+   Pile: TPile;
+begin
+   if (Assigned(FHole)) then
+   begin
+      Result := False;
+      Message := 'There is already a hole here.';
+   end
+   else
+   begin
+      FHole := THole.Create('The hole is quite dirty.', Size);
+      Add(FHole, tpAt);
+      Pile := TPile.Create(['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', Mass, Size);
+      Add(Pile, tpOn);
+      Result := True;
+      Message := 'With much effort, you dig a huge hole.';
+   end;
+end;
+
+function TSurface.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom;
+begin
+   if (Assigned(FHole)) then
+      Result := FHole.GetEntrance(Traveller, AFrom, Perspective, PositionOverride, Message)
+   else
+      Result := inherited;
+end;
+
+procedure TSurface.Removed(Thing: TThing);
+begin
+   if (Thing = FHole) then
+      FHole := nil;
 end;
 
 
@@ -419,11 +517,6 @@ begin
    Result := tsLudicrous;
 end;
 
-function TDistantScenery.GetName(Perspective: TAvatar): AnsiString;
-begin
-   Result := FNames[0];
-end;
-
 function TDistantScenery.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
    Result := FarAway(Perspective);
@@ -451,6 +544,109 @@ end;
 function TDistantScenery.FarAway(Perspective: TAvatar): AnsiString;
 begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + CardinalDirectionToDirectionString(FDirection) + '.';
+end;
+
+
+constructor TSpade.Create();
+begin
+   inherited Create(['spade', 'shovel'], 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
+end;
+
+function TSpade.GetProperties(): TThingProperties;
+begin
+   Result := inherited; 
+   Result := Result + [tpCanDig];
+end;
+
+function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := True;
+end;
+
+
+constructor THole.Create(ADescription: AnsiString; ASize: TThingSize);
+begin
+   inherited Create();
+   FDescription := ADescription;
+   FSize := ASize;
+end;
+
+constructor THole.Read(Stream: TReadStream);
+begin
+   inherited;
+   FDescription := Stream.ReadAnsiString();
+   FSize := TThingSize(Stream.ReadCardinal());
+end;
+
+procedure THole.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteAnsiString(FDescription);
+   Stream.WriteCardinal(Cardinal(FSize));
+end;
+
+function THole.GetName(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'hole';
+end;
+
+function THole.GetTitle(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'hole in ' + FParent.GetDefiniteName(Perspective);
+end;
+
+function THole.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+begin
+   Result := FDescription;
+end;
+
+function THole.GetLookUnder(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
+end;
+
+function THole.GetIntrinsicMass(): TThingMass;
+begin
+   Result := tmLudicrous;
+end;
+
+function THole.GetIntrinsicSize(): TThingSize;
+begin
+   Result := FSize;
+end;
+
+function THole.GetInside(var PositionOverride: TThingPosition): TAtom;
+begin
+   Result := Self;
+   PositionOverride := tpIn;
+end;
+
+function THole.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+begin
+   Result := (GetInsideSizeManifest() + Manifest) <= FSize;
+end;
+
+function THole.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := 'Taking a hole is a ludicrous concept.';
+end;
+
+function THole.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := 'You can''t move a hole. That''s silly. I recommend digging a new hole and then filling this one in.';
+end;
+
+procedure THole.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
+begin
+   Assert(Perspective.Parent = Self);
+   Assert(FParent is TSurface);
+   case Direction of
+     cdUp, cdOut: DoNavigation(Self, FParent.GetDefaultAtom(), cdUp, Perspective);
+    else
+      Perspective.AvatarMessage('You''re in a hole.');
+   end;
 end;
 
 
@@ -618,7 +814,7 @@ end;
 
 function TPile.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
 begin
-   Result := SizeAdder(GetInsideSizeManifest() + Manifest) < FSize;
+   Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
 
 
@@ -627,6 +823,8 @@ initialization
    RegisterStorableClass(TScenery,                110000);
    RegisterStorableClass(TInternalLocationProxy,  111000);
    RegisterStorableClass(TSurface,                120000);
+   RegisterStorableClass(TSpade,                  130000);
    RegisterStorableClass(TDistantScenery,         200000);
-   RegisterStorableClass(TPile,                   300000);
+   RegisterStorableClass(THole,                   300000);
+   RegisterStorableClass(TPile,                   400000);
 end.
