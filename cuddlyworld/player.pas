@@ -8,10 +8,11 @@ uses
    storable, world, grammarian, thingdim;
 
 const
-   MaxCarryMass = tmHeavy;
-   MaxCarrySize = tsMassive;
-   MaxPushMass = tmPonderous;
-   MaxPushSize = tsGigantic;
+   MaxCarryMass = tmPonderous; { not inclusive }
+   MaxCarrySize = tsGigantic; { not inclusive }
+   MaxPushMass = tmLudicrous; { not inclusive }
+   MaxPushSize = tsLudicrous; { not inclusive }
+   MaxCarryCount = 10; { not inclusive }
 
 type
 
@@ -43,6 +44,7 @@ type
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
       function GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
+      function Referenceable(Subject: TAtom): Boolean;
       function GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;
       function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
       procedure SetContext(Context: AnsiString);
@@ -512,6 +514,11 @@ begin
          if (Multiple) then
             SetContext(Capitalise(Subject^.Value.GetName(Self)));
          Message := '';
+         if (not Referenceable(Subject^.Value)) then
+         begin
+            AvatarMessage('You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
          if (Subject^.Value.Parent = Self) then
          begin
             AvatarMessage('You already have that.');
@@ -567,6 +574,16 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(Subject^.Value.GetName(Self)));
+         if (not Referenceable(Subject^.Value)) then
+         begin
+            AvatarMessage('You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (not Referenceable(Target)) then
+         begin
+            AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
          if (Target = Subject^.Value) then
          begin
             AvatarMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
@@ -610,8 +627,27 @@ begin
                   finally
                      Dispose(SingleThingItem);
                   end;
+                  if (not Referenceable(Subject^.Value)) then
+                  begin
+                     AvatarMessage('You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.');
+                     Success := False;
+                  end
+                  else
+                  if (not Referenceable(Target)) then
+                  begin
+                     AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+                     Success := False;
+                  end
+                  else
+                  begin
+                     Success := Subject^.Value.Parent = Self;
+                  end;
+               end
+               else
+               begin
+                  Success := True;
                end;
-               if (Subject^.Value.Parent = Self) then
+               if (Success) then
                begin
                   if (PutCarefully) then
                      Message := 'Placed'
@@ -637,6 +673,73 @@ end;
 
 procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
 // this is somewhat convoluted -- feel free to refactor it...
+
+   function CanBePushedTo(Thing: TThing; Surface: TAtom): Boolean;
+   var
+      Ancestor: TAtom;
+   begin
+      if (Thing.Position <> tpOn) then
+      begin
+         { There is no way you can push something onto something else if it's not already on something }
+         Result := False;
+         Exit;
+      end;
+      { can slide onto something we're holding }
+      if ((Surface is TThing) and ((Surface as TThing).Parent = Self) and ((Surface as TThing).Position = tpCarried)) then
+      begin
+         Result := True;
+         Exit;
+      end;
+      { next see if we're trying to move the thing off something else onto it (i.e. pushing onto an ancestor) }
+      { note we have to stop if we get to something that is not on something, e.g. you can't push from on a plate that is in a bag onto the table the bag is on }
+      { nor can you push it from on the plate in the bag onto the bag itself }
+      Ancestor := Thing;
+      repeat
+         Ancestor := (Ancestor as TThing).Parent;
+         if ((Ancestor = Surface) or
+             ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tpCanHaveThingsPushedOn in (Surface as TThing).GetProperties()))) then
+         begin
+            Result := True;
+            Exit;
+         end;
+      until ((not (Ancestor is TThing)) or ((Ancestor as TThing).Position in tpContained));
+      Result := False;
+   end;
+
+   function CanBePushedInto(Thing: TThing; Surface: TAtom): Boolean;
+   var
+      Ancestor: TAtom;
+   begin
+      if (Thing.Position <> tpOn) then
+      begin
+         { There is no way you can push something into something else if it's not on something }
+         Result := False;
+         Exit;
+      end;
+      { can slide into something we're holding }
+      if ((Surface is TThing) and ((Surface as TThing).Parent = Self) and ((Surface as TThing).Position = tpCarried)) then
+      begin
+         Result := True;
+         Exit;
+      end;
+      { next see if we're trying to move the thing off something else onto it (i.e. pushing into an ancestor) }
+      { note we have to stop if we get to something that is not on something, e.g. you can't push from on a plate that is in a bag into the chest that the bag is in }
+      { (but you _can_ push it into the bag) }
+      Ancestor := Thing;
+      repeat
+         Ancestor := (Ancestor as TThing).Parent;
+         if ((Ancestor = Surface) or
+             ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tpCanHaveThingsPushedIn in (Surface as TThing).GetProperties()))) then
+         begin
+            Result := True;
+            Exit;
+         end;
+      until ((not (Ancestor is TThing)) or
+             (((Ancestor as TThing).Position in tpContained) and { tpIn is ok only in the case where you're in the surface we're looking for }
+              (not (((Ancestor as TThing).Position = tpIn) and ((Ancestor as TThing).Parent = Surface)))));
+      Result := False;
+   end;
+
 var
    Multiple, NavigateToTarget, Success: Boolean;
    SingleThingItem: PThingItem;
@@ -654,6 +757,16 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(Subject^.Value.GetName(Self)));
+         if (not Referenceable(Subject^.Value)) then
+         begin
+            AvatarMessage('You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (Assigned(Target) and (not Referenceable(Target))) then
+         begin
+            AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
          if (Subject^.Value.Parent = Self) then
          begin
             New(SingleThingItem);
@@ -737,15 +850,11 @@ begin
                   end;
                end
                else
-               if (((ThingPosition = tpOn) and ((not (Subject^.Value.Parent is TThing)) or
-                                                ((Subject^.Value.Parent as TThing).Parent <> SurrogateTarget))) or
-                   ((ThingPosition = tpIn) and ((not (SurrogateTarget is TThing)) or
-                                                (Subject^.Value.Parent <> (SurrogateTarget as TThing).Parent)))) then
+               if (((ThingPosition = tpOn) and (not CanBePushedTo(Subject^.Value, SurrogateTarget))) or
+                   ((ThingPosition = tpIn) and (not CanBePushedInto(Subject^.Value, SurrogateTarget)))) then
                begin
-                  // need to lift it there. if it wasn't explicit, assume they wanted to shae. otherwise, just take it and drop it there.
-                  // maybe we can make this check the CanCarry() and CanTake() aspects first.
-                  // maybe we shouldn't even check the CanTake() aspects; you can shovel dirt or leaves from a pile into a bag you're holding even if you can't hold the pile.
-                  // (if you don't just call put, then make sure to check that we're not allowing a parenthood loop)
+                  { can't be pushed }
+                  { if the target was explicit, then try putting it there, otherwise, just shake it }
                   New(SingleThingItem);
                   try
                      SingleThingItem^.Next := nil;
@@ -803,53 +912,60 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(Subject^.Value.GetName(Self)));
-         Assert(Assigned(Subject^.Value.Parent));
-         Destination := Subject^.Value.Parent.GetDefaultAtom();
-         Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' immovable.';
-         if (Subject^.Value = Self) then
+         if (not Referenceable(Subject^.Value)) then
          begin
-            AvatarMessage('You try to push yourself but find that a closed system cannot apply an external force on itself.');
+            AvatarMessage('You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.');
          end
          else
-         if (Destination is TLocation) then
          begin
-            Location := Destination as TLocation;
-            Destination := Location.GetAtomForDirection(Direction);
-            if (not Assigned(Destination)) then
+            Assert(Assigned(Subject^.Value.Parent));
+            Destination := Subject^.Value.Parent.GetDefaultAtom();
+            Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' immovable.';
+            if (Subject^.Value = Self) then
             begin
-               Location.FailNavigation(Direction, Self);
+               AvatarMessage('You try to push yourself but find that a closed system cannot apply an external force on itself.');
             end
             else
+            if (Destination is TLocation) then
             begin
-               ThingPosition := tpOn;
-               Message := 'Pushed.';
-               Destination := Destination.GetEntrance(Subject^.Value, Subject^.Value.Parent, Self, ThingPosition, Message);
-               if (Assigned(Destination)) then
+               Location := Destination as TLocation;
+               Destination := Location.GetAtomForDirection(Direction);
+               if (not Assigned(Destination)) then
                begin
-                  Success := Subject^.Value.CanMove(Self, Message) and CanPush(Subject^.Value, Message) and Destination.CanPut(Subject^.Value, ThingPosition, Self, Message);
-                  AvatarMessage(Message);
-                  if (Success) then
-                     Destination.Add(Subject^.Value, ThingPosition, False, Self);
+                  Location.FailNavigation(Direction, Self);
                end
                else
                begin
-                  AvatarMessage(Message);
+                  ThingPosition := tpOn;
+                  Message := 'Pushed.';
+                  Destination := Destination.GetEntrance(Subject^.Value, Subject^.Value.Parent, Self, ThingPosition, Message);
+                  if (Assigned(Destination)) then
+                  begin
+                     Success := Subject^.Value.CanMove(Self, Message) and CanPush(Subject^.Value, Message) and Destination.CanPut(Subject^.Value, ThingPosition, Self, Message);
+                     AvatarMessage(Message);
+                     if (Success) then
+                        Destination.Add(Subject^.Value, ThingPosition, False, Self);
+                  end
+                  else
+                  begin
+                     AvatarMessage(Message);
+                  end;
                end;
+            end
+            else
+            if (Subject^.Value.Position = tpOn) then
+            begin
+               AvatarMessage('You would have to push ' + Subject^.Value.GetDefiniteName(Self) + ' off ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' first.');
+            end
+            else
+            if (Subject^.Value.Position = tpIn) then
+            begin
+               AvatarMessage('You would have to move ' + Subject^.Value.GetDefiniteName(Self) + ' out of ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' first.');
+            end
+            else
+            begin
+               AvatarMessage(Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
             end;
-         end
-         else
-         if (Subject^.Value.Position = tpOn) then
-         begin
-            AvatarMessage('You would have to push ' + Subject^.Value.GetDefiniteName(Self) + ' off ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' first.');
-         end
-         else
-         if (Subject^.Value.Position = tpIn) then
-         begin
-            AvatarMessage('You would have to move ' + Subject^.Value.GetDefiniteName(Self) + ' out of ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' first.');
-         end
-         else
-         begin
-            AvatarMessage(Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
          end;
          Subject := Subject^.Next;
       end;
@@ -978,17 +1094,15 @@ end;
 
 procedure TPlayer.HandleAdd(Thing: TThing);
 var
-   MassIndex: TThingMass;
-   SizeIndex: TThingSize;
    Masses, CandidateMass, ThisMass: TThingMassManifest;
    Sizes, CandidateSize, ThisSize: TThingSizeManifest;
+   Count: Cardinal;
    Child: PThingItem;
    Candidate: TThing;
 begin
-   for MassIndex := Low(TThingMass) to High(TThingMass) do
-      Masses[MassIndex] := 0;
-   for SizeIndex := Low(TThingSize) to High(TThingSize) do
-      Sizes[SizeIndex] := 0;
+   Zero(Masses);
+   Zero(Sizes);
+   Count := 0;
    Child := FChildren;
    while (Assigned(Child)) do
    begin
@@ -996,16 +1110,15 @@ begin
       begin
          Masses := Masses + Child^.Value.GetMassManifest();
          Sizes := Sizes + Child^.Value.GetOutsideSizeManifest();
+         Count := Count + 1;
       end;
       Child := Child^.Next;
    end;
-   while ((Masses > MaxCarryMass) or (Sizes > MaxCarrySize)) do
+   while ((Masses > MaxCarryMass) or (Sizes > MaxCarrySize) or (Count > MaxCarryCount)) do
    begin
       Assert(Assigned(FChildren));
-      for MassIndex := Low(TThingMass) to High(TThingMass) do
-         CandidateMass[MassIndex] := 0;
-      for SizeIndex := Low(TThingSize) to High(TThingSize) do
-         CandidateSize[SizeIndex] := 0;
+      Zero(CandidateMass);
+      Zero(CandidateSize);
       Child := FChildren;
       while (Assigned(Child)) do
       begin
@@ -1022,6 +1135,7 @@ begin
       Assert(Assigned(Candidate));
       Masses := Masses - CandidateMass;
       Sizes := Sizes - CandidateSize;
+      Count := Count - 1;
       AvatarMessage('Fumbled ' + Candidate.GetDefiniteName(Self) + '.');
       FParent.Add(Candidate, tpOn, False, Self);
    end;
@@ -1077,6 +1191,23 @@ begin
    end
    else
       FParent.GetDefaultAtom().AddExplicitlyReferencedThings(Tokens, Start, Count, Self, ListEnd);
+end;
+
+function TPlayer.Referenceable(Subject: TAtom): Boolean;
+var
+   Root: TAtom;
+begin
+   Assert(Assigned(Subject));
+   Assert(Assigned(FParent));
+   Root := FParent.GetDefaultAtom();
+   Assert(Assigned(Root));
+   if (Subject is TLocation) then
+      Result := Root = Subject
+   else
+   if (Subject is TThing) then
+      Result := Root.StillReferenceable(Subject as TThing, Self)
+   else
+      raise Exception.Create('TPlayer.Referencable() does not know how to handle objects of class ' + Subject.ClassName());
 end;
 
 function TPlayer.GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;

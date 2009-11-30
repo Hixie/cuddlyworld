@@ -79,9 +79,10 @@ procedure TMain.Run();
 begin
    Writeln('CuddlyWorld running...');
    repeat
-      SaveWorld();
-      FWorld.CheckForDisconnectedPlayers();
       FServer.Select(timeoutForever);
+      FWorld.CheckForDisconnectedPlayers();
+      FWorld.CheckDisposalQueue();
+      SaveWorld();
    until Aborted;
    Writeln('CuddlyWorld aborted');
 end;

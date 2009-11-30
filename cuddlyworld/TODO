@@ -1,20 +1,33 @@
-X "move me onto penny" doesn't fail
-X "enter penny" says "You cannot enter the penny. The penny blocks the way." -- blocks the way?! a penny?!
-X rationalise the whole CanEnter() mechanic
-X moving things without picking them up
-X move leaves north
-X push pile north
-X push pile into door
-X digging infrastructure
-X "n then dig then d": "There is not enough room on the hole for you" -- _on_ the hole?
-
-the UI should support hitting the up arrow key to go to previous commands
-pushing a big pile of earth into a hole should fill the hole - and it should not complain about being too full, it should just fill it
-filled holes should move their stuff to the ground, tpIn, and inaccessible
-creating a hole should move the tpIn stuff from the ground into the pile
+X "take macguffin then move me to leaves then drop macguffin" parses as "drop macguffin on ground", not "drop macguffin on leaves"
+X the UI should support hitting the up arrow key to go to previous commands
+X factor out the various places that zero dimension manifests, giving just a Zero() procedure that does it for you
+X should separate "look at" from "examine" and make "examine" a superset of "look in"
+X "move all n; n; dig; move pile into hole" - crash if earth pile moves before leaves pile, since hole disappears before sliding the leaves into it
+X pushing a big pile of earth into a hole should fill the hole - and it should not complain about being too full, it should just fill it
+X filled holes should move their stuff to the ground, tpIn, and inaccessible
+X creating a hole should move the tpIn stuff from the ground into the pile
+X should be able to push big things over holes without picking them up
+X "move leaves into hole" doesn't work
+X should say "There is a hole here, overflowing with..." if hole is overflowing.
+X dug hole should be small enough that the pile of leaves doesn't fall into it
+X should be able to moves the leaves off the hole!
+"move all n; n; dig; put penny in hole; moves leaves on hole; l in hole" - shouldn't say the hole is closed, it should say the hole is covered!
+should make it so that you can't fill an overfull hole - just say that there's no way to push the earth onto the hole in that case
 tools to shape the world - magic digging wand that doesn't make piles appear
+"move leaves over hole"
+'dig hole' should work
+"move earth, leaves into hole" doesn't work (doesn't understand use of commas)
+"move earth and leaves into hole" doesn't work (treats 'and' as CanEnd() continuation)
+"move leaves out", "move leaves out of hole", "moves leaves up" (when in they're in the hole)
+"move leaves off hole" (when they're on the hole)
+change the way announcements work so that you instead do Broadcast(@AnnounceShaken, Perspective);
+ + then implement shaking
+ + then implement dancing
+ + then implement THole.HandleAdd()'s broadcasting of things falling into holes (see also next line)
+ + fumbling could be prettier, especially for 'take all'. Maybe there should be a separate thing from AvatarMessage(), which is just used for world events (like someone appearing, or someone fumbling something), which is unaffected by the context. Then, use this for things like filling holes, things falling into holes, etc.
+password command
+ + make shout broadcast to surrounding rooms
 support "it". In particular, if "look" only mentions one thing, "take it" should work.
-make shout broadcast to surrounding rooms
 you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
 When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
 taking something with things on it should make the things fall off
@@ -25,21 +38,15 @@ exit things by name
 it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
 "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
 "climb cliff": I don't understand how to "climb".
-"jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
-"take macguffin then move me to leaves then drop macguffin" parses as "drop macguffin on ground", not "drop macguffin on leaves"
-change the way announcements work so that you instead do Broadcast(@AnnounceShaken, Perspective);
- + then implement shaking
- + then implement dancing
-fumbling could be prettier, especially for 'take all'. Maybe there should be a separate thing from AvatarMessage(), which is just used for world events (like someone appearing, or someone fumbling something), which is unaffected by the context
-password command
+"jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)=
 player safe where they can keep things while disconnected
 player savepoint so that players can reappear in a specific place after disconnecting
 change use of FParent to just be Parent when referring to another thing's parent
 refactor TPlayer.Move()
-factor out the various places that zero dimension manifests, giving just a Zero() procedure that does it for you
 throwing - "throw MacGuffin north": I don't understand how to "throw".
-"Take a carinda" to take just one.
+"Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
 "take all from pile", "take all in pile" should work
+"drop all but spade and sword" should work
 "move leaves through door", "push pile through door"
 "move to north", "move to hut"
 announce when a player disconnects or reconnects
@@ -49,8 +56,9 @@ tools to shape the world - walking through the forest autocreating more forest, 
 tools to shape the world - cutting down the forest to form fields, piles of wood
 tools to shape the world - making small huts from piles of wood
 "look out" while on something on the ground talks about the ground. It should use the GetDefaultAtom() for the thing it's looking at
+'look under' should move things if they are bigger than what they are on
 "off" and "get off" should be equivalent to "out" when on an object
-should separate "look at" from "examine" and make "examine" a superset of "look in"
+start player with a bag
 Players should have PartOfs: eyes, hands, etc
 Players should have Implicits: "you", "time" ("take time"), etc
 Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
