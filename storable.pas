@@ -10,6 +10,7 @@ uses
 type
 
    TStorable = class;
+   StorableClass = class of TStorable;
 
    PPendingFixupItem = ^TPendingFixupItem;
    TPendingFixupItem = record
@@ -35,6 +36,7 @@ type
       function ReadCardinal: Cardinal;
       function ReadAnsiString: AnsiString;
       function ReadReference(Destination: PPointer): Boolean;
+      function ReadClass: StorableClass;
       procedure FixupReferences();
       property Version: Cardinal read FVersion;
    end;
@@ -51,11 +53,11 @@ type
       procedure WriteCardinal(Value: Cardinal);
       procedure WriteAnsiString(Value: AnsiString);
       procedure WriteReference(Value: Pointer);
+      procedure WriteClass(Value: StorableClass);
    end;
 
-   StorableClass = class of TStorable;
    TStorable = class
-      {$IFDEF DEBUG} FDebugCalledInherited: Boolean; {$ENDIF}
+      {$IFOPT C+} FDebugCalledInherited: Boolean; {$ENDIF}
     public
       constructor Read(Stream: TReadStream); virtual;
       procedure Write(Stream: TWriteStream); virtual;
@@ -89,10 +91,12 @@ const { values with unlikely bit patterns }
    btCardinal   = $61;
    btAnsiString = $62;
    btReference  = $64;
+   btClass      = $68;
 
 procedure RegisterStorableClass(AClass: StorableClass; ID: Cardinal);
 begin
    Assert(ID <> 0, 'Class ID 0 is reserved');
+   Assert(ID <> Cardinal(nil), 'Class ID Cardinal(nil) is reserved');
    Assert(not Assigned(ClassKeyToClassHash.Get(ID)), 'Class ID ' + IntToStr(ID) + ' used for both classes ' + AClass.ClassName() + ' and ' + ClassKeyToClassHash.Get(ID).ClassName());
    Assert(ClassToClassKeyHash.Get(AClass) = 0, 'Class ' + AClass.ClassName() + ' registered twice (first time as ID ' + IntToStr(ClassToClassKeyHash.Get(AClass)) + ', second time as ID ' + IntToStr(ID) + ')');
    ClassKeyToClassHash.Add(ID, AClass);
@@ -188,20 +192,20 @@ end;
 
 function TReadStream.ReadObject: TStorable;
 var
-   ClassID, ObjectID: Cardinal;
+   ClassValue: StorableClass;
+   ObjectID: Cardinal;
 begin
    VerifyFieldType(btObject);
-   ClassID := ReadCardinal();
-   if (ClassID = 0) then
+   ClassValue := ReadClass();
+   if (not Assigned(ClassValue)) then
    begin
       Result := nil;
    end
    else
    begin
       ObjectID := ReadCardinal();
-      Assert(Assigned(ClassKeyToClassHash.Get(ClassID)), 'Unknown class ID ' + IntToStr(ClassID));
-      Result := ClassKeyToClassHash.Get(ClassID).Read(Self);
-      {$IFDEF DEBUG} Assert(Result.FDebugCalledInherited); {$ENDIF}
+      Result := ClassValue.Read(Self);
+      {$IFOPT C+} Assert(Result.FDebugCalledInherited); {$ENDIF}
       FObjectsRead.Add(ObjectID, Result);
    end;
    VerifyFieldType(btObjectEnd);
@@ -246,6 +250,23 @@ begin
    end;
 end;
 
+function TReadStream.ReadClass: StorableClass;
+var
+   ClassID: Cardinal;
+begin
+   VerifyFieldType(btClass);
+   ClassID := ReadCardinal();
+   if (ClassID <> Cardinal(nil)) then
+   begin
+      Assert(Assigned(ClassKeyToClassHash.Get(ClassID)), 'Unknown class ID ' + IntToStr(ClassID));
+      Result := ClassKeyToClassHash.Get(ClassID);
+   end
+   else
+   begin
+      Result := nil;
+   end;
+end;
+
 procedure TReadStream.FixupReferences();
 var
    Next: PPendingFixupItem;
@@ -286,25 +307,21 @@ begin
 end;
 
 procedure TWriteStream.WriteObject(Value: TStorable);
-var
-   ClassID: Cardinal;
 begin
    WriteFieldType(btObject);
    Assert(SizeOf(Cardinal) = SizeOf(Value));
    if (not Assigned(Value)) then
    begin
-      WriteCardinal(0);
+      WriteClass(nil);
    end
    else
    begin
-      ClassID := ClassToClassKeyHash.Get(StorableClass(Value.ClassType()));
-      Assert(ClassID <> 0, 'Class ' + Value.ClassName() + ' not registered');
-      WriteCardinal(ClassID);
+      WriteClass(StorableClass(Value.ClassType));
       { Platform-specific; this will succeed so long as the assert above succeeds }
       WriteCardinal(Cardinal(Value));
-      {$IFDEF DEBUG} Value.FDebugCalledInherited := False; {$ENDIF}
+      {$IFOPT C+} Value.FDebugCalledInherited := False; {$ENDIF}
       Value.Write(Self);
-      {$IFDEF DEBUG} Assert(Value.FDebugCalledInherited); {$ENDIF}
+      {$IFOPT C+} Assert(Value.FDebugCalledInherited); {$ENDIF}
    end;
    WriteFieldType(btObjectEnd);
 end;
@@ -325,10 +342,29 @@ end;
 
 procedure TWriteStream.WriteReference(Value: Pointer);
 begin
-   Assert(SizeOf(Cardinal) = SizeOf(Pointer));
+   Assert(SizeOf(Cardinal) = SizeOf(Value));
    WriteFieldType(btReference);
    { Platform-specific; this will succeed so long as the assert above succeeds }
    WriteCardinal(Cardinal(Value));
+end;
+
+procedure TWriteStream.WriteClass(Value: StorableClass);
+var
+   ClassID: Cardinal;
+begin
+   Assert(SizeOf(Cardinal) = SizeOf(Value));
+   WriteFieldType(btClass);
+   if (not Assigned(Value)) then
+   begin
+      WriteCardinal(Cardinal(nil));
+   end
+   else
+   begin
+      { Platform-specific; this will succeed so long as the assert above succeeds }
+      ClassID := ClassToClassKeyHash.Get(StorableClass(Value));
+      Assert(ClassID <> 0, 'Class ' + Value.ClassName() + ' not registered');
+      WriteCardinal(ClassID);
+   end;
 end;
 
 
@@ -336,7 +372,7 @@ constructor TStorable.Read(Stream: TReadStream);
 var
    S: AnsiString;
 begin
-   {$IFDEF DEBUG} FDebugCalledInherited := True; {$ENDIF}
+   {$IFOPT C+} FDebugCalledInherited := True; {$ENDIF}
    Stream.VerifyFieldType(btObjectData);
    s := Stream.ReadAnsiString();
    Assert(S = ClassName);
@@ -344,7 +380,7 @@ end;
 
 procedure TStorable.Write(Stream: TWriteStream);
 begin
-   {$IFDEF DEBUG} FDebugCalledInherited := True; {$ENDIF}
+   {$IFOPT C+} FDebugCalledInherited := True; {$ENDIF}
    Stream.WriteFieldType(btObjectData);
    Stream.WriteAnsiString(ClassName);
 end;

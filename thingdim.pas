@@ -27,6 +27,14 @@ type
 
 {$DEFINE DIMENSION:=Size} {$INCLUDE thingdim.pas} {$UNDEF DIMENSION}
 
+type
+   TThingDensity = (tdLow, tdMedium, tdHigh);
+const
+   kDensityMap : array[TThingDensity, TThingSize] of TThingMass =
+                      ((tmLight, tmLight, tmLight, tmLight, tmLight),
+                       (tmLight, tmLight, tmHeavy, tmPonderous, tmLudicrous),
+                       (tmHeavy, tmPonderous, tmLudicrous, tmLudicrous, tmLudicrous));
+
 implementation
 {$DEFINE PART:=IMPLEMENTATION}
 
@@ -53,16 +61,16 @@ end.
 
 {$IF PART=INTERFACE}
 
-procedure Rationalise (var A: TThingDimensionManifest);
-operator := (const A: TThingDimension): TThingDimensionManifest;
-operator + (const A, B: TThingDimensionManifest): TThingDimensionManifest;
-operator + (const A: TThingDimensionManifest; const B: TThingDimension): TThingDimensionManifest;
-operator - (A, B: TThingDimensionManifest): TThingDimensionManifest;
-operator = (const A, B: TThingDimensionManifest): Boolean;
-operator > (const A, B: TThingDimensionManifest): Boolean;
-operator >= (const A, B: TThingDimensionManifest): Boolean;
-operator < (const A, B: TThingDimensionManifest): Boolean;
-operator <= (const A, B: TThingDimensionManifest): Boolean;
+procedure Zero(var A: TThingDimensionManifest); inline;
+operator := (const A: TThingDimension): TThingDimensionManifest; inline;
+operator + (const A, B: TThingDimensionManifest): TThingDimensionManifest; inline;
+operator + (const A: TThingDimensionManifest; const B: TThingDimension): TThingDimensionManifest; inline;
+operator - (A, B: TThingDimensionManifest): TThingDimensionManifest; inline;
+operator = (const A, B: TThingDimensionManifest): Boolean; inline;
+operator > (const A, B: TThingDimensionManifest): Boolean; inline;
+operator >= (const A, B: TThingDimensionManifest): Boolean; inline;
+operator < (const A, B: TThingDimensionManifest): Boolean; inline;
+operator <= (const A, B: TThingDimensionManifest): Boolean; inline;
 
 {$ELSEIF PART=IMPLEMENTATION}
 
@@ -76,6 +84,14 @@ begin
 end;
 {$ENDIF}
 
+procedure Zero(var A: TThingDimensionManifest);
+var
+   Index: TThingDimension;
+begin
+   for Index := Low(TThingDimension) to High(TThingDimension) do
+      A[Index] := 0;
+end;
+
 procedure Rationalise (var A: TThingDimensionManifest);
 var
    Index: TThingDimension;
@@ -88,11 +104,8 @@ begin
 end;
 
 operator := (const A: TThingDimension): TThingDimensionManifest;
-var
-   Index: TThingDimension;
 begin
-   for Index := Low(TThingDimension) to High(TThingDimension) do
-      Result[Index] := 0;
+   Zero(Result);
    Result[A] := 1;
 end;
 

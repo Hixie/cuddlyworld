@@ -68,6 +68,7 @@ type
    end;
 
    THole = class;
+
    TSurface = class(TStaticThing)
     protected
       FHole: THole;
@@ -77,13 +78,16 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetLookIn(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetDefaultAtom(): TAtom; override;
       function GetProperties(): TThingProperties; override;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function GetDescriptionClosed(Perspective: TAvatar): AnsiString; override;
       procedure Removed(Thing: TThing); override;
    end;
 
@@ -111,17 +115,22 @@ type
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
 
+   TPileClass = class of TPile;
+
    THole = class(TThing)
     protected
       FDescription: AnsiString;
       FSize: TThingSize;
+      FPileClass: TPileClass;
     public
-      constructor Create(ADescription: AnsiString; ASize: TThingSize);
+      constructor Create(ADescription: AnsiString; ASize: TThingSize; APileClass: TPileClass);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): AnsiString; override;
       function GetTitle(Perspective: TAvatar): AnsiString; override;
+      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionState(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
@@ -129,7 +138,12 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      procedure HandleAdd(Thing: TThing); override;
+      function IsOpen(): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
+      function GetBiggestCoverer: TThing;
+      function GetProperties(): TThingProperties; override;
    end;
 
    TPileState = set of (psTidy);
@@ -143,7 +157,7 @@ type
       function AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean; override;
       function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
       function IsMatchingIngredientWord(Word: AnsiString; Perspective: TAvatar): Boolean; virtual;
-      function AreChildrenImplicitlyReferencable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean; override;
+      function AreChildrenImplicitlyReferenceable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean; override;
     public
       constructor Create(AIngredients: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize); { first ingredient must be canonical plural form }
       destructor Destroy(); override;
@@ -162,6 +176,12 @@ type
       function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function IsOpen(): Boolean; override;
+   end;
+
+   TEarthPile = class(TPile)
+    public
+      constructor Create(ASize: TThingSize);
    end;
 
 implementation
@@ -426,15 +446,30 @@ end;
 
 function TSurface.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
 begin
-   if ((Direction = cdDown) and (Assigned(FHole))) then
+   if ((Direction = cdDown) and (Assigned(FHole)) and (FHole.IsOpen())) then
       Result := FHole.GetDescriptionRemoteDetailed(Perspective, Direction)
    else
       Result := inherited;
 end;
 
+function TSurface.GetLookIn(Perspective: TAvatar): AnsiString;
+var
+   Contents: AnsiString;
+begin
+   if (Assigned(FHole) and (FHole.IsOpen())) then
+   begin
+      Result := FHole.GetDescriptionRemoteDetailed(Perspective, cdIn);
+      Contents := FHole.GetDescriptionIn(Perspective, []);
+      if (Length(Contents) > 0) then
+         Result := Result + #10 + Contents;
+   end
+   else
+      Result := 'To look in ' + GetDefiniteName(Perspective) + ', you first need to dig a hole in it.';
+end;
+
 function TSurface.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
-   if (Assigned(FHole)) then
+   if (Assigned(FHole) and (FHole.IsOpen())) then
       Result := 'If the hole is any guide, there is a lot of earth under ' + GetDefiniteName(Perspective) + '.'
    else
       Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
@@ -448,33 +483,66 @@ end;
 
 function TSurface.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
 const
-   Size = tsGigantic;
-   Mass = tmPonderous;
+   Size = tsMassive;
 var
    Pile: TPile;
+   Child: PThingItem;
+   LastThing: TThing;
 begin
    if (Assigned(FHole)) then
    begin
       Result := False;
-      Message := 'There is already a hole here.';
+      if (FHole.IsOpen()) then
+      begin
+         Message := 'There is already a hole here.';
+      end
+      else
+      begin
+         Message := 'There''s not really much room here to dig a hole. In particular, ' + FHole.GetBiggestCoverer().GetDefiniteName(Perspective) + ' takes up a lot of room.';
+      end;
    end
    else
    begin
-      FHole := THole.Create('The hole is quite dirty.', Size);
-      Add(FHole, tpAt);
-      Pile := TPile.Create(['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', Mass, Size);
+      Pile := TEarthPile.Create(Size);
+      Child := FChildren;
+      while (Assigned(Child)) do
+      begin
+         { This is a little hairy, because we're walking the FChildren list just ahead of where we are mutating it }
+         LastThing := Child^.Value;
+         Child := Child^.Next;
+         if (LastThing.Position = tpIn) then
+         begin
+            Assert(not (LastThing is TEarthPile));
+            Pile.Add(LastThing, tpIn);
+         end;
+      end;
       Add(Pile, tpOn);
+      FHole := THole.Create('The hole is quite dirty.', Size, TEarthPile);
+      Add(FHole, tpAt);
       Result := True;
       Message := 'With much effort, you dig a huge hole.';
    end;
 end;
 
-function TSurface.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom;
+function TSurface.GetInside(var PositionOverride: TThingPosition): TAtom;
+begin
+   if (Assigned(FHole) and (FHole.IsOpen())) then
+      Result := FHole
+   else
+      Result := Self;
+end;
+
+function TSurface.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
 begin
    if (Assigned(FHole)) then
-      Result := FHole.GetEntrance(Traveller, AFrom, Perspective, PositionOverride, Message)
+      Result := FHole.CanInsideHold(Manifest)
    else
-      Result := inherited;
+      Result := False;
+end;
+
+function TSurface.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'To put things in ' + GetDefiniteName(Perspective) + ', you''ll have to dig a hole to put them in.';
 end;
 
 procedure TSurface.Removed(Thing: TThing);
@@ -564,18 +632,25 @@ begin
 end;
 
 
-constructor THole.Create(ADescription: AnsiString; ASize: TThingSize);
+constructor THole.Create(ADescription: AnsiString; ASize: TThingSize; APileClass: TPileClass);
 begin
    inherited Create();
    FDescription := ADescription;
    FSize := ASize;
+   FPileClass := APileClass;
 end;
 
 constructor THole.Read(Stream: TReadStream);
+var
+   AClass: TClass;
 begin
    inherited;
    FDescription := Stream.ReadAnsiString();
    FSize := TThingSize(Stream.ReadCardinal());
+   {$IFOPT C-} {$HINT This could be optimised further in non-debug builds.} {$ENDIF}
+   AClass := Stream.ReadClass();
+   Assert((AClass = TPile) or (AClass.InheritsFrom(TPile)));
+   FPileClass := TPileClass(AClass);
 end;
 
 procedure THole.Write(Stream: TWriteStream);
@@ -583,6 +658,7 @@ begin
    inherited;
    Stream.WriteAnsiString(FDescription);
    Stream.WriteCardinal(Cardinal(FSize));
+   Stream.WriteClass(FPileClass);
 end;
 
 function THole.GetName(Perspective: TAvatar): AnsiString;
@@ -595,9 +671,81 @@ begin
    Result := 'hole in ' + FParent.GetDefiniteName(Perspective);
 end;
 
+function THole.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
+var
+   Child: PThingItem;
+begin
+   Result := '';
+   Child := FChildren;
+   while (Assigned(Child)) do
+   begin
+      if (Child^.Value.Position = tpOn) then
+      begin
+         if (Length(Result) > 0) then
+            Result := Result + ' ';
+         Result := Result + Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere);
+      end;
+      Child := Child^.Next;
+   end;
+   if (Length(Result) = 0) then
+      Result := inherited;
+end;
+
 function THole.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
 begin
    Result := FDescription;
+end;
+
+function THole.GetDescriptionState(Perspective: TAvatar): AnsiString;
+var
+   Child: PThingItem;
+   ContentsSize: TThingSizeManifest;
+   Count: Cardinal;
+   Plural: Boolean;
+   Result1, Result2, Result3: AnsiString;
+begin
+   Count := 0;
+   Result1 := '';
+   Result2 := '';
+   Result3 := '';
+   Plural := False;
+   Zero(ContentsSize);
+   Child := FChildren;
+   while (Assigned(Child)) do
+   begin
+      if (Child^.Value.Position = tpIn) then
+      begin
+         ContentsSize := ContentsSize + Child^.Value.GetOutsideSizeManifest();
+         if (ContentsSize > FSize) then
+         begin
+            Count := Count + 1;
+            case Count of
+              1: Result1 := Child^.Value.GetIndefiniteName(Perspective);
+              2: Result2 := Child^.Value.GetIndefiniteName(Perspective);
+              3: Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ';
+             else
+                Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ' + Result3;
+            end;
+            Plural := Plural or (Count > 1) or Child^.Value.IsPlural(Perspective);
+         end;
+      end;
+      Child := Child^.Next;
+   end;
+   if (Count > 0) then
+   begin
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', Plural) + ' ';
+      case Count of
+        1: Result := Result + Result1;
+        2: Result := Result + Result2 + ' and ' + Result1;
+       else
+          Result := Result + Result3 + Result2 + ', and ' + Result1;
+      end;
+      Result := Result + '.';
+   end
+   else
+   begin
+      Result := inherited;
+   end;
 end;
 
 function THole.GetLookUnder(Perspective: TAvatar): AnsiString;
@@ -638,6 +786,115 @@ begin
    Message := 'You can''t move a hole. That''s silly. I recommend digging a new hole and then filling this one in.';
 end;
 
+function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   if (ThingPosition = tpOn) then
+   begin
+      { things will either fall in or cover the hole }
+      Result := True;
+   end
+   else
+   if ((Thing is FPileClass) and (ThingPosition = tpIn)) then
+   begin
+      { hole will be filled }
+      Result := True;
+   end
+   else
+   begin
+      Result := inherited;
+   end;
+end;
+
+procedure THole.HandleAdd(Thing: TThing);
+var
+   Child: PThingItem;
+   PileSize: TThingSizeManifest;
+   OldParent: TAtom;
+   OldThing: TThing;
+begin
+   inherited;
+   if ((Thing.Position = tpOn) and (Thing.GetOutsideSizeManifest() <= FSize)) then
+   begin
+      Thing.Position := tpIn;
+      if (GetInsideSizeManifest() < FSize) then
+      begin
+         // announce that it dropped into the hole
+      end;
+      { else well the hole is full and this is just piling on top of the hole,
+        so though we pretend like it's in the hole, it's not like it fell in }
+   end;
+   if ((Thing.Position = tpIn) and (Thing is FPileClass)) then
+   begin
+      // see if there's enough Pile to fill the hole
+      Zero(PileSize);
+      Child := FChildren;
+      while (Assigned(Child)) do
+      begin
+         if ((Child^.Value is FPileClass) and (Child^.Value.Position = tpIn)) then
+            PileSize := PileSize + Child^.Value.GetOutsideSizeManifest();
+         Child := Child^.Next;
+      end;
+      if (PileSize >= FSize) then
+      begin
+         OldParent := FParent;
+         FParent.Remove(Self); { have to do this first so that the Surface switches to using itself as an inside }
+         Zero(PileSize);
+         while (Assigned(FChildren)) do
+         begin
+            OldThing := FChildren^.Value;
+            if (OldThing is FPileClass) then
+            begin
+               { the earth disappears }
+               OldThing.Position := tpAt
+            end
+            else
+            if (OldThing is TAvatar) then
+            begin
+               // announce that the player climbs out at the last minute
+               OldThing.Position := tpOn
+            end
+            else
+            if (OldThing.Position = tpIn) then
+            begin
+               { make sure we're not burrying too much }
+               PileSize := PileSize + OldThing.GetOutsideSizeManifest();
+               if (PileSize > FSize) then
+                  OldThing.Position := tpOn;
+            end;
+            if (OldThing.Position in [tpIn, tpOn]) then
+            begin
+               OldParent.Add(OldThing, OldThing.Position);
+            end
+            else
+            begin
+               Remove(OldThing);
+               OldThing.Destroy();
+            end;
+            Assert((not Assigned(FChildren)) or (FChildren^.Value <> OldThing));
+         end;
+         // announce the hole is filled
+         QueueForDisposal(Self);
+      end;
+   end;
+end;
+
+function THole.IsOpen(): Boolean;
+var
+   Child: PThingItem;
+begin
+   Child := FChildren;
+   while (Assigned(Child)) do
+   begin
+      if (Child^.Value.Position = tpOn) then
+      begin
+         Result := False;
+         Exit;
+      end;
+      Child := Child^.Next;
+   end;
+   Result := True;
+end;
+
 procedure THole.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
 begin
    Assert(Perspective.Parent = Self);
@@ -647,6 +904,27 @@ begin
     else
       Perspective.AvatarMessage('You''re in a hole.');
    end;
+end;
+
+function THole.GetBiggestCoverer: TThing;
+var
+   Child: PThingItem;
+begin
+   Result := nil;
+   Child := FChildren;
+   while (Assigned(Child)) do
+   begin
+      if ((Child^.Value.Position = tpOn) and ((not (Assigned(Result))) or (Result.GetOutsideSizeManifest() < Child^.Value.GetOutsideSizeManifest()))) then
+         Result := Child^.Value;
+      Child := Child^.Next;
+   end;
+   Assert(Assigned(Result));
+end;
+
+function THole.GetProperties(): TThingProperties;
+begin
+   Result := inherited;
+   Result := Result + [tpCanHaveThingsPushedOn, tpCanHaveThingsPushedIn];
 end;
 
 
@@ -698,7 +976,7 @@ begin
    Stream.WriteCardinal(Cardinal(TPileState(FState)));
 end;
 
-function TPile.AreChildrenImplicitlyReferencable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean;
+function TPile.AreChildrenImplicitlyReferenceable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean;
 begin
    if ((psTidy in FState) and (Perspective.Parent <> Self)) then
       PositionFilter := PositionFilter - [tpIn];
@@ -771,7 +1049,7 @@ var
    PositionFilter: TThingPositionFilter;
 begin
    PositionFilter := [tpIn];
-   if ((optThorough in Options) or (AreChildrenImplicitlyReferencable(Perspective, PositionFilter) and (tpIn in PositionFilter))) then
+   if ((optThorough in Options) or (AreChildrenImplicitlyReferenceable(Perspective, PositionFilter) and (tpIn in PositionFilter))) then
       Result := inherited
    else
       Result := '';
@@ -817,6 +1095,17 @@ begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
 
+function TPile.IsOpen(): Boolean;
+begin
+   Result := True;
+end;
+
+
+constructor TEarthPile.Create(ASize: TThingSize);
+begin
+   inherited Create(['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, ASize], ASize);
+end;
+
 
 initialization
    RegisterStorableClass(TStaticThing,            100000);
@@ -827,4 +1116,5 @@ initialization
    RegisterStorableClass(TDistantScenery,         200000);
    RegisterStorableClass(THole,                   300000);
    RegisterStorableClass(TPile,                   400000);
+   RegisterStorableClass(TEarthPile,              410000);
 end.

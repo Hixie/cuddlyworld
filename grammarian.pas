@@ -22,6 +22,7 @@ const
    tpImplicit = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit];
    tpExplicit = [tpAt, tpOn, tpIn, tpCarried];
    tpScenery = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpAt];
+   tpContained = [tpIn, tpCarried];
 
 function IndefiniteArticle(Noun: AnsiString): AnsiString; inline;
 function Capitalise(Phrase: AnsiString): AnsiString; inline;
