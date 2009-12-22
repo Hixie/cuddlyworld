@@ -131,6 +131,7 @@ type
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionState(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionClosed(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
@@ -704,48 +705,58 @@ var
    Plural: Boolean;
    Result1, Result2, Result3: AnsiString;
 begin
-   Count := 0;
-   Result1 := '';
-   Result2 := '';
-   Result3 := '';
-   Plural := False;
-   Zero(ContentsSize);
-   Child := FChildren;
-   while (Assigned(Child)) do
+   Result := '';
+   if (IsOpen()) then
    begin
-      if (Child^.Value.Position = tpIn) then
+      Count := 0;
+      Result1 := '';
+      Result2 := '';
+      Result3 := '';
+      Plural := False;
+      Zero(ContentsSize);
+      Child := FChildren;
+      while (Assigned(Child)) do
       begin
-         ContentsSize := ContentsSize + Child^.Value.GetOutsideSizeManifest();
-         if (ContentsSize > FSize) then
+         if (Child^.Value.Position = tpIn) then
          begin
-            Count := Count + 1;
-            case Count of
-              1: Result1 := Child^.Value.GetIndefiniteName(Perspective);
-              2: Result2 := Child^.Value.GetIndefiniteName(Perspective);
-              3: Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ';
-             else
-                Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ' + Result3;
+            ContentsSize := ContentsSize + Child^.Value.GetOutsideSizeManifest();
+            if (ContentsSize > FSize) then
+            begin
+               Count := Count + 1;
+               case Count of
+                 1: Result1 := Child^.Value.GetIndefiniteName(Perspective);
+                 2: Result2 := Child^.Value.GetIndefiniteName(Perspective);
+                 3: Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ';
+                else
+                   Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ' + Result3;
+               end;
+               Plural := Plural or (Count > 1) or Child^.Value.IsPlural(Perspective);
             end;
-            Plural := Plural or (Count > 1) or Child^.Value.IsPlural(Perspective);
          end;
+         Child := Child^.Next;
       end;
-      Child := Child^.Next;
-   end;
-   if (Count > 0) then
-   begin
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', Plural) + ' ';
-      case Count of
-        1: Result := Result + Result1;
-        2: Result := Result + Result2 + ' and ' + Result1;
-       else
-          Result := Result + Result3 + Result2 + ', and ' + Result1;
+      if (Count > 0) then
+      begin
+         Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', Plural) + ' ';
+         case Count of
+           1: Result := Result + Result1;
+           2: Result := Result + Result2 + ' and ' + Result1;
+          else
+             Result := Result + Result3 + Result2 + ', and ' + Result1;
+         end;
+         Result := Result + '.';
       end;
-      Result := Result + '.';
-   end
-   else
-   begin
-      Result := inherited;
    end;
+end;
+
+function THole.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
+var
+   Cover: TThing;
+begin
+   Assert(not IsOpen());
+   Cover := GetBiggestCoverer();
+   Assert(Assigned(Cover));
+   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' covered by ' + Cover.GetIndefiniteName(Perspective) + '.';
 end;
 
 function THole.GetLookUnder(Perspective: TAvatar): AnsiString;
@@ -790,14 +801,31 @@ function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective:
 begin
    if (ThingPosition = tpOn) then
    begin
-      { things will either fall in or cover the hole }
-      Result := True;
+      if (IsOpen()) then
+      begin
+         { things will either fall in or cover the hole }
+         Result := True;
+      end
+      else
+      begin
+         { can't cover hole if it's already covered }
+         Result := False;
+         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' already covered.';
+      end;
    end
    else
    if ((Thing is FPileClass) and (ThingPosition = tpIn)) then
    begin
       { hole will be filled }
-      Result := True;
+      if (GetInsideSizeManifest() < FSize) then
+      begin
+         Result := True;
+      end
+      else
+      begin
+         Result := False;
+         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' already full to overflowing.';
+      end;
    end
    else
    begin
@@ -813,6 +841,69 @@ var
    OldThing: TThing;
 begin
    inherited;
+   if (Thing is FPileClass) then
+   begin
+      { First, see if the pile was put on top of an overflowing hole. If so, then we just leave it there and the hole is covered by the pile. Otherwise, drop it in. }
+      if (Thing.Position = tpOn) then
+      begin
+         if (GetInsideSizeManifest() < FSize) then
+            Thing.Position := tpIn;
+      end;
+      { Now, see if the hole has enough pile _in_ it to fill it. }
+      if (Thing.Position = tpIn) then
+      begin
+         Zero(PileSize);
+         Child := FChildren;
+         while (Assigned(Child)) do
+         begin
+            if ((Child^.Value is FPileClass) and (Child^.Value.Position = tpIn)) then
+               PileSize := PileSize + Child^.Value.GetOutsideSizeManifest();
+            Child := Child^.Next;
+         end;
+         if (PileSize >= FSize) then
+         begin
+            OldParent := FParent;
+            FParent.Remove(Self); { have to do this first so that the Surface switches to using itself as an inside }
+            Zero(PileSize);
+            while (Assigned(FChildren)) do
+            begin
+               OldThing := FChildren^.Value;
+               if (OldThing is FPileClass) then
+               begin
+                  { the earth disappears }
+                  OldThing.Position := tpAt
+               end
+               else
+               if (OldThing is TAvatar) then
+               begin
+                  // announce that the player climbs out at the last minute
+                  OldThing.Position := tpOn
+               end
+               else
+               if (OldThing.Position = tpIn) then
+               begin
+                  { make sure we're not burrying too much }
+                  PileSize := PileSize + OldThing.GetOutsideSizeManifest();
+                  if (PileSize > FSize) then
+                     OldThing.Position := tpOn;
+               end;
+               if (OldThing.Position in [tpIn, tpOn]) then
+               begin
+                  OldParent.Add(OldThing, OldThing.Position);
+               end
+               else
+               begin
+                  Remove(OldThing);
+                  OldThing.Destroy();
+               end;
+               Assert((not Assigned(FChildren)) or (FChildren^.Value <> OldThing));
+            end;
+            // announce the hole is filled
+            QueueForDisposal(Self);
+         end;
+      end;
+   end
+   else
    if ((Thing.Position = tpOn) and (Thing.GetOutsideSizeManifest() <= FSize)) then
    begin
       Thing.Position := tpIn;
@@ -822,59 +913,6 @@ begin
       end;
       { else well the hole is full and this is just piling on top of the hole,
         so though we pretend like it's in the hole, it's not like it fell in }
-   end;
-   if ((Thing.Position = tpIn) and (Thing is FPileClass)) then
-   begin
-      // see if there's enough Pile to fill the hole
-      Zero(PileSize);
-      Child := FChildren;
-      while (Assigned(Child)) do
-      begin
-         if ((Child^.Value is FPileClass) and (Child^.Value.Position = tpIn)) then
-            PileSize := PileSize + Child^.Value.GetOutsideSizeManifest();
-         Child := Child^.Next;
-      end;
-      if (PileSize >= FSize) then
-      begin
-         OldParent := FParent;
-         FParent.Remove(Self); { have to do this first so that the Surface switches to using itself as an inside }
-         Zero(PileSize);
-         while (Assigned(FChildren)) do
-         begin
-            OldThing := FChildren^.Value;
-            if (OldThing is FPileClass) then
-            begin
-               { the earth disappears }
-               OldThing.Position := tpAt
-            end
-            else
-            if (OldThing is TAvatar) then
-            begin
-               // announce that the player climbs out at the last minute
-               OldThing.Position := tpOn
-            end
-            else
-            if (OldThing.Position = tpIn) then
-            begin
-               { make sure we're not burrying too much }
-               PileSize := PileSize + OldThing.GetOutsideSizeManifest();
-               if (PileSize > FSize) then
-                  OldThing.Position := tpOn;
-            end;
-            if (OldThing.Position in [tpIn, tpOn]) then
-            begin
-               OldParent.Add(OldThing, OldThing.Position);
-            end
-            else
-            begin
-               Remove(OldThing);
-               OldThing.Destroy();
-            end;
-            Assert((not Assigned(FChildren)) or (FChildren^.Value <> OldThing));
-         end;
-         // announce the hole is filled
-         QueueForDisposal(Self);
-      end;
    end;
 end;
 
@@ -910,6 +948,7 @@ function THole.GetBiggestCoverer: TThing;
 var
    Child: PThingItem;
 begin
+   Assert(not IsOpen());
    Result := nil;
    Child := FChildren;
    while (Assigned(Child)) do
@@ -1036,7 +1075,7 @@ end;
 
 function TPile.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
-   Result := 'Digging through ' + GetDefiniteName(Perspective) + ' to the bottom, you find ' + FParent.GetDefiniteName(Perspective) + '.';
+   Result := 'Digging through ' + GetDefiniteName(Perspective) + ' to the bottom, you find ' + FParent.GetIndefiniteName(Perspective) + '.';
 end;
 
 function TPile.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
