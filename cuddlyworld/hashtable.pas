@@ -31,27 +31,21 @@ type
       procedure Histogram(var F: Text);
    end;
 
+function Integer32toHash32(Key: Cardinal): Cardinal; inline;
+function Integer64toHash32(Key: QWord): Cardinal; inline;
+function PtrUIntHash(Key: PtrUInt): Cardinal; inline;
 function PointerHash(Key: Pointer): Cardinal; inline;
-function IntegerHash(Key: Cardinal): Cardinal; inline;
 
 implementation
 
 uses
    sysutils;
 
-function PointerHash(Key: Pointer): Cardinal;
-begin
-   Assert(SizeOf(Key) = SizeOf(Cardinal));
-   { Not portable. If this will fail, the assert above will too. }
-   Result := IntegerHash(Cardinal(Key));
-end;
-
-function IntegerHash(Key: Cardinal): Cardinal;
+function Integer32toHash32(Key: Cardinal): Cardinal;
 begin
    Assert(SizeOf(Cardinal) * 8 = 32);
-   Result := Cardinal(Key);
+   Result := Key;
    {$IFOPT Q+}
-     {$HINT XXX}
      {$DEFINE overflow_checks_on}
      {$OVERFLOWCHECKS OFF}
    {$ENDIF}
@@ -66,6 +60,51 @@ begin
      {$OVERFLOWCHECKS ON}
      {$UNDEF overflow_checks_on}
    {$ENDIF}
+end;
+
+function Integer64toHash32(Key: QWord): Cardinal;
+begin
+   Assert(SizeOf(QWord) * 8 = 64);
+   {$IFOPT Q+}
+     {$DEFINE overflow_checks_on}
+     {$OVERFLOWCHECKS OFF}
+   {$ENDIF}
+   { Thomas Wang's hash6432shift - http://www.concentric.net/~Ttwang/tech/inthash.htm }
+   Key := (not Key) + (Key shl 18);
+   Key := Key xor (Key shr 31);
+   Key := Key * 21;
+   Key := Key xor (Key shr 11);
+   Key := Key + (Key shl 6);
+   Key := Key xor (Key shr 22);
+   Result := Cardinal(Key);
+   {$IFDEF overflow_checks_on}
+     {$OVERFLOWCHECKS ON}
+     {$UNDEF overflow_checks_on}
+   {$ENDIF}
+end;
+
+function PtrUIntHash(Key: PtrUInt): Cardinal;
+begin
+   {$IFOPT Q-}
+     {$DEFINE overflow_checks_off}
+     {$OVERFLOWCHECKS ON}
+   {$ENDIF}
+   {$IF SizeOf(PtrUInt) = SizeOf(Cardinal) }
+     Result := Integer32toHash32(Key);
+   {$ELSEIF SizeOf(PtrUInt) = SizeOf(QWord) }
+     Result := Integer64toHash32(Key);
+   {$ELSE}
+     {$FATAL No hash function for pointer size on this platform. }
+   {$ENDIF}
+   {$IFDEF overflow_checks_off}
+     {$OVERFLOWCHECKS OFF}
+     {$UNDEF overflow_checks_off}
+   {$ENDIF}
+end;
+
+function PointerHash(Key: Pointer): Cardinal;
+begin
+   Result := PtrUIntHash(PtrUInt(Key));
 end;
 
 constructor THashTable.Create(AHashFunction: THashFunction);

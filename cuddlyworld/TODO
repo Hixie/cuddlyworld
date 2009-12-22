@@ -1,25 +1,22 @@
-X "take macguffin then move me to leaves then drop macguffin" parses as "drop macguffin on ground", not "drop macguffin on leaves"
-X the UI should support hitting the up arrow key to go to previous commands
-X factor out the various places that zero dimension manifests, giving just a Zero() procedure that does it for you
-X should separate "look at" from "examine" and make "examine" a superset of "look in"
-X "move all n; n; dig; move pile into hole" - crash if earth pile moves before leaves pile, since hole disappears before sliding the leaves into it
-X pushing a big pile of earth into a hole should fill the hole - and it should not complain about being too full, it should just fill it
-X filled holes should move their stuff to the ground, tpIn, and inaccessible
-X creating a hole should move the tpIn stuff from the ground into the pile
-X should be able to push big things over holes without picking them up
-X "move leaves into hole" doesn't work
-X should say "There is a hole here, overflowing with..." if hole is overflowing.
-X dug hole should be small enough that the pile of leaves doesn't fall into it
-X should be able to moves the leaves off the hole!
-"move all n; n; dig; put penny in hole; moves leaves on hole; l in hole" - shouldn't say the hole is closed, it should say the hole is covered!
-should make it so that you can't fill an overfull hole - just say that there's no way to push the earth onto the hole in that case
+X switch to using PtrUInt instead of Cardinal for integers that will be cast to pointers
+X "move all n; n; dig; put penny in hole; move leaves on hole; l in hole" - shouldn't say the hole is closed, it should say the hole is covered!
+X "move all n; n; dig; take all; drop balloon in hole; drop all in hole; move earth on hole" - should cover the hole, not fill it
+X "move all n; n; dig; put balloon in hole; drop all on hole; move leaves on hole" says "There is a pile of leaves here. The hole is full to overflowing". Shouldn't tell you what's overflowing if it's covered.
+X "move all n; n; dig; put balloon in hole; move all onto hole" - leaves and earth both cover hole
+
+regression testing framework
+THole.GetDescriptionState should walk the list in reverse order, so the last added thing is on top of the pile
+make it easier to create objects that have multiword names
 tools to shape the world - magic digging wand that doesn't make piles appear
 "move leaves over hole"
 'dig hole' should work
+"move all n; n; dig; put balloon in hole; put penny in hole; put spade in hole; l at hole"
 "move earth, leaves into hole" doesn't work (doesn't understand use of commas)
 "move earth and leaves into hole" doesn't work (treats 'and' as CanEnd() continuation)
 "move leaves out", "move leaves out of hole", "moves leaves up" (when in they're in the hole)
 "move leaves off hole" (when they're on the hole)
+"move leaves over hole"
+"fill hole"
 change the way announcements work so that you instead do Broadcast(@AnnounceShaken, Perspective);
  + then implement shaking
  + then implement dancing

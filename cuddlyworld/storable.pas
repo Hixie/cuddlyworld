@@ -15,11 +15,11 @@ type
    PPendingFixupItem = ^TPendingFixupItem;
    TPendingFixupItem = record
       Destination: PPointer;
-      ObjectID: Cardinal;
+      ObjectID: PtrUInt;
       Next: PPendingFixupItem;
    end;
 
-   TFixupHashTable = specialize THashTable<Cardinal, Pointer>;
+   TFixupHashTable = specialize THashTable<PtrUInt, Pointer>;
 
    TReadStream = class
     protected
@@ -34,6 +34,7 @@ type
       destructor Destroy; override;
       function ReadObject: TStorable;
       function ReadCardinal: Cardinal;
+      function ReadPtrUInt: PtrUInt;
       function ReadAnsiString: AnsiString;
       function ReadReference(Destination: PPointer): Boolean;
       function ReadClass: StorableClass;
@@ -51,6 +52,7 @@ type
       destructor Destroy; override;
       procedure WriteObject(Value: TStorable);
       procedure WriteCardinal(Value: Cardinal);
+      procedure WritePtrUInt(Value: PtrUInt);
       procedure WriteAnsiString(Value: AnsiString);
       procedure WriteReference(Value: Pointer);
       procedure WriteClass(Value: StorableClass);
@@ -88,15 +90,20 @@ const { values with unlikely bit patterns }
    btObject     = $51;
    btObjectData = $52;
    btObjectEnd  = $54;
-   btCardinal   = $61;
+   btCardinal   = $60;
+   btPtrUInt    = $61;
    btAnsiString = $62;
    btReference  = $64;
    btClass      = $68;
 
+const
+   ciNoClass = 0;
+   ciUnregistered = Cardinal(nil);
+
 procedure RegisterStorableClass(AClass: StorableClass; ID: Cardinal);
 begin
-   Assert(ID <> 0, 'Class ID 0 is reserved');
-   Assert(ID <> Cardinal(nil), 'Class ID Cardinal(nil) is reserved');
+   Assert(ID <> ciNoClass, 'Class ID ' + IntToStr(ciNoClass) + ' is reserved');
+   Assert(ID <> ciUnregistered, 'Class ID ' + IntToStr(ciUnregistered) + ' is reserved');
    Assert(not Assigned(ClassKeyToClassHash.Get(ID)), 'Class ID ' + IntToStr(ID) + ' used for both classes ' + AClass.ClassName() + ' and ' + ClassKeyToClassHash.Get(ID).ClassName());
    Assert(ClassToClassKeyHash.Get(AClass) = 0, 'Class ' + AClass.ClassName() + ' registered twice (first time as ID ' + IntToStr(ClassToClassKeyHash.Get(AClass)) + ', second time as ID ' + IntToStr(ID) + ')');
    ClassKeyToClassHash.Add(ID, AClass);
@@ -153,9 +160,11 @@ constructor TReadStream.Create(var AInput: File);
 begin
    inherited Create();
    FInput := AInput;
-   FObjectsRead := TFixupHashTable.Create(@IntegerHash);
+   FObjectsRead := TFixupHashTable.Create(@PtrUIntHash);
    VerifyFieldType(btStream);
    FVersion := ReadCardinal();
+   if (ReadByte() <> SizeOf(PtrUInt)) then
+      raise EStorageError.Create('Stream was written on a platform with a different pointer size.');
 end;
 
 destructor TReadStream.Destroy;
@@ -193,7 +202,7 @@ end;
 function TReadStream.ReadObject: TStorable;
 var
    ClassValue: StorableClass;
-   ObjectID: Cardinal;
+   ObjectID: PtrUInt;
 begin
    VerifyFieldType(btObject);
    ClassValue := ReadClass();
@@ -203,7 +212,7 @@ begin
    end
    else
    begin
-      ObjectID := ReadCardinal();
+      ObjectID := ReadPtrUInt();
       Result := ClassValue.Read(Self);
       {$IFOPT C+} Assert(Result.FDebugCalledInherited); {$ENDIF}
       FObjectsRead.Add(ObjectID, Result);
@@ -214,6 +223,13 @@ end;
 function TReadStream.ReadCardinal: Cardinal;
 begin
    VerifyFieldType(btCardinal);
+   { The following statement is guaranteed to either set Result or throw an exception. }
+   BlockRead(FInput, Result, SizeOf(Result));
+end;
+
+function TReadStream.ReadPtrUInt: PtrUInt;
+begin
+   VerifyFieldType(btPtrUInt);
    { The following statement is guaranteed to either set Result or throw an exception. }
    BlockRead(FInput, Result, SizeOf(Result));
 end;
@@ -238,8 +254,8 @@ var
    ObjectID: Cardinal;
 begin
    VerifyFieldType(btReference);
-   ObjectID := ReadCardinal();
-   Result := ObjectID <> Cardinal(nil);
+   ObjectID := ReadPtrUInt();
+   Result := ObjectID <> PtrUInt(nil);
    if (Result) then
    begin
       New(Item);
@@ -256,7 +272,7 @@ var
 begin
    VerifyFieldType(btClass);
    ClassID := ReadCardinal();
-   if (ClassID <> Cardinal(nil)) then
+   if (ClassID <> ciNoClass) then
    begin
       Assert(Assigned(ClassKeyToClassHash.Get(ClassID)), 'Unknown class ID ' + IntToStr(ClassID));
       Result := ClassKeyToClassHash.Get(ClassID);
@@ -287,6 +303,7 @@ begin
    FOutput := AOutput;
    WriteFieldType(btStream);
    WriteCardinal(Version);
+   WriteByte(SizeOf(PtrUInt));
 end;
 
 destructor TWriteStream.Destroy;
@@ -309,7 +326,6 @@ end;
 procedure TWriteStream.WriteObject(Value: TStorable);
 begin
    WriteFieldType(btObject);
-   Assert(SizeOf(Cardinal) = SizeOf(Value));
    if (not Assigned(Value)) then
    begin
       WriteClass(nil);
@@ -317,8 +333,7 @@ begin
    else
    begin
       WriteClass(StorableClass(Value.ClassType));
-      { Platform-specific; this will succeed so long as the assert above succeeds }
-      WriteCardinal(Cardinal(Value));
+      WritePtrUInt(PtrUInt(Value));
       {$IFOPT C+} Value.FDebugCalledInherited := False; {$ENDIF}
       Value.Write(Self);
       {$IFOPT C+} Assert(Value.FDebugCalledInherited); {$ENDIF}
@@ -332,6 +347,12 @@ begin
    BlockWrite(FOutput, Value, SizeOf(Value));
 end;
 
+procedure TWriteStream.WritePtrUInt(Value: PtrUInt);
+begin
+   WriteFieldType(btPtrUInt);
+   BlockWrite(FOutput, Value, SizeOf(Value));
+end;
+
 procedure TWriteStream.WriteAnsiString(Value: AnsiString);
 begin
    WriteFieldType(btAnsiString);
@@ -342,27 +363,23 @@ end;
 
 procedure TWriteStream.WriteReference(Value: Pointer);
 begin
-   Assert(SizeOf(Cardinal) = SizeOf(Value));
    WriteFieldType(btReference);
-   { Platform-specific; this will succeed so long as the assert above succeeds }
-   WriteCardinal(Cardinal(Value));
+   WritePtrUInt(PtrUInt(Value));
 end;
 
 procedure TWriteStream.WriteClass(Value: StorableClass);
 var
    ClassID: Cardinal;
 begin
-   Assert(SizeOf(Cardinal) = SizeOf(Value));
    WriteFieldType(btClass);
    if (not Assigned(Value)) then
    begin
-      WriteCardinal(Cardinal(nil));
+      WriteCardinal(ciNoClass);
    end
    else
    begin
-      { Platform-specific; this will succeed so long as the assert above succeeds }
       ClassID := ClassToClassKeyHash.Get(StorableClass(Value));
-      Assert(ClassID <> 0, 'Class ' + Value.ClassName() + ' not registered');
+      Assert(ClassID <> ciUnregistered, 'Class ' + Value.ClassName() + ' not registered');
       WriteCardinal(ClassID);
    end;
 end;
@@ -386,15 +403,13 @@ begin
 end;
 
 
-function StorableClassHash(Key: StorableClass): Cardinal;
+function StorableClassHash(Key: StorableClass): Cardinal; inline;
 begin
-   Assert(SizeOf(Key) = SizeOf(Cardinal));
-   { Platform-specific; this will succeed so long as the assert above succeeds }
-   Result := IntegerHash(Cardinal(Key));
+   Result := PointerHash(Pointer(Key));
 end;
 
 initialization
-   ClassKeyToClassHash := TClassKeyToClassHashTable.Create(@IntegerHash);
+   ClassKeyToClassHash := TClassKeyToClassHashTable.Create(@Integer32toHash32);
    ClassToClassKeyHash := TClassToClassKeyHashTable.Create(@StorableClassHash);
 finalization
    ClassKeyToClassHash.Free();

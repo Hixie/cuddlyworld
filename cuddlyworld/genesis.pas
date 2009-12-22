@@ -16,5 +16,5 @@ begin
    finally
       FWorld.Free();
    end;
-   Writeln('CudllyWorld Genesis complete.');
+   Writeln('CuddlyWorld Genesis complete.');
 end.
