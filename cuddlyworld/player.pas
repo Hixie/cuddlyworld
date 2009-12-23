@@ -1303,7 +1303,7 @@ initialization
    {$I-} Append(FailedCommandLog); {$I+}
    if (IOResult = 2) then
      Rewrite(FailedCommandLog);
-   RegisterStorableClass(TPlayer, 2);
+   RegisterStorableClass(TPlayer, 1);
 finalization
    Close(FailedCommandLog);
 end.

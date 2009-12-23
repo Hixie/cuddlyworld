@@ -11,19 +11,52 @@ const
    kWorldFileName = 'world.dat';
    kSaveDataVersion = 1;
 
-procedure InitEden(World: TWorld); { create the initial locations }
+function InitEden: TWorld; { create the initial locations }
 
 implementation
 
 uses
    things;
 
-procedure InitEden(World: TWorld);
+type
+   TCuddlyWorld = class(TWorld)
+    protected
+      FStartingLocation: TLocation;
+      function GetStartingLocation: TLocation; override;
+    public
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      property StartingLocation: TLocation read FStartingLocation write FStartingLocation;
+   end;
+
+function TCuddlyWorld.GetStartingLocation: TLocation;
+begin
+   Assert(Assigned(FStartingLocation));
+   Result := FStartingLocation;
+end;
+
+constructor TCuddlyWorld.Read(Stream: TReadStream);
+begin
+   inherited;
+   Stream.ReadReference(@FStartingLocation);
+end;
+
+procedure TCuddlyWorld.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteReference(FStartingLocation);
+end;
+
+
+function InitEden: TWorld;
 var
+   World: TCuddlyWorld;
    Camp, Cliff: TLocation;
    CampMountain, CampForest: TThing;
    CliffMountain, CliffForest, CliffCamp, CliffCliff: TThing;
 begin
+   World := TCuddlyWorld.Create();
+
    { Locations }
    Camp := TFeaturelessOutdoorLocation.Create('Camp Cuddlyfort', 'Camp Cuddlyfort', 'a camp', 'This is a camp nestled in a forest, under the shadow of a mountain to the north.');
    Cliff := TFeaturelessOutdoorLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff is a sheer rock face, essentially unclimbable. Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.');
@@ -39,6 +72,7 @@ begin
    Camp.ConnectCardinals(Cliff, CampForest, CampForest, CampForest);
    Camp.ConnectDiagonals(CampForest, CampForest, CampForest, CampForest);
    World.AddLocation(Camp);
+   World.StartingLocation := Camp;
 
    { Cliff }
    CliffMountain := TScenery.Create('mountain', 'From here you cannot get a good sense of the size of the mountain. Its cliff face dominates your view.');
@@ -55,6 +89,10 @@ begin
    Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
    Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
    World.AddLocation(Cliff);
+
+   Result := World;
 end;
 
+initialization
+   RegisterStorableClass(TCuddlyWorld, 10);
 end.

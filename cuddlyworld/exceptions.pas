@@ -29,7 +29,7 @@ procedure NotImplemented();
 
 implementation
 
-const
+var
    ReportExceptionMethod: TReportExceptionEvent = nil;
 
 constructor EKernelError.Create(AErrorCode: cint);
