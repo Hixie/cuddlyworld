@@ -1,10 +1,4 @@
-X switch to using PtrUInt instead of Cardinal for integers that will be cast to pointers
-X "move all n; n; dig; put penny in hole; move leaves on hole; l in hole" - shouldn't say the hole is closed, it should say the hole is covered!
-X "move all n; n; dig; take all; drop balloon in hole; drop all in hole; move earth on hole" - should cover the hole, not fill it
-X "move all n; n; dig; put balloon in hole; drop all on hole; move leaves on hole" says "There is a pile of leaves here. The hole is full to overflowing". Shouldn't tell you what's overflowing if it's covered.
-X "move all n; n; dig; put balloon in hole; move all onto hole" - leaves and earth both cover hole
-
-regression testing framework
+X regression testing framework
 THole.GetDescriptionState should walk the list in reverse order, so the last added thing is on top of the pile
 make it easier to create objects that have multiword names
 tools to shape the world - magic digging wand that doesn't make piles appear

@@ -209,6 +209,7 @@ type
       FLocations: PLocationItem;
       FGlobalThings: PThingItem;
       FPlayers: PAvatarItem;
+      function GetStartingLocation: TLocation; virtual; abstract;
     public
       constructor Create();
       destructor Destroy(); override;
@@ -367,7 +368,7 @@ begin
       // tpCarried would be for "jump into player's arms"? :-)
 end;
 
-const
+var
    DisposalQueue: PAtomItem = nil;
 
 procedure QueueForDisposal(Atom: TAtom);
@@ -1660,8 +1661,7 @@ begin
    Item^.Next := FPlayers;
    Item^.Value := Avatar;
    FPlayers := Item;
-   Assert(Assigned(FLocations));
-   FLocations^.Value.GetSurface().Add(Avatar, tpOn);
+   GetStartingLocation().GetSurface().Add(Avatar, tpOn);
 end;
 
 function TWorld.GetPlayer(Name: AnsiString): TAvatar;
@@ -1706,6 +1706,4 @@ begin
    EmptyDisposalQueue();
 end;
 
-initialization
-   RegisterStorableClass(TWorld, 1);
 end.
