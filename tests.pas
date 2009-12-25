@@ -13,6 +13,7 @@ type
       Target: AnsiString;
       AdvanceWhenFound: Boolean;
       SkipUntilFound: Boolean;
+      AlsoCheckNext: Boolean;
    end;
 
    TTestProxy = class
@@ -34,10 +35,12 @@ type
       procedure ExpectSubstring(Message: AnsiString);
       procedure ExpectNoSubstring(Message: AnsiString);
       procedure ExpectDisconnect(Eventually: Boolean);
+      procedure AndAlso();
       procedure StartRecording();
       procedure ExpectRecorded();
       procedure HandleAvatarMessage(Message: AnsiString);
       procedure HandleForceDisconnect();
+      procedure ExpectDone();
       procedure Clear();
       procedure Test(Name: AnsiString);
    end;
@@ -53,6 +56,7 @@ begin
    Assert(Result^.Target = '');
    Assert(Result^.AdvanceWhenFound = False);
    Assert(Result^.SkipUntilFound = False);
+   Assert(Result^.AlsoCheckNext = False);
    Result^.AdvanceWhenFound := True;
 end;
 
@@ -74,44 +78,48 @@ end;
 
 procedure TTestProxy.HandleLine(Message: AnsiString);
 var
-   Found: Boolean;
+   Found, Done: Boolean;
    Error: AnsiString;
 begin
-   HandleAnything('line "' + Message + '"');
-   if (FRecording) then
-      ExpectString(Message);
-   Found := False;
-   case (FExpectations[FPosition].Kind) of
-     ekString: begin
-        if (FExpectations[FPosition].Target = Message) then
-           Found := True
-        else
-           Error := 'expected "' + FExpectations[FPosition].Target + '" but got "' + Message + '"';
-     end;
-     ekSubstring: begin
-        if (Pos(FExpectations[FPosition].Target, Message) > 0) then
-           Found := True
-        else
-           Error := 'expected "' + FExpectations[FPosition].Target + '" substring but got only "' + Message + '"';
-     end;
-     ekNoSubstring: begin
-        if (Pos(FExpectations[FPosition].Target, Message) <= 0) then
-           Found := True
-        else
-           Error := 'expected to not find "' + FExpectations[FPosition].Target + '" substring but got "' + Message + '"';
-     end;
-     ekSkip: Found := True;
-     ekDisconnected: Error := 'expected to be disconnected but got "' + Message + '"';
-     ekRecordingStart: Error := 'expected to start seeing a previously recorded session but got "' + Message + '"';
-     else Error := 'Unknown expectation';
-   end;
-   if (not Found) then
-   begin
-      if (FExpectations[FPosition].SkipUntilFound) then
-         Exit;
-      raise ETestError.Create('Failed in test ' + FTest + ': ' + Error + '.');
-   end;
-   Next();
+   //Writeln('# ' + Message);
+   repeat
+      HandleAnything('line "' + Message + '"');
+      if (FRecording) then
+         ExpectString(Message);
+      Found := False;
+      case (FExpectations[FPosition].Kind) of
+        ekString: begin
+           if (FExpectations[FPosition].Target = Message) then
+              Found := True
+           else
+              Error := 'expected "' + FExpectations[FPosition].Target + '" but got "' + Message + '"';
+        end;
+        ekSubstring: begin
+           if (Pos(FExpectations[FPosition].Target, Message) > 0) then
+              Found := True
+           else
+              Error := 'expected "' + FExpectations[FPosition].Target + '" substring but got only "' + Message + '"';
+        end;
+        ekNoSubstring: begin
+           if (Pos(FExpectations[FPosition].Target, Message) <= 0) then
+              Found := True
+           else
+              Error := 'expected to not find "' + FExpectations[FPosition].Target + '" substring but got "' + Message + '"';
+        end;
+        ekSkip: Found := True;
+        ekDisconnected: Error := 'expected to be disconnected but got "' + Message + '"';
+        ekRecordingStart: Error := 'expected to start seeing a previously recorded session but got "' + Message + '"';
+        else Error := 'Unknown expectation';
+      end;
+      if (not Found) then
+      begin
+         if (FExpectations[FPosition].SkipUntilFound) then
+            Exit;
+         raise ETestError.Create('Failed in test ' + FTest + ': ' + Error + '.');
+      end;
+      Done := not FExpectations[FPosition].AlsoCheckNext;
+      Next();
+   until Done;
 end;
 
 procedure TTestProxy.WaitUntilString(Message: AnsiString);
@@ -179,7 +187,6 @@ begin
    begin
       Kind := ekNoSubstring;
       Target := Message;
-      AdvanceWhenFound := False;
    end;
 end;
 
@@ -191,6 +198,12 @@ begin
       Target := '(disconnected)';
       SkipUntilFound := Eventually;
    end;   
+end;
+
+procedure TTestProxy.AndAlso();
+begin
+   Assert(Length(FExpectations) > 0);
+   FExpectations[Length(FExpectations)-1].AlsoCheckNext := True;
 end;
 
 procedure TTestProxy.StartRecording();
@@ -246,6 +259,12 @@ begin
    Next();
 end;
 
+procedure TTestProxy.ExpectDone();
+begin
+   if (FPosition < Length(FExpectations)) then
+      raise ETestError.Create('Failed in test ' + FTest + ': expected "' + FExpectations[FPosition].Target + '" but got nothing.');
+end;
+
 procedure TTestProxy.Clear();
 begin
    SetLength(FExpectations, 0);
@@ -297,16 +316,32 @@ begin
          Proxy.ExpectString('Taken.');
          Proxy.ExpectString('With much effort, you dig a huge hole.');
          Proxy.ExpectString('');
-         Proxy.ExpectString('(first taking the balloon)');
+         Proxy.ExpectString('Moved into the hole.');
+         Proxy.ExpectString('');
+         Proxy.ExpectSubstring('(first taking the '); Proxy.AndAlso(); Proxy.ExpectSubstring(' penny)');
          Proxy.ExpectString('Taken.');
-         Proxy.ExpectString('Placed in the hole.');
+         Proxy.ExpectString('Dropped on the hole.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Placed on the hole.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Moved onto the hole.');
          Proxy.ExpectString('');
          Proxy.WaitUntilString('');
          Proxy.SkipLine();
          Proxy.ExpectSubstring('On the hole is a pile');
          Proxy.ExpectString('');
-         TestPlayer.Perform('move all n; n; dig; put balloon in hole; move all onto hole; x hole');
+         TestPlayer.Perform('move all n; n; dig; push balloon in hole; drop penny onto hole; move spade on to hole; push macguffin on hole; move pile over hole; x hole');
 
+         // overfill test
+         Proxy.Test('Overfilling');
+         Proxy.WaitUntilString('');
+         Proxy.ExpectSubstring('overflowing');
+         Proxy.AndAlso();
+         Proxy.ExpectNoSubstring('balloon');
+         Proxy.WaitUntilString('');
+         TestPlayer.Perform('move earth, leaves onto ground; x hole');
+
+         Proxy.ExpectDone();
          Writeln('Tests done successfully.');
       except
          on E: ETestError do

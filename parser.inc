@@ -102,6 +102,25 @@
                  (Tokens[CurrentToken] = 'and'));
    end;
 
+   procedure SkipJoin();
+   begin
+      Assert(CanJoin());
+      if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = ',')) then
+         Inc(CurrentToken);
+      if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = 'and')) then
+      begin
+         Inc(CurrentToken);
+         if (CanEnd()) then
+            Fail('And what?');
+      end
+      else
+      begin
+         if (CanEnd()) then
+            Fail('I don''t understand your use of commas.');
+      end;
+      Assert(not CanEnd());
+   end;
+
    function IsQuote(): Boolean;
    begin
       Result := (CurrentToken < Length(Tokens)) and
@@ -355,7 +374,7 @@
       end;
    end;
 
-   { You can assume EnsureNoPunctuation() has been called just before this returns, if it retuns true }
+   { You can assume EnsureNoPunctuation() has been called just before this returns }
    function GetThing(Thing: PThing; VerbString: AnsiString): Boolean;
    var
       FoundDefiniteArticle: Boolean = False;
@@ -446,8 +465,16 @@
       end;
    end;
 
-   { You can assume EnsureNoPunctuation() has been called just before this returns, if it retuns true }
+   { You can assume EnsureNoPunctuation() has been called just before this returns }
    function GetThings(Things: PPThingItem; AllFilter: TAllFilter; AllFail: AnsiString): Boolean;
+
+      function HasJoin(): Boolean; inline;
+      begin
+         Result := CanJoin();
+         if (Result) then
+            SkipJoin(); { CanEnd() will be false after this (else it'll have thrown) }
+      end;
+
    var
       Start: Cardinal;
       TheseThings, LastThing: PThingItem;
@@ -455,43 +482,47 @@
       Assert(not CanEnd());
       Things^ := nil;
       LastThing := nil;
-      repeat
-         Start := CurrentToken;
+      try
          repeat
-            EnsureNoPunctuation();
-            Inc(CurrentToken);
-         until (CanEnd() or CanJoin());
-         TheseThings := GetReferencedThings(Tokens, Start, CurrentToken-Start, AllFilter);
-         while ((not Assigned(TheseThings)) and (CurrentToken-1 > Start)) do
-         begin
-            Dec(CurrentToken);
+            Start := CurrentToken;
+            repeat
+               EnsureNoPunctuation();
+               Inc(CurrentToken);
+            until (CanEnd() or CanJoin());
             TheseThings := GetReferencedThings(Tokens, Start, CurrentToken-Start, AllFilter);
-         end;
-         if (Assigned(TheseThings)) then
-         begin
-            if (Assigned(LastThing)) then
+            while ((not Assigned(TheseThings)) and (CurrentToken-1 > Start)) do
             begin
-               while (Assigned(LastThing^.Next)) do
-                  LastThing := LastThing^.Next;
-               LastThing^.Next := TheseThings;
+               Dec(CurrentToken);
+               TheseThings := GetReferencedThings(Tokens, Start, CurrentToken-Start, AllFilter);
+            end;
+            if (Assigned(TheseThings)) then
+            begin
+               if (Assigned(LastThing)) then
+               begin
+                  while (Assigned(LastThing^.Next)) do
+                     LastThing := LastThing^.Next;
+                  LastThing^.Next := TheseThings;
+               end
+               else
+                  Things^ := TheseThings;
+               LastThing := TheseThings;
             end
             else
-               Things^ := TheseThings;
-            LastThing := TheseThings;
-         end
-         else
-         begin
-            CurrentToken := Start;
-            if (MeansEverything(Tokens[CurrentToken])) then
             begin
-               Fail(AllFail);
+               CurrentToken := Start;
+               if (MeansEverything(Tokens[CurrentToken])) then
+                  Fail(AllFail);
             end;
-         end;
-      until ((not CanJoin()) or (CanEnd()));
-      Result := Assigned(Things^);
+         until not HasJoin();
+         Result := Assigned(Things^);
+      except
+         { in case EnsureNoPunctuation() fails after we've gone through this once, or if it ends after a join, or if we fail due to a hanging 'all' }
+         FreeThingList(Things^);
+         raise;
+      end;
    end;
 
-   { You can assume EnsureNoPunctuation() has been called just before this returns, if it retuns true }
+   { You can assume EnsureNoPunctuation() has been called just before this returns }
    function GetCompoundPrepositionThing(Prepositions: array of AnsiString; VerbString, PrepositionString: AnsiString; Thing: PThing): Boolean;
    var
       Direction: TCardinalDirection;
@@ -605,7 +636,6 @@
          end
          else
          begin
-            EnsureNoPunctuation();
             Fail('I don''t understand how to look "' + Tokens[CurrentToken] + '".');
          end;
       end
@@ -883,7 +913,6 @@
             end
             else
             begin
-               EnsureNoPunctuation();
                Fail('I don''t understand how to ' + Verb + ' things "' + Tokens[CurrentToken] + '".');
             end;
          end
@@ -942,6 +971,7 @@
             end
             else
             if (GetPrepositionThing('onto', 'move things', @Action.MoveTarget) or
+                GetPrepositionThing('over', 'move things', @Action.MoveTarget) or
                 GetCompoundPrepositionThing(['on', 'to'], 'move things', 'onto', @Action.MoveTarget) or
                 GetCompoundPrepositionThing(['on'], 'move things', 'onto', @Action.MoveTarget)) then
             begin
@@ -979,6 +1009,55 @@
                   Fail('I don''t understand how to move things to other things "' + Tokens[CurrentToken] + '".');
             end
             else
+            if (Tokens[CurrentToken] = 'out') then
+            begin
+               Inc(CurrentToken);
+               Assert(@Action.MoveSubject = @Action.RemoveSubject);
+               Action.Verb := avRemove;
+               Action.RemoveFromPosition := tpIn;
+               Action.RemoveFromObject := nil;
+               if (not CanEnd()) then
+               begin
+                  if (Tokens[CurrentToken] = 'of') then
+                  begin
+                     Inc(CurrentToken);
+                     if (CanEnd()) then
+                        Fail('What do you want to move things out of?');
+                     if (not GetThing(@Action.RemoveFromObject, 'move things out of')) then
+                        Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+                     if (not CanEnd()) then
+                        Fail('I don''t understand how to move things out of things "' + Tokens[CurrentToken] + '".');
+                  end
+                  else
+                  begin
+                     EnsureNoPunctuation();
+                     Fail('I don''t understand how to move things out "' + Tokens[CurrentToken] + '".');
+                  end;
+               end;
+            end
+            else
+            if (Tokens[CurrentToken] = 'off') then
+            begin
+               Inc(CurrentToken);
+               Assert(@Action.MoveSubject = @Action.RemoveSubject);
+               Action.Verb := avRemove;
+               Action.RemoveFromPosition := tpOn;
+               Action.RemoveFromObject := nil;
+               if (not CanEnd()) then
+               begin
+                  if (Tokens[CurrentToken] = 'of') then
+                  begin
+                     Inc(CurrentToken);
+                     if (CanEnd()) then
+                        Fail('What do you want to move things off?');
+                  end;
+                  if (not GetThing(@Action.RemoveFromObject, 'move things off')) then
+                     Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+                  if (not CanEnd()) then
+                     Fail('I don''t understand how to move things off things "' + Tokens[CurrentToken] + '".');
+               end;
+            end
+            else
             if (TryDirection(@Action.PushDirection, []) or
                 TryPrepositionDirection('to', @Action.PushDirection) or
                 TryPrepositionDirection('towards', @Action.PushDirection)) then
@@ -993,7 +1072,6 @@
             end
             else
             begin
-               EnsureNoPunctuation();
                Fail('I don''t understand how to move things "' + Tokens[CurrentToken] + '".');
             end;
          end
@@ -1301,6 +1379,4 @@
          Fail('I don''t understand how to "' + Tokens[CurrentToken] + '".');
    end;
 
-{
-   climb onto foo; avClimbOn
-}
+//  climb onto foo; avClimbOn

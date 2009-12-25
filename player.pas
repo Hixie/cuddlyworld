@@ -33,6 +33,7 @@ type
       procedure DoPut(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
       procedure DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
       procedure DoPush(Subject: PThingItem; Direction: TCardinalDirection);
+      procedure DoRemove(Subject: PThingItem; RequiredPosition: TThingPosition; RequiredParent: TThing);
       procedure DoPress(Subject: PThingItem);
       procedure DoShake(Subject: PThingItem);
       procedure DoDig(Target: TThing; Spade: TThing);
@@ -91,7 +92,7 @@ type
    TActionVerb = (avNone,
                   avLook, avLookDirectional, avLookAt, avExamine, avLookUnder, avLookIn, avInventory, avFind,
                   avGo, avEnter, avClimbOn,
-                  avTake, avPut, avMove, avPush, avPress, avShake, avDig, avDigDirection,
+                  avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection,
                   avTalk, avDance,
                   avHelp);
 
@@ -118,6 +119,7 @@ type
       avPut: (PutSubject: PThingItem; PutTarget: TAtom; PutPosition: TThingPosition; PutCarefully: Boolean);
       avMove: (MoveSubject: PThingItem; MoveTarget: TAtom; MovePosition: TThingPosition);
       avPush: (PushSubject: PThingItem; PushDirection: TCardinalDirection);
+      avRemove: (RemoveSubject: PThingItem; RemoveFromPosition: TThingPosition; RemoveFromObject: TThing);
       avPress: (PressSubject: PThingItem);
       avShake: (ShakeSubject: PThingItem);
       avDig {and avDigDirection}: (DigSpade: TThing; case TActionVerb of avDig: (DigTarget: TThing); avDigDirection: (DigDirection: TCardinalDirection));
@@ -203,6 +205,7 @@ var
        avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCarefully);
        avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MovePosition);
        avPush: DoPush(Action.PushSubject, Action.PushDirection);
+       avRemove: DoRemove(Action.RemoveSubject, Action.RemoveFromPosition, Action.RemoveFromObject);
        avPress: DoPress(Action.PressSubject);
        avShake: DoShake(Action.ShakeSubject);
        avDig: DoDig(Action.DigTarget, Action.DigSpade);
@@ -237,6 +240,7 @@ begin
              avPut: FreeThingList(Action.PutSubject);
              avMove: FreeThingList(Action.MoveSubject);
              avPush: FreeThingList(Action.PushSubject);
+             avRemove: FreeThingList(Action.RemoveSubject);
              avPress: FreeThingList(Action.PressSubject);
              avShake: FreeThingList(Action.ShakeSubject);
              avTalk: Dispose(Action.TalkMessage);
@@ -361,13 +365,11 @@ end;
 function TPlayer.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
 begin
    if (Perspective = Self) then
-   begin
-      Result := Word = 'me';
-   end
+      Result := Word = 'me'
    else
-   begin
-      Result := (Word = 'them') or (Word = 'player') or (Word = 'other') or (Word = LowerCase(FName));
-   end;
+      Result := (Word = 'them') or (Word = 'player') or (Word = 'other');
+   if (not Result) then
+      Result := inherited;
 end;
 
 function TPlayer.IsPlural(Perspective: TAvatar): Boolean;
@@ -965,6 +967,128 @@ begin
             else
             begin
                AvatarMessage(Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
+            end;
+         end;
+         Subject := Subject^.Next;
+      end;
+   finally
+      if (Multiple) then
+         ResetContext();
+   end;
+end;
+
+procedure TPlayer.DoRemove(Subject: PThingItem; RequiredPosition: TThingPosition; RequiredParent: TThing);
+var
+   Multiple, Denied, Success: Boolean;
+   Destination, Ancestor: TAtom;
+   DestinationPosition: TThingPosition;
+   SingleThingItem: PThingItem;
+   Message: AnsiString;
+begin
+   Assert(Assigned(Subject));
+   Assert((RequiredPosition = tpOn) or (RequiredPosition = tpIn));
+   Multiple := Assigned(Subject^.Next);
+   try
+      while (Assigned(Subject)) do
+      begin
+         if (Multiple) then
+            SetContext(Capitalise(Subject^.Value.GetName(Self)));
+         Assert(Assigned(Subject^.Value.Parent));
+         Denied := True;
+         Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' immovable.';
+         if (not Referenceable(Subject^.Value)) then
+         begin
+            Message := 'You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.';
+         end
+         else
+         if (Assigned(RequiredParent) and not Referenceable(RequiredParent)) then
+         begin
+            Message := 'You can''t see ' + RequiredParent.GetDefiniteName(Self) + ' anymore.';
+         end
+         else
+         if (Subject^.Value = Self) then
+         begin
+            Message := 'You can''t just remove yourself from somewhere... where do you want to go instead?';
+         end
+         else
+         begin
+            if (Assigned(RequiredParent)) then
+            begin
+               if ((Subject^.Value.Parent <> RequiredParent) or (Subject^.Value.Position <> RequiredPosition)) then
+                  Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' ' + RequiredParent.GetDefiniteName(Self) + ', ' + Subject^.Value.GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + '.'
+               else
+                  Denied := False;
+            end
+            else
+            begin
+               if (Subject^.Value.Position <> RequiredPosition) then
+               begin
+                  Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' anything, ' + Subject^.Value.GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + '.';
+               end
+               else
+               begin
+                  if (RequiredPosition = tpIn) then
+                  begin
+                     AutoDisambiguated('out of ' + Subject^.Value.Parent.GetDefiniteName(Self));
+                  end
+                  else
+                  begin
+                     Assert(RequiredPosition = tpOn);
+                     AutoDisambiguated('off ' + Subject^.Value.Parent.GetDefiniteName(Self));
+                  end;
+                  Denied := False;
+               end;
+            end;
+            Denied := (not Subject^.Value.CanMove(Self, Message)) or (not CanPush(Subject^.Value, Message)) or Denied;
+         end;
+         if (Denied) then
+         begin
+            AvatarMessage(Message);
+         end
+         else
+         begin
+            if ((not (Subject^.Value.Parent is TThing)) or
+                (not Assigned((Subject^.Value.Parent as TThing).Parent)) or
+                ((Subject^.Value.Parent as TThing).Position <> tpIn) and ((Subject^.Value.Parent as TThing).Parent.GetSurface() = Subject^.Value.Parent)) then
+            begin
+               AutoDisambiguated('by taking ' + Subject^.Value.GetDefiniteName(Self));
+               New(SingleThingItem);
+               try
+                  SingleThingItem^.Next := nil;
+                  SingleThingItem^.Value := Subject^.Value;
+                  DoTake(SingleThingItem);
+               finally
+                  Dispose(SingleThingItem);
+               end;
+            end
+            else
+            begin
+               Ancestor := Self.FParent;
+               while ((Ancestor is TThing) and (Ancestor <> Subject^.Value)) do
+                  Ancestor := (Ancestor as TThing).Parent;
+               if (Ancestor = Subject^.Value) then
+               begin
+                  { we're (possibly indirectly) standing on it }
+                  AvatarMessage('Given your current position, that would be quite difficult.');
+               end
+               else
+               begin
+                  DestinationPosition := (Subject^.Value.Parent as TThing).Position;
+                  if (DestinationPosition = tpIn) then
+                  begin
+                     Destination := (Subject^.Value.Parent as TThing).Parent;
+                  end
+                  else
+                  begin
+                     Destination := (Subject^.Value.Parent as TThing).Parent.GetSurface();
+                     DestinationPosition := tpOn;
+                  end;
+                  Message := 'Moved ' + ThingPositionToDirectionString(DestinationPosition) + ' ' + Destination.GetDefiniteName(Self) + '.';
+                  Success := Destination.CanPut(Subject^.Value, DestinationPosition, Self, Message);
+                  AvatarMessage(Message);
+                  if (Success) then
+                     Destination.Add(Subject^.Value, DestinationPosition, True, Self);
+               end;
             end;
          end;
          Subject := Subject^.Next;

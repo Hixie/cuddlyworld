@@ -1,15 +1,9 @@
-X regression testing framework
-THole.GetDescriptionState should walk the list in reverse order, so the last added thing is on top of the pile
-make it easier to create objects that have multiword names
-tools to shape the world - magic digging wand that doesn't make piles appear
-"move leaves over hole"
+X "move leaves out", "move leaves out of hole", "move leaves off", "move leaves off hole", "move leaves off of hole"
+o "move all n; n; dig; move me, penny into hole; move penny out"
+
+"take all and then drop all in hole" - crash!
+"take all and drop all in hole" - "I don't understand how to take things "drop"."? eh?
 'dig hole' should work
-"move all n; n; dig; put balloon in hole; put penny in hole; put spade in hole; l at hole"
-"move earth, leaves into hole" doesn't work (doesn't understand use of commas)
-"move earth and leaves into hole" doesn't work (treats 'and' as CanEnd() continuation)
-"move leaves out", "move leaves out of hole", "moves leaves up" (when in they're in the hole)
-"move leaves off hole" (when they're on the hole)
-"move leaves over hole"
 "fill hole"
 change the way announcements work so that you instead do Broadcast(@AnnounceShaken, Perspective);
  + then implement shaking
@@ -26,6 +20,7 @@ exit things by name
  - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
  - "get out of pile": That's a direction, I don't know how to take it.
 "The player arrives from the hut." when another player is seen exiting the hut: would be better if it said "The player leaves the hut"?
+tools to shape the world - magic digging wand that doesn't make piles appear
 it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
 "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
 "climb cliff": I don't understand how to "climb".
@@ -36,10 +31,11 @@ change use of FParent to just be Parent when referring to another thing's parent
 refactor TPlayer.Move()
 throwing - "throw MacGuffin north": I don't understand how to "throw".
 "Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
-"take all from pile", "take all in pile" should work
+"take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers
 "drop all but spade and sword" should work
 "move leaves through door", "push pile through door"
 "move to north", "move to hut"
+"move off", "move off pile", "move me off pile" when standing on the pile of leaves
 announce when a player disconnects or reconnects
 If you send too much data at once, the socket's write buffer is filled, which causes the socket to have an exception (ETryAgain), which causes the game to abort.
 Sometimes the server just dies silently (killed by the kernel?).
@@ -60,7 +56,6 @@ Looking should check for illumination by walking all the objects (FUp-not-in-FCh
 - also check for FChildren that block Visibility from Perspective to Subject (e.g. smoke, fog)
 well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
 move build.sh options to a configuration file
-make build.sh filter out useless warnings
 TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
 food:
  + "go eat": I don't understand how to go "eat".
