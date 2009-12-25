@@ -8,27 +8,27 @@ uses
    storable, world, thingdim, grammarian;
 
 type
-   TMultinameThing = class(TThing)
+   TSynonymThing = class(TThing)
     protected
-      FNames: array of AnsiString;
+      FSynonyms: array of AnsiString;
       function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
     public
       constructor Create(AName: AnsiString);
-      constructor Create(ANames: array of AnsiString);
+      constructor Create(ASynonyms: array of AnsiString); { first synonym is the name, and can have spaces; the rest must not have spaces }
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): AnsiString; override;
    end;
 
-   TStaticThing = class(TMultinameThing)
+   TStaticThing = class(TSynonymThing)
     protected
       FDescription: AnsiString;
       FMass: TThingMass;
       FSize: TThingSize;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
-      constructor Create(ANames: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -44,8 +44,8 @@ type
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString);
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
-      constructor Create(ANames: array of AnsiString; ADescription: AnsiString);
-      constructor Create(ANames: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
+      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
@@ -60,7 +60,7 @@ type
       FDestination: TLocation;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
-      constructor Create(ANames: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
+      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
@@ -74,7 +74,7 @@ type
       FHole: THole;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString);
-      constructor Create(ANames: array of AnsiString; ADescription: AnsiString);
+      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
@@ -91,13 +91,13 @@ type
       procedure Removed(Thing: TThing); override;
    end;
 
-   TDistantScenery = class(TMultinameThing)
+   TDistantScenery = class(TSynonymThing)
     protected
       FDirection: TCardinalDirection;
       function FarAway(Perspective: TAvatar): AnsiString; virtual;
     public
       constructor Create(AName: AnsiString; ADirection: TCardinalDirection);
-      constructor Create(ANames: array of AnsiString; ADirection: TCardinalDirection);
+      constructor Create(ASynonyms: array of AnsiString; ADirection: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
@@ -190,65 +190,66 @@ implementation
 uses
    sysutils;
 
-constructor TMultinameThing.Create(AName: AnsiString);
+constructor TSynonymThing.Create(AName: AnsiString);
 begin
    Create([AName]);
 end;
 
-constructor TMultinameThing.Create(ANames: array of AnsiString);
+constructor TSynonymThing.Create(ASynonyms: array of AnsiString);
 var
    Index: Cardinal;
 begin
    inherited Create();
-   Assert(Length(ANames) > 0);
-   SetLength(FNames, Length(ANames));
-   for Index := 0 to Length(ANames)-1 do
-      FNames[Index] := ANames[Index];
+   Assert(Length(ASynonyms) > 0);
+   SetLength(FSynonyms, Length(ASynonyms));
+   for Index := 0 to Length(ASynonyms)-1 do
+      FSynonyms[Index] := ASynonyms[Index];
 end;
 
-destructor TMultinameThing.Destroy();
+destructor TSynonymThing.Destroy();
 begin
    inherited;
 end;
 
-constructor TMultinameThing.Read(Stream: TReadStream);
+constructor TSynonymThing.Read(Stream: TReadStream);
 var
    Index: Cardinal;
 begin
    inherited;
-   SetLength(FNames, Stream.ReadCardinal());
-   for Index := 0 to Length(FNames)-1 do
-      FNames[Index] := Stream.ReadAnsiString();
+   SetLength(FSynonyms, Stream.ReadCardinal());
+   for Index := 0 to Length(FSynonyms)-1 do
+      FSynonyms[Index] := Stream.ReadAnsiString();
 end;
 
-procedure TMultinameThing.Write(Stream: TWriteStream);
+procedure TSynonymThing.Write(Stream: TWriteStream);
 var
    Index: Cardinal;
 begin
    inherited;
-   Stream.WriteCardinal(Length(FNames));
-   for Index := 0 to Length(FNames)-1 do
-      Stream.WriteAnsiString(FNames[Index]);
+   Stream.WriteCardinal(Length(FSynonyms));
+   for Index := 0 to Length(FSynonyms)-1 do
+      Stream.WriteAnsiString(FSynonyms[Index]);
 end;
 
-function TMultinameThing.GetName(Perspective: TAvatar): AnsiString;
+function TSynonymThing.GetName(Perspective: TAvatar): AnsiString;
 begin
-   Result := FNames[0];
+   Result := FSynonyms[0];
 end;
 
-function TMultinameThing.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
+function TSynonymThing.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
 var
    Index: Cardinal;
 begin
-   for Index := 0 to Length(FNames)-1 do
+   for Index := 1 to Length(FSynonyms)-1 do
    begin
-      if (Word = LowerCase(FNames[Index])) then
+      Assert(Pos(' ', FSynonyms[Index]) <= 0);
+      if (Word = LowerCase(FSynonyms[Index])) then
       begin
          Result := True;
          Exit;
       end;
    end;
-   Result := False;
+   Result := inherited;
 end;
 
 
@@ -257,9 +258,9 @@ begin
    Create([AName], ADescription, AMass, ASize);
 end;
 
-constructor TStaticThing.Create(ANames: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+constructor TStaticThing.Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
 begin
-   inherited Create(ANames);
+   inherited Create(ASynonyms);
    FDescription := ADescription;
    FMass := AMass;
    FSize := ASize;
@@ -312,14 +313,14 @@ begin
    inherited Create([AName], ADescription, AMass, ASize);
 end;
 
-constructor TScenery.Create(ANames: array of AnsiString; ADescription: AnsiString);
+constructor TScenery.Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
 begin
-   inherited Create(ANames, ADescription, tmLudicrous, tsLudicrous);
+   inherited Create(ASynonyms, ADescription, tmLudicrous, tsLudicrous);
 end;
 
-constructor TScenery.Create(ANames: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+constructor TScenery.Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
 begin
-   inherited Create(ANames, ADescription, AMass, ASize);
+   inherited Create(ASynonyms, ADescription, AMass, ASize);
 end;
 
 constructor TScenery.Read(Stream: TReadStream);
@@ -369,9 +370,9 @@ begin
    Create([AName], ADescription, AMass, ASize, ADestination);
 end;
 
-constructor TInternalLocationProxy.Create(ANames: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
+constructor TInternalLocationProxy.Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
 begin
-   inherited Create(ANames, ADescription, AMass, ASize);
+   inherited Create(ASynonyms, ADescription, AMass, ASize);
    FDestination := ADestination;
 end;
 
@@ -409,9 +410,9 @@ begin
    inherited Create([AName], ADescription, tmLudicrous, tsLudicrous);
 end;
 
-constructor TSurface.Create(ANames: array of AnsiString; ADescription: AnsiString);
+constructor TSurface.Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
 begin
-   inherited Create(ANames, ADescription, tmLudicrous, tsLudicrous);
+   inherited Create(ASynonyms, ADescription, tmLudicrous, tsLudicrous);
 end;
 
 constructor TSurface.Read(Stream: TReadStream);
@@ -484,7 +485,7 @@ end;
 
 function TSurface.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
 const
-   Size = tsMassive;
+   Size = tsGigantic;
 var
    Pile: TPile;
    Child: PThingItem;
@@ -558,9 +559,9 @@ begin
    Create([AName], ADirection);
 end;
 
-constructor TDistantScenery.Create(ANames: array of AnsiString; ADirection: TCardinalDirection);
+constructor TDistantScenery.Create(ASynonyms: array of AnsiString; ADirection: TCardinalDirection);
 begin
-   inherited Create(ANames);
+   inherited Create(ASynonyms);
    FDirection := ADirection;
 end;
 
@@ -699,7 +700,7 @@ end;
 
 function THole.GetDescriptionState(Perspective: TAvatar): AnsiString;
 var
-   Child: PThingItem;
+   Child, Previous, Next: PThingItem;
    ContentsSize: TThingSizeManifest;
    Count: Cardinal;
    Plural: Boolean;
@@ -708,43 +709,68 @@ begin
    Result := '';
    if (IsOpen()) then
    begin
-      Count := 0;
-      Result1 := '';
-      Result2 := '';
-      Result3 := '';
-      Plural := False;
-      Zero(ContentsSize);
-      Child := FChildren;
-      while (Assigned(Child)) do
+      { Reverse the child list so that the next algorithm can skip the earliest-added things (which are usually at the end of the list) }
+      Next := FChildren;
+      FChildren := nil;
+      while (Assigned(Next)) do
       begin
-         if (Child^.Value.Position = tpIn) then
-         begin
-            ContentsSize := ContentsSize + Child^.Value.GetOutsideSizeManifest();
-            if (ContentsSize > FSize) then
-            begin
-               Count := Count + 1;
-               case Count of
-                 1: Result1 := Child^.Value.GetIndefiniteName(Perspective);
-                 2: Result2 := Child^.Value.GetIndefiniteName(Perspective);
-                 3: Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ';
-                else
-                   Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ' + Result3;
-               end;
-               Plural := Plural or (Count > 1) or Child^.Value.IsPlural(Perspective);
-            end;
-         end;
-         Child := Child^.Next;
+         Previous := FChildren;
+         FChildren := Next;
+         Next := FChildren^.Next;
+         FChildren^.Next := Previous;
       end;
-      if (Count > 0) then
-      begin
-         Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', Plural) + ' ';
-         case Count of
-           1: Result := Result + Result1;
-           2: Result := Result + Result2 + ' and ' + Result1;
-          else
-             Result := Result + Result3 + Result2 + ', and ' + Result1;
+      try
+         Count := 0;
+         Result1 := '';
+         Result2 := '';
+         Result3 := '';
+         Plural := False;
+         Zero(ContentsSize);
+         Child := FChildren;
+         while (Assigned(Child)) do
+         begin
+            if (Child^.Value.Position = tpIn) then
+            begin
+               ContentsSize := ContentsSize + Child^.Value.GetOutsideSizeManifest();
+               if (ContentsSize > FSize) then
+               begin
+                  Count := Count + 1;
+                  case Count of
+                    1: Result1 := Child^.Value.GetIndefiniteName(Perspective);
+                    2: Result2 := Child^.Value.GetIndefiniteName(Perspective);
+                    3: Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ';
+                   else
+                      Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ' + Result3;
+                  end;
+                  Plural := (Count > 1) or Child^.Value.IsPlural(Perspective);
+               end;
+            end;
+            Child := Child^.Next;
          end;
-         Result := Result + '.';
+         if (Count > 0) then
+         begin
+            Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', Plural) + ' ';
+            case Count of
+              1: Result := Result + Result1;
+              2: Result := Result + Result2 + ' and ' + Result1;
+             else
+                Result := Result + Result3 + Result2 + ', and ' + Result1;
+            end;
+            Result := Result + '.';
+         end;
+      finally
+         { Put the list back in the original order }
+         { We don't do this at the same time as the above algorithm so that exceptions don't leave the list in an unstable order }
+         { (the reversal itself is exception-safe) }
+         Next := FChildren;
+         FChildren := nil;
+         while (Assigned(Next)) do
+         begin
+            Previous := FChildren;
+            FChildren := Next;
+            Next := FChildren^.Next;
+            FChildren^.Next := Previous;
+         end;
       end;
    end;
 end;

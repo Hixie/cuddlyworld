@@ -85,7 +85,7 @@ begin
    CliffCamp := TDistantScenery.Create('camp', cdSouth);
    Cliff.Add(CliffCamp, tpAroundImplicit);
    Cliff.GetSurface().Add(TSpade.Create(), tpOn);
-   Cliff.GetSurface().Add(TStaticThing.Create('balloon', 'The balloon is as high as you are. It is coloured red.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['gigantic balloon', 'huge', 'massive'], 'The balloon is as high as a house! It is coloured red.', tmLight, tsGigantic), tpOn);
    Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
    Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
    World.AddLocation(Cliff);

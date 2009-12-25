@@ -49,7 +49,7 @@ type
     private
       procedure Empty();
     protected
-      FChildren: PThingItem;
+      FChildren: PThingItem; { Ordered - most recently added first }
       procedure Removed(Thing: TThing); virtual;
       function AreChildrenExplicitlyReferenceable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean; virtual; { "take camp" }
       function AreChildrenImplicitlyReferenceable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean; virtual; { "take all" }
@@ -409,16 +409,19 @@ end;
 constructor TAtom.Read(Stream: TReadStream);
 var
    Child: TThing;
-   Item: PThingItem;
+   Last: PPThingItem;
+   Current: PThingItem;
 begin
    inherited;
+   Last := @FChildren;
    Child := Stream.ReadObject() as TThing;
    while (Assigned(Child)) do
    begin
-      New(Item);
-      Item^.Value := Child;
-      Item^.Next := FChildren;
-      FChildren := Item;
+      New(Current);
+      Current^.Value := Child;
+      Current^.Next := nil;
+      Last^ := Current;
+      Last := @Current^.Next;
       Child := Stream.ReadObject() as TThing;
    end;
 end;
@@ -1269,9 +1272,28 @@ begin
 end;
 
 function TThing.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
+var
+   A, B: Cardinal;
+   Name: AnsiString;
 begin
-   Assert(Pos(' ', GetName(Perspective)) = 0);
-   Result := Word = LowerCase(GetName(Perspective));
+   Name := LowerCase(GetName(Perspective));
+   Assert(Name[1] <> ' ');
+   Assert(Name[Length(Name)] <> ' ');
+   A := 1;
+   for B := 1 to Length(Name) do
+   begin
+      if (Name[B] = ' ') then
+      begin
+         if (Name[A..B-1] = Word) then
+         begin
+            Result := True;
+            Exit;
+         end;
+         A := B+1;
+      end;
+   end;
+   Assert(A <= Length(Name));
+   Result := Name[A..Length(Name)] = Word;
 end;
 
 procedure TThing.Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar);
