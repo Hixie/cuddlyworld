@@ -140,7 +140,7 @@ type
       function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      procedure HandleAdd(Thing: TThing); override;
+      procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function IsOpen(): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetBiggestCoverer: TThing;
@@ -188,7 +188,7 @@ type
 implementation
 
 uses
-   sysutils;
+   sysutils, broadcast;
 
 constructor TSynonymThing.Create(AName: AnsiString);
 begin
@@ -683,9 +683,17 @@ begin
    begin
       if (Child^.Value.Position = tpOn) then
       begin
-         if (Length(Result) > 0) then
-            Result := Result + ' ';
-         Result := Result + Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere);
+         if (Mode = psTheThingIsOnThatThing) then
+         begin
+            Result := Result + 'There ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child^.Value.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
+            Exit;
+         end
+         else
+         begin
+            if (Length(Result) > 0) then
+               Result := Result + ' ';
+            Result := Result + Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere);
+         end;
       end;
       Child := Child^.Next;
    end;
@@ -808,7 +816,7 @@ end;
 
 function THole.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
 begin
-   Result := (GetInsideSizeManifest() + Manifest) <= FSize;
+   Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
 
 function THole.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -859,7 +867,7 @@ begin
    end;
 end;
 
-procedure THole.HandleAdd(Thing: TThing);
+procedure THole.HandleAdd(Thing: TThing; Blame: TAvatar);
 var
    Child: PThingItem;
    PileSize: TThingSizeManifest;
@@ -888,27 +896,26 @@ begin
          end;
          if (PileSize >= FSize) then
          begin
+            // { Check all descendants for TAvatars, to avoid burying them }
+            // DoNavigation(Self, FParent.GetDefaultAtom(), cdOut, Avatar);
+            { Fill hole and bury treasure }
+            DoBroadcast([Target(FParent)], nil, [C(M(@Blame.GetDefiniteName)), SP, MP(Blame, M('fills'), M('fill')), SP, M(@GetDefiniteName), M(' with '), M(@Thing.GetDefiniteName), M('.')]);
             OldParent := FParent;
             FParent.Remove(Self); { have to do this first so that the Surface switches to using itself as an inside }
             Zero(PileSize);
             while (Assigned(FChildren)) do
             begin
                OldThing := FChildren^.Value;
+               Assert(not (OldThing is TAvatar));
                if (OldThing is FPileClass) then
                begin
                   { the earth disappears }
                   OldThing.Position := tpAt
                end
                else
-               if (OldThing is TAvatar) then
-               begin
-                  // announce that the player climbs out at the last minute
-                  OldThing.Position := tpOn
-               end
-               else
                if (OldThing.Position = tpIn) then
                begin
-                  { make sure we're not burrying too much }
+                  { make sure we're not burrying too much (currently this won't trigger, since you can't fill an overfilled hole) }
                   PileSize := PileSize + OldThing.GetOutsideSizeManifest();
                   if (PileSize > FSize) then
                      OldThing.Position := tpOn;
@@ -930,16 +937,14 @@ begin
       end;
    end
    else
-   if ((Thing.Position = tpOn) and (Thing.GetOutsideSizeManifest() <= FSize)) then
+   if ((Thing.Position = tpOn) and (Thing.GetOutsideSizeManifest() < FSize)) then
    begin
       Thing.Position := tpIn;
       if (GetInsideSizeManifest() < FSize) then
-      begin
-         // announce that it dropped into the hole
-      end;
+         DoBroadcast(Target(Self), nil, [C(M(@Thing.GetDefiniteName)), SP, MP(Self, M('falls'), M('fall')), M(' into '), M(@GetDefiniteName), M('.')]);
       { else well the hole is full and this is just piling on top of the hole,
         so though we pretend like it's in the hole, it's not like it fell in }
-   end;
+   end; { else it covers the hole }
 end;
 
 function THole.IsOpen(): Boolean;
