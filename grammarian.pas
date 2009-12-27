@@ -19,8 +19,10 @@ type
 
 const
    tpEverything = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpAt, tpOn, tpIn, tpCarried];
+   { Implicit vs Explicit }
    tpImplicit = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit];
-   tpExplicit = [tpAt, tpOn, tpIn, tpCarried];
+   tpExplicit = tpEverything - tpImplicit;
+   { Scenery vs Contained vs tpOn }
    tpScenery = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpAt];
    tpContained = [tpIn, tpCarried];
 

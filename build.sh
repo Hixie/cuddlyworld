@@ -2,6 +2,7 @@
 # ~/bin/fpc/bin/fpc test.pas && ./test
 
 # DEBUGGING
+# -B to rebuild
 ~/bin/fpc/bin/fpc cuddlyworld.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gc -gh -Sa -veiwnhb -FE../bin/ 2>&1 | ./filter.pl &&
 echo &&
 echo &&

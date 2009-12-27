@@ -61,7 +61,7 @@ end.
 
 {$IF PART=INTERFACE}
 
-procedure Zero(var A: TThingDimensionManifest); inline;
+procedure Zero(out A: TThingDimensionManifest); inline;
 operator := (const A: TThingDimension): TThingDimensionManifest; inline;
 operator + (const A, B: TThingDimensionManifest): TThingDimensionManifest; inline;
 operator + (const A: TThingDimensionManifest; const B: TThingDimension): TThingDimensionManifest; inline;
@@ -84,7 +84,7 @@ begin
 end;
 {$ENDIF}
 
-procedure Zero(var A: TThingDimensionManifest);
+procedure Zero(out A: TThingDimensionManifest);
 var
    Index: TThingDimension;
 begin

@@ -89,7 +89,7 @@
                 (Tokens[CurrentToken] = 'then') or
                 (Tokens[CurrentToken] = 'and') or
                 (Tokens[CurrentToken] = ';') or
-                ((CurrentToken+1 < Length(Tokens)) and { * }
+                ((CurrentToken+1 < Length(Tokens)) and
                  (Tokens[CurrentToken] = ',') and
                  ((Tokens[CurrentToken+1] = 'then') or
                   (Tokens[CurrentToken+1] = 'and')));
@@ -100,25 +100,6 @@
       Result := (CurrentToken < Length(Tokens)) and
                 ((Tokens[CurrentToken] = ',') or
                  (Tokens[CurrentToken] = 'and'));
-   end;
-
-   procedure SkipJoin();
-   begin
-      Assert(CanJoin());
-      if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = ',')) then
-         Inc(CurrentToken);
-      if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = 'and')) then
-      begin
-         Inc(CurrentToken);
-         if (CanEnd()) then
-            Fail('And what?');
-      end
-      else
-      begin
-         if (CanEnd()) then
-            Fail('I don''t understand your use of commas.');
-      end;
-      Assert(not CanEnd());
    end;
 
    function IsQuote(): Boolean;
@@ -158,86 +139,33 @@
       Assert(CanEnd());
       if (CurrentToken < Length(Tokens)) then
       begin
-         if (Tokens[CurrentToken] = 'then') then
-         begin
-            Inc(CurrentToken);
-            SkipComma();
-            if (CurrentToken >= Length(Tokens)) then
-               Fail('Then what?');
-         end
-         else
-         if (Tokens[CurrentToken] = 'and') then
-         begin
-            Inc(CurrentToken);
-            if (CurrentToken >= Length(Tokens)) then
-               Fail('And what?');
-         end
-         else
          if (Tokens[CurrentToken] = ';') then
          begin
             Inc(CurrentToken);
             if (CurrentToken >= Length(Tokens)) then
-            begin
                Fail('I don''t understand your use of semicolons.');
-            end
-            else if (Tokens[CurrentToken] = 'then') then
-            begin
-               Inc(CurrentToken);
-               SkipComma();
-               if (CurrentToken >= Length(Tokens)) then
-                  Fail('Then what?');
-            end
-            else if (Tokens[CurrentToken] = 'and') then
-            begin
-               Inc(CurrentToken);
-               if (CurrentToken >= Length(Tokens)) then
-               begin
-                  Fail('And what?');
-               end
-               else
-               if (Tokens[CurrentToken] = 'then') then
-               begin
-                  Inc(CurrentToken);
-                  SkipComma();
-                  if (CurrentToken >= Length(Tokens)) then
-                     Fail('And then what?');
-               end;
-            end;
          end
          else
          if (Tokens[CurrentToken] = ',') then
          begin
             Inc(CurrentToken);
             if (CurrentToken >= Length(Tokens)) then
-            begin
                raise Exception.Create('Found inconsistency between CanEnd() and GetContinuation() when parsing comma in "' + Command + '".');
-            end
-            else if (Tokens[CurrentToken] = 'then') then
-            begin
-               Inc(CurrentToken);
-               SkipComma();
-               if (CurrentToken >= Length(Tokens)) then
-                  Fail('Then what?');
-            end
-            else if (Tokens[CurrentToken] = 'and') then
-            begin
-               Inc(CurrentToken);
-               if (CurrentToken >= Length(Tokens)) then
-               begin
-                  Fail('And what?');
-               end
-               else
-               if (Tokens[CurrentToken] = 'then') then
-               begin
-                  Inc(CurrentToken);
-                  SkipComma();
-                  if (CurrentToken >= Length(Tokens)) then
-                     Fail('And then what?');
-               end;
-            end;
-         end
-         else
-            raise Exception.Create('Found inconsistency between CanEnd() and GetContinuation() when parsing "' + Command + '".');
+         end;
+         if (Tokens[CurrentToken] = 'and') then
+         begin
+            Inc(CurrentToken);
+            SkipComma();
+            if (CurrentToken >= Length(Tokens)) then
+               Fail('And what?');
+         end;
+         if (Tokens[CurrentToken] = 'then') then
+         begin
+            Inc(CurrentToken);
+            SkipComma();
+            if (CurrentToken >= Length(Tokens)) then
+               Fail('Then what?');
+         end;
          Result := True;
       end
       else
@@ -379,9 +307,9 @@
    var
       FoundDefiniteArticle: Boolean = False;
       FoundIndefiniteArticle: Boolean = False;
-      Start: Cardinal;
+      Start, Index: Cardinal;
       Things, ThisThing: PThingItem;
-      Names: AnsiString;
+      Name, Names: AnsiString;
    begin
       Assert(not CanEnd());
       if (MeansEverything(Tokens[CurrentToken])) then
@@ -409,13 +337,9 @@
          if (CanEnd() or CanJoin()) then
             Fail('One what?');
       end;
+      EnsureNoPunctuation();
       Start := CurrentToken;
-      repeat
-         EnsureNoPunctuation();
-         Inc(CurrentToken);
-      until (CanEnd() or CanJoin());
-      if ((not CanEnd()) and (CanJoin())) then
-         Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
+      CurrentToken := Length(Tokens);
       Things := GetReferencedThings(Tokens, Start, CurrentToken-Start, []);
       while ((not Assigned(Things)) and (CurrentToken-1 > Start)) do
       begin
@@ -425,6 +349,12 @@
       if (Assigned(Things)) then
       begin
          try
+            if (not CanEnd()) then
+            begin
+               if (CanJoin()) then
+                  Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
+               EnsureNoPunctuation();
+            end;
             if (Assigned(Things^.Next)) then
             begin
                if (FoundIndefiniteArticle) then
@@ -444,10 +374,17 @@
                         else
                            Names := Names + ', or ';
                      end;
-                     Names := Names + 'the ' + ThisThing^.Value.GetName(Self);
+                     Names := Names + ThisThing^.Value.GetDefiniteName(Self);
                      ThisThing := ThisThing^.Next;
                   end;
-                  Fail('Which do you want to ' + VerbString + ', ' + Names + '?');
+                  Name := '';
+                  for Index := Start to CurrentToken-1 do
+                  begin
+                     if (Length(Name) > 0) then
+                        Name := Name + ' ';
+                     Name := Tokens[Index];
+                  end;
+                  Fail('Which "' + Name + '" do you want to ' + VerbString + ', ' + Names + '?');
                end;
             end;
             Result := True;
@@ -460,35 +397,27 @@
       begin
          Result := False;
          CurrentToken := Start;
-         if (FoundDefiniteArticle) then
+         if (FoundDefiniteArticle or FoundIndefiniteArticle) then
             Dec(CurrentToken);
       end;
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
    function GetThings(Things: PPThingItem; AllFilter: TAllFilter; AllFail: AnsiString): Boolean;
-
-      function HasJoin(): Boolean; inline;
-      begin
-         Result := CanJoin();
-         if (Result) then
-            SkipJoin(); { CanEnd() will be false after this (else it'll have thrown) }
-      end;
-
    var
-      Start: Cardinal;
+      Start, Checkpoint: Cardinal;
       TheseThings, LastThing: PThingItem;
    begin
-      Assert(not CanEnd());
       Things^ := nil;
       LastThing := nil;
       try
+         Checkpoint := CurrentToken;
          repeat
+            Assert(not CanEnd());
+            // (support 'the', 'a', 'one', 'all the' here)
+            EnsureNoPunctuation();
             Start := CurrentToken;
-            repeat
-               EnsureNoPunctuation();
-               Inc(CurrentToken);
-            until (CanEnd() or CanJoin());
+            CurrentToken := Length(Tokens);
             TheseThings := GetReferencedThings(Tokens, Start, CurrentToken-Start, AllFilter);
             while ((not Assigned(TheseThings)) and (CurrentToken-1 > Start)) do
             begin
@@ -496,7 +425,7 @@
                TheseThings := GetReferencedThings(Tokens, Start, CurrentToken-Start, AllFilter);
             end;
             if (Assigned(TheseThings)) then
-            begin
+            begin { we found something! }
                if (Assigned(LastThing)) then
                begin
                   while (Assigned(LastThing^.Next)) do
@@ -506,18 +435,30 @@
                else
                   Things^ := TheseThings;
                LastThing := TheseThings;
+               Checkpoint := CurrentToken;
+               if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = ',')) then
+                  Inc(CurrentToken);
+               if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = 'and')) then
+                  Inc(CurrentToken);
+               if ((Checkpoint < CurrentToken) and (not CanEnd())) then
+                  Continue;
+               CurrentToken := Checkpoint;
             end
             else
             begin
-               CurrentToken := Start;
+               CurrentToken := Checkpoint;
                if (MeansEverything(Tokens[CurrentToken])) then
                   Fail(AllFail);
             end;
-         until not HasJoin();
+            Break;
+         until False;
+         if (not CanEnd()) then
+            EnsureNoPunctuation();
          Result := Assigned(Things^);
       except
-         { in case EnsureNoPunctuation() fails after we've gone through this once, or if it ends after a join, or if we fail due to a hanging 'all' }
+         { in case we fail }
          FreeThingList(Things^);
+         Things^ := nil;
          raise;
       end;
    end;

@@ -85,7 +85,16 @@ begin
    CliffCamp := TDistantScenery.Create('camp', cdSouth);
    Cliff.Add(CliffCamp, tpAroundImplicit);
    Cliff.GetSurface().Add(TSpade.Create(), tpOn);
-   Cliff.GetSurface().Add(TStaticThing.Create(['gigantic balloon', 'huge', 'massive'], 'The balloon is as high as a house! It is coloured red.', tmLight, tsGigantic), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large red balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large orange balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large yellow balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large green balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large blue balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large violet balloon', 'purple', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large white balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large black balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large grey balloon', 'gray', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
+   Cliff.GetSurface().Add(TStaticThing.Create(['large pink balloon', 'huge', 'massive'], 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
    Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
    Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
    World.AddLocation(Cliff);

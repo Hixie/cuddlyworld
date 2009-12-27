@@ -41,7 +41,7 @@ type
       procedure DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
       procedure DoDance();
       procedure DoHelp();
-      procedure HandleAdd(Thing: TThing); override;
+      procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
       function GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
@@ -59,6 +59,7 @@ type
       procedure DoLook(); override;
       procedure DoInventory();
       procedure AvatarMessage(Message: AnsiString); override;
+      procedure AvatarBroadcast(Message: AnsiString); override;
       procedure AutoDisambiguated(Message: AnsiString);
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
@@ -86,7 +87,7 @@ type
 implementation
 
 uses
-   sysutils, exceptions;
+   sysutils, exceptions, broadcast;
 
 type
    TActionVerb = (avNone,
@@ -323,6 +324,12 @@ begin
    end;
 end;
 
+procedure TPlayer.AvatarBroadcast(Message: AnsiString);
+begin
+   if (Assigned(FOnAvatarMessage)) then
+      FOnAvatarMessage(Message);
+end;
+
 procedure TPlayer.AutoDisambiguated(Message: AnsiString);
 begin
    AvatarMessage('(' + Message + ')');
@@ -406,99 +413,39 @@ begin
 end;
 
 procedure TPlayer.AnnounceAppearance();
-var
-   Avatars, LastAvatar: PAvatarItem;
 begin
-   Assert(Assigned(FParent));
-   Avatars := FParent.GetAvatars(Self);
-   while (Assigned(Avatars)) do
-   begin
-      Avatars^.Value.AvatarMessage(Capitalise(GetIndefiniteName(Avatars^.Value)) + ' appears.');
-      LastAvatar := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatar);
-   end;
+   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, M('appears')]);
 end;
 
 procedure TPlayer.AnnounceDisappearance();
-var
-   Avatars, LastAvatar: PAvatarItem;
 begin
-   Assert(Assigned(FParent));
-   Avatars := FParent.GetAvatars(Self);
-   while (Assigned(Avatars)) do
-   begin
-      Avatars^.Value.AvatarMessage(Capitalise(GetIndefiniteName(Avatars^.Value)) + ' disappears.');
-      LastAvatar := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatar);
-   end;
+   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, M('disappears')]);
 end;
 
 procedure TPlayer.AnnounceDeparture(Destination: TAtom; Direction: TCardinalDirection);
-var
-   Avatars, LastAvatar: PAvatarItem;
 begin
-   Assert(Assigned(FParent));
-   Avatars := FParent.GetAvatars(Self);
-   while (Assigned(Avatars)) do
-   begin
-      if (Destination is TLocation) then
-         Avatars^.Value.AvatarMessage(Capitalise(GetDefiniteName(Avatars^.Value)) + ' goes ' + CardinalDirectionToString(Direction) + '.')
-      else
-         Avatars^.Value.AvatarMessage(Capitalise(GetDefiniteName(Avatars^.Value)) + ' enters ' + Destination.GetDefiniteName(Avatars^.Value) + '.');
-      LastAvatar := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatar);
-   end;
+   if (Destination is TLocation) then
+      DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' goes ' + CardinalDirectionToString(Direction) + '.')])
+   else
+      DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' enters '), M(@Destination.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.AnnounceDeparture(Destination: TAtom);
-var
-   Avatars, LastAvatar: PAvatarItem;
 begin
-   Assert(Assigned(FParent));
-   Avatars := FParent.GetAvatars(Self);
-   while (Assigned(Avatars)) do
-   begin
-      Avatars^.Value.AvatarMessage(Capitalise(GetDefiniteName(Avatars^.Value)) + ' enters ' + Destination.GetDefiniteName(Avatars^.Value) + '.');
-      LastAvatar := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatar);
-   end;
+   DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' enters '), M(@Destination.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom; Direction: TCardinalDirection);
-var
-   Avatars, LastAvatar: PAvatarItem;
 begin
-   Assert(Assigned(FParent));
-   Avatars := FParent.GetAvatars(Self);
-   while (Assigned(Avatars)) do
-   begin
-      // this relies on the rooms being symmetric
-      Avatars^.Value.AvatarMessage(Capitalise(GetDefiniteName(Avatars^.Value)) + ' arrives from ' + Source.GetDefiniteName(Avatars^.Value) + ' ' + CardinalDirectionToDirectionString(Direction) + '.');
-      LastAvatar := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatar);
-   end;
+   // this relies on the rooms being symmetric
+   DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' arrives from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDirectionString(Direction)), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom);
-var
-   Avatars, LastAvatar: PAvatarItem;
 begin
-   Assert(Assigned(FParent));
-   Avatars := FParent.GetAvatars(Self);
-   while (Assigned(Avatars)) do
-   begin
-      // could be more intelligent by querying the current location
-      // e.g. "enters from" when the current location has an exit and "arrives from" when it doesn't
-      Avatars^.Value.AvatarMessage(Capitalise(GetDefiniteName(Avatars^.Value)) + ' arrives from ' + Source.GetDefiniteName(Avatars^.Value) + '.');
-      LastAvatar := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatar);
-   end;
+   // could be more intelligent by querying the current location
+   // e.g. "enters from" when the current location has an exit and "arrives from" when it doesn't
+   DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' arrives from '), M(@Source.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.DoTake(Subject: PThingItem);
@@ -1084,6 +1031,7 @@ begin
                      DestinationPosition := tpOn;
                   end;
                   Message := 'Moved ' + ThingPositionToDirectionString(DestinationPosition) + ' ' + Destination.GetDefiniteName(Self) + '.';
+                  // XXX should check that it's possible to slide the thing to the given position
                   Success := Destination.CanPut(Subject^.Value, DestinationPosition, Self, Message);
                   AvatarMessage(Message);
                   if (Success) then
@@ -1177,7 +1125,6 @@ end;
 
 procedure TPlayer.DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
 var
-   Avatars, LastAvatar: PAvatarItem;
    SingularVerb, PluralVerb: AnsiString;
 begin
    Assert(Assigned(FParent));
@@ -1188,26 +1135,20 @@ begin
    else
     raise Exception.Create('Unknown volume: ' + IntToStr(Ord(Volume)));
    end;
-   Avatars := FParent.GetAvatars(Self);
-   while (Assigned(Avatars)) do
-   begin
-      if (Assigned(Target)) then
-      begin
-         if ((Volume <> tvWhispering) or (Avatars^.Value = Target)) then
-            Avatars^.Value.AvatarMessage(Capitalise(GetDefiniteName(Avatars^.Value)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Avatars^.Value)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Avatars^.Value) + '.');
-      end
-      else
-      begin
-         Avatars^.Value.AvatarMessage(Capitalise(GetDefiniteName(Avatars^.Value)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Avatars^.Value)) + ' ' + Message + '.');
-      end;
-      LastAvatar := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatar);
-   end;
    if (Assigned(Target)) then
+   begin
+      if (Volume <> tvWhispering) then
+         DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M(' to '), M(@Target.GetDefiniteName), M('.')])
+      else
+      if (Target is TAvatar) then
+         (Target as TAvatar).AvatarMessage(Capitalise(GetDefiniteName(Target as TAvatar)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Target as TAvatar)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Target as TAvatar) + '.');
       AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Self) + '.')
+   end
    else
+   begin
+      DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M('.')]);
       AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + '.');
+   end;
 end;
 
 procedure TPlayer.DoDance();
@@ -1216,7 +1157,7 @@ begin
    NotImplemented();
 end;
 
-procedure TPlayer.HandleAdd(Thing: TThing);
+procedure TPlayer.HandleAdd(Thing: TThing; Blame: TAvatar);
 var
    Masses, CandidateMass, ThisMass: TThingMassManifest;
    Sizes, CandidateSize, ThisSize: TThingSizeManifest;
@@ -1260,7 +1201,7 @@ begin
       Masses := Masses - CandidateMass;
       Sizes := Sizes - CandidateSize;
       Count := Count - 1;
-      AvatarMessage('Fumbled ' + Candidate.GetDefiniteName(Self) + '.');
+      DoBroadcast([Target(Self)], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
       FParent.Add(Candidate, tpOn, False, Self);
    end;
 end;
@@ -1300,21 +1241,19 @@ begin
 end;
 
 function TPlayer.GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
-var
-   ListEnd: PPThingItem;
 begin
    Assert(Assigned(FParent));
+   Assert(Count > 0);
    Result := nil;
-   ListEnd := @Result;
    if ((AllFilter <> []) and (Count = 1) and (MeansEverything(Tokens[Start]))) then
    begin
       if (afSurroundings in AllFilter) then
-         FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpExplicit, [], ListEnd)
+         FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpExplicit, [], Result)
       else
-         Self.AddImplicitlyReferencedThings(Self, True, tpEverything, [], ListEnd);
+         Self.AddImplicitlyReferencedThings(Self, True, tpEverything, [], Result);
    end
    else
-      FParent.GetDefaultAtom().AddExplicitlyReferencedThings(Tokens, Start, Count, Self, ListEnd);
+      FParent.GetDefaultAtom().AddExplicitlyReferencedThings(Tokens, Start, Count, Self, Result);
 end;
 
 function TPlayer.Referenceable(Subject: TAtom): Boolean;
@@ -1336,22 +1275,20 @@ end;
 
 function TPlayer.GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;
 var
-   ListStart: PThingItem;
-   ListEnd: PPThingItem;
+   List: PThingItem;
 begin
    Assert(Assigned(FParent));
    Assert((afSelf in AllFilter) or (afSurroundings in AllFilter));
-   ListStart := nil;
-   ListEnd := @ListStart;
+   List := nil;
    if (afSurroundings in AllFilter) then
-      FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpEverything, PropertyFilter, ListEnd)
+      FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpEverything, PropertyFilter, List)
    else
-      Self.AddImplicitlyReferencedThings(Self, True, tpEverything, PropertyFilter, ListEnd);
-   if (Assigned(ListStart)) then
+      Self.AddImplicitlyReferencedThings(Self, True, tpEverything, PropertyFilter, List);
+   if (Assigned(List)) then
    begin
       // should implement some kind of prioritisation scheme
-      Result := ListStart^.Value;
-      FreeThingList(ListStart);
+      Result := List^.Value;
+      FreeThingList(List);
    end
    else
    begin

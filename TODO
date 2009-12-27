@@ -1,30 +1,34 @@
-X "move leaves out", "move leaves out of hole", "move leaves off", "move leaves off hole", "move leaves off of hole"
-o "move all n; n; dig; move me, penny into hole; move penny out"
+X "take all and then drop all in hole" - crash!
+X "move all n; n; dig; take all and then drop all in hole" - "And what?"
+X "take all and drop all in hole" - "I don't understand how to take things "drop"."
+X change the way announcements work so that you instead do Broadcast(@AnnounceShaken, Perspective);
+X + then implement THole.HandleAdd()'s broadcasting of things falling into holes (see also next line)
+X + fumbling could be prettier, especially for 'take all'. Maybe there should be a separate thing from AvatarMessage(), which is just used for world events (like someone appearing, or someone fumbling something), which is unaffected by the context. Then, use this for things like filling holes, things falling into holes, etc.
+X convert some functions to use 'out'
 
-"take all and then drop all in hole" - crash!
-"take all and drop all in hole" - "I don't understand how to take things "drop"."? eh?
+Use broadcast mechanism to:
+ + implement shaking
+ + implement dancing
+ + make shout broadcast to surrounding rooms
+"The player arrives from the hut." when another player is seen exiting the hut: would be better if it said "The player leaves the hut"? messages about in-room navigation are pretty poor in general right now (enter hole, enter pile, etc)
+it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
+check what happens if you "take all" when someone is present holding something
+support "it". In particular, if "look" only mentions one thing, "take it" should work.
+have a way to have objects say "it" (or "them", "him", "you", whatever is appropriate)
 'dig hole' should work
 "fill hole"
-change the way announcements work so that you instead do Broadcast(@AnnounceShaken, Perspective);
- + then implement shaking
- + then implement dancing
- + then implement THole.HandleAdd()'s broadcasting of things falling into holes (see also next line)
- + fumbling could be prettier, especially for 'take all'. Maybe there should be a separate thing from AvatarMessage(), which is just used for world events (like someone appearing, or someone fumbling something), which is unaffected by the context. Then, use this for things like filling holes, things falling into holes, etc.
-password command
- + make shout broadcast to surrounding rooms
-support "it". In particular, if "look" only mentions one thing, "take it" should work.
+rescue people in holes when the hole is filled (see // note in THole.HandleAdd)
 you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
+you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
 When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
 taking something with things on it should make the things fall off
 exit things by name
  - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
  - "get out of pile": That's a direction, I don't know how to take it.
-"The player arrives from the hut." when another player is seen exiting the hut: would be better if it said "The player leaves the hut"?
-tools to shape the world - magic digging wand that doesn't make piles appear
-it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
 "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
 "climb cliff": I don't understand how to "climb".
 "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)=
+password command
 player safe where they can keep things while disconnected
 player savepoint so that players can reappear in a specific place after disconnecting
 change use of FParent to just be Parent when referring to another thing's parent
@@ -39,6 +43,7 @@ throwing - "throw MacGuffin north": I don't understand how to "throw".
 announce when a player disconnects or reconnects
 If you send too much data at once, the socket's write buffer is filled, which causes the socket to have an exception (ETryAgain), which causes the game to abort.
 Sometimes the server just dies silently (killed by the kernel?).
+tools to shape the world - magic digging wand that doesn't make piles appear
 tools to shape the world - walking through the forest autocreating more forest, fields, rivers, mountains, caves
 tools to shape the world - cutting down the forest to form fields, piles of wood
 tools to shape the world - making small huts from piles of wood
@@ -46,10 +51,11 @@ tools to shape the world - making small huts from piles of wood
 'look under' should move things if they are bigger than what they are on
 "off" and "get off" should be equivalent to "out" when on an object
 start player with a bag
+"find hole" says the hole is "at" the ground -- consider adding an tpImplicitIn
 Players should have PartOfs: eyes, hands, etc
 Players should have Implicits: "you", "time" ("take time"), etc
 Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
-make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead?
+make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
 Looking should check for illumination by walking all the objects (FUp-not-in-FChildren would need special treatment... maybe some TLocations can contribute light?)
 - light contribution depends on Subject and Perspective
 - light is PitchBlack, Dark, Lit; stop walking after getting Lit
