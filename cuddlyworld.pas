@@ -2,6 +2,7 @@
 {$INCLUDE settings.inc}
 program cuddlyworld;
 uses
+   {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, baseunix, client, network, exceptions,
    storable, world, locations,
    cuddlycamp;

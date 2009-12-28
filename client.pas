@@ -109,7 +109,7 @@ begin
       end
       else
       begin
-         FPlayer := TPlayer.Create(FUsername, FPassword);
+         FPlayer := TPlayer.Create(FUsername, FPassword, gThirdGender);
          FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
          FWorld.AddPlayer(FPlayer); { this puts it into the world }
          FPlayer.AnnounceAppearance();

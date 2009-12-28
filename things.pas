@@ -11,14 +11,16 @@ type
    TSynonymThing = class(TThing)
     protected
       FSynonyms: array of AnsiString;
+      FLongName: AnsiString;
       function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
     public
       constructor Create(AName: AnsiString);
-      constructor Create(ASynonyms: array of AnsiString); { first synonym is the name, and can have spaces; the rest must not have spaces }
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString); { first synonym is the name, and can have spaces; the rest must not have spaces }
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): AnsiString; override;
+      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
    end;
 
    TStaticThing = class(TSynonymThing)
@@ -28,7 +30,7 @@ type
       FSize: TThingSize;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
-      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -44,8 +46,8 @@ type
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString);
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
-      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
-      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString);
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
@@ -60,7 +62,7 @@ type
       FDestination: TLocation;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
-      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
@@ -74,7 +76,7 @@ type
       FHole: THole;
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString);
-      constructor Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
@@ -97,7 +99,7 @@ type
       function FarAway(Perspective: TAvatar): AnsiString; virtual;
     public
       constructor Create(AName: AnsiString; ADirection: TCardinalDirection);
-      constructor Create(ASynonyms: array of AnsiString; ADirection: TCardinalDirection);
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADirection: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
@@ -113,6 +115,25 @@ type
       constructor Create();
       function GetProperties(): TThingProperties; override;
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+   end;
+
+   TBag = class(TSynonymThing)
+    protected
+      FDescription: AnsiString;
+      FMaxSize: TThingSize;
+    public
+      constructor Create(AName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
+      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetIntrinsicMass(): TThingMass; override;
+      function GetIntrinsicSize(): TThingSize; override;
+      function GetOutsideSizeManifest(): TThingSizeManifest; override;
+      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function IsOpen(): Boolean; override;
+      function GetProperties(): TThingProperties; override;
    end;
 
    TPileClass = class of TPile;
@@ -192,10 +213,10 @@ uses
 
 constructor TSynonymThing.Create(AName: AnsiString);
 begin
-   Create([AName]);
+   Create([AName], AName);
 end;
 
-constructor TSynonymThing.Create(ASynonyms: array of AnsiString);
+constructor TSynonymThing.Create(ASynonyms: array of AnsiString; ALongName: AnsiString);
 var
    Index: Cardinal;
 begin
@@ -204,6 +225,7 @@ begin
    SetLength(FSynonyms, Length(ASynonyms));
    for Index := 0 to Length(ASynonyms)-1 do
       FSynonyms[Index] := ASynonyms[Index];
+   FLongName := ALongName;
 end;
 
 destructor TSynonymThing.Destroy();
@@ -219,6 +241,7 @@ begin
    SetLength(FSynonyms, Stream.ReadCardinal());
    for Index := 0 to Length(FSynonyms)-1 do
       FSynonyms[Index] := Stream.ReadAnsiString();
+   FLongName := Stream.ReadAnsiString();
 end;
 
 procedure TSynonymThing.Write(Stream: TWriteStream);
@@ -229,11 +252,17 @@ begin
    Stream.WriteCardinal(Length(FSynonyms));
    for Index := 0 to Length(FSynonyms)-1 do
       Stream.WriteAnsiString(FSynonyms[Index]);
+   Stream.WriteAnsiString(FLongName);
 end;
 
 function TSynonymThing.GetName(Perspective: TAvatar): AnsiString;
 begin
    Result := FSynonyms[0];
+end;
+
+function TSynonymThing.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   Result := FLongName;
 end;
 
 function TSynonymThing.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
@@ -255,12 +284,12 @@ end;
 
 constructor TStaticThing.Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
 begin
-   Create([AName], ADescription, AMass, ASize);
+   Create([AName], AName, ADescription, AMass, ASize);
 end;
 
-constructor TStaticThing.Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+constructor TStaticThing.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
 begin
-   inherited Create(ASynonyms);
+   inherited Create(ASynonyms, ALongName);
    FDescription := ADescription;
    FMass := AMass;
    FSize := ASize;
@@ -305,22 +334,22 @@ end;
 
 constructor TScenery.Create(AName: AnsiString; ADescription: AnsiString);
 begin
-   inherited Create([AName], ADescription, tmLudicrous, tsLudicrous);
+   inherited Create([AName], AName, ADescription, tmLudicrous, tsLudicrous);
 end;
 
 constructor TScenery.Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
 begin
-   inherited Create([AName], ADescription, AMass, ASize);
+   inherited Create([AName], AName, ADescription, AMass, ASize);
 end;
 
-constructor TScenery.Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
+constructor TScenery.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString);
 begin
-   inherited Create(ASynonyms, ADescription, tmLudicrous, tsLudicrous);
+   inherited Create(ASynonyms, ALongName, ADescription, tmLudicrous, tsLudicrous);
 end;
 
-constructor TScenery.Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+constructor TScenery.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
 begin
-   inherited Create(ASynonyms, ADescription, AMass, ASize);
+   inherited Create(ASynonyms, ALongName, ADescription, AMass, ASize);
 end;
 
 constructor TScenery.Read(Stream: TReadStream);
@@ -367,12 +396,12 @@ end;
 
 constructor TInternalLocationProxy.Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
 begin
-   Create([AName], ADescription, AMass, ASize, ADestination);
+   Create([AName], AName, ADescription, AMass, ASize, ADestination);
 end;
 
-constructor TInternalLocationProxy.Create(ASynonyms: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
+constructor TInternalLocationProxy.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; ADestination: TLocation);
 begin
-   inherited Create(ASynonyms, ADescription, AMass, ASize);
+   inherited Create(ASynonyms, ALongName, ADescription, AMass, ASize);
    FDestination := ADestination;
 end;
 
@@ -407,12 +436,12 @@ end;
 
 constructor TSurface.Create(AName: AnsiString; ADescription: AnsiString);
 begin
-   inherited Create([AName], ADescription, tmLudicrous, tsLudicrous);
+   inherited Create([AName], AName, ADescription, tmLudicrous, tsLudicrous);
 end;
 
-constructor TSurface.Create(ASynonyms: array of AnsiString; ADescription: AnsiString);
+constructor TSurface.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString);
 begin
-   inherited Create(ASynonyms, ADescription, tmLudicrous, tsLudicrous);
+   inherited Create(ASynonyms, ALongName, ADescription, tmLudicrous, tsLudicrous);
 end;
 
 constructor TSurface.Read(Stream: TReadStream);
@@ -520,7 +549,7 @@ begin
       end;
       Add(Pile, tpOn);
       FHole := THole.Create('The hole is quite dirty.', Size, TEarthPile);
-      Add(FHole, tpAt);
+      Add(FHole, tpOpening);
       Result := True;
       Message := 'With much effort, you dig a huge hole.';
    end;
@@ -528,7 +557,7 @@ end;
 
 function TSurface.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
-   if (Assigned(FHole) and (FHole.IsOpen())) then
+   if (Assigned(FHole) and (FHole.IsOpen())) then // XXX why the IsOpen check?
       Result := FHole
    else
       Result := Self;
@@ -556,12 +585,12 @@ end;
 
 constructor TDistantScenery.Create(AName: AnsiString; ADirection: TCardinalDirection);
 begin
-   Create([AName], ADirection);
+   Create([AName], AName, ADirection);
 end;
 
-constructor TDistantScenery.Create(ASynonyms: array of AnsiString; ADirection: TCardinalDirection);
+constructor TDistantScenery.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADirection: TCardinalDirection);
 begin
-   inherited Create(ASynonyms);
+   inherited Create(ASynonyms, ALongName);
    FDirection := ADirection;
 end;
 
@@ -619,7 +648,7 @@ end;
 
 constructor TSpade.Create();
 begin
-   inherited Create(['spade', 'shovel'], 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
+   inherited Create(['spade', 'shovel'], 'the spade', 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
 end;
 
 function TSpade.GetProperties(): TThingProperties;
@@ -631,6 +660,74 @@ end;
 function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
 begin
    Result := True;
+end;
+
+
+constructor TBag.Create(AName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
+begin
+   Create([AName], AName, ADescription, AMaxSize);
+end;
+
+constructor TBag.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
+begin
+   inherited Create(ASynonyms, ALongName);
+   FDescription := ADescription;
+   FMaxSize := AMaxSize;
+end;
+
+constructor TBag.Read(Stream: TReadStream);
+begin
+   inherited;
+   FDescription := Stream.ReadAnsiString();
+   FMaxSize := TThingSize(Stream.ReadCardinal());
+end;
+
+procedure TBag.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteAnsiString(FDescription);
+   Stream.WriteCardinal(Cardinal(FMaxSize));
+end;
+
+function TBag.GetIntrinsicMass(): TThingMass;
+begin
+   Result := tmLight;
+end;
+
+function TBag.GetIntrinsicSize(): TThingSize;
+begin
+   Result := tsSmall;
+end;
+
+function TBag.GetOutsideSizeManifest(): TThingSizeManifest;
+begin
+   Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
+end;
+
+function TBag.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+begin
+   Result := FDescription;
+end;
+
+function TBag.GetInside(var PositionOverride: TThingPosition): TAtom;
+begin
+   Result := Self;
+end;
+
+function TBag.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+begin
+   Result := (GetInsideSizeManifest() + Manifest) < FMaxSize;
+end;
+
+function TBag.IsOpen(): Boolean;
+begin
+   Result := True;
+end;
+
+function TBag.GetProperties(): TThingProperties;
+begin
+   Result := inherited;
+   Result := Result + [tpCanHaveThingsPushedIn];
 end;
 
 
@@ -811,7 +908,6 @@ end;
 function THole.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
    Result := Self;
-   PositionOverride := tpIn;
 end;
 
 function THole.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
@@ -1179,12 +1275,13 @@ end;
 
 initialization
    RegisterStorableClass(TStaticThing,            100000);
-   RegisterStorableClass(TScenery,                110000);
-   RegisterStorableClass(TInternalLocationProxy,  111000);
-   RegisterStorableClass(TSurface,                120000);
-   RegisterStorableClass(TSpade,                  130000);
-   RegisterStorableClass(TDistantScenery,         200000);
-   RegisterStorableClass(THole,                   300000);
-   RegisterStorableClass(TPile,                   400000);
-   RegisterStorableClass(TEarthPile,              410000);
+   RegisterStorableClass(TScenery,                100001);
+   RegisterStorableClass(TInternalLocationProxy,  100002);
+   RegisterStorableClass(TSurface,                100003);
+   RegisterStorableClass(TSpade,                  100004);
+   RegisterStorableClass(TBag,                    100005);
+   RegisterStorableClass(TDistantScenery,         100006);
+   RegisterStorableClass(THole,                   100007);
+   RegisterStorableClass(TPile,                   100008);
+   RegisterStorableClass(TEarthPile,              100009);
 end.

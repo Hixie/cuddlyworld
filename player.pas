@@ -15,6 +15,7 @@ const
    MaxCarryCount = 10; { not inclusive }
 
 type
+   TGender = (gMale, gFemale, gThirdGender, gRobot, gHive);
 
    TAllFilter = set of (afSurroundings, afSelf);
 
@@ -26,6 +27,7 @@ type
    TPlayer = class(TAvatar)
     protected
       FName, FPassword: AnsiString;
+      FGender: TGender;
       FOnAvatarMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: AnsiString; { transient }
@@ -51,11 +53,11 @@ type
       procedure SetContext(Context: AnsiString);
       procedure ResetContext();
     public
-      constructor Create(AName: AnsiString; APassword: AnsiString);
+      constructor Create(AName: AnsiString; APassword: AnsiString; AGender: TGender);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure Perform(Command: AnsiString);
+      procedure Perform(Command: AnsiString); virtual;
       procedure DoLook(); override;
       procedure DoInventory();
       procedure AvatarMessage(Message: AnsiString); override;
@@ -65,7 +67,13 @@ type
       function GetIntrinsicSize(): TThingSize; override;
       function GetName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
+      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
+      function GetSubjectPronoun(Perspective: TAvatar): AnsiString; override; // I
+      function GetObjectPronoun(Perspective: TAvatar): AnsiString; override; // me
+      function GetReflexivePronoun(Perspective: TAvatar): AnsiString; override; // myself
+      function GetPossessivePronoun(Perspective: TAvatar): AnsiString; override; // mine
+      function GetPossessiveAdjective(Perspective: TAvatar): AnsiString; override; // my
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
@@ -87,7 +95,7 @@ type
 implementation
 
 uses
-   sysutils, exceptions, broadcast;
+   sysutils, exceptions, broadcast, things;
 
 type
    TActionVerb = (avNone,
@@ -148,11 +156,13 @@ begin
 end;
 
 
-constructor TPlayer.Create(AName: AnsiString; APassword: AnsiString);
+constructor TPlayer.Create(AName: AnsiString; APassword: AnsiString; AGender: TGender);
 begin
    inherited Create();
    FName := AName;
    FPassword := APassword;
+   FGender := AGender;
+   Add(TBag.Create(['bag of holding', 'labeled', AName], 'the bag of holding labeled ' + Capitalise(AName), 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous), tpCarried);
 end;
 
 destructor TPlayer.Destroy();
@@ -167,6 +177,7 @@ begin
    inherited;
    FName := Stream.ReadAnsiString();
    FPassword := Stream.ReadAnsiString();
+   FGender := TGender(Stream.ReadCardinal());
 end;
 
 procedure TPlayer.Write(Stream: TWriteStream);
@@ -174,6 +185,7 @@ begin
    inherited;
    Stream.WriteAnsiString(FName);
    Stream.WriteAnsiString(FPassword);
+   Stream.WriteCardinal(Cardinal(FGender));
 end;
 
 procedure TPlayer.Perform(Command: AnsiString);
@@ -358,7 +370,20 @@ begin
    if (Perspective = Self) then
       Result := 'you'
    else
-      Result := Capitalise(FName);
+   case FGender of
+     gMale, gFemale, gThirdGender, gRobot: Result := Capitalise(FName);
+     gHive: Result := 'The ' + Capitalise(FName);
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
+end;
+
+function TPlayer.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'you'
+   else
+      Result := 'the other player named ' + GetDefiniteName(Perspective); // "robot"
 end;
 
 function TPlayer.GetIndefiniteName(Perspective: TAvatar): AnsiString;
@@ -366,7 +391,92 @@ begin
    if (Perspective = Self) then
       Result := 'you'
    else
-      Result := Capitalise(FName);
+   case FGender of
+     gMale, gFemale, gThirdGender, gRobot: Result := Capitalise(FName);
+     gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
+end;
+
+function TPlayer.GetSubjectPronoun(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'you'
+   else
+   case FGender of
+     gMale: Result := 'he';
+     gFemale: Result := 'she';
+     gThirdGender: Result := 's/he';
+     gRobot: Result := 'it';
+     gHive: Result := 'they';
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
+end;
+
+function TPlayer.GetObjectPronoun(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'you'
+   else
+   case FGender of
+     gMale: Result := 'him';
+     gFemale: Result := 'her';
+     gThirdGender: Result := 'him/her';
+     gRobot: Result := 'it';
+     gHive: Result := 'them';
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
+end;
+
+function TPlayer.GetReflexivePronoun(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'yourself'
+   else
+   case FGender of
+     gMale: Result := 'himself';
+     gFemale: Result := 'herself';
+     gThirdGender: Result := 'him/herself';
+     gRobot: Result := 'itself';
+     gHive: Result := 'themselves';
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
+end;
+
+function TPlayer.GetPossessivePronoun(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'yours'
+   else
+   case FGender of
+     gMale: Result := 'his';
+     gFemale: Result := 'hers';
+     gThirdGender: Result := 'his/hers';
+     gRobot: Result := 'its';
+     gHive: Result := 'theirs';
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
+end;
+
+function TPlayer.GetPossessiveAdjective(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'your'
+   else
+   case FGender of
+     gMale: Result := 'his';
+     gFemale: Result := 'her';
+     gThirdGender: Result := 'his/her';
+     gRobot: Result := 'its';
+     gHive: Result := 'their';
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
 end;
 
 function TPlayer.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
@@ -374,7 +484,7 @@ begin
    if (Perspective = Self) then
       Result := Word = 'me'
    else
-      Result := (Word = 'them') or (Word = 'player') or (Word = 'other');
+      Result := (Word = 'them') or (Word = 'player') or (Word = 'other'); // "robot"
    if (not Result) then
       Result := inherited;
 end;
@@ -384,7 +494,7 @@ begin
    if (Perspective = Self) then
       Result := True
    else
-      Result := False;
+      Result := FGender in [gHive];
 end;
 
 function TPlayer.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
@@ -402,50 +512,67 @@ end;
 function TPlayer.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
 begin
    if (Perspective = Self) then
-      Result := 'You look quite fine, ' + FName + ', yes, indeed. Quite fine.'
+   begin
+      case FGender of
+        gMale: Result := 'You are quite the man, ' + FName + '.';
+        gFemale: Result := 'You look quite the woman, ' + FName + '.';
+        gThirdGender: Result := 'You look quite fine, ' + FName + ', yes, indeed. Quite fine.';
+        gRobot: Result := 'You are operating within standard parameters, ' + FName + '.';
+        gHive: Result := 'You are quite the hive, ' + FName + '.';
+       else
+         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      end;
+   end
    else
    begin
-      if (HasConnectedPlayer) then
-         Result := 'That other player is inconsequential, compared to your good self.'
-      else
-         Result := 'Their eyes look into the distance, as if they aren''t really here.';
+      case FGender of
+        gMale: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a man of no consequence.';
+        gFemale: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a woman of no consequence.';
+        gThirdGender: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a person of no consequence.';
+        gRobot: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a robot of no consequence.';
+        gHive: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a hive mind of no consequence.';
+       else
+         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      end;
+      if (not HasConnectedPlayer) then
+         Result := Result + ' ' + Capitalise(GetPossessiveAdjective(Perspective)) + ' eyes look into the distance, as if ' + GetSubjectPronoun(Perspective) + ' ' + TernaryConditional('isn''t', 'aren''t', IsPlural(Perspective)) + ' really here.';
    end;
 end;
 
 procedure TPlayer.AnnounceAppearance();
 begin
-   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, M('appears')]);
+   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, MP(Self, M('appears.'), M('appear.'))]);
 end;
 
 procedure TPlayer.AnnounceDisappearance();
 begin
-   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, M('disappears')]);
+   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, MP(Self, M('disappears.'), M('disappear.'))]);
 end;
 
 procedure TPlayer.AnnounceDeparture(Destination: TAtom; Direction: TCardinalDirection);
 begin
    if (Destination is TLocation) then
-      DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' goes ' + CardinalDirectionToString(Direction) + '.')])
+      DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('goes'), M('go')), SP, M(CardinalDirectionToString(Direction) + '.')])
    else
-      DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' enters '), M(@Destination.GetDefiniteName), M('.')]);
+      DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('enters'), M('enter')), SP, M(@Destination.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.AnnounceDeparture(Destination: TAtom);
 begin
-   DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' enters '), M(@Destination.GetDefiniteName), M('.')]);
+   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('enters'), M('enter')), SP, M(@Destination.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom; Direction: TCardinalDirection);
 begin
    // this relies on the rooms being symmetric
-   DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' arrives from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDirectionString(Direction)), M('.')]);
+   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDirectionString(Direction)), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom);
 begin
    // could be more intelligent by querying the current location
    // e.g. "enters from" when the current location has an exit and "arrives from" when it doesn't
-   DoBroadcast(Self, [C(M(@GetDefiniteName)), M(' arrives from '), M(@Source.GetDefiniteName), M('.')]);
+   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.DoTake(Subject: PThingItem);
@@ -475,7 +602,7 @@ begin
          else
          if (Subject^.Value = Self) then
          begin
-            AvatarMessage('You try to pick yourself up but end up on ' + Parent.GetSurface().GetDefiniteName(Self) + '.');
+            AvatarMessage('You try to pick yourself up but end up on ' + FParent.GetSurface().GetDefiniteName(Self) + '.');
          end
          else
          begin
@@ -651,7 +778,9 @@ procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThi
             Result := True;
             Exit;
          end;
-      until ((not (Ancestor is TThing)) or ((Ancestor as TThing).Position in tpContained));
+      until ((not (Ancestor is TThing)) or
+             (((Ancestor as TThing).Position in tpSeparate) and { tpIn is ok in the case where things can be pushed in/out from/to parent }
+              (not (((Ancestor as TThing).Position in tpContained) and (tpCanHaveThingsPushedIn in (Ancestor as TThing).GetProperties())))));
       Result := False;
    end;
 
@@ -671,7 +800,7 @@ procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThi
          Result := True;
          Exit;
       end;
-      { next see if we're trying to move the thing off something else onto it (i.e. pushing into an ancestor) }
+      { next see if we're trying to move the thing off something else into it (i.e. pushing into an ancestor) }
       { note we have to stop if we get to something that is not on something, e.g. you can't push from on a plate that is in a bag into the chest that the bag is in }
       { (but you _can_ push it into the bag) }
       Ancestor := Thing;
@@ -684,8 +813,8 @@ procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThi
             Exit;
          end;
       until ((not (Ancestor is TThing)) or
-             (((Ancestor as TThing).Position in tpContained) and { tpIn is ok only in the case where you're in the surface we're looking for }
-              (not (((Ancestor as TThing).Position = tpIn) and ((Ancestor as TThing).Parent = Surface)))));
+             (((Ancestor as TThing).Position in tpSeparate) and { tpIn is ok in the case where things can be pushed in/out from/to parent }
+              (not (((Ancestor as TThing).Position in tpContained) and (tpCanHaveThingsPushedIn in (Thing as TThing).GetProperties())))));
       Result := False;
    end;
 
@@ -742,7 +871,7 @@ begin
          end
          else
          begin
-            Ancestor := Self.FParent;
+            Ancestor := FParent;
             while ((Ancestor is TThing) and (Ancestor <> Subject^.Value)) do
                Ancestor := (Ancestor as TThing).Parent;
             if (Ancestor = Subject^.Value) then
@@ -962,7 +1091,7 @@ begin
             if (Assigned(RequiredParent)) then
             begin
                if ((Subject^.Value.Parent <> RequiredParent) or (Subject^.Value.Position <> RequiredPosition)) then
-                  Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' ' + RequiredParent.GetDefiniteName(Self) + ', ' + Subject^.Value.GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + '.'
+                  Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' ' + RequiredParent.GetDefiniteName(Self) + ', ' + Subject^.Value.GetSubjectPronoun(Self) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + '.'
                else
                   Denied := False;
             end
@@ -970,7 +1099,7 @@ begin
             begin
                if (Subject^.Value.Position <> RequiredPosition) then
                begin
-                  Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' anything, ' + Subject^.Value.GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + '.';
+                  Message := Capitalise(Subject^.Value.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' anything, ' + Subject^.Value.GetSubjectPronoun(Self) + ' ' + TernaryConditional('is', 'are', Subject^.Value.IsPlural(Self)) + ' ' + ThingPositionToString(Subject^.Value.Position) + ' ' + Subject^.Value.Parent.GetDefiniteName(Self) + '.';
                end
                else
                begin
@@ -994,9 +1123,12 @@ begin
          end
          else
          begin
-            if ((not (Subject^.Value.Parent is TThing)) or
-                (not Assigned((Subject^.Value.Parent as TThing).Parent)) or
-                ((Subject^.Value.Parent as TThing).Position <> tpIn) and ((Subject^.Value.Parent as TThing).Parent.GetSurface() = Subject^.Value.Parent)) then
+            {$IFOPT C+}
+            if (Subject^.Value.Parent is TThing) then
+               Assert(Assigned((Subject^.Value.Parent as TThing).Parent));
+            {$ENDIF}
+            if ((not (Subject^.Value.Parent is TThing)) or { it's in the room - only way to remove it is to pick it up }
+                ((Subject^.Value.Parent as TThing).Parent.GetSurface() = Subject^.Value.Parent)) then { parent is a surface, so picking the thing up is the way to remove it }
             begin
                AutoDisambiguated('by taking ' + Subject^.Value.GetDefiniteName(Self));
                New(SingleThingItem);
@@ -1010,7 +1142,7 @@ begin
             end
             else
             begin
-               Ancestor := Self.FParent;
+               Ancestor := FParent;
                while ((Ancestor is TThing) and (Ancestor <> Subject^.Value)) do
                   Ancestor := (Ancestor as TThing).Parent;
                if (Ancestor = Subject^.Value) then
@@ -1048,16 +1180,81 @@ begin
 end;
 
 procedure TPlayer.DoPress(Subject: PThingItem);
+var
+   Multiple: Boolean;
 begin
-   // go through each object, calling its "press" method?
-   NotImplemented();
+   Assert(Assigned(Subject));
+   Multiple := Assigned(Subject^.Next);
+   try
+      while (Assigned(Subject)) do
+      begin
+         if (Multiple) then
+            SetContext(Capitalise(Subject^.Value.GetName(Self)));
+         if (not Referenceable(Subject^.Value)) then
+         begin
+            AvatarMessage('You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (Subject^.Value = Self) then
+         begin
+            DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@GetReflexivePronoun), M('.')]);
+            Press(Self);
+         end
+         else
+         begin
+            // CanReach()? (what about "press mountain", etc?) (for now it's ok since it just says "it does nothing")
+            DoBroadcast([Target(Subject^.Value), Target(Self)], Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@Subject^.Value.GetDefiniteName), M('.')]);
+            Subject^.Value.Press(Self);
+         end;
+         Subject := Subject^.Next;
+      end;
+   finally
+      if (Multiple) then
+         ResetContext();
+   end;
 end;
 
 procedure TPlayer.DoShake(Subject: PThingItem);
+var
+   Multiple: Boolean;
+   Message: AnsiString;
 begin
-   // go through each object, calling its "shake" method?
-   // maybe only if not ludicrous in size or mass or something?
-   NotImplemented();
+   Assert(Assigned(Subject));
+   Multiple := Assigned(Subject^.Next);
+   try
+      while (Assigned(Subject)) do
+      begin
+         if (Multiple) then
+            SetContext(Capitalise(Subject^.Value.GetName(Self)));
+         if (not Referenceable(Subject^.Value)) then
+         begin
+            AvatarMessage('You can''t see ' + Subject^.Value.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (Subject^.Value = Self) then
+         begin
+            DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@GetReflexivePronoun), M('.')]);
+            AvatarMessage('You shake yourself.');
+         end
+         else
+         begin
+            Message := 'You can''t shake ' + Subject^.Value.GetDefiniteName(Self) + '.';
+            if (CanCarry(Subject^.Value, Message)) then
+            begin
+               { have to do broadcast as well as avatar message because broadcast won't get the context }
+               DoBroadcast([Target(Subject^.Value), Target(Self)], Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@Subject^.Value.GetDefiniteName), M('.')]);
+               AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional('shakes', 'shake', IsPlural(Self)) + ' ' + Subject^.Value.GetDefiniteName(Self) + '.');
+               Subject^.Value.Shake(Self);
+            end
+            else
+               AvatarMessage(Message);
+         end;
+         Subject := Subject^.Next;
+      end;
+   finally
+      if (Multiple) then
+         ResetContext();
+   end;
 end;
 
 procedure TPlayer.DoDig(Target: TThing; Spade: TThing);
@@ -1093,19 +1290,20 @@ end;
 
 procedure TPlayer.DoDig(Direction: TCardinalDirection; Spade: TThing);
 var
-   Destination: TAtom;
-   Location: TLocation;
+   DefaultParent, Destination: TAtom;
+   CurrentLocation: TLocation;
 begin
    Assert(Assigned(Spade));
-   Assert(Assigned(Spade.Parent));
-   Destination := Spade.Parent.GetDefaultAtom();
-   if (Destination is TLocation) then
+   Assert(Assigned(FParent));
+   DefaultParent := FParent.GetDefaultAtom();
+   if (DefaultParent is TLocation) then
    begin
-      Location := Destination as TLocation;
-      Destination := Location.GetAtomForDirection(Direction);
+      CurrentLocation := DefaultParent as TLocation;
+      Destination := CurrentLocation.GetAtomForDirection(Direction);
       if (not Assigned(Destination)) then
       begin
-         Location.FailNavigation(Direction, Self);
+         // could give a better message?
+         CurrentLocation.FailNavigation(Direction, Self);
       end
       else
       if (Destination is TThing) then
@@ -1114,12 +1312,15 @@ begin
       end
       else
       begin
-         AvatarMessage('You cannot dig ' + CardinalDirectionToString(Direction) + '.');
+         AvatarMessage('You cannot dig ' + Destination.GetDefiniteName(Self) + '.');
       end;
    end
    else
    begin
-      AvatarMessage('You are ' + ThingPositionToString(Position) + ' ' + FParent.GetDefiniteName(Self) + '.');
+      if ((Direction = cdDown) and (FParent is TThing)) then
+         DoDig(FParent as TThing, Spade)
+      else
+         AvatarMessage('You cannot dig ' + CardinalDirectionToString(Direction) + ' while you are ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Self) + '.');
    end;
 end;
 
@@ -1250,7 +1451,7 @@ begin
       if (afSurroundings in AllFilter) then
          FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpExplicit, [], Result)
       else
-         Self.AddImplicitlyReferencedThings(Self, True, tpEverything, [], Result);
+         Self.AddImplicitlyReferencedThings(Self, True, tpExplicit, [], Result);
    end
    else
       FParent.GetDefaultAtom().AddExplicitlyReferencedThings(Tokens, Start, Count, Self, Result);

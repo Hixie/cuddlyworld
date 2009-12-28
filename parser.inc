@@ -374,7 +374,7 @@
                         else
                            Names := Names + ', or ';
                      end;
-                     Names := Names + ThisThing^.Value.GetDefiniteName(Self);
+                     Names := Names + ThisThing^.Value.GetLongDefiniteName(Self);
                      ThisThing := ThisThing^.Next;
                   end;
                   Name := '';
