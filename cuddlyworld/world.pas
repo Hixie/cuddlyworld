@@ -36,8 +36,8 @@ type
    TTokens = array of AnsiString;
 
    TThingProperty = (tpDiggable, tpCanDig,
-                     tpCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- holes can have things pushed onto them }
-                     tpCanHaveThingsPushedIn); { e.g. it has a lip flush with its container -- holes can have things pushed into them }
+                     tpCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- e.g. holes can have things pushed onto them }
+                     tpCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
    TThingProperties = set of TThingProperty;
 
    TGetDescriptionOnOptions = set of (optDeepOn, optPrecise);
@@ -65,14 +65,20 @@ type
       procedure Remove(Thing: TThing);
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
-      function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { self and children that are tpOn, tpCarried; add tpIn children if container is flexible }
-      function GetInsideSizeManifest(): TThingSizeManifest; virtual; { only children that are tpIn }
+      function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { self and children that are tpOn, tpCarried; add tpContained children if container is flexible }
+      function GetInsideSizeManifest(): TThingSizeManifest; virtual; { only children that are tpContained }
       function GetSurfaceSizeManifest(): TThingSizeManifest; virtual; { children that are tpOn }
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       function GetAvatars(FromOutside: Boolean): PAvatarItem; virtual;
       function GetName(Perspective: TAvatar): AnsiString; virtual; abstract; { if you ever return more than one word here, override IsMatchingWord() also }
+      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
       function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual;
+      function GetSubjectPronoun(Perspective: TAvatar): AnsiString; virtual; // I
+      function GetObjectPronoun(Perspective: TAvatar): AnsiString; virtual; // me
+      function GetReflexivePronoun(Perspective: TAvatar): AnsiString; virtual; // myself
+      function GetPossessivePronoun(Perspective: TAvatar): AnsiString; virtual; // mine
+      function GetPossessiveAdjective(Perspective: TAvatar): AnsiString; virtual; // my
       function GetTitle(Perspective: TAvatar): AnsiString; virtual;
       function GetContext(Perspective: TAvatar): AnsiString; virtual;
       function GetLook(Perspective: TAvatar): AnsiString; virtual;
@@ -150,7 +156,8 @@ type
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar; var List: PThingItem); override;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar): Boolean; override;
       procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
-//      procedure Shake(Perspective: TAvatar); virtual;
+      procedure Shake(Perspective: TAvatar); virtual;
+      procedure Press(Perspective: TAvatar); virtual;
       function GetProperties(): TThingProperties; virtual;
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
@@ -354,7 +361,7 @@ begin
       end;
    end
    else
-   if (Position = tpIn) then
+   if (Position in tpContained) then
    begin
       Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message);
       if (Assigned(Destination)) then
@@ -586,7 +593,7 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
-      if (Child^.Value.Position in [tpIn]) then
+      if (Child^.Value.Position in (tpContained - tpScenery)) then
          Result := Result + Child^.Value.GetOutsideSizeManifest();
       Child := Child^.Next;
    end;
@@ -634,7 +641,7 @@ begin
    if (FromOutside) then
       GetAvatarDescendants(Result)
    else
-      GetAvatarDescendants([tpIn], Result);
+      GetAvatarDescendants(tpContained, Result);
 end;
 
 function TAtom.GetDefiniteName(Perspective: TAvatar): AnsiString;
@@ -642,10 +649,40 @@ begin
    Result := 'the ' + GetName(Perspective);
 end;
 
+function TAtom.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   Result := GetDefiniteName(Perspective);
+end;
+
 function TAtom.GetIndefiniteName(Perspective: TAvatar): AnsiString;
 begin
    Result := GetName(Perspective);
    Result := IndefiniteArticle(Result) + ' ' + Result;
+end;
+
+function TAtom.GetSubjectPronoun(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'it';
+end;
+
+function TAtom.GetObjectPronoun(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'it';
+end;
+
+function TAtom.GetReflexivePronoun(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'itself';
+end;
+
+function TAtom.GetPossessivePronoun(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'its';
+end;
+
+function TAtom.GetPossessiveAdjective(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'its';
 end;
 
 function TAtom.GetTitle(Perspective: TAvatar): AnsiString;
@@ -669,8 +706,8 @@ begin
    while (Atom is TThing) do
    begin
       Thing := Atom as TThing;
-      Atom := Thing.FParent;
-      Position := Thing.FPosition;
+      Atom := Thing.Parent;
+      Position := Thing.Position;
       if (Atom.GetDefaultAtom() <> Atom) then
       begin
          Atom := Atom.GetDefaultAtom();
@@ -845,6 +882,7 @@ end;
 
 function TAtom.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
+   Assert(PositionOverride = tpIn);
    Result := nil;
 end;
 
@@ -907,7 +945,7 @@ var
 begin
    Filter := tpEverything;
    if (not IsOpen()) then
-      Filter := Filter - [tpIn];
+      Filter := Filter - tpContained;
    GetAvatarDescendants(Filter, List);
 end;
 
@@ -915,7 +953,7 @@ function TThing.GetAvatars(FromOutside: Boolean): PAvatarItem;
 begin
    Assert(Assigned(FParent));
    if (FromOutside or IsOpen()) then
-      Result := FParent.GetAvatars(FPosition <> tpIn)
+      Result := FParent.GetAvatars(not (FPosition in tpContained))
    else
       Result := inherited;
 end;
@@ -943,6 +981,7 @@ end;
 
 function TThing.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString): TAtom;
 begin
+   PositionOverride := tpIn;
    Result := GetInside(PositionOverride);
    if (Assigned(Result)) then
    begin
@@ -1004,7 +1043,7 @@ var
    Inside: TAtom;
    Contents: AnsiString;
 begin
-   if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position = tpIn))) then
+   if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
    begin
       PositionOverride := tpIn;
       Inside := GetInside(PositionOverride);
@@ -1060,7 +1099,7 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
-      if (Child^.Value.Position = tpAt) then
+      if (Child^.Value.Position in tpAutoDescribe) then
          Result := Result + Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere) + WithSpaceIfNotEmpty(Child^.Value.GetDescriptionState(Perspective));
       Child := Child^.Next;
    end;
@@ -1070,7 +1109,7 @@ function TThing.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescri
 var
    Additional: AnsiString;
 begin
-   if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position = tpIn))) then
+   if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
       Result := GetDescriptionIn(Perspective, Options, Prefix)
    else
       Result := '';
@@ -1230,14 +1269,14 @@ end;
 function TThing.AreChildrenExplicitlyReferenceable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean;
 begin
    if (not IsOpen()) then
-      PositionFilter := PositionFilter - [tpIn];
+      PositionFilter := PositionFilter - tpContained;
    Result := inherited;
 end;
 
 function TThing.AreChildrenImplicitlyReferenceable(Perspective: TAvatar; var PositionFilter: TThingPositionFilter): Boolean;
 begin
    if (not IsOpen()) then
-      PositionFilter := PositionFilter - [tpIn];
+      PositionFilter := PositionFilter - tpContained;
    Result := inherited;
 end;
 
@@ -1321,7 +1360,16 @@ end;
 procedure TThing.Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar);
 begin
    // should be more specific about where things are going, e.g. 'takes x', 'drops x', 'puts x on y', 'moves x around' (if oldparent=newparent)
-   DoBroadcast([Target(OldParent), Target(FParent)], Perspective, [C(M(@Perspective.GetDefiniteName)), M(' moves '), M(@GetDefiniteName), M('.')]);
+   DoBroadcast([Target(OldParent), Target(FParent)], Perspective, [C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), M('.')]);
+end;
+
+procedure TThing.Shake(Perspective: TAvatar);
+begin
+end;
+
+procedure TThing.Press(Perspective: TAvatar);
+begin
+   Perspective.AvatarMessage('Nothing happens.');
 end;
 
 function TThing.GetProperties(): TThingProperties;
@@ -1337,7 +1385,7 @@ end;
 
 function TThing.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
 begin
-   Message := 'You cannot dig here.';
+   Message := 'You cannot dig ' + GetDefiniteName(Perspective) + '.';
    Result := False;
 end;
 
@@ -1497,7 +1545,7 @@ function TLocation.GetDescriptionHere(Perspective: TAvatar): AnsiString;
    begin
       while (Assigned(Child)) do
       begin
-         if ((Child^.Value.Position = tpAt) and
+         if ((Child^.Value.Position in tpAutoDescribe) and
              (Child^.Value <> Perspective) and
              (Child^.Value <> FNorth) and
              (Child^.Value <> FNorthEast) and
@@ -1527,7 +1575,7 @@ begin
       if (Atom is TThing) then
       begin
          Thing := Atom as TThing;
-         if (Thing.Position = tpAt) then
+         if (Thing.Position in tpAutoDescribe) then
             ProcessThing(Thing, Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Perspective)) + ' ' + Thing.GetIndefiniteName(Perspective) + '.');
       end
       else

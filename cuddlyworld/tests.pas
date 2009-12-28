@@ -2,6 +2,7 @@
 {$INCLUDE settings.inc}
 program tests;
 uses
+   {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, world, player, cuddlycamp;
 
 type
@@ -115,7 +116,10 @@ begin
       if (not Found) then
       begin
          if (FExpectations[FPosition].SkipUntilFound) then
+         begin
+//            Writeln('not testing the validity of: ' + Message);
             Exit;
+         end;
          raise ETestError.Create('Failed in test ' + FTest + ': ' + Error + '.');
       end;
       Done := not FExpectations[FPosition].AlsoCheckNext;
@@ -285,8 +289,20 @@ end;
 procedure TTestProxy.Test(Name: AnsiString);
 begin
    FTest := Name;
+   Writeln('* ' + FTest);
 end;
 
+
+type
+   TTestPlayer = class(TPlayer)
+     procedure Perform(Message: AnsiString); override;
+   end;
+
+procedure TTestPlayer.Perform(Message: AnsiString);
+begin
+   Writeln('# > ' + Message);
+   inherited;
+end;
 
 var
    TestWorld: TWorld;
@@ -301,7 +317,7 @@ begin
    Failed := False;
    try
       try
-         TestPlayer := TPlayer.Create('Tester', '');
+         TestPlayer := TTestPlayer.Create('Tester', '', gRobot);
          TestPlayer.Adopt(@Proxy.HandleAvatarMessage, @Proxy.HandleForceDisconnect);
          TestWorld.AddPlayer(TestPlayer);
          TestPlayer.AnnounceAppearance();
@@ -322,12 +338,20 @@ begin
          Proxy.Test('Digging');
          Proxy.WaitUntilString('');
          Proxy.ExpectString('Foot of Cliff Face');
+         Proxy.ExpectNoSubstring('hole');
+         Proxy.AndAlso();
+         Proxy.ExpectNoSubstring('leaves');
          Proxy.WaitUntilString('');
          Proxy.ExpectString('(the ground with the spade)');
          Proxy.ExpectString('(first taking the spade)');
          Proxy.ExpectString('Taken.');
          Proxy.ExpectString('With much effort, you dig a huge hole.');
          Proxy.ExpectString('');
+         Proxy.ExpectString('Foot of Cliff Face');
+         Proxy.ExpectSubstring('hole');
+         Proxy.AndAlso();
+         Proxy.ExpectNoSubstring('leaves');
+         Proxy.WaitUntilString('');
          Proxy.ExpectSubstring('(first taking the '); Proxy.AndAlso(); Proxy.ExpectSubstring(' penny)');
          Proxy.ExpectString('Taken.');
          Proxy.ExpectString('Dropped on the hole.');
@@ -339,24 +363,28 @@ begin
          Proxy.ExpectString('Moved onto the hole.');
          Proxy.ExpectString('The MacGuffin falls into the hole.');
          Proxy.ExpectString('');
-         Proxy.WaitUntilString(''); { pile of leaves }
+         Proxy.ExpectString('Moved onto the hole.');
+         Proxy.ExpectString('');
          Proxy.SkipLine();
          Proxy.ExpectSubstring('On the hole is a pile of leaves');
          Proxy.ExpectString('');
-         Proxy.SkipLine(); { location name }
+         Proxy.ExpectString('Foot of Cliff Face');
          Proxy.ExpectNoSubstring('hole');
          Proxy.AndAlso();
          Proxy.ExpectSubstring('leaves');
          Proxy.WaitUntilString('');
-         TestPlayer.Perform('move all n; n; dig; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l');
+         TestPlayer.Perform('move all n; n; dig; l; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l');
          Proxy.ExpectDone();
 
          // overfill test
          Proxy.Test('Overfilling');
-         Proxy.WaitUntilString(''); { moving leaves back }
+         Proxy.ExpectString('Moved onto the ground.');
+         Proxy.ExpectString('');
          Proxy.ExpectNoSubstring('overflowing');
          Proxy.WaitUntilString('  A spade.');
          Proxy.WaitUntilString('');
+         Proxy.ExpectString('The hole is in the ground.');
+         Proxy.ExpectString('');
          Proxy.ExpectSubstring('Moved');
          Proxy.ExpectSubstring('falls');
          Proxy.ExpectSubstring('Moved');
@@ -386,7 +414,7 @@ begin
          Proxy.ExpectString('');
          Proxy.ExpectString('I can''t find anything like a "hole" here.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('move leaves onto ground; x hole; push balloon on hole; x hole; move earth on hole; find hole; move earth off; move pink out; get spade; move earth onto hole; find hole');
+         TestPlayer.Perform('move leaves onto ground; x hole; find hole; push balloon on hole; x hole; move earth on hole; find hole; move earth off; move pink out; get spade; move earth onto hole; find hole');
          Proxy.ExpectDone();
 
          // and/then/etc tests
@@ -421,7 +449,8 @@ begin
          TestPlayer.Perform('say a then, say b');
          Proxy.WaitUntilSubstring('Taken');
          Proxy.WaitUntilString('');
-         Proxy.WaitUntilString(''); { digging }
+         Proxy.WaitUntilSubstring('dig');
+         Proxy.WaitUntilString('');
          Proxy.WaitUntilSubstring('Dropped');
          Proxy.WaitUntilString('');
          TestPlayer.Perform('take all and dig and drop all in hole');

@@ -1,81 +1,109 @@
-X "take all and then drop all in hole" - crash!
-X "move all n; n; dig; take all and then drop all in hole" - "And what?"
-X "take all and drop all in hole" - "I don't understand how to take things "drop"."
-X change the way announcements work so that you instead do Broadcast(@AnnounceShaken, Perspective);
-X + then implement THole.HandleAdd()'s broadcasting of things falling into holes (see also next line)
-X + fumbling could be prettier, especially for 'take all'. Maybe there should be a separate thing from AvatarMessage(), which is just used for world events (like someone appearing, or someone fumbling something), which is unaffected by the context. Then, use this for things like filling holes, things falling into holes, etc.
-X convert some functions to use 'out'
+X implement shaking
+X start player with a bag
+X digging in a direction was badly broken; it's now less broken
+X going down when the down was not enterable was buggy
+X "find hole" says the hole is "at" the ground
+X have a way to have objects say "it" (or "them", "him", "you", whatever is appropriate)
+X also himself, etc
 
-Use broadcast mechanism to:
- + implement shaking
- + implement dancing
+MOVING THINGS
+ + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
+ + you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
+ + When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
+ + taking something with things on it should make the things fall off
+ + throwing - "throw MacGuffin north": I don't understand how to "throw".
+ + see whether "put x in ground" does things differently when the ground has a hole that is covered (see "// xxx" in things.pas TSurface.GetInside)
+ + TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
+ + digging a pile of earth should reveal all the things in the pile and put them on the ground next to the pile
+ + "empty x" should be like "move all from x out"
+ + "remove"
+ + "put all in x" should look everywhere, not just in hands
+ + "take bag then move leaves into bag then move leaves out of bag" fails because when you're holding the bag it doesn't think to push them onto the floor
+ + "push leaves into bag; push leaves onto ground" - the second part fails because when you're holding the bag it is too far from the floor
+
+PLAYER INTERACTION
+ + if you "take all" when someone is present holding something, you take their stuff
+ + "The player arrives from the hut." when another player is seen exiting the hut: would be better if it said "The player leaves the hut"? messages about in-room navigation are pretty poor in general right now (enter hole, enter pile, etc)
+ + it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
  + make shout broadcast to surrounding rooms
-"The player arrives from the hut." when another player is seen exiting the hut: would be better if it said "The player leaves the hut"? messages about in-room navigation are pretty poor in general right now (enter hole, enter pile, etc)
-it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
-check what happens if you "take all" when someone is present holding something
-support "it". In particular, if "look" only mentions one thing, "take it" should work.
-have a way to have objects say "it" (or "them", "him", "you", whatever is appropriate)
-'dig hole' should work
-"fill hole"
-rescue people in holes when the hole is filled (see // note in THole.HandleAdd)
-you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
-you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
-When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
-taking something with things on it should make the things fall off
-exit things by name
- - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
- - "get out of pile": That's a direction, I don't know how to take it.
-"climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
-"climb cliff": I don't understand how to "climb".
-"jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)=
-password command
-player safe where they can keep things while disconnected
-player savepoint so that players can reappear in a specific place after disconnecting
-change use of FParent to just be Parent when referring to another thing's parent
-refactor TPlayer.Move()
-throwing - "throw MacGuffin north": I don't understand how to "throw".
-"Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
-"take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers
-"drop all but spade and sword" should work
-"move leaves through door", "push pile through door"
-"move to north", "move to hut"
-"move off", "move off pile", "move me off pile" when standing on the pile of leaves
-announce when a player disconnects or reconnects
-If you send too much data at once, the socket's write buffer is filled, which causes the socket to have an exception (ETryAgain), which causes the game to abort.
-Sometimes the server just dies silently (killed by the kernel?).
-tools to shape the world - magic digging wand that doesn't make piles appear
-tools to shape the world - walking through the forest autocreating more forest, fields, rivers, mountains, caves
-tools to shape the world - cutting down the forest to form fields, piles of wood
-tools to shape the world - making small huts from piles of wood
-"look out" while on something on the ground talks about the ground. It should use the GetDefaultAtom() for the thing it's looking at
-'look under' should move things if they are bigger than what they are on
-"off" and "get off" should be equivalent to "out" when on an object
-start player with a bag
-"find hole" says the hole is "at" the ground -- consider adding an tpImplicitIn
-Players should have PartOfs: eyes, hands, etc
-Players should have Implicits: "you", "time" ("take time"), etc
-Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
-make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
-Looking should check for illumination by walking all the objects (FUp-not-in-FChildren would need special treatment... maybe some TLocations can contribute light?)
-- light contribution depends on Subject and Perspective
-- light is PitchBlack, Dark, Lit; stop walking after getting Lit
-- also check for FChildren that block Visibility from Perspective to Subject (e.g. smoke, fog)
-well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
-move build.sh options to a configuration file
-TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
-food:
+ + rescue people in holes when the hole is filled (see // note in THole.HandleAdd)
+ + player safe where they can keep things while disconnected
+ + player savepoint so that players can reappear in a specific place after disconnecting
+ + "poke head out of leaves": I don't understand how to "poke".
+ + "hide in leaves": I don't understand how to "hide". (should probably just be equivalent to getting into the leaves)
+ + implement dancing, kissing, emoting in general
+ + bounce balloon
+
+PARSER
+ + support "it". In particular, if "look" only mentions one thing, "take it" should work.
+ + support dangling parser - if we asked "which?" then accept a single GetThing() as a response (filtering only the previous matches) and resume parsing previous command
+ + 'dig hole' should work
+ + "fill hole" (with pile of earth) (by moving pile of earth into hole)
+ + exit things by name
+    - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
+    - "get out of pile": That's a direction, I don't know how to take it.
+ + "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
+ + "climb cliff": I don't understand how to "climb".
+ + "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
+ + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
+ + "Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
+ + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers
+ + "drop all but spade and sword" should work
+ + "move all but inventory" should work
+ + "move leaves through door", "push pile through door"
+ + "move to north", "move to hut"
+ + "get on pile" should mean the same as "move onto pile"
+ + "move off", "move off pile", "move me off pile" when standing on the pile of leaves
+ + "off" and "get off" should be equivalent to "out" when on an object
+ + announce when a player disconnects or reconnects
+ + "look out" while on something on the ground talks about the ground. It should use the GetDefaultAtom() for the thing it's looking at
+ + 'look under' should move things if they are bigger than what they are on
+ + "quit": I don't understand how to "quit".
+ + "take all there is"
+ + "take all again"
+ + "exits"
+ + "take leaves with spade"
+ + "put x under y" should say (by putting y on x) (first taking y)
+ + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
+
+NETWORK
+ + password command
+ + If you send too much data at once, the socket's write buffer is filled, which causes the socket to have an exception (ETryAgain), which causes the game to abort.
+ + Sometimes the server just dies silently (killed by the kernel?).
+
+WIZARDING
+ + tools to shape the world - magic digging wand that doesn't make piles appear
+ + tools to shape the world - walking through the forest autocreating more forest, fields, rivers, mountains, caves
+ + tools to shape the world - cutting down the forest to form fields, piles of wood
+ + tools to shape the world - making small huts from piles of wood
+ + digging while in a hole - "dig ground" should at least do something while in a hole in the ground
+
+WORLD
+ + Players should have PartOfs: eyes, hands, etc
+ + Players should have Implicits: "you", "time" ("take time"), etc
+ + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
+ + make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
+ + well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
+ + "destroy mountain": I don't understand how to "destroy".
+ + "delete leaves": I don't understand how to "delete".
+ + "make vegetation": I don't understand how to "make".
+ + "grow vegetation": I don't understand how to "grow".
+ + "create axe": I don't understand how to "create".
+ + "instantiate axe": I don't understand how to "instantiate".
+ + "harvest forest": I don't understand how to "harvest".
+ + "chop down forest": I don't understand how to "chop".
+ + "repair", "unbreak system": I don't understand how to "unbreak".
+
+ILLUMINATION
+ + Looking should check for illumination by walking all the objects (FUp-not-in-FChildren would need special treatment... maybe some TLocations can contribute light?)
+    - light contribution depends on Subject and Perspective
+    - light is PitchBlack, Dark, Lit; stop walking after getting Lit
+    - also check for FChildren that block Visibility from Perspective to Subject (e.g. smoke, fog)
+
+FOOD
  + "go eat": I don't understand how to go "eat".
  + "feed MacGuffin": I don't understand how to "feed".
-"destroy mountain": I don't understand how to "destroy".
-"delete leaves": I don't understand how to "delete".
-"make vegetation": I don't understand how to "make".
-"grow vegetation": I don't understand how to "grow".
-"create axe": I don't understand how to "create".
-"instantiate axe": I don't understand how to "instantiate".
-"harvest forest": I don't understand how to "harvest".
-"chop down forest": I don't understand how to "chop".
-"quit": I don't understand how to "quit".
-"repair", "unbreak system": I don't understand how to "unbreak".
-"poke head out of leaves": I don't understand how to "poke".
-"hide in leaves": I don't understand how to "hide". (should probably just be equivalent to getting into the leaves)
-log exceptions other than parse errors - abstract out the logging code
+
+CODE
+ + move build.sh options to a configuration file
+ + log exceptions other than parse errors - abstract out the logging code

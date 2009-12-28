@@ -13,18 +13,19 @@ const
    cdLastPhysical = cdDown;
 
 type
-   TThingPosition = (tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, { these need to be explicitly included in the 'look' description }
-                     tpAt, tpOn, tpIn, tpCarried);
+   TThingPosition = (tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit,
+                     tpOpening, tpAt, tpOn, tpIn, tpCarried);
    TThingPositionFilter = set of TThingPosition;
 
 const
-   tpEverything = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpAt, tpOn, tpIn, tpCarried];
-   { Implicit vs Explicit }
-   tpImplicit = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit];
-   tpExplicit = tpEverything - tpImplicit;
-   { Scenery vs Contained vs tpOn }
-   tpScenery = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpAt];
-   tpContained = [tpIn, tpCarried];
+   tpEverything = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit, tpOpening, tpAt, tpOn, tpIn, tpCarried];
+   tpImplicit = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit]; { parent is assumed to include the description of these children already }
+   tpAutoDescribe = [tpOpening, tpAt]; { things that should be included in the main description of an object }
+   tpExplicit = [tpOnImplicit, tpInImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
+   tpScenery = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit, tpOpening, tpAt]; { parent includes the mass of these children already }
+   tpContained = [tpInImplicit, tpIn]; { affects how things are pushed around }
+   tpStacked = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { affects how things are removed }
+   tpSeparate = [tpAroundImplicit, tpAtImplicit, tpInImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
 
 function IndefiniteArticle(Noun: AnsiString): AnsiString; inline;
 function Capitalise(Phrase: AnsiString): AnsiString; inline;
@@ -179,7 +180,7 @@ begin
      tpAroundImplicit: Result := 'around';
      tpAtImplicit, tpAt: Result := 'at';
      tpOn: Result := 'on';
-     tpIn: Result := 'in';
+     tpOpening, tpInImplicit, tpIn: Result := 'in';
      tpCarried: Result := 'being carried by';
     else
      raise Exception.Create('Unknown thing position ' + IntToStr(Ord(Position)));
@@ -195,7 +196,7 @@ begin
      tpAtImplicit: Result := 'to'; // assert instead?
      tpAt: Result := 'to';
      tpOn: Result := 'onto';
-     tpIn: Result := 'into';
+     tpOpening, tpInImplicit, tpIn: Result := 'into';
      tpCarried: Result := 'so that it is carried by'; // assert instead?
     else
      raise Exception.Create('Unknown thing position ' + IntToStr(Ord(Position)));

@@ -2,6 +2,7 @@
 {$INCLUDE settings.inc}
 program genesis;
 uses
+   {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, world, cuddlycamp;
 
 var
