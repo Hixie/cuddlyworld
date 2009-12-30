@@ -1308,13 +1308,30 @@
          Result := False;
    end;
 
+   function GetQuit(var Action: TAction): Boolean;
+   begin
+      if (Tokens[CurrentToken] = 'quit') then
+      begin
+         Inc(CurrentToken);
+         Result := True;
+         Action.Verb := avQuit;
+         if (not CanEnd()) then
+         begin
+            EnsureNoPunctuation();
+            Fail('I don''t understand how to quit "' + Tokens[CurrentToken] + '".');
+         end;
+      end
+      else
+         Result := False;
+   end;
+
    function ParseAction(var Action: TAction): Boolean; { returns true if there's another action to parse }
    begin
       if (GetLook(Action) or GetExamine(Action) or GetInventory(Action) or GetFind(Action) or
           GetGo(Action) or GetEnter(Action) or GetLeave(Action) or
           GetTake(Action) or GetPut(Action) or GetMove(Action) or GetPush(Action) or GetShake(Action) or GetDig(Action) or
           GetTalk(Action) or GetDance(Action) or
-          GetBug(Action) or GetHelp(Action)) then
+          GetBug(Action) or GetHelp(Action) or GetQuit(Action)) then
          Result := GetContinuation() { consumes the "next" and verifies there's something else coming }
       else
          Fail('I don''t understand how to "' + Tokens[CurrentToken] + '".');

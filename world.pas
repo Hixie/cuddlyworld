@@ -459,8 +459,10 @@ var
    Item: PThingItem;
    {$IFOPT C+} Position: TThingPosition; {$ENDIF}
 begin
-   {$IFOPT C+} Position := tpIn; {$ENDIF}
-   Assert((APosition <> tpIn) or (GetInside(Position) = Self), 'tried to put something inside something without an inside');
+   {$IFOPT C+}
+     Position := tpIn;
+     Assert((APosition <> tpIn) or (GetInside(Position) = Self), 'tried to put something inside something without an inside');
+   {$ENDIF}
    if (Assigned(Thing.FParent)) then
       Thing.FParent.Remove(Thing);
    Assert(not Assigned(Thing.FParent));
