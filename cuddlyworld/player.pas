@@ -43,6 +43,7 @@ type
       procedure DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
       procedure DoDance();
       procedure DoHelp();
+      procedure DoQuit();
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
@@ -103,7 +104,7 @@ type
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection,
                   avTalk, avDance,
-                  avHelp);
+                  avHelp, avQuit);
 
    PTalkMessage = ^TTalkMessage;
    TTalkMessage = record
@@ -135,6 +136,7 @@ type
       avTalk: (TalkTarget: TThing; TalkMessage: PTalkMessage; TalkVolume: TTalkVolume);
       avDance: ();
       avHelp: ();
+      avQuit: ();
    end;
 
 var
@@ -226,6 +228,7 @@ var
        avTalk: DoTalk(Action.TalkTarget, Action.TalkMessage^.Message, Action.TalkVolume);
        avDance: DoDance();
        avHelp: DoHelp();
+       avQuit: DoQuit();
       else
        raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
       end;
@@ -309,6 +312,12 @@ begin
                  'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
                  'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''". ' + 'Please be descriptive and include as much information as possible about how to reproduce the bug. Thanks!' + #10 +
                  'Have fun!');
+end;
+
+procedure TPlayer.DoQuit();
+begin
+   { From 2001... }
+   AvatarMessage('Look ' + Capitalise(FName) + ', I can see you''re really upset about this. I honestly think you ought to sit down calmly, take a stress pill, and think things over.');
 end;
 
 procedure TPlayer.SetContext(Context: AnsiString);
