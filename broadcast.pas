@@ -8,11 +8,6 @@ uses
    world, grammarian;
 
 type
-   TNotificationTarget = record
-      Target: TAtom;
-      Outside: Boolean;
-   end;
-
    TMessageCallback = function (): AnsiString;
    TMessageCallbackPerspective = function (Perspective: TAvatar): AnsiString;
    TMessageCallbackMethod = function (): AnsiString of object;
@@ -34,11 +29,6 @@ type
        mkPerspectivePluralCheck: (DataPerspectivePluralSingularPart: PMessagePart; DataPerspectivePluralPluralPart: PMessagePart);
    end;
 
-function Target(Atom: TAtom): TNotificationTarget; inline;
-function Target(Thing: TThing): TNotificationTarget; inline;
-function Target(Location: TLocation): TNotificationTarget; inline;
-function Target(Atom: TAtom; Position: TThingPosition): TNotificationTarget; inline;
-
 function SP(): PMessagePart; inline;
 function C(const M: PMessagePart): PMessagePart; inline;
 function M(const V: AnsiString): PMessagePart; inline;
@@ -51,43 +41,13 @@ function MPP(const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inli
 
 procedure ClearMessagePart(MessagePart: PMessagePart);
 
-procedure DoBroadcast(NotificationTargets: array of TNotificationTarget; Perspective: TAvatar; MessageParts: array of PMessagePart);
+procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar; MessageParts: array of PMessagePart);
 procedure DoBroadcast(Perspective: TAvatar; MessageParts: array of PMessagePart);
 
 implementation
 
 uses
    sysutils;
-
-function Target(Atom: TAtom): TNotificationTarget; inline;
-begin
-   if (Atom is TThing) then
-      Result := Target(Atom as TThing)
-   else
-   if (Atom is TLocation) then
-      Result := Target(Atom as TLocation)
-   else
-      raise EAssertionFailed.Create('Unknown Atom type in Broadcast.Target(TAtom).');
-end;
-
-function Target(Thing: TThing): TNotificationTarget; inline;
-begin
-   Result.Target := Thing.Parent;
-   Result.Outside := Thing.Position <> tpIn;
-end;
-
-function Target(Location: TLocation): TNotificationTarget; inline;
-begin
-   Result.Target := Location;
-   Result.Outside := True;
-end;
-
-function Target(Atom: TAtom; Position: TThingPosition): TNotificationTarget; inline;
-begin
-   Result.Target := Atom;
-   Result.Outside := Position <> tpIn;
-end;
-
 
 function SP(): PMessagePart; inline;
 begin
@@ -169,10 +129,10 @@ end;
 
 procedure DoBroadcast(Perspective: TAvatar; MessageParts: array of PMessagePart);
 begin
-   DoBroadcast([Target(Perspective)], Perspective, MessageParts);
+   DoBroadcast([Perspective], Perspective, MessageParts);
 end;
 
-procedure DoBroadcast(NotificationTargets: array of TNotificationTarget; Perspective: TAvatar; MessageParts: array of PMessagePart);
+procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar; MessageParts: array of PMessagePart);
 
    function Assemble(MessageParts: array of PMessagePart; Perspective: TAvatar): AnsiString;
 
@@ -202,12 +162,17 @@ procedure DoBroadcast(NotificationTargets: array of TNotificationTarget; Perspec
    end;
 
 var
-   Avatars, LastAvatarItem: PAvatarItem;
+   Avatars, NextAvatarItem, LastAvatarItem: PAvatarItem;
    Index: Cardinal;
+   FromOutside: Boolean;
 begin
    Avatars := nil;
    for Index := Low(NotificationTargets) to High(NotificationTargets) do
-      Avatars := MergeAvatarLists(Avatars, NotificationTargets[Index].Target.GetAvatars(NotificationTargets[Index].Outside));
+   begin
+      NextAvatarItem := nil;
+      NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetAvatars(NextAvatarItem, FromOutside);
+      Avatars := MergeAvatarLists(Avatars, NextAvatarItem);
+   end;
    while (Assigned(Avatars)) do
    begin
       if (Avatars^.Value <> Perspective) then

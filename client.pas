@@ -94,7 +94,7 @@ begin
          begin
             FPlayer := PotentialPlayer;
             FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
-            WriteFrame('Welcome back to CuddlyWorld, ' + FUsername + '!');
+            WriteFrame('Welcome back to Cuddly World, ' + FUsername + '!');
             WriteFrame('');
             FPlayer.DoLook();
             FPlayer.DoInventory();
@@ -109,11 +109,11 @@ begin
       end
       else
       begin
-         FPlayer := TPlayer.Create(FUsername, FPassword, gThirdGender);
+         FPlayer := TPlayer.Create(FUsername, FPassword, gOrb);
          FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
          FWorld.AddPlayer(FPlayer); { this puts it into the world }
          FPlayer.AnnounceAppearance();
-         WriteFrame('Welcome to CuddlyWorld, ' + FUsername + '!');
+         WriteFrame('Welcome to Cuddly World, ' + FUsername + '!');
          WriteFrame('');
          FPlayer.DoLook();
          WriteFrame('');

@@ -26,6 +26,7 @@ const
    tpContained = [tpInImplicit, tpIn]; { affects how things are pushed around }
    tpStacked = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { affects how things are removed }
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpInImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
+   tpDeferNavigationToParent = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
 
 function IndefiniteArticle(Noun: AnsiString): AnsiString; inline;
 function Capitalise(Phrase: AnsiString): AnsiString; inline;
