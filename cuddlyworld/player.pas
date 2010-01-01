@@ -15,7 +15,7 @@ const
    MaxCarryCount = 10; { not inclusive }
 
 type
-   TGender = (gMale, gFemale, gThirdGender, gRobot, gHive);
+   TGender = (gMale, gFemale, gThirdGender, gRobot, gOrb, gHive);
 
    TAllFilter = set of (afSurroundings, afSelf);
 
@@ -91,6 +91,7 @@ type
       function GetPassword(): AnsiString;
       procedure Adopt(AOnAvatarMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
+      property Gender: TGender read FGender write FGender;
    end;
 
 implementation
@@ -380,7 +381,7 @@ begin
       Result := 'you'
    else
    case FGender of
-     gMale, gFemale, gThirdGender, gRobot: Result := Capitalise(FName);
+     gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
      gHive: Result := 'The ' + Capitalise(FName);
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -401,7 +402,7 @@ begin
       Result := 'you'
    else
    case FGender of
-     gMale, gFemale, gThirdGender, gRobot: Result := Capitalise(FName);
+     gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
      gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -417,7 +418,7 @@ begin
      gMale: Result := 'he';
      gFemale: Result := 'she';
      gThirdGender: Result := 's/he';
-     gRobot: Result := 'it';
+     gRobot, gOrb: Result := 'it';
      gHive: Result := 'they';
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -433,7 +434,7 @@ begin
      gMale: Result := 'him';
      gFemale: Result := 'her';
      gThirdGender: Result := 'him/her';
-     gRobot: Result := 'it';
+     gRobot, gOrb: Result := 'it';
      gHive: Result := 'them';
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -449,7 +450,7 @@ begin
      gMale: Result := 'himself';
      gFemale: Result := 'herself';
      gThirdGender: Result := 'him/herself';
-     gRobot: Result := 'itself';
+     gRobot, gOrb: Result := 'itself';
      gHive: Result := 'themselves';
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -465,7 +466,7 @@ begin
      gMale: Result := 'his';
      gFemale: Result := 'hers';
      gThirdGender: Result := 'his/hers';
-     gRobot: Result := 'its';
+     gRobot, gOrb: Result := 'its';
      gHive: Result := 'theirs';
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -481,7 +482,7 @@ begin
      gMale: Result := 'his';
      gFemale: Result := 'her';
      gThirdGender: Result := 'his/her';
-     gRobot: Result := 'its';
+     gRobot, gOrb: Result := 'its';
      gHive: Result := 'their';
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -527,6 +528,7 @@ begin
         gFemale: Result := 'You look quite the woman, ' + FName + '.';
         gThirdGender: Result := 'You look quite fine, ' + FName + ', yes, indeed. Quite fine.';
         gRobot: Result := 'You are operating within standard parameters, ' + FName + '.';
+        gOrb: Result := 'You are a beautiful orb of light, ' + FName + ', floating in the air.';
         gHive: Result := 'You are quite the hive, ' + FName + '.';
        else
          raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -539,12 +541,21 @@ begin
         gFemale: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a woman of no consequence.';
         gThirdGender: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a person of no consequence.';
         gRobot: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a robot of no consequence.';
+        gOrb: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a floating orb of light of no consequence.';
         gHive: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a hive mind of no consequence.';
        else
          raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
       end;
       if (not HasConnectedPlayer) then
-         Result := Result + ' ' + Capitalise(GetPossessiveAdjective(Perspective)) + ' eyes look into the distance, as if ' + GetSubjectPronoun(Perspective) + ' ' + TernaryConditional('isn''t', 'aren''t', IsPlural(Perspective)) + ' really here.';
+      begin
+         case FGender of
+           gMale, gFemale, gThirdGender, gHive: Result := Result + ' ' + Capitalise(GetPossessiveAdjective(Perspective)) + ' eyes look into the distance, as if ' + GetSubjectPronoun(Perspective) + ' ' + TernaryConditional('isn''t', 'aren''t', IsPlural(Perspective)) + ' really here.';
+           gRobot: Result := Result + ' It appears to be currently powered down, though you see no visible means of turning it on.';
+           gOrb: Result := Result + ' The light is currently quite dim.';
+          else
+            raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+         end;
+      end;
    end;
 end;
 
@@ -991,6 +1002,8 @@ var
    Location: TLocation;
    ThingPosition: TThingPosition;
    Message: AnsiString;
+   NotificationList, LastNotificationList: PAtomItem;
+   NotificationListEnd: PPAtomItem;
 begin
    Assert(Assigned(Subject));
    Multiple := Assigned(Subject^.Next);
@@ -1025,17 +1038,39 @@ begin
                begin
                   ThingPosition := tpOn;
                   Message := 'Pushed.';
-                  Destination := Destination.GetEntrance(Subject^.Value, Subject^.Value.Parent, Self, ThingPosition, Message);
-                  if (Assigned(Destination)) then
-                  begin
-                     Success := Subject^.Value.CanMove(Self, Message) and CanPush(Subject^.Value, Message) and Destination.CanPut(Subject^.Value, ThingPosition, Self, Message);
-                     AvatarMessage(Message);
-                     if (Success) then
-                        Destination.Add(Subject^.Value, ThingPosition, False, Self);
-                  end
-                  else
-                  begin
-                     AvatarMessage(Message);
+                  NotificationList := nil;
+                  NotificationListEnd := @NotificationList;
+                  try
+                     Destination := Destination.GetEntrance(Subject^.Value, Subject^.Value.Parent, Self, ThingPosition, Message, NotificationListEnd);
+                     if (Assigned(Destination)) then
+                     begin
+                        Success := Subject^.Value.CanMove(Self, Message) and
+                                   CanPush(Subject^.Value, Message) and
+                                   Destination.CanPut(Subject^.Value, ThingPosition, Self, Message);
+                        AvatarMessage(Message);
+                        if (Success) then
+                        begin
+                           while (Assigned(NotificationList)) do
+                           begin
+                              NotificationList^.Value.HandlePassedThrough(Subject^.Value, Subject^.Value.Parent, Destination, ThingPosition, Self);
+                              LastNotificationList := NotificationList;
+                              NotificationList := NotificationList^.Next;
+                              Dispose(LastNotificationList);
+                           end;
+                           Destination.Add(Subject^.Value, ThingPosition, False, Self);
+                        end;
+                     end
+                     else
+                     begin
+                        AvatarMessage(Message);
+                     end;
+                  finally
+                     while (Assigned(NotificationList)) do
+                     begin
+                        LastNotificationList := NotificationList;
+                        NotificationList := NotificationList^.Next;
+                        Dispose(LastNotificationList);
+                     end;
                   end;
                end;
             end
@@ -1212,7 +1247,7 @@ begin
          else
          begin
             // CanReach()? (what about "press mountain", etc?) (for now it's ok since it just says "it does nothing")
-            DoBroadcast([Target(Subject^.Value), Target(Self)], Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@Subject^.Value.GetDefiniteName), M('.')]);
+            DoBroadcast([Subject^.Value, Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@Subject^.Value.GetDefiniteName), M('.')]);
             Subject^.Value.Press(Self);
          end;
          Subject := Subject^.Next;
@@ -1251,7 +1286,7 @@ begin
             if (CanCarry(Subject^.Value, Message)) then
             begin
                { have to do broadcast as well as avatar message because broadcast won't get the context }
-               DoBroadcast([Target(Subject^.Value), Target(Self)], Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@Subject^.Value.GetDefiniteName), M('.')]);
+               DoBroadcast([Subject^.Value, Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@Subject^.Value.GetDefiniteName), M('.')]);
                AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional('shakes', 'shake', IsPlural(Self)) + ' ' + Subject^.Value.GetDefiniteName(Self) + '.');
                Subject^.Value.Shake(Self);
             end
@@ -1411,7 +1446,7 @@ begin
       Masses := Masses - CandidateMass;
       Sizes := Sizes - CandidateSize;
       Count := Count - 1;
-      DoBroadcast([Target(Self)], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
+      DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
       FParent.Add(Candidate, tpOn, False, Self);
    end;
 end;
@@ -1451,34 +1486,38 @@ begin
 end;
 
 function TPlayer.GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
+var
+   FromOutside: Boolean;
 begin
    Assert(Assigned(FParent));
    Assert(Count > 0);
    Result := nil;
+   { AllFilter = [] when we're expecting a single object (and shouldn't support 'all') }
    if ((AllFilter <> []) and (Count = 1) and (MeansEverything(Tokens[Start]))) then
    begin
       if (afSurroundings in AllFilter) then
-         FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpExplicit, [], Result)
+         GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, afSelf in AllFilter, tpExplicit, [], Result)
       else
-         Self.AddImplicitlyReferencedThings(Self, True, tpExplicit, [], Result);
+         AddImplicitlyReferencedThings(Self, True, afSelf in AllFilter, tpExplicit, [], Result);
    end
    else
-      FParent.GetDefaultAtom().AddExplicitlyReferencedThings(Tokens, Start, Count, Self, Result);
+      GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, Start, Count, Self, FromOutside, Result);
 end;
 
 function TPlayer.Referenceable(Subject: TAtom): Boolean;
 var
    Root: TAtom;
+   FromOutside: Boolean;
 begin
    Assert(Assigned(Subject));
    Assert(Assigned(FParent));
-   Root := FParent.GetDefaultAtom();
+   Root := GetSurroundingsRoot(FromOutside);
    Assert(Assigned(Root));
    if (Subject is TLocation) then
       Result := Root = Subject
    else
    if (Subject is TThing) then
-      Result := Root.StillReferenceable(Subject as TThing, Self)
+      Result := Root.StillReferenceable(Subject as TThing, Self, FromOutside)
    else
       raise Exception.Create('TPlayer.Referencable() does not know how to handle objects of class ' + Subject.ClassName());
 end;
@@ -1486,14 +1525,15 @@ end;
 function TPlayer.GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;
 var
    List: PThingItem;
+   FromOutside: Boolean;
 begin
    Assert(Assigned(FParent));
    Assert((afSelf in AllFilter) or (afSurroundings in AllFilter));
    List := nil;
    if (afSurroundings in AllFilter) then
-      FParent.GetDefaultAtom().AddImplicitlyReferencedThings(Self, afSelf in AllFilter, tpEverything, PropertyFilter, List)
+      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, afSelf in AllFilter, tpEverything, PropertyFilter, List)
    else
-      Self.AddImplicitlyReferencedThings(Self, True, tpEverything, PropertyFilter, List);
+      AddImplicitlyReferencedThings(Self, True, afSelf in AllFilter, tpEverything, PropertyFilter, List);
    if (Assigned(List)) then
    begin
       // should implement some kind of prioritisation scheme

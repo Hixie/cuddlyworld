@@ -1,3 +1,8 @@
+CRITICAL
+ + Carindasays hello to you.
+ + "There is a pedestal here." shouldn't be shown in horizon view.
+ + "dilap..." should work as an adjective
+
 PLOT
  + plot
 
@@ -18,16 +23,21 @@ NAVIGATION
  + exit things by name
     - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
     - "get out of pile": That's a direction, I don't know how to take it.
+    - when doing this make sure that we can't escape closed containers
  + "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
  + "climb cliff": I don't understand how to "climb".
  + "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
  + "move to north", "move to hut"
  + "get on pile" should mean the same as "move onto pile"
  + "move off", "move off pile", "move me off pile" when standing on the pile of leaves
- + "off" and "get off" should be equivalent to "out" when on an object
+ + "off" and "get off" should be required to be used instead of "out" when on an object
  + announce when a player disconnects or reconnects
  + "look out" while on something on the ground talks about the ground. It should use the GetDefaultAtom() for the thing it's looking at
  + "exits"
+ + seriously consider making it impossible for a TAvatar to be anything but tpOn
+    - this would mean that any object that can be entered would have to have a separate surface inside
+    - this would dramatically simplify navigation and looking around
+    - this might be necessary to make descriptions from inside a bag make as much sense as outside a bag, anyway
 
 PLAYER INTERACTION
  + if you "take all" when someone is present holding something, you take their stuff
@@ -43,6 +53,7 @@ PLAYER INTERACTION
  + bounce balloon
 
 THINGS
+ + make orbs smaller but with no carrying capability
  + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
  + you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
  + When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
@@ -67,11 +78,13 @@ THINGS
  + "move all but inventory" should work
  + "move leaves through door", "push pile through door"
  + 'look under' should move things if they are bigger than what they are on
+ + 'look' when inside an object that usually hides its contents (e.g. a pile) still hides its contents when in the pile - do we need FromOutside for GetDescriptionIn()?
  + "take all there is"
  + "take all again"
  + "take leaves with spade"
  + "put x under y" should say (by putting y on x) (first taking y)
  + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
+ + make the synonyms thing support multiple words per synonym, the words having to appear in the given order (or else figure out whether to special case "of" in thing descriptions; also consider "south west arch" which should not be picked for the term "south arch")
 
 NETWORK
  + password command
@@ -102,3 +115,5 @@ FOOD
 CODE
  + move build.sh options to a configuration file
  + log exceptions other than parse errors - abstract out the logging code
+ + see if it makes sense to change TThing.Navigate() and TThing.GetLookDirection() to instead use a GetAtomForDirection()-like approach
+

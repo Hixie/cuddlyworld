@@ -1,9 +1,10 @@
 {$MODE OBJFPC} { -*- text -*- }
 {$INCLUDE settings.inc}
+{-$DEFINE VERBOSE}
 program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
-   sysutils, storable, world, player, cuddlycamp;
+   sysutils, storable, world, player, locations, things, thingdim, grammarian, cuddlycamp;
 
 type
    TExpectationKind = (ekString, ekSubstring, ekNoSubstring, ekSkip, ekDisconnected, ekRecordingStart);
@@ -83,7 +84,7 @@ var
    Found, Done: Boolean;
    Error: AnsiString;
 begin
-//   Writeln('# ' + Message);
+{$IFDEF VERBOSE}   Writeln('# ' + Message); {$ENDIF}
    repeat
       HandleAnything('line "' + Message + '"');
       if (FRecording) then
@@ -117,7 +118,7 @@ begin
       begin
          if (FExpectations[FPosition].SkipUntilFound) then
          begin
-//            Writeln('not testing the validity of: ' + Message);
+{$IFDEF VERBOSE}            Writeln('not testing the validity of: ' + Message); {$ENDIF}
             Exit;
          end;
          raise ETestError.Create('Failed in test ' + FTest + ': ' + Error + '.');
@@ -300,9 +301,77 @@ type
 
 procedure TTestPlayer.Perform(Message: AnsiString);
 begin
-   Writeln('# > ' + Message);
+{$IFDEF VERBOSE}   Writeln('# > ' + Message); {$ENDIF}
    inherited;
 end;
+
+
+type
+   TTestWorld = class(TWorld)
+     procedure AddPlayer(Avatar: TAvatar); override;
+   end;
+
+procedure TTestWorld.AddPlayer(Avatar: TAvatar);
+begin
+   FLocations^.Next^.Value.GetSurface().Add(Avatar, tpOn);
+   inherited;
+end;
+
+
+procedure TestMechanics();
+
+   function InitTestEden: TWorld;
+   var
+      World: TTestWorld;
+      Camp, Cliff: TLocation;
+      CampMountain, CampForest: TThing;
+      CliffMountain, CliffForest, CliffCamp, CliffCliff: TThing;
+   begin
+      World := TTestWorld.Create();
+
+      { Locations }
+      Camp := TFeaturelessOutdoorLocation.Create('Camp Cuddlyfort', 'Camp Cuddlyfort', 'a camp', 'This is a camp nestled in a forest, under the shadow of a mountain to the north.');
+      Cliff := TFeaturelessOutdoorLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff is a sheer rock face, essentially unclimbable. Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.');
+
+      { Camp }
+      CampMountain := TDistantScenery.Create('mountain', cdNorth);
+      Camp.Add(CampMountain, tpAroundImplicit);
+      CampForest := TScenery.Create(['forest', 'trees', 'tree', 'of'], 'the forest of trees', 'The forest is dense and impassable.');
+      Camp.Add(CampForest, tpAroundImplicit);
+      Camp.GetSurface().Add(TStaticThing.Create('MacGuffin', 'The MacGuffin displays outward signs of being avian in nature.', tmHeavy, tsBig), tpOn);
+      Camp.GetSurface().Add(TStaticThing.Create('penny', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
+      Camp.GetSurface().Add(TPile.Create(['leaves', 'leaf'], 'It appears someone has collected fallen leaves from the forest. Possibly the entire forest, given how big the pile is.', tmLight, tsGigantic), tpOn);
+      Camp.ConnectCardinals(Cliff, CampForest, CampForest, CampForest);
+      Camp.ConnectDiagonals(CampForest, CampForest, CampForest, CampForest);
+      World.AddLocation(Camp);
+
+      { Cliff }
+      CliffMountain := TScenery.Create('mountain', 'From here you cannot get a good sense of the size of the mountain. Its cliff face dominates your view.');
+      (CliffMountain as TScenery).FindDescription := 'The mountain towers high above you.';
+      Cliff.Add(CliffMountain, tpAtImplicit);
+      CliffCliff := TScenery.Create('cliff', 'The cliff consists of a sheer rock face.');
+      CliffMountain.Add(CliffCliff, tpPartOfImplicit);
+      CliffForest := TScenery.Create(['forest', 'trees', 'tree', 'of'], 'the forest of trees', 'The forest is dense and impassable.');
+      Cliff.Add(CliffForest, tpAroundImplicit);
+      CliffCamp := TDistantScenery.Create('camp', cdSouth);
+      Cliff.Add(CliffCamp, tpAroundImplicit);
+      Cliff.GetSurface().Add(TSpade.Create(), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large red balloon', 'huge', 'massive'], 'the large red balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large orange balloon', 'huge', 'massive'], 'the large orange balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large yellow balloon', 'huge', 'massive'], 'the large yellow balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large green balloon', 'huge', 'massive'], 'the large green balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large blue balloon', 'huge', 'massive'], 'the large blue balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large violet balloon', 'purple', 'huge', 'massive'], 'the large violet balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large white balloon', 'huge', 'massive'], 'the large white balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large black balloon', 'huge', 'massive'], 'the large black balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large grey balloon', 'gray', 'huge', 'massive'], 'the large grey balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create(['large pink balloon', 'huge', 'massive'], 'the large pink balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
+      Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
+      Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
+      World.AddLocation(Cliff);
+
+      Result := World;
+   end;
 
 var
    TestWorld: TWorld;
@@ -310,10 +379,9 @@ var
    Proxy: TTestProxy;
    Failed: Boolean;
 begin
-   Writeln('CuddlyWorld Tests initializing...');
-   {$IFDEF DEBUG} Writeln('CuddlyWorld debugging enabled.'); {$ENDIF}
+   Writeln('MECHANICS');
    Proxy := TTestProxy.Create();
-   TestWorld := InitEden();
+   TestWorld := InitTestEden();
    Failed := False;
    try
       try
@@ -336,6 +404,7 @@ begin
 
          // Dig and cover test
          Proxy.Test('Digging');
+         Proxy.ExpectNoSubstring('I can''t see anything to move.');
          Proxy.WaitUntilString('');
          Proxy.ExpectString('Foot of Cliff Face');
          Proxy.ExpectNoSubstring('hole');
@@ -455,8 +524,6 @@ begin
          Proxy.WaitUntilString('');
          TestPlayer.Perform('take all and dig and drop all in hole');
          Proxy.ExpectDone();
-
-         Writeln('Tests done successfully.');
       except
          on E: ETestError do
          begin
@@ -479,10 +546,71 @@ begin
       TestWorld.Free();
       Proxy.Free();
    end;
-   Writeln('CuddlyWorld Tests complete.');
    if (Failed) then
    begin
       Writeln('FAILURE DETECTED');
       Halt(1);
    end;
+end;
+
+procedure TestPlot();
+var
+   TestWorld: TWorld;
+   TestPlayer: TPlayer;
+   Proxy: TTestProxy;
+   Failed: Boolean;
+begin
+   Writeln('PLOT');
+   Proxy := TTestProxy.Create();
+   TestWorld := InitEden();
+   Failed := False;
+   try
+      try
+         TestPlayer := TTestPlayer.Create('Tester', '', gRobot);
+         TestPlayer.Adopt(@Proxy.HandleAvatarMessage, @Proxy.HandleForceDisconnect);
+         TestWorld.AddPlayer(TestPlayer);
+         TestPlayer.AnnounceAppearance();
+
+         // Starting room test
+         Proxy.Test('Starting location');
+         Proxy.ExpectString('On the pedestal (at the arrivals circle)');
+         Proxy.WaitUntilString('');
+         TestPlayer.Perform('look');
+         Proxy.ExpectDone();
+
+      except
+         on E: ETestError do
+         begin
+            Writeln(E.Message);
+            DumpExceptionBackTrace(Output);
+            Proxy.Clear();
+            Failed := True;
+         end;
+         on E: Exception do
+         begin
+            Writeln(E.Message);
+            DumpExceptionBackTrace(Output);
+            raise;
+         end;
+      end;
+      Proxy.ExpectDone();
+      Proxy.ExpectDisconnect(True);
+   finally
+      TestWorld.CheckDisposalQueue();
+      TestWorld.Free();
+      Proxy.Free();
+   end;
+   if (Failed) then
+   begin
+      Writeln('FAILURE DETECTED');
+      Halt(1);
+   end;
+end;
+
+begin
+   Writeln('CuddlyWorld Tests initializing...');
+   {$IFDEF DEBUG} Writeln('CuddlyWorld debugging enabled.'); {$ENDIF}
+   TestMechanics();
+   TestPlot();
+   Writeln('CuddlyWorld Tests complete.');
 end.

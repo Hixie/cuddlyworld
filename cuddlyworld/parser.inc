@@ -488,7 +488,7 @@
             if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
                Fail('That''s a direction, I don''t know how to ' + VerbString + ' ' + PrepositionString + ' it.')
             else
-               Fail('I can''t see ' + IndefiniteArticle(Tokens[CurrentToken]) + ' "' + Tokens[CurrentToken] + '" here to ' + VerbString + ' ' + PrepositionString + '.');
+               Fail('I can''t see any "' + Tokens[CurrentToken] + '" here to ' + VerbString + ' ' + PrepositionString + '.');
          end;
       end
       else
@@ -600,7 +600,7 @@
             if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
                Fail('That''s a direction, I don''t know how to examine it.')
             else
-               Fail('I can''t see ' + IndefiniteArticle(Tokens[CurrentToken]) + ' "' + Tokens[CurrentToken] + '" here to examine.');
+               Fail('I can''t see any "' + Tokens[CurrentToken] + '" here to examine.');
          end;
          if (not CanEnd()) then
             Fail('I don''t understand how to examine things "' + Tokens[CurrentToken] + '".');
