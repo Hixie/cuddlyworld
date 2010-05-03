@@ -1,6 +1,5 @@
-CRITICAL
- + Carindasays hello to you.
- + "There is a pedestal here." shouldn't be shown in horizon view.
+NEXT
+ + make the synonyms thing support multiple words per synonym, the words having to appear in the given order (or else figure out whether to special case "of" in thing descriptions; also consider "south west arch" which should not be picked for the term "south arch")
  + "dilap..." should work as an adjective
 
 PLOT
@@ -44,6 +43,8 @@ PLAYER INTERACTION
  + "The player arrives from the hut." when another player is seen exiting the hut: would be better if it said "The player leaves the hut"? messages about in-room navigation are pretty poor in general right now (enter hole, enter pile, etc)
  + it says "Carinda enters Camp Cuddlyfort. Carinda arrives from you." when another player is leaving you
  + make shout broadcast to surrounding rooms
+ + "hello <player>", "greet <player>"
+ + "say to <player>, ..."
  + rescue people in holes when the hole is filled (see // note in THole.HandleAdd)
  + player safe where they can keep things while disconnected
  + player savepoint so that players can reappear in a specific place after disconnecting
@@ -74,17 +75,18 @@ THINGS
  + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
  + "Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers
+    - "look at X Y" where Y is "to the north", "to n", "to north", "in the north", "in n", "in north"
  + "drop all but spade and sword" should work
  + "move all but inventory" should work
  + "move leaves through door", "push pile through door"
  + 'look under' should move things if they are bigger than what they are on
  + 'look' when inside an object that usually hides its contents (e.g. a pile) still hides its contents when in the pile - do we need FromOutside for GetDescriptionIn()?
+ + "look closer" should ask what part you want to look closer at ("look closer" "what do you want to look closer at?" "look closer at tree" "do you want to examine the leaf, or the branch?"
  + "take all there is"
  + "take all again"
  + "take leaves with spade"
  + "put x under y" should say (by putting y on x) (first taking y)
  + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
- + make the synonyms thing support multiple words per synonym, the words having to appear in the given order (or else figure out whether to special case "of" in thing descriptions; also consider "south west arch" which should not be picked for the term "south arch")
 
 NETWORK
  + password command

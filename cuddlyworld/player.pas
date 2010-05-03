@@ -494,7 +494,18 @@ begin
    if (Perspective = Self) then
       Result := Word = 'me'
    else
-      Result := (Word = 'them') or (Word = 'player') or (Word = 'other'); // "robot"
+      Result := (Word = 'them') or (Word = 'player') or (Word = 'other');
+   if (not Result) then
+      case FGender of
+         gMale: Result := (Word = 'boy') or (Word = 'man') or (Word = 'person') or (Word = 'human') or (Word = 'male');
+         gFemale: Result := (Word = 'girl') or (Word = 'woman') or (Word = 'person') or (Word = 'human') or (Word = 'female');
+         gThirdGender: Result := (Word = 'person') or (Word = 'human');
+         gRobot: Result := (Word = 'robot') or (Word = 'bot');
+         gOrb: Result := (Word = 'orb');
+         gHive: Result := (Word = 'hive') or (Word = 'mind') or (Word = 'hive-mind');
+        else
+         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      end;
    if (not Result) then
       Result := inherited;
 end;
@@ -1383,7 +1394,7 @@ begin
    if (Assigned(Target)) then
    begin
       if (Volume <> tvWhispering) then
-         DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M(' to '), M(@Target.GetDefiniteName), M('.')])
+         DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M(' to '), M(@Target.GetDefiniteName), M('.')])
       else
       if (Target is TAvatar) then
          (Target as TAvatar).AvatarMessage(Capitalise(GetDefiniteName(Target as TAvatar)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Target as TAvatar)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Target as TAvatar) + '.');
@@ -1391,7 +1402,7 @@ begin
    end
    else
    begin
-      DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M('.')]);
+      DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M('.')]);
       AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + '.');
    end;
 end;

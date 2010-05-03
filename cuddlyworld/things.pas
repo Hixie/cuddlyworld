@@ -12,11 +12,10 @@ type
     protected
       FSynonyms: array of AnsiString;
       FLongName: AnsiString;
-      function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
+      function AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean; override;
     public
       constructor Create(AName: AnsiString);
       constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString); { first synonym is the name, and can have spaces; the rest must not have spaces }
-      destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): AnsiString; override;
@@ -34,7 +33,6 @@ type
     public
       constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; AFlags: TStaticThingFlags = []);
       constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; AFlags: TStaticThingFlags = []);
-      destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
@@ -186,12 +184,10 @@ type
       FSize: TThingSize;
       FState: TPileState;
       function AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean; override;
-      function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
       function IsMatchingIngredientWord(Word: AnsiString; Perspective: TAvatar): Boolean; virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
     public
       constructor Create(AIngredients: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize); { first ingredient must be canonical plural form }
-      destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
@@ -237,11 +233,6 @@ begin
    FLongName := ALongName;
 end;
 
-destructor TSynonymThing.Destroy();
-begin
-   inherited;
-end;
-
 constructor TSynonymThing.Read(Stream: TReadStream);
 var
    Index: Cardinal;
@@ -274,10 +265,55 @@ begin
    Result := FLongName;
 end;
 
-function TSynonymThing.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
+function TSynonymThing.AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean;
 var
    Index: Cardinal;
 begin
+
+
+
+
+   "Ode to Death death wish" - "Ode", "Ode to Death", "death", "death wish", "death-wish", "wish"; NOT "Ode to Death wish", "to", "death death".
+
+   Adjective ['Ode', 'Ode to Death', 'Death']
+   Noun ['death wish', 'death-wish']
+   Synonym ['wish']
+
+
+   "Grotesque Blue Sword of Blood" - "Grotesque Sword", "Sword of Blood", "Grotesque Sword of Blood", "Grotesque", "Sword", "Blood"; NOT "Grotesque Blood", "of"
+
+   Adjective ['Grotesque']
+   Adjective ['Blue']
+   Noun ['Sword', 'Sword of Blood']
+   Synonym ['Blood']
+
+
+   "Happy Fun Ball"          - "Ball", "Happy Ball", "Happy Fun Ball", "Fun Ball", "Happy", "Fun"
+
+   Adjective ['Happy']
+   Adjective ['Fun']
+   Noun ['Ball']
+
+
+   "the blue wooden archway to the north" - "blue", "navy", "wooden", "archway", "arch", "n", "north", "northern",
+                                            "blue wooden archway", "navy wooden archway", "northern blue wooden archway",
+                                            "navy wooden", "northern wooden", "n arch", "navy blue arch", "navy-blue arch";
+                                            NOT "blue navy arch", "wooden navy", "arch blue", "archway wooden", "arch wooden", "arch n", "archway northern"
+
+   Adjective ['Blue', 'Navy', 'navy blue', 'navy-blue']
+   Adjective ['Wooden']
+   Adjective ['n', 'north', 'northern']
+   Noun ['Archway', 'Arch']
+   
+
+
+   explicit synonyms (must match entire phrase)
+   adjectives (must be given once max each, must be given first, any number can be given, some have alternatives that are mutually exclusive)
+   nouns (only one can be given, must be at end)
+   
+
+xxxxxxxxxxxxxxxxxxxxx
+
    for Index := 1 to Length(FSynonyms)-1 do
    begin
       Assert(Pos(' ', FSynonyms[Index]) <= 0);
@@ -303,11 +339,6 @@ begin
    FMass := AMass;
    FSize := ASize;
    FFlags := AFlags;
-end;
-
-destructor TStaticThing.Destroy();
-begin
-   inherited;
 end;
 
 constructor TStaticThing.Read(Stream: TReadStream);
@@ -1154,11 +1185,6 @@ begin
    FState := [psTidy];
 end;
 
-destructor TPile.Destroy();
-begin
-   inherited;
-end;
-
 constructor TPile.Read(Stream: TReadStream);
 var
    Index: Cardinal;
@@ -1214,18 +1240,16 @@ end;
 
 function TPile.AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean;
 begin
-   if ((Count = 3) and
-       (Tokens[Start] = 'pile') and
-       (Tokens[Start+1] = 'of') and
-       (IsMatchingIngredientWord(Tokens[Start+2], Perspective))) then
-      Result := true
+   if (((Count = 3) and
+        (Tokens[Start] = 'pile') and
+        (Tokens[Start+1] = 'of') and
+        (IsMatchingIngredientWord(Tokens[Start+2], Perspective))) or
+       ((Count = 1) and
+        ((Tokens[Start] = 'pile') or
+         (IsMatchingIngredientWord(Tokens[Start], Perspective)))) then
+      Result := True
    else
-      Result := inherited;
-end;
-
-function TPile.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
-begin
-   Result := (Word = 'pile') or (IsMatchingIngredientWord(Word, Perspective));
+      Result := False;
 end;
 
 function TPile.IsMatchingIngredientWord(Word: AnsiString; Perspective: TAvatar): Boolean;

@@ -59,6 +59,7 @@ type
    end;
 
    TStorable = class
+    protected
       {$IFOPT C+} FDebugCalledInherited: Boolean; {$ENDIF}
     public
       constructor Read(Stream: TReadStream); virtual;
