@@ -128,23 +128,24 @@ begin
    Forest := TScenery.Create(['forest', 'trees', 'tree', 'of'], 'the forest of trees', 'The forest is dense and impassable.');
    ArrivalsCircle.Add(Forest, tpAroundImplicit);
 
-   MaleArchway := TGenderArchway.Create(['north archway', 'arch', 'blue', 'navy', 'wood', 'to', 'the'], 'the blue wooden archway to the north', 'The north archway is a Lancet arch made of painted wood. It is a predominantly dark blue affair, with small white geometric shapes (primarily circles and arrows, all pointing diagonally upwards and to the right) painted on its tall columns.', gMale, MalePath);
+   MaleArchway := TGenderArchway.Create(['north archway', 'arch', 'blue', 'navy', 'wooden', 'to', 'the', 'n'], 'the blue wooden archway to the north', 'The north archway is a Lancet arch made of painted wood. It is a predominantly dark blue affair, with small white geometric shapes (primarily circles and arrows, all pointing diagonally upwards and to the right) painted on its tall columns.', gMale, MalePath);
    MaleArchway.Add(TScenery.Create('small white geometric shapes', 'The geometric shapes are small white circles painted against the blue wooden arch. Each circle has an arrow pointing out of the circle at the top left. Each arrow is the same length as the diameter of the circle from which it extends.', [stfPlural]), tpPartOfImplicit);
+   MaleArchway.Add(TScenery.Create('wood', 'The northern archway's wood is painted blue with small white geometric shapes. The wood is stiff.'), tpPartOfImplicit);
    ArrivalsCircle.Add(MaleArchway, tpPartOfImplicit);
 
-   FemaleArchway := TGenderArchway.Create(['south archway', 'arch', 'pink', 'crystal', 'to', 'the'], 'the pink crystal archway to the south', 'The south archway is a thick, semicircular arch made of a light-pink crystal. At the top of the arch is a gold inlay, which itself is decorated with a diamond-studded circle above a diamond-studded cross.', gFemale, FemalePath);
+   FemaleArchway := TGenderArchway.Create(['south archway', 'arch', 'light', 'light-pink', 'pink', 'crystal', 'to', 'the', 's'], 'the pink crystal archway to the south', 'The south archway is a thick, semicircular arch made of a light-pink crystal. At the top of the arch is a gold inlay, which itself is decorated with a diamond-studded circle above a diamond-studded cross.', gFemale, FemalePath);
    FemaleArchway.Add(TScenery.Create('gold inlay', 'The gold is inlaid in the crystal archway. Diamonds are studded in the gold inlay, forming a circle and a cross.'), tpPartOfImplicit);
-   FemaleArchway.Add(TScenery.Create(['diamonds', 'circle', 'cross', 'and'], 'the circle-and-cross diamonds', 'The diamonds reflect the light perfectly. They are embedded in the gold inlay, arranged so as to form a perfect circle with a perfect square cross underneath. The top of the top arm of the cross touches the bottom of the circle.', [stfPlural]), tpPartOfImplicit);
+   FemaleArchway.Add(TScenery.Create(['diamonds', 'diamond', 'diamond-studded', 'studded', 'circle', 'cross', 'and'], 'the circle-and-cross diamonds', 'The diamonds reflect the light perfectly. They are embedded in the gold inlay, arranged so as to form a perfect circle with a perfect square cross underneath. The top of the top arm of the cross touches the bottom of the circle.', [stfPlural]), tpPartOfImplicit);
    ArrivalsCircle.Add(FemaleArchway, tpPartOfImplicit);
 
-   ThirdGenderArchway := TGenderArchway.Create(['east archway', 'arch', 'stone', 'to', 'the'], 'the stone archway to the east', 'The east archway is a three-foiled cusped arch made of stone. Carved in the face of the arch are a series of human figures cooking, building huts, hunting, playing, digging, and so forth.', gThirdGender, nil);
+   ThirdGenderArchway := TGenderArchway.Create(['east archway', 'arch', 'stone', 'to', 'the', 'e'], 'the stone archway to the east', 'The east archway is a three-foiled cusped arch made of stone. Carved in the face of the arch are a series of human figures cooking, building huts, hunting, playing, digging, and so forth.', gThirdGender, nil);
    ThirdGenderArchway.Add(TScenery.Create(['human figures', 'figure', 'carvings', 'carving', 'carved'], 'the carved human figures', 'The carvings appear to represent humans partaking in typical day-to-day activities. The recognisable acts depicted are the cooking of a meal, the building of wooden huts, hunting, children playing, the digging of a hole, and fornication.', [stfPlural]), tpPartOfImplicit);
    ArrivalsCircle.Add(ThirdGenderArchway, tpPartOfImplicit);
 
-   HiveArchway := TGenderArchway.Create(['west archway', 'arch', 'stainless', 'steel', 'horseshoe', 'bar', 'bars', 'to', 'the'], 'the stainless steel archway to the west', 'The west archway is a horseshoe arch made of a series of adjacent bars of stainless steel, buried under tension.', gHive, nil);
+   HiveArchway := TGenderArchway.Create(['west archway', 'arch', 'stainless', 'steel', 'horseshoe', 'bar', 'bars', 'to', 'the', 'w'], 'the stainless steel archway to the west', 'The west archway is a horseshoe arch made of a series of adjacent bars of stainless steel, buried under tension.', gHive, nil);
    ArrivalsCircle.Add(HiveArchway, tpPartOfImplicit);
 
-   RobotArchway := TGenderArchway.Create(['southwest archway', 'arch', 'silicon', 'metalloid', 'to', 'the'], 'the silicon archway to the southwest', 'The southwest archway is an inverted catenary arch precisely carved into a block of shining silicon metaloid. Along the rim of the arch are many dots.', gThirdGender, nil);
+   RobotArchway := TGenderArchway.Create(['southwest archway', 'arch', 'silicon', 'metalloid', 'to', 'the', 'sw', 'dilapidated'], 'the silicon archway to the southwest', 'The southwest archway is an inverted catenary arch precisely carved into a block of shining silicon metaloid. Along the rim of the arch are many dots.', gThirdGender, nil);
    RobotArchway.Add(TScenery.Create(['dots', 'dot'], 'the dots', 'The dots are spaced regularly along the rim of the arch. Some of the dots are large and some small, but there is no obvious pattern: '#226#131#175#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175#226#131#175#226#131#175#226#131#175#226#128#162#226#128#162#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175#226#131#175#226#131#175#226#131#175#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175, [stfPlural]), tpPartOfImplicit);
    ArrivalsCircle.Add(RobotArchway, tpPartOfImplicit);
 
@@ -152,9 +153,9 @@ begin
    (Thing as TScenery).CannotMoveExcuse := 'The weeds have evolved very strong roots. It would take some sort of inhuman hive-mind/robot alliance to clean them up.';
    ArrivalsCircle.Add(Thing, tpAroundImplicit);
 
-   ArrivalsPedestal := TStaticThing.Create(['pedestal', 'circle'], 'the pedestal', 'The arrivals pedestal is a big stone slab, in the shape of a twelve-pointed star, over which you materialised when you arrived in Cuddly World. Glowing sigils are engraved at each point of the star, and a circle is engraved around the center.', tmLudicrous, tsMassive);
-   ArrivalsPedestal.Add(TScenery.Create(['engravings', 'glowing', 'sigils', 'engraved'], 'the glowing engraved sigils', 'The sigils are of a deep magic.', [stfPlural]), tpPartOfImplicit);
-   ArrivalsPedestal.Add(TScenery.Create('engraved circle', 'The circle is engraved around the center of the pedestal.'), tpPartOfImplicit);
+   ArrivalsPedestal := TStaticThing.Create(['stone pedestal', 'twelve-pointed', 'star'], 'the twelve-pointed star stone pedestal', 'The arrivals pedestal is a big stone slab, in the shape of a twelve-pointed star, over which you materialised when you arrived in Cuddly World. Glowing sigils are engraved at each point of the star, and a circle is engraved around the center.', tmLudicrous, tsMassive);
+   ArrivalsPedestal.Add(TScenery.Create(['glowing engraved sigils', 'engravings'], 'the glowing engraved sigils', 'The sigils are of a deep magic.', [stfPlural]), tpPartOfImplicit);
+   ArrivalsPedestal.Add(TScenery.Create(['engraved circle', 'engravings'], 'the engraved circle', 'The circle is engraved around the center of the pedestal.'), tpPartOfImplicit);
    ArrivalsCircle.Add(ArrivalsPedestal, tpAt);
 
    // signs

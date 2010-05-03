@@ -67,7 +67,7 @@ type
       function GetSurfaceSizeManifest(): TThingSizeManifest; virtual; { children that are tpOn }
       procedure GetAvatars(var List: PAvatarItem; FromOutside: Boolean); virtual;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
-      function GetName(Perspective: TAvatar): AnsiString; virtual; abstract; { if you ever return more than one word here, override IsMatchingWord() also }
+      function GetName(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
       function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual;
@@ -82,11 +82,11 @@ type
       function GetLookAt(Perspective: TAvatar): AnsiString; virtual;
       function GetExamine(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
-      function GetBasicDescription(Perspective: TAvatar): AnsiString; virtual;
+      function GetBasicDescription(Perspective: TAvatar; Context: TThing = nil): AnsiString; virtual;
       function GetHorizonDescription(Perspective: TAvatar): AnsiString; virtual;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetDescriptionState(Perspective: TAvatar): AnsiString; virtual; { e.g. 'The bottle is open.' }
-      function GetDescriptionHere(Perspective: TAvatar): AnsiString; virtual; abstract;
+      function GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString; virtual; abstract;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): AnsiString;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: AnsiString): AnsiString; virtual;
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
@@ -112,7 +112,6 @@ type
       FParent: TAtom;
       FPosition: TThingPosition;
       function AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean; virtual;
-      function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean; virtual;
       function IsExplicitlyReferenceable(Perspective: TAvatar): Boolean; virtual;
@@ -139,7 +138,7 @@ type
       function GetLookIn(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetInventory(Perspective: TAvatar): AnsiString; virtual;
-      function GetDescriptionHere(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString; override;
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; override;
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; virtual;
@@ -203,7 +202,7 @@ type
       function GetAtomForDirection(Direction: TCardinalDirection): TAtom;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionHere(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
@@ -777,11 +776,11 @@ begin
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren, optThorough]));
 end;
 
-function TAtom.GetBasicDescription(Perspective: TAvatar): AnsiString;
+function TAtom.GetBasicDescription(Perspective: TAvatar; Context: TThing = nil): AnsiString;
 begin
    Result := GetDescriptionSelf(Perspective) +
              WithSpaceIfNotEmpty(GetDescriptionState(Perspective)) +
-             WithSpaceIfNotEmpty(GetDescriptionHere(Perspective));
+             WithSpaceIfNotEmpty(GetDescriptionHere(Perspective, Context));
 end;
 
 function TAtom.GetHorizonDescription(Perspective: TAvatar): AnsiString;
@@ -1059,7 +1058,7 @@ begin
    if (((Perspective.Parent = Self) and (Perspective.Position in tpContained)) or (FPosition in tpContained)) then
       Result := inherited
    else
-      Result := FParent.GetBasicDescription(Perspective) + WithNewlineIfNotEmpty(FParent.GetHorizonDescription(Perspective));
+      Result := FParent.GetBasicDescription(Perspective, Self) + WithNewlineIfNotEmpty(FParent.GetHorizonDescription(Perspective));
 end;
 
 function TThing.GetLookUnder(Perspective: TAvatar): AnsiString;
@@ -1159,7 +1158,7 @@ begin
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' not carrying anything.';
 end;
 
-function TThing.GetDescriptionHere(Perspective: TAvatar): AnsiString;
+function TThing.GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString;
 var
    Child: PThingItem;
 begin
@@ -1167,8 +1166,12 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
-      if (Child^.Value.Position in tpAutoDescribe) then
+      if ((Child^.Value <> Context) and (Child^.Value.Position in tpAutoDescribe)) then
+      begin
+         if (Length(Result) > 0) then
+            Result := Result + ' ';
          Result := Result + Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere) + WithSpaceIfNotEmpty(Child^.Value.GetDescriptionState(Perspective));
+      end;
       Child := Child^.Next;
    end;
 end;
@@ -1413,43 +1416,32 @@ end;
 
 function TThing.AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean;
 var
-   Index: Cardinal;
-begin
-   Result := True;
-   { No overflow possible on the next line because there's no way for Start and Count to point beyond the end of Tokens }
-   for Index := Start to Start+Count-1 do
-   begin
-      if (not IsMatchingWord(Tokens[Index], Perspective)) then
-      begin
-         Result := False;
-         Exit;
-      end;
-   end;
-end;
-
-function TThing.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
-var
-   A, B: Cardinal;
+   NameWordStart, NameIndex, TokensIndex: Cardinal;
    Name: AnsiString;
 begin
    Name := LowerCase(GetName(Perspective));
    Assert(Name[1] <> ' ');
    Assert(Name[Length(Name)] <> ' ');
-   A := 1;
-   for B := 1 to Length(Name) do
+   NameWordStart := 1;
+   TokensIndex := Start;
+   for NameIndex := 2 to Length(Name)+1 do
    begin
-      if (Name[B] = ' ') then
+      if ((NameIndex > Length(Name)) or (Name[NameIndex] = ' ')) then
       begin
-         if (Name[A..B-1] = Word) then
+         Assert(NameIndex-NameWordStart > 0);
+         if (Name[NameWordStart..NameIndex-1] = Tokens[TokensIndex]) then
          begin
-            Result := True;
-            Exit;
+            Inc(TokensIndex);
+            if (TokensIndex >= Start+Count) then
+            begin
+               Result := True;
+               Exit;
+            end;
          end;
-         A := B+1;
+         NameWordStart := NameIndex+1;
       end;
    end;
-   Assert(A <= Length(Name));
-   Result := Name[A..Length(Name)] = Word;
+   Result := False;
 end;
 
 procedure TThing.Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar);
@@ -1627,7 +1619,7 @@ begin
    Result := '';
 end;
 
-function TLocation.GetDescriptionHere(Perspective: TAvatar): AnsiString;
+function TLocation.GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString;
 
    procedure ProcessThing(Thing: TThing; PresenceStatement: AnsiString);
    begin
@@ -1651,7 +1643,8 @@ function TLocation.GetDescriptionHere(Perspective: TAvatar): AnsiString;
              (Child^.Value <> FWest) and
              (Child^.Value <> FNorthWest) and
              (Child^.Value <> FUp) and
-             (Child^.Value <> FDown)) then
+             (Child^.Value <> FDown) and
+             (Child^.Value <> Context)) then
             ProcessThing(Child^.Value, Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere));
          Child := Child^.Next;
       end;
@@ -1667,18 +1660,21 @@ begin
    while (Direction <= cdLastPhysical) do
    begin
       Atom := GetAtomForDirection(Direction);
-      if (Atom is TThing) then
+      if (Atom <> Context) then
       begin
-         Thing := Atom as TThing;
-         if (Thing.Position in tpAutoDescribe) then
-            ProcessThing(Thing, Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Perspective)) + ' ' + Thing.GetIndefiniteName(Perspective) + '.');
-      end
-      else
-      if (Atom is TLocation) then
-      begin
-         if (Length(Result) > 0) then
-            Result := Result + ' ';
-         Result := Result + (Atom as TLocation).GetDescriptionRemoteBrief(Perspective, Direction);
+         if (Atom is TThing) then
+         begin
+            Thing := Atom as TThing;
+            if (Thing.Position in tpAutoDescribe) then
+               ProcessThing(Thing, Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Perspective)) + ' ' + Thing.GetIndefiniteName(Perspective) + '.');
+         end
+         else
+         if (Atom is TLocation) then
+         begin
+            if (Length(Result) > 0) then
+               Result := Result + ' ';
+            Result := Result + (Atom as TLocation).GetDescriptionRemoteBrief(Perspective, Direction);
+         end;
       end;
       Inc(Direction);
    end;
