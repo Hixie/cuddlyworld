@@ -28,14 +28,15 @@ type
       FInput: File;
       FVersion: Cardinal;
       procedure VerifyFieldType(FieldType: Byte);
-      function ReadByte: Byte;
     public
       constructor Create(var AInput: File);
       destructor Destroy; override;
+      function ReadByte: Byte;
       function ReadObject: TStorable;
       function ReadCardinal: Cardinal;
       function ReadPtrUInt: PtrUInt;
       function ReadAnsiString: AnsiString;
+      procedure ReadByteStream(var Buffer; Length: Cardinal);
       function ReadReference(Destination: PPointer): Boolean;
       function ReadClass: StorableClass;
       procedure FixupReferences();
@@ -46,14 +47,15 @@ type
     protected
       FOutput: File;
       procedure WriteFieldType(FieldType: Byte);
-      procedure WriteByte(Value: Byte);
     public
       constructor Create(var AOutput: File; Version: Cardinal);
       destructor Destroy; override;
+      procedure WriteByte(Value: Byte);
       procedure WriteObject(Value: TStorable);
       procedure WriteCardinal(Value: Cardinal);
       procedure WritePtrUInt(Value: PtrUInt);
       procedure WriteAnsiString(Value: AnsiString);
+      procedure WriteByteStream(var Buffer; Length: Cardinal);
       procedure WriteReference(Value: Pointer);
       procedure WriteClass(Value: StorableClass);
    end;
@@ -96,6 +98,7 @@ const { values with unlikely bit patterns }
    btAnsiString = $62;
    btReference  = $64;
    btClass      = $68;
+   btByteStream = $70;
 
 const
    ciNoClass = 0;
@@ -249,6 +252,12 @@ begin
    end;
 end;
 
+procedure TReadStream.ReadByteStream(var Buffer; Length: Cardinal);
+begin
+   VerifyFieldType(btByteStream);
+   BlockRead(FInput, Buffer, Length);
+end;
+
 function TReadStream.ReadReference(Destination: PPointer): Boolean;
 var
    Item: PPendingFixupItem;
@@ -360,6 +369,12 @@ begin
    WriteCardinal(Length(Value));
    if (Length(Value) > 0) then
       BlockWrite(FOutput, Value[1], Length(Value));
+end;
+
+procedure TWriteStream.WriteByteStream(var Buffer; Length: Cardinal);
+begin
+   WriteFieldType(btByteStream);
+   BlockWrite(FOutput, Buffer, Length);
 end;
 
 procedure TWriteStream.WriteReference(Value: Pointer);
