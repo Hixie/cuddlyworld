@@ -4,7 +4,7 @@
 program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
-   sysutils, storable, world, player, locations, things, thingdim, grammarian, cuddlycamp;
+   sysutils, storable, matcher, world, player, locations, things, thingdim, grammarian, cuddlycamp;
 
 type
    TExpectationKind = (ekString, ekSubstring, ekNoSubstring, ekSkip, ekDisconnected, ekRecordingStart);
@@ -607,10 +607,87 @@ begin
    end;
 end;
 
+procedure TestMatcher();
+var
+   TestID: Cardinal;
+
+   procedure RunMatcherTest(TestMatcher: TMatcher; Candidate: TTokens; Start: Cardinal; Pass: Cardinal);
+   var
+      Result: Cardinal;
+   begin
+      Inc(TestID);
+      Result := TestMatcher.Matches(Candidate, Start);
+      if (Result <> Pass) then
+         Writeln('FAILED matcher test ', TestID);
+   end;
+
+var
+   TestMatcher: TMatcher;
+   Strings: TTokens;
+begin
+   SetLength(Strings, 4);
+   Strings[0] := 'the';
+   Strings[1] := 'green';
+   Strings[2] := 'lantern';
+   Strings[3] := 'glowing';
+
+   TestID := 0;
+
+   TestMatcher := Pattern('the? ((glowing green)# lantern)&');
+   RunMatcherTest(TestMatcher, Strings, 0, 3);
+   RunMatcherTest(TestMatcher, Strings, 1, 2);
+   RunMatcherTest(TestMatcher, Strings, 2, 1);
+   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   TestMatcher.Destroy();
+
+   TestMatcher := Pattern('(glowing lantern)@');
+   RunMatcherTest(TestMatcher, Strings, 0, 0);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 1);
+   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   TestMatcher.Destroy();
+
+   TestMatcher := Pattern('(the glowing lantern)*');
+   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 2);
+   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   TestMatcher.Destroy();
+
+   TestMatcher := Pattern('(the glowing lantern)#');
+   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 2);
+   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   TestMatcher.Destroy();
+
+   TestMatcher := Pattern('(the glowing lantern)%');
+   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 1);
+   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   TestMatcher.Destroy();
+
+   TestMatcher := Pattern('(the glowing lantern)&');
+   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 1);
+   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   TestMatcher.Destroy();
+
+   TestMatcher := Pattern('the+ glowing? lantern+');
+   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 0);
+   RunMatcherTest(TestMatcher, Strings, 3, 0);
+   TestMatcher.Destroy();
+end;
+
 begin
    Writeln('CuddlyWorld Tests initializing...');
    {$IFDEF DEBUG} Writeln('CuddlyWorld debugging enabled.'); {$ENDIF}
    TestMechanics();
    TestPlot();
+   TestMatcher();
    Writeln('CuddlyWorld Tests complete.');
 end.

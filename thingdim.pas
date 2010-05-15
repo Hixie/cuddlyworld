@@ -153,7 +153,7 @@ begin
                   end;
                end;
                A[Index] := A[Index] + kDimensionScaleFactor;
-               Break;
+               break;
             end;
          end;
       end;

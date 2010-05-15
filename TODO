@@ -1,4 +1,5 @@
 NEXT
+ + change the way parsing is done so that each thing is asked how many words it can match and then the longest reply is taken as the actual length of the match
  + make the synonyms thing support multiple words per synonym, the words having to appear in the given order (or else figure out whether to special case "of" in thing descriptions; also consider "south west arch" which should not be picked for the term "south arch")
  + "dilap..." should work as an adjective
 
