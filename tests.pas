@@ -633,54 +633,85 @@ begin
 
    TestID := 0;
 
-   TestMatcher := Pattern('the? ((glowing green)# lantern)&');
+   CompilePattern('the? ((glowing green)# lantern)&', TestMatcher, OtherMatcher);
    RunMatcherTest(TestMatcher, Strings, 0, 3);
    RunMatcherTest(TestMatcher, Strings, 1, 2);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
    RunMatcherTest(TestMatcher, Strings, 3, 1);
-   TestMatcher.Destroy();
+   TestMatcher.Free();
+   OtherMatcher.Free();
 
-   TestMatcher := Pattern('(glowing lantern)@');
+   CompilePattern('(glowing lantern)@', TestMatcher, OtherMatcher);
    RunMatcherTest(TestMatcher, Strings, 0, 0);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
    RunMatcherTest(TestMatcher, Strings, 3, 1);
-   TestMatcher.Destroy();
+   TestMatcher.Free();
+   OtherMatcher.Free();
 
-   TestMatcher := Pattern('(the glowing lantern)*');
+   CompilePattern('(the glowing lantern)*', TestMatcher, OtherMatcher);
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 2);
    RunMatcherTest(TestMatcher, Strings, 3, 1);
-   TestMatcher.Destroy();
+   TestMatcher.Free();
+   OtherMatcher.Free();
 
-   TestMatcher := Pattern('(the glowing lantern)#');
+   CompilePattern('(the glowing lantern)#', TestMatcher, OtherMatcher);
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 2);
    RunMatcherTest(TestMatcher, Strings, 3, 1);
-   TestMatcher.Destroy();
+   TestMatcher.Free();
+   OtherMatcher.Free();
 
-   TestMatcher := Pattern('(the glowing lantern)%');
+   CompilePattern('(the glowing lantern)%', TestMatcher, OtherMatcher);
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
    RunMatcherTest(TestMatcher, Strings, 3, 1);
-   TestMatcher.Destroy();
+   TestMatcher.Free();
+   OtherMatcher.Free();
 
-   TestMatcher := Pattern('(the glowing lantern)&');
+   CompilePattern('(the glowing lantern)&', TestMatcher, OtherMatcher);
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
    RunMatcherTest(TestMatcher, Strings, 3, 1);
-   TestMatcher.Destroy();
+   TestMatcher.Free();
+   OtherMatcher.Free();
 
-   TestMatcher := Pattern('the+ glowing? lantern+');
+   CompilePattern('the+ glowing? lantern+', TestMatcher, OtherMatcher);
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
    RunMatcherTest(TestMatcher, Strings, 3, 0);
-   TestMatcher.Destroy();
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('the/fail fail?/fail green lantern/fail fail/glowing', TestMatcher, OtherMatcher);
+   RunMatcherTest(TestMatcher, Strings, 0, 3);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 0);
+   RunMatcherTest(TestMatcher, Strings, 3, 0);
+   RunMatcherTest(OtherMatcher, Strings, 0, 0);
+   RunMatcherTest(OtherMatcher, Strings, 1, 0);
+   RunMatcherTest(OtherMatcher, Strings, 2, 0);
+   RunMatcherTest(OtherMatcher, Strings, 3, 0);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('the (glowing)?/(yellow green blue red)& lantern/(glowing lantern)*', TestMatcher, OtherMatcher);
+   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 0);
+   RunMatcherTest(TestMatcher, Strings, 3, 0);
+   RunMatcherTest(OtherMatcher, Strings, 0, 4);
+   RunMatcherTest(OtherMatcher, Strings, 1, 0);
+   RunMatcherTest(OtherMatcher, Strings, 2, 0);
+   RunMatcherTest(OtherMatcher, Strings, 3, 0);
+   TestMatcher.Free();
+   OtherMatcher.Free();
 end;
 
 begin

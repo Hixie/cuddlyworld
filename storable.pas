@@ -32,13 +32,14 @@ type
       constructor Create(var AInput: File);
       destructor Destroy; override;
       function ReadByte: Byte;
-      function ReadObject: TStorable;
+      function ReadBoolean: Boolean;
       function ReadCardinal: Cardinal;
       function ReadPtrUInt: PtrUInt;
       function ReadAnsiString: AnsiString;
       procedure ReadByteStream(var Buffer; Length: Cardinal);
-      function ReadReference(Destination: PPointer): Boolean;
       function ReadClass: StorableClass;
+      function ReadObject: TStorable;
+      function ReadReference(Destination: PPointer): Boolean;
       procedure FixupReferences();
       property Version: Cardinal read FVersion;
    end;
@@ -51,13 +52,14 @@ type
       constructor Create(var AOutput: File; Version: Cardinal);
       destructor Destroy; override;
       procedure WriteByte(Value: Byte);
-      procedure WriteObject(Value: TStorable);
+      procedure WriteBoolean(Value: Boolean);
       procedure WriteCardinal(Value: Cardinal);
       procedure WritePtrUInt(Value: PtrUInt);
       procedure WriteAnsiString(Value: AnsiString);
       procedure WriteByteStream(var Buffer; Length: Cardinal);
-      procedure WriteReference(Value: Pointer);
       procedure WriteClass(Value: StorableClass);
+      procedure WriteObject(Value: TStorable);
+      procedure WriteReference(Value: Pointer);
    end;
 
    TStorable = class
@@ -90,15 +92,16 @@ const { values with unlikely bit patterns }
    btSignature  = $AA;
    btStream     = $BB;
    btStreamEnd  = $DD;
+   btBoolean    = $60;
+   btCardinal   = $61;
+   btPtrUInt    = $62;
+   btAnsiString = $64;
+   btByteStream = $64;
+   btClass      = $80;
+   btReference  = $81;
    btObject     = $51;
    btObjectData = $52;
    btObjectEnd  = $54;
-   btCardinal   = $60;
-   btPtrUInt    = $61;
-   btAnsiString = $62;
-   btReference  = $64;
-   btClass      = $68;
-   btByteStream = $70;
 
 const
    ciNoClass = 0;
@@ -203,25 +206,10 @@ begin
    BlockRead(FInput, Result, SizeOf(Result));
 end;
 
-function TReadStream.ReadObject: TStorable;
-var
-   ClassValue: StorableClass;
-   ObjectID: PtrUInt;
+function TReadStream.ReadBoolean: Boolean;
 begin
-   VerifyFieldType(btObject);
-   ClassValue := ReadClass();
-   if (not Assigned(ClassValue)) then
-   begin
-      Result := nil;
-   end
-   else
-   begin
-      ObjectID := ReadPtrUInt();
-      Result := ClassValue.Read(Self);
-      {$IFOPT C+} Assert(Result.FDebugCalledInherited); {$ENDIF}
-      FObjectsRead.Add(ObjectID, Result);
-   end;
-   VerifyFieldType(btObjectEnd);
+   VerifyFieldType(btBoolean);
+   Result := ReadByte() = $01;
 end;
 
 function TReadStream.ReadCardinal: Cardinal;
@@ -258,6 +246,23 @@ begin
    BlockRead(FInput, Buffer, Length);
 end;
 
+function TReadStream.ReadClass: StorableClass;
+var
+   ClassID: Cardinal;
+begin
+   VerifyFieldType(btClass);
+   ClassID := ReadCardinal();
+   if (ClassID <> ciNoClass) then
+   begin
+      Assert(Assigned(ClassKeyToClassHash.Get(ClassID)), 'Unknown class ID ' + IntToStr(ClassID));
+      Result := ClassKeyToClassHash.Get(ClassID);
+   end
+   else
+   begin
+      Result := nil;
+   end;
+end;
+
 function TReadStream.ReadReference(Destination: PPointer): Boolean;
 var
    Item: PPendingFixupItem;
@@ -276,21 +281,25 @@ begin
    end;
 end;
 
-function TReadStream.ReadClass: StorableClass;
+function TReadStream.ReadObject: TStorable;
 var
-   ClassID: Cardinal;
+   ClassValue: StorableClass;
+   ObjectID: PtrUInt;
 begin
-   VerifyFieldType(btClass);
-   ClassID := ReadCardinal();
-   if (ClassID <> ciNoClass) then
+   VerifyFieldType(btObject);
+   ClassValue := ReadClass();
+   if (not Assigned(ClassValue)) then
    begin
-      Assert(Assigned(ClassKeyToClassHash.Get(ClassID)), 'Unknown class ID ' + IntToStr(ClassID));
-      Result := ClassKeyToClassHash.Get(ClassID);
+      Result := nil;
    end
    else
    begin
-      Result := nil;
+      ObjectID := ReadPtrUInt();
+      Result := ClassValue.Read(Self);
+      {$IFOPT C+} Assert(Result.FDebugCalledInherited); {$ENDIF}
+      FObjectsRead.Add(ObjectID, Result);
    end;
+   VerifyFieldType(btObjectEnd);
 end;
 
 procedure TReadStream.FixupReferences();
@@ -333,22 +342,13 @@ begin
    BlockWrite(FOutput, Value, SizeOf(Value));
 end;
 
-procedure TWriteStream.WriteObject(Value: TStorable);
+procedure TWriteStream.WriteBoolean(Value: Boolean);
 begin
-   WriteFieldType(btObject);
-   if (not Assigned(Value)) then
-   begin
-      WriteClass(nil);
-   end
+   WriteFieldType(btBoolean);
+   if (Value) then
+      WriteByte($01)
    else
-   begin
-      WriteClass(StorableClass(Value.ClassType));
-      WritePtrUInt(PtrUInt(Value));
-      {$IFOPT C+} Value.FDebugCalledInherited := False; {$ENDIF}
-      Value.Write(Self);
-      {$IFOPT C+} Assert(Value.FDebugCalledInherited); {$ENDIF}
-   end;
-   WriteFieldType(btObjectEnd);
+      WriteByte($00);
 end;
 
 procedure TWriteStream.WriteCardinal(Value: Cardinal);
@@ -377,12 +377,6 @@ begin
    BlockWrite(FOutput, Buffer, Length);
 end;
 
-procedure TWriteStream.WriteReference(Value: Pointer);
-begin
-   WriteFieldType(btReference);
-   WritePtrUInt(PtrUInt(Value));
-end;
-
 procedure TWriteStream.WriteClass(Value: StorableClass);
 var
    ClassID: Cardinal;
@@ -398,6 +392,30 @@ begin
       Assert(ClassID <> ciUnregistered, 'Class ' + Value.ClassName() + ' not registered');
       WriteCardinal(ClassID);
    end;
+end;
+
+procedure TWriteStream.WriteObject(Value: TStorable);
+begin
+   WriteFieldType(btObject);
+   if (not Assigned(Value)) then
+   begin
+      WriteClass(nil);
+   end
+   else
+   begin
+      WriteClass(StorableClass(Value.ClassType));
+      WritePtrUInt(PtrUInt(Value));
+      {$IFOPT C+} Value.FDebugCalledInherited := False; {$ENDIF}
+      Value.Write(Self);
+      {$IFOPT C+} Assert(Value.FDebugCalledInherited); {$ENDIF}
+   end;
+   WriteFieldType(btObjectEnd);
+end;
+
+procedure TWriteStream.WriteReference(Value: Pointer);
+begin
+   WriteFieldType(btReference);
+   WritePtrUInt(PtrUInt(Value));
 end;
 
 

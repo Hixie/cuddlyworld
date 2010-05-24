@@ -5,13 +5,12 @@ unit matcher;
 interface
 
 uses
-   storable;
+   storable, grammarian;
 
 type
    TByteCode = Byte;
    PCompiledPattern = ^TCompiledPattern;
    TCompiledPattern = packed array[TByteCode] of TByteCode;
-   TTokens = array of AnsiString;
 
    TMatcher = class(TStorable)
     protected
@@ -25,34 +24,46 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function Matches(Tokens: TTokens; Start: Cardinal): Cardinal;
+      function GetLongestMatch(Separator: AnsiString): AnsiString;
       {$IFDEF DEBUG} function GetPatternDescription(): AnsiString; {$ENDIF}
    end;
 
-function Pattern(S: AnsiString): TMatcher;
+procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMatcher);
 
 {
 
-   Pattern() takes a string that consists of a space-separated list of tokens or nested lists.
+   CompilePattern() takes a string that consists of a space-separated list of tokens or nested lists.
    Nested lists are marked by round brackets (...).
    Tokens can have a "+" suffix indicating that the token can be repeated.
    Tokens can have a "?" suffix indicating that the token can be omitted.
    Nested lists can have suffixes to indicate what kind of list it is:
      (a b c)   - sequence list (all tokens must appear in order)
+     (a b c)?  - optional sequence list (if any appear, they must all appear, in order)
      (a b c)@  - alternatives (one of the tokens must appear)
      (a b c)*  - zero or more of the alternatives must appear, in any order
      (a b c)#  - one or more of the alternatives must appear, in any order
      (a b c)%  - zero or more of the alternatives must appear, but they must be in the order given
      (a b c)&  - one or more of the alternatives must appear, but they must be in the order given
-   Otherwise special characters can be escaped using \.
+   Tokens and nested lists can be split with a "/" to indicate alternative singular/plural forms.
+   Special characters can be escaped using \.
 
    Examples:
      'a b c' - only matched by "a b c"
-     'the? ((glowing green)# lantern)&' - matches:
+
+     'the? ((glowing green)# lantern/lanterns)&' - returns a singular matcher that matches:
          "the glowing", "the green", "the lantern",
          "the glowing green", "the glowing lantern", "the green lantern",
          "the glowing green lantern", and all of those again without "the"
+     ...and a plural matcher that matches the same but with "lanterns" instead of "lantern".
+
+     '(two beads)/bead' returns a matcher that matches "two beads" and
+     a matcher that matches "bead".
 
 }
+
+{$IFDEF DEBUG}
+function HasPatternChars(S: AnsiString): Boolean;
+{$ENDIF}
 
 implementation
 
@@ -63,6 +74,7 @@ const
    { Magic Tokens }
    mtFollow = $FE;
    mtLastFollow = $FF;
+   mtMaxTrueToken = $FD;
    mtFollowMask = $FE; { mtFollow and mtFollowMask = mtLastFollow and mtFollowMask = mtFollowMask }
    mtNone = $FF;
    { Magic Pattern States }
@@ -130,6 +142,14 @@ type
      destructor Destroy(); override;
    end;
    TSequencePatternNode = class(TChildrenPatternNode)
+    protected
+     procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
+   end;
+   TOptionalSequencePatternNode = class(TChildrenPatternNode)
+    protected
+     procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
+   end;
+   TRepeatableSequencePatternNode = class(TChildrenPatternNode)
     protected
      procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
    end;
@@ -224,7 +244,6 @@ procedure AddTransition(State: PState; Token: TByteCode; TargetState: PState; Bl
 var
    Transition: PTransition;
 begin
-//Writeln('AddTransition(', IntToHex(Cardinal(State), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    Assert(Assigned(State));
    New(Transition);
    Transition^.Token := Token;
@@ -232,18 +251,15 @@ begin
    Transition^.BlockDuplicates := BlockDuplicates;
    if (Token = mtFollow) then
    begin
-//Writeln('Adding FollowTransition');
       Transition^.NextTransition := State^.FollowTransitions;
       State^.FollowTransitions := Transition;
    end
    else
    begin
-//Writeln('Adding TokenTransition');
       Transition^.NextTransition := State^.TokenTransitions;
       State^.TokenTransitions := Transition;
    end;
    Inc(State^.TransitionCount);
-//Writeln('Current transition count:', State^.TransitionCount);
 end;
 
 procedure NewPattern(out Pattern: PCompiledPattern; Length: TByteCode); inline;
@@ -288,7 +304,6 @@ end;
 
 procedure TTokenNode.HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False);
 begin
-//Writeln('TTokenNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
            Token
        A=---------->Z
@@ -301,7 +316,6 @@ procedure TRepeatableTokenNode.HookStates(StartState: PState; TargetState: PStat
 var
    MiddleState1, MiddleState2: PState;
 begin
-//Writeln('TRepeatableTokenNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
                         Token
        A=---------->O----------->O----------->Z
@@ -355,23 +369,77 @@ var
    CurrentState, NextState: PState;
    Index: Cardinal;
 begin
-//Writeln('TSequencePatternNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
        A=--[...]--->(O---[...]--->)*Z
    }
    CurrentState := StartState;
-//Writeln('  about to loop');
    if (Length(FChildren) > 1) then
       for Index := Low(FChildren) to High(FChildren)-1 do
       begin
-//Writeln('    loop');
          NextState := GetNewState();
          FChildren[Index].HookStates(CurrentState, NextState, GetNewState, BlockDuplicates);
          BlockDuplicates := False;
          CurrentState := NextState;
       end;
-//Writeln('  looped');
    FChildren[High(FChildren)].HookStates(CurrentState, TargetState, GetNewState, BlockDuplicates);
+end;
+
+procedure TOptionalSequencePatternNode.HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False);
+var
+   FirstState, CurrentState, NextState: PState;
+   Index: Cardinal;
+begin
+   {
+       A=---------->O---[...]--->(O---[...]--->)*Z
+                     --------------------------->
+   }
+   if (BlockDuplicates) then
+   begin
+      FirstState := GetNewState();
+      AddTransition(StartState, mtFollow, FirstState, BlockDuplicates);
+   end
+   else
+      FirstState := StartState;
+   CurrentState := FirstState;
+   if (Length(FChildren) > 1) then
+      for Index := Low(FChildren) to High(FChildren)-1 do
+      begin
+         NextState := GetNewState();
+         FChildren[Index].HookStates(CurrentState, NextState, GetNewState, BlockDuplicates);
+         BlockDuplicates := False;
+         CurrentState := NextState;
+      end;
+   FChildren[High(FChildren)].HookStates(CurrentState, TargetState, GetNewState, BlockDuplicates);
+   AddTransition(FirstState, mtFollow, TargetState, False);
+end;
+
+procedure TRepeatableSequencePatternNode.HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False);
+var
+   FirstState, CurrentState, NextState: PState;
+   Index: Cardinal;
+begin
+   {
+       A=---------->O---[...]--->(O---[...]--->)*Z
+                     <---------------------------
+   }
+   if (BlockDuplicates) then
+   begin
+      FirstState := GetNewState();
+      AddTransition(StartState, mtFollow, FirstState, BlockDuplicates);
+   end
+   else
+      FirstState := StartState;
+   CurrentState := FirstState;
+   if (Length(FChildren) > 1) then
+      for Index := Low(FChildren) to High(FChildren)-1 do
+      begin
+         NextState := GetNewState();
+         FChildren[Index].HookStates(CurrentState, NextState, GetNewState, BlockDuplicates);
+         BlockDuplicates := False;
+         CurrentState := NextState;
+      end;
+   FChildren[High(FChildren)].HookStates(CurrentState, TargetState, GetNewState, BlockDuplicates);
+   AddTransition(TargetState, mtFollow, FirstState, False);
 end;
 
 procedure TAlternativesPatternNode.HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False);
@@ -379,7 +447,6 @@ var
    Index: Cardinal;
    MiddleState: PState;
 begin
-//Writeln('TAlternativesPatternNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
      If BlockDuplicates is false:
        A---[...]--->Z
@@ -409,7 +476,6 @@ var
    Index: Cardinal;
    MiddleState: PState;
 begin
-//Writeln('TZeroOrMoreUnorderedPatternNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
        A=---------->M----------->Z
         <---[...]-==
@@ -427,7 +493,6 @@ var
    Index: Cardinal;
    CurrentState, NextState: PState;
 begin
-//Writeln('TZeroOrMoreOrderedPatternNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
      If BlockDuplicates is false:
        A---[...]--->(O---[...]--->)*Z
@@ -460,7 +525,6 @@ var
    Index: Cardinal;
    MiddleState1, MiddleState2: PState;
 begin
-//Writeln('TOneOrMoreUnorderedPatternNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
        A=---------->O(==-[...]--->)*O----------->Z
                       <-----------
@@ -479,7 +543,6 @@ var
    Index: Cardinal;
    S1, S2, S3, S4: PState;
 begin
-//Writeln('TOneOrMoreOrderedPatternNode.HookStates(', IntToHex(Cardinal(StartState), 16), ', ', IntToHex(Cardinal(TargetState), 16), ')');
    {
      One child:
        A=--[...]--->Z
@@ -588,7 +651,6 @@ end;
 function TPatternCompiler.GetNewState(): PState;
 begin
    New(Result);
-//Writeln('Created PState ', IntToHex(Cardinal(Result), 16));
    Result^.TokenTransitions := nil;
    Result^.FollowTransitions := nil;
    Result^.TransitionCount := 0;
@@ -661,14 +723,12 @@ var
 begin
    { Build state machine }
    New(FFirstState);
-//Writeln('Created FFirstState ', IntToHex(Cardinal(FFirstState), 16));
    FFirstState^.TokenTransitions := nil;
    FFirstState^.FollowTransitions := nil;
    FFirstState^.TransitionCount := 0;
    FFirstState^.Index := 0;
    FFirstState^.PreviousState := nil;
    New(FLastState);
-//Writeln('Created FLastState ', IntToHex(Cardinal(FLastState), 16));
    FLastState^.TokenTransitions := nil;
    FLastState^.FollowTransitions := nil;
    FLastState^.TransitionCount := 0;
@@ -678,12 +738,9 @@ begin
    FLastState^.PreviousState := FFirstState;
    FRoot.HookStates(FFirstState, FLastState, @GetNewState);
    { Fill in transitions and check for invariants }
-//Writeln();
-//Writeln('Checking...');
    State := FFirstState;
    while (Assigned(State)) do
    begin
-//Writeln('Checking state ', IntToHex(Cardinal(State), 16), '... transition count = ', State^.TransitionCount);
       Assert((State = FLastState) or (State^.TransitionCount >= 1));
       if (not Assigned(State^.FollowTransitions)) then
          AddTransition(State, mtFollow, nil, False);
@@ -706,38 +763,29 @@ begin
    { Establish state IDs }
    Index := 0;
    State := FFirstState;
-//Writeln('Establishing state IDs...');
    while (Assigned(State)) do
    begin
-//Writeln(' + State ', IntToHex(Cardinal(State), 16), ' has ', State^.TransitionCount, ' transitions');
       if ((State <> FLastState) and ((State = FFirstState) or (State^.TransitionCount > 1))) then
       begin
-//Writeln('   and isn''t FLastState');
          Assert(Index >= Low(TByteCode));
          Assert(Index <= High(TByteCode));
-//Writeln('   assigning index ', Index);
          State^.Index := Index;
          Inc(Index, State^.TransitionCount * 2);
          Assert(Index <= High(TByteCode), 'Pattern too complicated.');
       end;
       State := State^.NextState;
    end;
-//Writeln('Total length = ', Index);
    { Serialise the compiled pattern }
    PatternLength := Index;
    NewPattern(Pattern, PatternLength);
    Index := 0;
    State := FFirstState;
-//Writeln();
-//Writeln('Serialising...');
    while (State <> FLastState) do
    begin
-//Writeln('Serialising state ', IntToHex(Cardinal(State), 16), '; index=', State^.Index);
       Assert(Assigned(State));
       Transition := State^.TokenTransitions;
       while (Assigned(Transition)) do
       begin
-//Writeln('Token transition for token ', Transition^.Token, ' to state ', IntToHex(Cardinal(Transition^.State), 16), '; index=', Transition^.State^.Index);
          Pattern^[Index] := Transition^.Token;
          Inc(Index);
          Assert(Assigned(Transition^.State));
@@ -754,7 +802,6 @@ begin
       Transition := State^.FollowTransitions;
       while (Assigned(Transition)) do
       begin
-//Writeln('Follow transition');
          Assert(Transition^.Token = mtFollow);
          if (Assigned(Transition^.NextTransition)) then
             Pattern^[Index] := mtFollow
@@ -763,13 +810,11 @@ begin
          Inc(Index);
          if (Transition^.State = FLastState) then
          begin
-//Writeln('FLastState transition');
             Pattern^[Index] := mpsMatch;
          end
          else
          if (Assigned(Transition^.State)) then
          begin
-//Writeln('...to state ', IntToHex(Cardinal(Transition^.State), 16));
             if (Transition^.BlockDuplicates) then
                Pattern^[Index] := Transition^.State^.Index or mpsPreventDuplicatesMask
             else
@@ -777,7 +822,6 @@ begin
          end
          else
          begin
-//Writeln('...to nowhere (fail)');
             Pattern^[Index] := mpsFail;
          end;
          Inc(Index);
@@ -786,7 +830,6 @@ begin
       State := State^.NextState;
    end;
    Assert(Index = PatternLength);
-//Writeln('done serialising');
    { Release memory }
    while (Assigned(FFirstState)) do
    begin
@@ -888,14 +931,6 @@ type
       RefCount: Cardinal;
    end;
 
-   PStateMachine = ^TStateMachine;
-   TStateMachine = record
-     State: TByteCode;
-     Pattern: PSharedCompiledPattern;
-     Next: PStateMachine;
-     Previous: PStateMachine;
-   end;
-
    function CreateSharedCompiledPattern(Pattern: PCompiledPattern): PSharedCompiledPattern; inline;
    begin
       Assert(Assigned(Pattern));
@@ -937,14 +972,19 @@ type
       end;
    end;
 
-var
-   StateMachines: PStateMachine;
+type
+   PStateMachine = ^TStateMachine;
+   TStateMachine = record
+     State: TByteCode;
+     Pattern: PSharedCompiledPattern;
+     Next: PStateMachine;
+     Previous: PStateMachine;
+   end;
 
    function AppendStateMachine(Parent: PStateMachine): PStateMachine; inline;
    begin
       New(Result);
       Result^.State := Parent^.State;
-//Writeln('+ state machine ', IntToHex(Cardinal(Result), 16), ' in state ', Result^.State);
       Result^.Pattern := CloneSharedCompiledPattern(Parent^.Pattern);
       Result^.Next := Parent^.Next;
       if (Assigned(Result^.Next)) then
@@ -956,7 +996,6 @@ var
    procedure KillStateMachine(var Victim: PStateMachine); inline;
    begin
       Assert(Assigned(Victim));
-//Writeln('- state machine ', IntToHex(Cardinal(Victim), 16), ' in state ', Victim^.State);
       if (Assigned(Victim^.Next)) then
          Victim^.Next^.Previous := Victim^.Previous;
       if (Assigned(Victim^.Previous)) then
@@ -967,13 +1006,12 @@ var
    end;
 
 var
+   StateMachines: PStateMachine;
    Position, MatchLength, CurrentTransition: Cardinal;
    CurrentStateMachine, NextStateMachine, ChildStateMachine: PStateMachine;
    NextState, TokenID: TByteCode;
    Transitioned: Boolean;
 begin
-//Writeln();
-//Writeln('Starting execution engine...');
    New(StateMachines);
    StateMachines^.State := 0;
    StateMachines^.Pattern := CreateSharedCompiledPattern(FPattern);
@@ -984,8 +1022,6 @@ begin
    Position := Start;
    while (Assigned(StateMachines^.Next)) do
    begin
-//Writeln('  position = ', Position, '; match length = ', MatchLength);
-//Writeln('  automatic transitions...');
       { Follow mtFollow links first }
       CurrentStateMachine := StateMachines^.Next;
       while (Assigned(CurrentStateMachine)) do
@@ -1000,7 +1036,6 @@ begin
                begin
                   ChildStateMachine := AppendStateMachine(CurrentStateMachine);
                   ChildStateMachine^.State := NextState and not mpsPreventDuplicatesMask;
-//Writeln('= state machine ', IntToHex(Cardinal(ChildStateMachine), 16), ' moved to state ', ChildStateMachine^.State);
                   if (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
                      ObliterateTransition(ChildStateMachine^.Pattern, CurrentTransition+1);
                end
@@ -1010,8 +1045,6 @@ begin
                   Assert(Position - Start <= High(TByteCode));
                   Assert(Position - Start >= Low(TByteCode));
                   MatchLength := Position - Start;
-//Writeln('= state machine ', IntToHex(Cardinal(CurrentStateMachine), 16), ' matched in state ', CurrentStateMachine^.State, ' via automatic transition');
-//Writeln('  increasing match length to = ', MatchLength);
                end;
             end;
             Inc(CurrentTransition, 2);
@@ -1019,7 +1052,6 @@ begin
          CurrentStateMachine := CurrentStateMachine^.Next;
       end;
       { Now follow the links that match the token, removing any state machines that don't have a match }
-//Writeln('  match transitions...');
       if (Position > High(Tokens)) then
          TokenID := mtNone
       else
@@ -1030,7 +1062,6 @@ begin
          NextStateMachine := CurrentStateMachine^.Next;
          if (TokenID = mtNone) then
          begin
-//Writeln('= state machine ', IntToHex(Cardinal(CurrentStateMachine), 16), ' died in state ', CurrentStateMachine^.State, ' due to running out of tokens');
             KillStateMachine(CurrentStateMachine);
          end
          else
@@ -1046,14 +1077,11 @@ begin
                      Assert(Position - Start <= High(TByteCode));
                      Assert(Position - Start >= Low(TByteCode));
                      MatchLength := Position - Start + 1;
-//Writeln('= state machine ', IntToHex(Cardinal(CurrentStateMachine), 16), ' matched in state ', CurrentStateMachine^.State, ' via token match (', FTokens[TokenID], ')');
-//Writeln('  increasing match length to = ', MatchLength);
                   end
                   else
                   begin
                      Assert(NextState <= mpsMaxTrueTransition);
                      CurrentStateMachine^.State := NextState and not mpsPreventDuplicatesMask;
-//Writeln('= state machine ', IntToHex(Cardinal(CurrentStateMachine), 16), ' moved to state ', CurrentStateMachine^.State, ' via token match (', FTokens[TokenID], ')');
                      if (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
                         ObliterateTransition(CurrentStateMachine^.Pattern, CurrentTransition+1);
                      Transitioned := True;
@@ -1064,7 +1092,6 @@ begin
             until ((Transitioned) or (CurrentStateMachine^.Pattern^.Data^[CurrentTransition-2] = mtLastFollow));
             if (not Transitioned) then
             begin
-//Writeln('= state machine ', IntToHex(Cardinal(CurrentStateMachine), 16), ' died in state ', CurrentStateMachine^.State, ' due to not transitioning');
                KillStateMachine(CurrentStateMachine);
             end;
          end;
@@ -1073,8 +1100,60 @@ begin
       Inc(Position);
    end;
    KillStateMachine(StateMachines);
-//Writeln('Best match is length ', MatchLength);
    Result := MatchLength;
+end;
+
+function TMatcher.GetLongestMatch(Separator: AnsiString): AnsiString;
+var
+   Pattern: PCompiledPattern;
+
+   function GetLongestBranch(State: TByteCode; out Match: AnsiString): Cardinal;
+   var
+      WinningMatch, CurrentMatch, TryMatch: AnsiString;
+      WinningLength, TryLength: Cardinal;
+      CurrentState, NextState: TByteCode;
+   begin
+      WinningLength := 1;
+      WinningMatch := '';
+      CurrentState := State;
+      repeat
+         NextState := Pattern[CurrentState+1];
+         if (NextState <> mpsFail) then
+         begin
+            if (Pattern[CurrentState] <= mtMaxTrueToken) then
+               CurrentMatch := FTokens[Pattern[CurrentState]]
+            else
+               CurrentMatch := '';
+            if (NextState = mpsMatch) then
+            begin
+               TryLength := 1;
+            end
+            else
+            begin
+               if (Pattern[CurrentState] <= mtMaxTrueToken) then
+                   Pattern[CurrentState+1] := mpsFail;
+               TryLength := 1 + GetLongestBranch(NextState and not mpsPreventDuplicatesMask, TryMatch);
+               Pattern[CurrentState+1] := NextState;
+               if (CurrentMatch <> '') then
+                  TryMatch := CurrentMatch + Separator + TryMatch;
+            end;
+            if (TryLength > WinningMatch) then
+            begin
+               WinningLength := TryLength;
+               WinningMatch := TryMatch;
+            end;
+         end;
+         Inc(CurrentState);
+      until Pattern[CurrentState] = mtLastFollow;
+      Match := WinningMatch;
+      Result := WinningLength;
+   end;
+
+begin
+   NewPattern(Pattern, FPatternLength);
+   Move(FPattern^, Pattern^, FPatternLength * SizeOf(TByteCode));
+   GetLongestBranch(0, Result);
+   DisposePattern(Pattern, FPatternLength);
 end;
 
 {$IFDEF DEBUG}
@@ -1109,7 +1188,7 @@ begin
 end;
 {$ENDIF}
 
-function Pattern(S: AnsiString): TMatcher;
+function CompilePatternVersion(S: AnsiString; Version: Cardinal): TMatcher;
 
    function Parse(var Index: Cardinal): TPatternNode;
    type
@@ -1121,27 +1200,37 @@ function Pattern(S: AnsiString): TMatcher;
 
       procedure Push(Node: TPatternNode);
       begin
-         SetLength(List, Length(List)+1);
-         List[High(List)] := Node;
+         if (CurrentVersion <= Version) then
+         begin
+            SetLength(List, Length(List)+1);
+            List[High(List)] := Node;
+         end
+         else
+         begin
+            Node.Free();
+         end;
       end;
 
+   var
+      CurrentVersion: Cardinal;
    begin
-//Writeln('NESTING PARSER starting at index=', Index);
       Token := '';
+      CurrentVersion := 0;
       Mode := pmToken;
       Assert(Index >= Low(S));
       while (Index <= Length(S)) do
       begin
-//Writeln('Index=', Index:3, '; S=', S);
-//Writeln('S[Index]=', S[Index]);
          case Mode of
           pmToken:
             case S[Index] of
              ' ':
-               if (Token <> '') then
                begin
-                  Push(TTokenNode.Create(Token));
-                  Token := '';
+                  if (Token <> '') then
+                  begin
+                     Push(TTokenNode.Create(Token));
+                     Token := '';
+                  end;
+                  CurrentVersion := 0;
                end;
              '+':
                begin
@@ -1154,6 +1243,21 @@ function Pattern(S: AnsiString): TMatcher;
                   Assert(Length(Token) > 0);
                   Push(TZeroOrMoreOrderedPatternNode.Create([TTokenNode.Create(Token)]));
                   Token := '';
+               end;
+             '/':
+               begin
+                  if (Token <> '') then
+                  begin
+                     Push(TTokenNode.Create(Token));
+                     Token := '';
+                  end;
+                  Assert(Length(List) > 0);
+                  if (CurrentVersion < Version) then
+                  begin
+                     List[High(List)].Free();
+                     SetLength(List, Length(List)-1);
+                  end;
+                  Inc(CurrentVersion);
                end;
              '(':
                begin
@@ -1183,15 +1287,15 @@ function Pattern(S: AnsiString): TMatcher;
             end;
           pmListType:
             begin
-//Writeln('pmListType suffix = ', S[Index]);
                Assert(Length(List) > 0);
                case S[Index] of
+                '+': Result := TRepeatableSequencePatternNode.Create(List);
+                '?': Result := TOptionalSequencePatternNode.Create(List);
                 '@': Result := TAlternativesPatternNode.Create(List);
                 '*': Result := TZeroOrMoreUnorderedPatternNode.Create(List);
                 '#': Result := TOneOrMoreUnorderedPatternNode.Create(List);
                 '%': Result := TZeroOrMoreOrderedPatternNode.Create(List);
                 '&': Result := TOneOrMoreOrderedPatternNode.Create(List);
-                '+', '?': EAssertionFailed.Create('Token suffix used inappropriately.');
                 else
                   begin
                      if (Length(List) > 1) then
@@ -1201,7 +1305,6 @@ function Pattern(S: AnsiString): TMatcher;
                      Dec(Index);
                   end;
                end;
-//Writeln('RESUMING PARENT PARSER');
                Exit;
             end;
           else
@@ -1214,7 +1317,6 @@ function Pattern(S: AnsiString): TMatcher;
          Result := TSequencePatternNode.Create(List)
       else
          Result := List[0];
-//Writeln('EXITING PARSER');
    end;
 
    function Parse(): TPatternNode;
@@ -1240,5 +1342,28 @@ begin
    Compiler.Free();
    Result := TMatcher.Create(Tokens, CompiledPattern, PatternLength);
 end;
+
+procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMatcher);
+begin
+   Singular := CompilePatternVersion(S, 0);
+   Plural := CompilePatternVersion(S, 1);
+end;
+
+{$IFDEF DEBUG}
+function HasPatternChars(S: AnsiString): Boolean;
+begin
+   Result := (Pos(S, '+') > 0) or
+             (Pos(S, '?') > 0) or
+             (Pos(S, '/') > 0) or
+             (Pos(S, '(') > 0) or
+             (Pos(S, ')') > 0) or
+             (Pos(S, '\') > 0) or
+             (Pos(S, '@') > 0) or
+             (Pos(S, '*') > 0) or
+             (Pos(S, '#') > 0) or
+             (Pos(S, '%') > 0) or
+             (Pos(S, '&') > 0);
+end;
+{$ENDIF}
 
 end.

@@ -5,6 +5,10 @@ unit grammarian;
 interface
 
 type
+   TGrammaticalNumber = set of (gnSingular, gnPlural);
+   TTokens = array of AnsiString;
+
+type
    PCardinalDirection = ^TCardinalDirection;
    TCardinalDirection = (cdNorth, cdNorthEast, cdEast, cdSouthEast, cdSouth, cdSouthWest, cdWest, cdNorthWest, cdUp, cdDown,
                          cdOut, cdIn); { physical directions then logical directions }
@@ -28,6 +32,8 @@ const
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpInImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
    tpDeferNavigationToParent = [tpPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
 
+function Tokenise(S: AnsiString): TTokens;
+
 function IndefiniteArticle(Noun: AnsiString): AnsiString; inline;
 function Capitalise(Phrase: AnsiString): AnsiString; inline;
 function MeansEverything(Word: AnsiString): Boolean; inline;
@@ -48,6 +54,90 @@ implementation
 
 uses
    sysutils;
+
+function Tokenise(S: AnsiString): TTokens;
+var
+   Start: Cardinal;
+   Index: Cardinal;
+
+   procedure PushToken(t: AnsiString);
+   begin
+      SetLength(Result, Length(Result)+1);
+      Result[Length(Result)-1] := t;
+   end;
+
+type
+   TTokeniserState = (tsWordStart, tsWordBody, tsQuoted, tsDoubleQuoted);
+var
+   TokeniserState: TTokeniserState;
+begin
+   Start := 1;
+   Index := Start;
+   TokeniserState := tsWordStart;
+   while (Index <= Length(S)) do
+   begin
+      case TokeniserState of
+       tsWordStart:
+          case S[Index] of
+           ' ', #9: begin end;
+           ',', ';', ':', '.', '?', '!': begin PushToken(S[Index]); end;
+           '''': begin Start := Index+1; TokeniserState := tsQuoted; end;
+           '"': begin Start := Index+1; TokeniserState := tsDoubleQuoted; end;
+          else
+           Start := Index;
+           TokeniserState := tsWordBody;
+          end;
+       tsWordBody:
+          case S[Index] of
+           ' ', #9: begin PushToken(LowerCase(S[Start..Index-1])); TokeniserState := tsWordStart; end;
+           ',', ';', ':', '.', '?', '!': begin PushToken(LowerCase(S[Start..Index-1])); PushToken(S[Index]); TokeniserState := tsWordStart; end;
+           '''': begin PushToken(LowerCase(S[Start..Index-1])); TokeniserState := tsQuoted; end;
+           '"': begin PushToken(LowerCase(S[Start..Index-1])); TokeniserState := tsDoubleQuoted; end;
+          end;
+       tsQuoted:
+          case S[Index] of
+           '''': begin
+              if (Start < Index) then
+                 PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+              else
+                 PushToken('""');
+              TokeniserState := tsWordStart;
+           end;
+          end;
+       tsDoubleQuoted:
+          case S[Index] of
+           '"': begin
+              if (Start < Index) then
+                 PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+              else
+                 PushToken('""');
+              TokeniserState := tsWordStart;
+           end;
+          end;
+      else
+       raise Exception.Create('Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
+      end;
+      Inc(Index);
+   end;
+   case TokeniserState of
+    tsWordStart: ;
+    tsWordBody: PushToken(LowerCase(S[Start..Index-1]));
+    tsQuoted: begin
+        if (Start < Index) then
+           PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+        else
+           PushToken('""')
+     end;
+    tsDoubleQuoted: begin
+        if (Start < Index) then
+           PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+        else
+           PushToken('""')
+     end;
+   else
+    raise Exception.Create('Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
+   end;
+end;
 
 function IndefiniteArticle(Noun: AnsiString): AnsiString;
 begin
