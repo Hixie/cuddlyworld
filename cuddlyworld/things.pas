@@ -8,37 +8,37 @@ uses
    storable, world, thingdim, grammarian;
 
 type
-   TSynonymThing = class(TThing)
+   TNamedThing = class(TThing)
     protected
-      FSynonyms: array of AnsiString;
-      FLongName: AnsiString;
-      function AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean; override;
+      FName, FLongName: AnsiString;
+      FSingularPattern, FPluralPattern: TMatcher;
+      FPlural: Boolean;
     public
-      constructor Create(AName: AnsiString);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString); { first synonym is the name, and can have spaces; the rest must not have spaces }
+      constructor Create(Name: AnsiString);
+      constructor Create(Name: AnsiString; Pattern: AnsiString);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): AnsiString; override;
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
+      function IsPlural(Perspective: TAvatar): Boolean; override;
+      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); override;
+      property LongName: Boolean read FLongName write FLongName;
+      property Plural: Boolean read FPlural write FPlural;
    end;
 
-   TStaticThingFlags = set of (stfPlural);
-
-   TStaticThing = class(TSynonymThing)
+   TStaticThing = class(TNamedThing) { "static" in the sense of unchanging }
     protected
       FDescription: AnsiString;
       FMass: TThingMass;
       FSize: TThingSize;
-      FFlags: TStaticThingFlags;
     public
-      constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; AFlags: TStaticThingFlags = []);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; AFlags: TStaticThingFlags = []);
+      constructor Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function IsPlural(Perspective: TAvatar): Boolean; override;
    end;
 
    TScenery = class(TStaticThing)
@@ -47,10 +47,8 @@ type
       FFindDescription: AnsiString;
       FCannotMoveExcuse: AnsiString;
     public
-      constructor Create(AName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-      constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
+      constructor Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
@@ -65,10 +63,8 @@ type
     protected
       FDestination: TLocation;
     public
-      constructor Create(AName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AFlags: TStaticThingFlags);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AFlags: TStaticThingFlags);
-      constructor Create(AName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
+      constructor Create(Name: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -80,10 +76,8 @@ type
     protected
       FHole: THole;
     public
-      constructor Create(AName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-      constructor Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
+      constructor Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
@@ -100,13 +94,13 @@ type
       procedure Removed(Thing: TThing); override;
    end;
 
-   TDistantScenery = class(TSynonymThing)
+   TDistantScenery = class(TNamedThing)
     protected
       FDirection: TCardinalDirection;
       function FarAway(Perspective: TAvatar): AnsiString; virtual;
     public
-      constructor Create(AName: AnsiString; ADirection: TCardinalDirection);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADirection: TCardinalDirection);
+      constructor Create(Name: AnsiString; Direction: TCardinalDirection);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
@@ -124,13 +118,13 @@ type
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
 
-   TBag = class(TSynonymThing)
+   TBag = class(TNamedThing)
     protected
       FDescription: AnsiString;
       FMaxSize: TThingSize;
     public
-      constructor Create(AName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
-      constructor Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
+      constructor Create(Name: AnsiString; Description: AnsiString; MaxSize: TThingSize);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; MaxSize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
@@ -145,16 +139,15 @@ type
 
    TPileClass = class of TPile;
 
-   THole = class(TThing)
+   THole = class(TNamedThing)
     protected
       FDescription: AnsiString;
       FSize: TThingSize;
       FPileClass: TPileClass;
     public
-      constructor Create(ADescription: AnsiString; ASize: TThingSize; APileClass: TPileClass);
+      constructor Create(Description: AnsiString; Size: TThingSize; PileClass: TPileClass);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
       function GetTitle(Perspective: TAvatar): AnsiString; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
@@ -176,24 +169,21 @@ type
    end;
 
    TPileState = set of (psTidy);
-   TPile = class(TThing)
+   TPile = class(TNamedThing)
     protected
       FIngredients: array of AnsiString;
       FDescription: AnsiString;
       FMass: TThingMass;
       FSize: TThingSize;
       FState: TPileState;
-      function AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean; override;
-      function IsMatchingIngredientWord(Word: AnsiString; Perspective: TAvatar): Boolean; virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
     public
-      constructor Create(AIngredients: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize); { first ingredient must be canonical plural form }
+      constructor Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize); { first ingredient must be canonical plural form }
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionState(Perspective: TAvatar): AnsiString; override;
@@ -208,7 +198,7 @@ type
 
    TEarthPile = class(TPile)
     public
-      constructor Create(ASize: TThingSize);
+      constructor Create(Size: TThingSize);
    end;
 
 implementation
@@ -216,129 +206,96 @@ implementation
 uses
    sysutils, broadcast;
 
-constructor TSynonymThing.Create(AName: AnsiString);
+constructor TNamedThing.Create(Name: AnsiString);
 begin
-   Create([AName], AName);
+   {$IFDEF DEBUG} Assert(not HasPatternChars(Name)); {$ENDIF}
+   Create(Name, Name);
 end;
 
-constructor TSynonymThing.Create(ASynonyms: array of AnsiString; ALongName: AnsiString);
+constructor TNamedThing.Create(Name: AnsiString; Pattern: AnsiString);
 var
-   Index: Cardinal;
+   TokenisedName: TTokens;
+   NameIsSingular: Boolean;
+   {$IFOPT C+} NameIsPlural: Boolean; {$ENDIF}
 begin
    inherited Create();
-   Assert(Length(ASynonyms) > 0);
-   SetLength(FSynonyms, Length(ASynonyms));
-   for Index := 0 to Length(ASynonyms)-1 do
-      FSynonyms[Index] := ASynonyms[Index];
-   FLongName := ALongName;
+   FName := Name;
+   CompilePattern(Pattern, FSingularPattern, FPluralPattern);
+   FLongName := 'the ' + FSingularPattern.GetLongestMatch(' ');
+   TokenisedName := Tokenise(Name);
+   NameIsSingular := FSingularPattern.Matches(TokenisedName, 0) = Length(TokenisedName);
+   {$IFOPT C+}
+     NameIsPlural := FPluralPattern.Matches(TokenisedName, 0) = Length(TokenisedName);
+     Assert(NameIsSingular or NameIsPlural);
+   {$ENDIF}
+   FPlural := not NameIsSingular;
 end;
 
-constructor TSynonymThing.Read(Stream: TReadStream);
+constructor TNamedThing.Read(Stream: TReadStream);
 var
    Index: Cardinal;
 begin
    inherited;
-   SetLength(FSynonyms, Stream.ReadCardinal());
-   for Index := 0 to Length(FSynonyms)-1 do
-      FSynonyms[Index] := Stream.ReadAnsiString();
+   FName := Stream.ReadAnsiString();
    FLongName := Stream.ReadAnsiString();
+   FSingularPattern := Stream.ReadObject() as TMatcher;
+   FPluralPattern := Stream.ReadObject() as TMatcher;
+   FPlural := Stream.ReadBoolean();
 end;
 
-procedure TSynonymThing.Write(Stream: TWriteStream);
+procedure TNamedThing.Write(Stream: TWriteStream);
 var
    Index: Cardinal;
 begin
    inherited;
-   Stream.WriteCardinal(Length(FSynonyms));
-   for Index := 0 to Length(FSynonyms)-1 do
-      Stream.WriteAnsiString(FSynonyms[Index]);
+   Stream.WriteAnsiString(FName);
    Stream.WriteAnsiString(FLongName);
+   Stream.WriteObject(FSingularPattern);
+   Stream.WriteObject(FPluralPattern);
+   Stream.WriteBoolean(FPlural);
 end;
 
-function TSynonymThing.GetName(Perspective: TAvatar): AnsiString;
+function TNamedThing.GetName(Perspective: TAvatar): AnsiString;
 begin
-   Result := FSynonyms[0];
+   Result := FName;
 end;
 
-function TSynonymThing.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+function TNamedThing.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
 begin
    Result := FLongName;
 end;
 
-function TSynonymThing.AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean;
+procedure TNamedThing.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback);
 var
-   Index: Cardinal;
+   Count: Cardinal;
 begin
+   Count := FSingularPattern.Matches(Tokens, Start);
+   if (Count > 0) then
+      Callback(Self, Count, gnSingular);
+   Count := FPluralPattern.Matches(Tokens, Start);
+   if (Count > 0) then
+      Callback(Self, Count, gnPlural);
+   inherited;
+end;
 
-
-
-
-   "Ode to Death death wish" - "Ode", "Ode to Death", "death", "death wish", "death-wish", "wish"; NOT "Ode to Death wish", "to", "death death".
-
-   Adjective ['Ode', 'Ode to Death', 'Death']
-   Noun ['death wish', 'death-wish']
-   Synonym ['wish']
-
-
-   "Grotesque Blue Sword of Blood" - "Grotesque Sword", "Sword of Blood", "Grotesque Sword of Blood", "Grotesque", "Sword", "Blood"; NOT "Grotesque Blood", "of"
-
-   Adjective ['Grotesque']
-   Adjective ['Blue']
-   Noun ['Sword', 'Sword of Blood']
-   Synonym ['Blood']
-
-
-   "Happy Fun Ball"          - "Ball", "Happy Ball", "Happy Fun Ball", "Fun Ball", "Happy", "Fun"
-
-   Adjective ['Happy']
-   Adjective ['Fun']
-   Noun ['Ball']
-
-
-   "the blue wooden archway to the north" - "blue", "navy", "wooden", "archway", "arch", "n", "north", "northern",
-                                            "blue wooden archway", "navy wooden archway", "northern blue wooden archway",
-                                            "navy wooden", "northern wooden", "n arch", "navy blue arch", "navy-blue arch";
-                                            NOT "blue navy arch", "wooden navy", "arch blue", "archway wooden", "arch wooden", "arch n", "archway northern"
-
-   Adjective ['Blue', 'Navy', 'navy blue', 'navy-blue']
-   Adjective ['Wooden']
-   Adjective ['n', 'north', 'northern']
-   Noun ['Archway', 'Arch']
-   
-
-
-   explicit synonyms (must match entire phrase)
-   adjectives (must be given once max each, must be given first, any number can be given, some have alternatives that are mutually exclusive)
-   nouns (only one can be given, must be at end)
-   
-
-xxxxxxxxxxxxxxxxxxxxx
-
-   for Index := 1 to Length(FSynonyms)-1 do
-   begin
-      Assert(Pos(' ', FSynonyms[Index]) <= 0);
-      if (Word = LowerCase(FSynonyms[Index])) then
-      begin
-         Result := True;
-         Exit;
-      end;
-   end;
-   Result := inherited;
+function TNamedThing.IsPlural(Perspective: TAvatar): Boolean;
+begin
+   Result := FPlural;
 end;
 
 
-constructor TStaticThing.Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; AFlags: TStaticThingFlags = []);
+constructor TStaticThing.Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
 begin
-   Create([AName], AName, ADescription, AMass, ASize);
+   {$IFDEF DEBUG} Assert(not HasPatternChars(Name)); {$ENDIF}
+   Create(Name, Name, Description, Mass, Size);
 end;
 
-constructor TStaticThing.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize; AFlags: TStaticThingFlags = []);
+constructor TStaticThing.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
 begin
-   inherited Create(ASynonyms, ALongName);
+   inherited Create(Name, Pattern);
    FDescription := ADescription;
    FMass := AMass;
    FSize := ASize;
-   FFlags := AFlags;
 end;
 
 constructor TStaticThing.Read(Stream: TReadStream);
@@ -347,7 +304,6 @@ begin
    FDescription := Stream.ReadAnsiString();
    FMass := TThingMass(Stream.ReadCardinal());
    FSize := TThingSize(Stream.ReadCardinal());
-   FFlags := TStaticThingFlags(Stream.ReadCardinal());
 end;
 
 procedure TStaticThing.Write(Stream: TWriteStream);
@@ -356,7 +312,6 @@ begin
    Stream.WriteAnsiString(FDescription);
    Stream.WriteCardinal(Cardinal(FMass));
    Stream.WriteCardinal(Cardinal(FSize));
-   Stream.WriteCardinal(Cardinal(FFlags));
 end;
 
 function TStaticThing.GetIntrinsicMass(): TThingMass;
@@ -374,29 +329,14 @@ begin
    Result := FDescription;
 end;
 
-function TStaticThing.IsPlural(Perspective: TAvatar): Boolean;
-begin
-   Result := stfPlural in FFlags;
-end;
 
-
-constructor TScenery.Create(AName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-begin
-   inherited Create(AName, ADescription, tmLudicrous, tsLudicrous, AFlags);
-end;
-
-constructor TScenery.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-begin
-   inherited Create(ASynonyms, ALongName, ADescription, tmLudicrous, tsLudicrous, AFlags);
-end;
-
-constructor TScenery.Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
+constructor TScenery.Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
 end;
 
-constructor TScenery.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
+constructor TScenery.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
@@ -455,24 +395,15 @@ begin
 end;
 
 
-constructor TLocationProxy.Create(AName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AFlags: TStaticThingFlags);
+constructor TLocationProxy.Create(Name: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
-   Create([AName], AName, ADescription, ADestination, tmLudicrous, tsLudicrous, AFlags);
+   inherited Create(Name, Description, tmLudicrous, tsLudicrous);
+   FDestination := ADestination;
 end;
 
-constructor TLocationProxy.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AFlags: TStaticThingFlags);
+constructor TLocationProxy.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
-   Create(ASynonyms, ALongName, ADescription, ADestination, tmLudicrous, tsLudicrous, AFlags);
-end;
-
-constructor TLocationProxy.Create(AName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
-begin
-   Create([AName], AName, ADescription, ADestination, AMass, ASize, AFlags);
-end;
-
-constructor TLocationProxy.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; ADestination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
-begin
-   inherited Create(ASynonyms, ALongName, ADescription, AMass, ASize, AFlags);
+   inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
    FDestination := ADestination;
 end;
 
@@ -499,23 +430,13 @@ begin
 end;
 
 
-constructor TSurface.Create(AName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-begin
-   inherited Create(AName, ADescription, tmLudicrous, tsLudicrous, AFlags);
-end;
-
-constructor TSurface.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AFlags: TStaticThingFlags);
-begin
-   inherited Create(ASynonyms, ALongName, ADescription, tmLudicrous, tsLudicrous, AFlags);
-end;
-
-constructor TSurface.Create(AName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
+constructor TSurface.Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
 end;
 
-constructor TSurface.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous; AFlags: TStaticThingFlags = []);
+constructor TSurface.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
@@ -634,7 +555,7 @@ end;
 
 function TSurface.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
-   if (Assigned(FHole) and (FHole.IsOpen())) then // XXX why the IsOpen check?
+   if (Assigned(FHole) and (FHole.IsOpen())) then { if it's not open then the hole isn't visible, so we pretend it's not there }
       Result := FHole
    else
       Result := Self;
@@ -660,14 +581,15 @@ begin
 end;
 
 
-constructor TDistantScenery.Create(AName: AnsiString; ADirection: TCardinalDirection);
+constructor TDistantScenery.Create(Name: AnsiString; Direction: TCardinalDirection);
 begin
-   Create([AName], AName, ADirection);
+   inherited Create(Name);
+   FDirection := ADirection;
 end;
 
-constructor TDistantScenery.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADirection: TCardinalDirection);
+constructor TDistantScenery.Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
 begin
-   inherited Create(ASynonyms, ALongName);
+   inherited Create(Name, Pattern);
    FDirection := ADirection;
 end;
 
@@ -725,13 +647,12 @@ end;
 
 constructor TSpade.Create();
 begin
-   inherited Create(['spade', 'shovel'], 'the spade', 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
+   inherited Create('spade', 'metal? (spade/spades shovel/shovels)@', 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
 end;
 
 function TSpade.GetProperties(): TThingProperties;
 begin
-   Result := inherited; 
-   Result := Result + [tpCanDig];
+   Result := inherited + [tpCanDig];
 end;
 
 function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -740,14 +661,15 @@ begin
 end;
 
 
-constructor TBag.Create(AName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
+constructor TBag.Create(Name: AnsiString; Description: AnsiString; MaxSize: TThingSize);
 begin
-   Create([AName], AName, ADescription, AMaxSize);
+   {$IFDEF DEBUG} Assert(not HasPatternChars(Name)); {$ENDIF}
+   Create(Name, Name, Description, MaxSize);
 end;
 
-constructor TBag.Create(ASynonyms: array of AnsiString; ALongName: AnsiString; ADescription: AnsiString; AMaxSize: TThingSize);
+constructor TBag.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; MaxSize: TThingSize);
 begin
-   inherited Create(ASynonyms, ALongName);
+   inherited Create(Name, Pattern);
    FDescription := ADescription;
    FMaxSize := AMaxSize;
 end;
@@ -808,9 +730,9 @@ begin
 end;
 
 
-constructor THole.Create(ADescription: AnsiString; ASize: TThingSize; APileClass: TPileClass);
+constructor THole.Create(Description: AnsiString; Size: TThingSize; PileClass: TPileClass);
 begin
-   inherited Create();
+   inherited Create('hole', 'hole/holes');
    FDescription := ADescription;
    FSize := ASize;
    FPileClass := APileClass;
@@ -825,8 +747,8 @@ begin
    FSize := TThingSize(Stream.ReadCardinal());
    {$IFOPT C-} {$HINT This could be optimised further in non-debug builds.} {$ENDIF}
    AClass := Stream.ReadClass();
-   Assert((AClass = TPile) or (AClass.InheritsFrom(TPile)));
-   FPileClass := TPileClass(AClass);
+   Assert((Class = TPile) or (Class.InheritsFrom(TPile)));
+   FPileClass := TPileClass(Class);
 end;
 
 procedure THole.Write(Stream: TWriteStream);
@@ -835,11 +757,6 @@ begin
    Stream.WriteAnsiString(FDescription);
    Stream.WriteCardinal(Cardinal(FSize));
    Stream.WriteClass(FPileClass);
-end;
-
-function THole.GetName(Perspective: TAvatar): AnsiString;
-begin
-   Result := 'hole';
 end;
 
 function THole.GetTitle(Perspective: TAvatar): AnsiString;
@@ -1170,18 +1087,23 @@ begin
 end;
 
 
-constructor TPile.Create(AIngredients: array of AnsiString; ADescription: AnsiString; AMass: TThingMass; ASize: TThingSize);
+constructor TPile.Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
 var
    Index: Cardinal;
+   Pattern: AnsiString;
 begin
-   inherited Create();
-   Assert(Length(AIngredients) > 0);
-   SetLength(FIngredients, Length(AIngredients));
+   Assert(Length(Ingredients) > 0);
+   Pattern := 'pile/piles (of (' + Ingredients[0];
+   for Index := 0 to Length(Ingredients)-1 do
+      Pattern := Pattern + ' ' + Ingredients[Index];
+   Pattern := Pattern + ')@)?';
+   inherited Create('pile of ' + Ingredients[0], Pattern);
+   SetLength(FIngredients, Length(Ingredients));
    for Index := 0 to Length(FIngredients)-1 do
-      FIngredients[Index] := AIngredients[Index];
-   FDescription := ADescription;
-   FMass := AMass;
-   FSize := ASize;
+      FIngredients[Index] := Ingredients[Index];
+   FDescription := Description;
+   FMass := Mass;
+   FSize := Size;
    FState := [psTidy];
 end;
 
@@ -1231,40 +1153,6 @@ end;
 function TPile.GetOutsideSizeManifest(): TThingSizeManifest;
 begin
    Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
-end;
-
-function TPile.GetName(Perspective: TAvatar): AnsiString;
-begin
-   Result := 'pile of ' + FIngredients[0];
-end;
-
-function TPile.AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean;
-begin
-   if (((Count = 3) and
-        (Tokens[Start] = 'pile') and
-        (Tokens[Start+1] = 'of') and
-        (IsMatchingIngredientWord(Tokens[Start+2], Perspective))) or
-       ((Count = 1) and
-        ((Tokens[Start] = 'pile') or
-         (IsMatchingIngredientWord(Tokens[Start], Perspective)))) then
-      Result := True
-   else
-      Result := False;
-end;
-
-function TPile.IsMatchingIngredientWord(Word: AnsiString; Perspective: TAvatar): Boolean;
-var
-   Index: Cardinal;
-begin
-   for Index := 0 to Length(FIngredients)-1 do
-   begin
-      if (Word = LowerCase(FIngredients[Index])) then
-      begin
-         Result := True;
-         Exit;
-      end;
-   end;
-   Result := False;
 end;
 
 function TPile.GetLookUnder(Perspective: TAvatar): AnsiString;
@@ -1331,7 +1219,7 @@ begin
 end;
 
 
-constructor TEarthPile.Create(ASize: TThingSize);
+constructor TEarthPile.Create(Size: TThingSize);
 begin
    inherited Create(['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, ASize], ASize);
 end;

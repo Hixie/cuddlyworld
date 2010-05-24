@@ -1,5 +1,44 @@
 NEXT
  + change the way parsing is done so that each thing is asked how many words it can match and then the longest reply is taken as the actual length of the match
+   object lists:
+    - "<singular>"                - there must be one or more, pick one "randomly"
+    - "<plural>"                  - there must be one or more, pick them all
+    - "the <singular>"            - there must be exactly one, pick them all
+    - "the one <singular*>"       - there must be exactly one, pick them all
+    - "the <number> <plural*>"    - there must be exactly <number>, pick them all
+    - "any <plural>"              - there must be zero or more, pick them all, allow exceptions
+    - "the <plural>"              - there must be one or more, pick them all
+    - "all <plural*>"             - there must be one or more, pick them all, allow exceptions
+    - "all the <plural*>"         - there must be one or more, pick them all, allow exceptions
+    - "every <singular*>"         - there must be one or more, pick them all, allow exceptions
+    - "all of the <plural*>"      - there must be one or more, pick them all, allow exceptions
+    - "a <singular*>"             - there must be one or more, pick one "randomly"
+    - "an <singular*>"            - there must be one or more, pick one "randomly"
+    - "one <singular*>"           - there must be one or more, pick one "randomly"
+    - "any <singular>"            - there must be one or more, pick one "randomly", allow exceptions
+    - "one of the <plural*>"      - there must be one or more, pick one "randomly"
+    - "any of the <plural*>"      - there must be one or more, pick one "randomly", allow exceptions
+    - "some <singular>"           - there must be two or more, pick one "randomly"
+    - "some <plural>"             - there must be two or more, pick a non-integer fraction of them "randomly"
+    - "<number> <plural*>"        - there must be <number> or more, pick <number> of them "randomly"
+    - "all"                       - pick everything referencable
+    - "everything"                - pick everything referencable
+    =>  min count
+        allow more
+        pick all matched, pick one randomly, pick min count randomly, pick some randomly (not zero, not all)
+        allow exceptions
+
+   restrictions:
+    - "from <object list>", "in <object list>", "on <object list>"
+
+   exceptions (if allowed): add
+    - "but <object list> <restrictions>"
+    - "except <object list> <restrictions>"
+
+        
+ + does "look in ground" when there's a hole that's covered work?
+   
+
  + make the synonyms thing support multiple words per synonym, the words having to appear in the given order (or else figure out whether to special case "of" in thing descriptions; also consider "south west arch" which should not be picked for the term "south arch")
  + "dilap..." should work as an adjective
 

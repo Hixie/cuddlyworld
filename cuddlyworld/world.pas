@@ -33,8 +33,6 @@ type
       Value: TAvatar;
    end;
 
-   TTokens = array of AnsiString;
-
    TThingProperty = (tpDiggable, tpCanDig,
                      tpCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- e.g. holes can have things pushed onto them }
                      tpCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
@@ -43,6 +41,8 @@ type
    TGetDescriptionOnOptions = set of (optDeepOn, optPrecise);
    TGetDescriptionChildrenOptions = set of (optDeepChildren, optFar, optThorough, optOmitPerspective); { deep = bag and inside bag; far = door and inside door }
    TGetPresenceStatementMode = (psThereIsAThingHere { look }, psOnThatThingIsAThing { nested look }, psTheThingIsOnThatThing { find });
+
+   TReferencedCallback = procedure (Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber) of object;
 
    PAtom = ^TAtom;
    TAtom = class(TStorable)
@@ -94,7 +94,7 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
       procedure AddImplicitlyReferencedThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem); virtual;
-      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar; FromOutside: Boolean; var List: PThingItem); virtual;
+      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); virtual;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function GetDefaultAtom(): TAtom; virtual;
       function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
@@ -111,7 +111,6 @@ type
     protected
       FParent: TAtom;
       FPosition: TThingPosition;
-      function AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean; virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean; virtual;
       function IsExplicitlyReferenceable(Perspective: TAvatar): Boolean; virtual;
@@ -152,7 +151,7 @@ type
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure AddImplicitlyReferencedThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem); override;
-      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar; FromOutside: Boolean; var List: PThingItem); override;
+      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); override;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
       procedure Shake(Perspective: TAvatar); virtual;
@@ -862,7 +861,7 @@ begin
    end;
 end;
 
-procedure TAtom.AddExplicitlyReferencedThings(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar; FromOutside: Boolean; var List: PThingItem);
+procedure TAtom.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback);
 var
    Child: PThingItem;
 begin
@@ -870,7 +869,7 @@ begin
    while (Assigned(Child)) do
    begin
       if (IsChildTraversable(Child^.Value, Perspective, FromOutside)) then
-         Child^.Value.AddExplicitlyReferencedThings(Tokens, Start, Count, Perspective, True, List);
+         Child^.Value.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Callback);
       Child := Child^.Next;
    end;
 end;
@@ -1392,56 +1391,12 @@ begin
    end;
 end;
 
-procedure TThing.AddExplicitlyReferencedThings(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar; FromOutside: Boolean; var List: PThingItem);
-var
-   Item: PThingItem;
-begin
-   inherited;
-   if (IsExplicitlyReferenceable(Perspective) and AreMatchingWords(Tokens, Start, Count, Perspective)) then
-   begin
-      New(Item);
-      Item^.Value := Self;
-      Item^.Next := List;
-      List := Item;
-   end;
-end;
-
 function TThing.StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 begin
    if (Thing = Self) then
       Result := True
    else
       Result := inherited;
-end;
-
-function TThing.AreMatchingWords(Tokens: TTokens; Start, Count: Cardinal; Perspective: TAvatar): Boolean;
-var
-   NameWordStart, NameIndex, TokensIndex: Cardinal;
-   Name: AnsiString;
-begin
-   Name := LowerCase(GetName(Perspective));
-   Assert(Name[1] <> ' ');
-   Assert(Name[Length(Name)] <> ' ');
-   NameWordStart := 1;
-   TokensIndex := Start;
-   for NameIndex := 2 to Length(Name)+1 do
-   begin
-      if ((NameIndex > Length(Name)) or (Name[NameIndex] = ' ')) then
-      begin
-         Assert(NameIndex-NameWordStart > 0);
-         if (Name[NameWordStart..NameIndex-1] = Tokens[TokensIndex]) then
-         begin
-            Inc(TokensIndex);
-            if (TokensIndex >= Start+Count) then
-            begin
-               Result := True;
-               Exit;
-            end;
-         end;
-         NameWordStart := NameIndex+1;
-      end;
-   end;
-   Result := False;
 end;
 
 procedure TThing.Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar);

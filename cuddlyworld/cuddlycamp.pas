@@ -177,3 +177,49 @@ initialization
    RegisterStorableClass(TCuddlyWorld, 10);
    RegisterStorableClass(TGenderArchway, 11);
 end.
+
+
+
+xxxxxxxxxxxxxxx
+
+
+   "Ode to Death death wish" - "Ode", "Ode to Death", "death", "death wish", "death-wish", "wish"; NOT "Ode to Death wish", "to", "death death".
+
+   Adjective ['Ode', 'Ode to Death', 'Death']
+   Noun ['death wish', 'death-wish']
+   Named ['wish']
+
+
+   "Grotesque Blue Sword of Blood" - "Grotesque Sword", "Sword of Blood", "Grotesque Sword of Blood", "Grotesque", "Sword", "Blood"; NOT "Grotesque Blood", "of"
+
+   Adjective ['Grotesque']
+   Adjective ['Blue']
+   Noun ['Sword', 'Sword of Blood']
+   Named ['Blood']
+
+
+   "Happy Fun Ball"          - "Ball", "Happy Ball", "Happy Fun Ball", "Fun Ball", "Happy", "Fun"
+
+   Adjective ['Happy']
+   Adjective ['Fun']
+   Noun ['Ball']
+
+
+   "the blue wooden archway to the north" - "blue", "navy", "wooden", "archway", "arch", "n", "north", "northern",
+                                            "blue wooden archway", "navy wooden archway", "northern blue wooden archway",
+                                            "navy wooden", "northern wooden", "n arch", "navy blue arch", "navy-blue arch";
+                                            NOT "blue navy arch", "wooden navy", "arch blue", "archway wooden", "arch wooden", "arch n", "archway northern"
+
+   Adjective ['Blue', 'Navy', 'navy blue', 'navy-blue']
+   Adjective ['Wooden']
+   Adjective ['n', 'north', 'northern']
+   Noun ['Archway', 'Arch']
+   
+
+
+   explicit synonyms (must match entire phrase)
+   adjectives (must be given once max each, must be given first, any number can be given, some have alternatives that are mutually exclusive)
+   nouns (only one can be given, must be at end)
+   
+
+xxxxxxxxxxxxxxxxxxxxx
