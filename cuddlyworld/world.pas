@@ -151,6 +151,7 @@ type
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure AddImplicitlyReferencedThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem); override;
+      function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); override;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
@@ -1397,6 +1398,16 @@ begin
       Result := True
    else
       Result := inherited;
+end;
+
+procedure TThing.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback);
+var
+   Count: Cardinal;
+   GrammaticalNumber: TGrammaticalNumber;
+begin
+   if (IsExplicitlyReferencedThing(Tokens, Start, Perspective, Count, GrammaticalNumber)) then
+      Callback(Self, Count, GrammaticalNumber);
+   inherited;
 end;
 
 procedure TThing.Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar);

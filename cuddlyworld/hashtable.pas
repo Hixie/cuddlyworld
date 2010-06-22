@@ -49,6 +49,10 @@ begin
      {$DEFINE overflow_checks_on}
      {$OVERFLOWCHECKS OFF}
    {$ENDIF}
+   {$IFOPT R+}
+     {$DEFINE range_checks_on}
+     {$RANGECHECKS OFF}
+   {$ENDIF}
    { Robert Jenkins 32bit Integer Hash - http://burtleburtle.net/bob/hash/integer.html }
    Result := (Result  +  $7ed55d16)  +  (Result shl 12);
    Result := (Result xor $c761c23c) xor (Result shr 19);
@@ -59,6 +63,10 @@ begin
    {$IFDEF overflow_checks_on}
      {$OVERFLOWCHECKS ON}
      {$UNDEF overflow_checks_on}
+   {$ENDIF}
+   {$IFDEF range_checks_on}
+     {$RANGECHECKS ON}
+     {$UNDEF range_checks_on}
    {$ENDIF}
 end;
 

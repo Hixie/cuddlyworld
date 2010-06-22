@@ -290,7 +290,7 @@ end;
 procedure TTestProxy.Test(Name: AnsiString);
 begin
    FTest := Name;
-   Writeln('* ' + FTest);
+{$IFDEF VERBOSE}   Writeln('* ' + FTest); {$ENDIF}
 end;
 
 
@@ -336,11 +336,11 @@ procedure TestMechanics();
       { Camp }
       CampMountain := TDistantScenery.Create('mountain', cdNorth);
       Camp.Add(CampMountain, tpAroundImplicit);
-      CampForest := TScenery.Create(['forest', 'trees', 'tree', 'of'], 'the forest of trees', 'The forest is dense and impassable.');
+      CampForest := TScenery.Create('forest', '((forest/forests (of trees)?) tree/trees)@', 'The forest is dense and impassable.');
       Camp.Add(CampForest, tpAroundImplicit);
-      Camp.GetSurface().Add(TStaticThing.Create('MacGuffin', 'The MacGuffin displays outward signs of being avian in nature.', tmHeavy, tsBig), tpOn);
-      Camp.GetSurface().Add(TStaticThing.Create('penny', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
-      Camp.GetSurface().Add(TPile.Create(['leaves', 'leaf'], 'It appears someone has collected fallen leaves from the forest. Possibly the entire forest, given how big the pile is.', tmLight, tsGigantic), tpOn);
+      Camp.GetSurface().Add(TStaticThing.Create('penny', 'penny/pennies', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
+      Camp.GetSurface().Add(TStaticThing.Create('MacGuffin', 'MacGuffin/MacGuffins', 'The MacGuffin displays outward signs of being avian in nature.', tmHeavy, tsBig), tpOn);
+      Camp.GetSurface().Add(TPile.Create(['leaf'], ['leaves'], 'It appears someone has collected fallen leaves from the forest. Possibly the entire forest, given how big the pile is.', tmLight, tsGigantic), tpOn);
       Camp.ConnectCardinals(Cliff, CampForest, CampForest, CampForest);
       Camp.ConnectDiagonals(CampForest, CampForest, CampForest, CampForest);
       World.AddLocation(Camp);
@@ -351,21 +351,21 @@ procedure TestMechanics();
       Cliff.Add(CliffMountain, tpAtImplicit);
       CliffCliff := TScenery.Create('cliff', 'The cliff consists of a sheer rock face.');
       CliffMountain.Add(CliffCliff, tpPartOfImplicit);
-      CliffForest := TScenery.Create(['forest', 'trees', 'tree', 'of'], 'the forest of trees', 'The forest is dense and impassable.');
+      CliffForest := TScenery.Create('forest', '((forest/forests (of trees)?) tree/trees)@', 'The forest is dense and impassable.');
       Cliff.Add(CliffForest, tpAroundImplicit);
       CliffCamp := TDistantScenery.Create('camp', cdSouth);
       Cliff.Add(CliffCamp, tpAroundImplicit);
       Cliff.GetSurface().Add(TSpade.Create(), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large red balloon', 'huge', 'massive'], 'the large red balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large orange balloon', 'huge', 'massive'], 'the large orange balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large yellow balloon', 'huge', 'massive'], 'the large yellow balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large green balloon', 'huge', 'massive'], 'the large green balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large blue balloon', 'huge', 'massive'], 'the large blue balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large violet balloon', 'purple', 'huge', 'massive'], 'the large violet balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large white balloon', 'huge', 'massive'], 'the large white balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large black balloon', 'huge', 'massive'], 'the large black balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large grey balloon', 'gray', 'huge', 'massive'], 'the large grey balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create(['large pink balloon', 'huge', 'massive'], 'the large pink balloon', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large red balloon', '((large huge massive)@ red balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large orange balloon', '((large huge massive)@ orange balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large yellow balloon', '((large huge massive)@ yellow balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large green balloon', '((large huge massive)@ green balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large blue balloon', '((large huge massive)@ blue balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large violet balloon', '((large huge massive)@ (violet purple)@ balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large white balloon', '((large huge massive)@ white balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large black balloon', '((large huge massive)@ black balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large pink balloon', '((large huge massive)@ pink balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
       Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
       Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
       World.AddLocation(Cliff);
@@ -555,13 +555,14 @@ end;
 
 procedure TestPlot();
 var
-   TestWorld: TWorld;
+   TestWorld, TestWorld2: TWorld;
    TestPlayer: TPlayer;
    Proxy: TTestProxy;
    Failed: Boolean;
 begin
    Writeln('PLOT');
    Proxy := TTestProxy.Create();
+   Proxy.Test('InitEden()');
    TestWorld := InitEden();
    Failed := False;
    try
@@ -573,10 +574,17 @@ begin
 
          // Starting room test
          Proxy.Test('Starting location');
-         Proxy.ExpectString('On the pedestal (at the arrivals circle)');
+         Proxy.ExpectString('On the stone pedestal (at the arrivals circle)');
          Proxy.WaitUntilString('');
          TestPlayer.Perform('look');
          Proxy.ExpectDone();
+
+         // test round-tripping
+         Proxy.Test('Round-tripping');
+         RegisterStorableClass(TTestPlayer, 19);
+         StoreObjectToFile('/tmp/world.dat.$$$', TestWorld, kSaveDataVersion);
+         TestWorld2 := ReadObjectFromFile('/tmp/world.dat.$$$') as TWorld;
+         TestWorld2.Free();
 
       except
          on E: ETestError do
@@ -618,13 +626,25 @@ var
       Inc(TestID);
       Result := TestMatcher.Matches(Candidate, Start);
       if (Result <> Pass) then
-         Writeln('FAILED matcher test ', TestID);
+         Writeln('FAILED matcher test ', TestID, '; expected to match ', Pass, ' tokens but matched ', Result);
+   end;
+
+   procedure RunLongestMatchTest(TestMatcher: TMatcher; Pass: AnsiString);
+   var
+      Result: AnsiString;
+   begin
+      Inc(TestID);
+      Result := TestMatcher.GetLongestMatch(' ');
+      if (Result <> Pass) then
+         Writeln('FAILED matcher test ', TestID, '; expected to find longest match "', Pass, '" but got "', Result, '"');
    end;
 
 var
-   TestMatcher: TMatcher;
+   TestMatcher, OtherMatcher: TMatcher;
    Strings: TTokens;
 begin
+   Writeln('PATTERN COMPILER');
+
    SetLength(Strings, 4);
    Strings[0] := 'the';
    Strings[1] := 'green';
@@ -633,7 +653,44 @@ begin
 
    TestID := 0;
 
+   CompilePattern('the', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the');
+   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 0);
+   RunMatcherTest(TestMatcher, Strings, 3, 0);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('(the) green', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the green');
+   RunMatcherTest(TestMatcher, Strings, 0, 2);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 0);
+   RunMatcherTest(TestMatcher, Strings, 3, 0);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('(((the green lantern glowing)))', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the green lantern glowing');
+   RunMatcherTest(TestMatcher, Strings, 0, 4);
+   RunMatcherTest(TestMatcher, Strings, 1, 0);
+   RunMatcherTest(TestMatcher, Strings, 2, 0);
+   RunMatcherTest(TestMatcher, Strings, 3, 0);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('the? (green lantern)? glowing', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the green lantern glowing');
+   RunMatcherTest(TestMatcher, Strings, 0, 4);
+   RunMatcherTest(TestMatcher, Strings, 1, 3);
+   RunMatcherTest(TestMatcher, Strings, 2, 0);
+   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
    CompilePattern('the? ((glowing green)# lantern)&', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the glowing green lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 3);
    RunMatcherTest(TestMatcher, Strings, 1, 2);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -642,6 +699,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(glowing lantern)@', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'glowing');
    RunMatcherTest(TestMatcher, Strings, 0, 0);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -650,6 +708,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)*', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 2);
@@ -658,6 +717,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)#', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 2);
@@ -666,6 +726,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)%', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -674,6 +735,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)&', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -682,18 +744,21 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('the+ glowing? lantern+', TestMatcher, OtherMatcher);
-   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunMatcherTest(TestMatcher, Strings, 0, 0);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
    RunMatcherTest(TestMatcher, Strings, 3, 0);
    TestMatcher.Free();
    OtherMatcher.Free();
 
-   CompilePattern('the/fail fail?/fail green lantern/fail fail/glowing', TestMatcher, OtherMatcher);
+   CompilePattern('the/fail FAIL?/fail green lantern/fail (FAIL FAIL)?/glowing', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'the FAIL green lantern FAIL FAIL');
    RunMatcherTest(TestMatcher, Strings, 0, 3);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
    RunMatcherTest(TestMatcher, Strings, 3, 0);
+   RunLongestMatchTest(OtherMatcher, 'fail fail green fail glowing');
    RunMatcherTest(OtherMatcher, Strings, 0, 0);
    RunMatcherTest(OtherMatcher, Strings, 1, 0);
    RunMatcherTest(OtherMatcher, Strings, 2, 0);
@@ -702,14 +767,22 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('the (glowing)?/(yellow green blue red)& lantern/(glowing lantern)*', TestMatcher, OtherMatcher);
-   RunMatcherTest(TestMatcher, Strings, 0, 1);
+   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunMatcherTest(TestMatcher, Strings, 0, 0);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
    RunMatcherTest(TestMatcher, Strings, 3, 0);
+   RunLongestMatchTest(OtherMatcher, 'the yellow green blue red glowing lantern');
    RunMatcherTest(OtherMatcher, Strings, 0, 4);
    RunMatcherTest(OtherMatcher, Strings, 1, 0);
    RunMatcherTest(OtherMatcher, Strings, 2, 0);
    RunMatcherTest(OtherMatcher, Strings, 3, 0);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('((((navy blue)& (wooden wood)@)# ((archway/archways arch/arches)@ (to the (north n)@)?))& (((navy blue)& (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', TestMatcher, OtherMatcher);
+   RunLongestMatchTest(TestMatcher, 'navy blue wooden archway to the north');
+   RunLongestMatchTest(OtherMatcher, 'navy blue wooden archways to the north');
    TestMatcher.Free();
    OtherMatcher.Free();
 end;
@@ -717,8 +790,8 @@ end;
 begin
    Writeln('CuddlyWorld Tests initializing...');
    {$IFDEF DEBUG} Writeln('CuddlyWorld debugging enabled.'); {$ENDIF}
+   TestMatcher();
    TestMechanics();
    TestPlot();
-   TestMatcher();
    Writeln('CuddlyWorld Tests complete.');
 end.

@@ -5,7 +5,7 @@ unit things;
 interface
 
 uses
-   storable, world, thingdim, grammarian;
+   storable, world, thingdim, grammarian, matcher;
 
 type
    TNamedThing = class(TThing)
@@ -16,13 +16,14 @@ type
     public
       constructor Create(Name: AnsiString);
       constructor Create(Name: AnsiString; Pattern: AnsiString);
+      destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): AnsiString; override;
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
-      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); override;
-      property LongName: Boolean read FLongName write FLongName;
+      function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
+      property LongName: AnsiString read FLongName write FLongName;
       property Plural: Boolean read FPlural write FPlural;
    end;
 
@@ -171,14 +172,16 @@ type
    TPileState = set of (psTidy);
    TPile = class(TNamedThing)
     protected
-      FIngredients: array of AnsiString;
+      FIngredient: AnsiString;
       FDescription: AnsiString;
       FMass: TThingMass;
       FSize: TThingSize;
       FState: TPileState;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
     public
-      constructor Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize); { first ingredient must be canonical plural form }
+      constructor Create(Ingredient: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+      constructor Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+      constructor Create(SingularIngredients: array of AnsiString; PluralIngredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize); { ingredient must be canonical plural form }
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
@@ -221,19 +224,28 @@ begin
    inherited Create();
    FName := Name;
    CompilePattern(Pattern, FSingularPattern, FPluralPattern);
-   FLongName := 'the ' + FSingularPattern.GetLongestMatch(' ');
-   TokenisedName := Tokenise(Name);
+   TokenisedName := TokeniseCanonically(Name);
    NameIsSingular := FSingularPattern.Matches(TokenisedName, 0) = Length(TokenisedName);
    {$IFOPT C+}
      NameIsPlural := FPluralPattern.Matches(TokenisedName, 0) = Length(TokenisedName);
-     Assert(NameIsSingular or NameIsPlural);
+     if ((not NameIsSingular) and (not NameIsPlural)) then
+        raise EAssertionFailed.Create('Default name ("' + Name + '") does not match given pattern ("' + Pattern + '")');
    {$ENDIF}
    FPlural := not NameIsSingular;
+   if (FPlural) then
+      FLongName := 'the ' + FPluralPattern.GetLongestMatch(' ')
+   else
+      FLongName := 'the ' + FSingularPattern.GetLongestMatch(' ');
+end;
+
+destructor TNamedThing.Destroy();
+begin
+   FSingularPattern.Free();
+   FPluralPattern.Free();
+   inherited;
 end;
 
 constructor TNamedThing.Read(Stream: TReadStream);
-var
-   Index: Cardinal;
 begin
    inherited;
    FName := Stream.ReadAnsiString();
@@ -244,8 +256,6 @@ begin
 end;
 
 procedure TNamedThing.Write(Stream: TWriteStream);
-var
-   Index: Cardinal;
 begin
    inherited;
    Stream.WriteAnsiString(FName);
@@ -265,17 +275,32 @@ begin
    Result := FLongName;
 end;
 
-procedure TNamedThing.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback);
+function TNamedThing.IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean;
 var
-   Count: Cardinal;
+   PossibleCount: Cardinal;
 begin
+   Result := False;
+   GrammaticalNumber := [];
    Count := FSingularPattern.Matches(Tokens, Start);
    if (Count > 0) then
-      Callback(Self, Count, gnSingular);
-   Count := FPluralPattern.Matches(Tokens, Start);
-   if (Count > 0) then
-      Callback(Self, Count, gnPlural);
-   inherited;
+   begin
+      Result := True;
+      GrammaticalNumber := [gnSingular];
+   end;
+   PossibleCount := FPluralPattern.Matches(Tokens, Start);
+   if ((PossibleCount > 0) and (PossibleCount >= Count)) then
+   begin
+      if (Count = PossibleCount) then
+      begin
+         GrammaticalNumber := gnAmbiguous;
+      end
+      else
+      begin
+         Result := True;
+         Count := PossibleCount;
+         GrammaticalNumber := [gnPlural];
+      end;
+   end;
 end;
 
 function TNamedThing.IsPlural(Perspective: TAvatar): Boolean;
@@ -293,9 +318,9 @@ end;
 constructor TStaticThing.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
 begin
    inherited Create(Name, Pattern);
-   FDescription := ADescription;
-   FMass := AMass;
-   FSize := ASize;
+   FDescription := Description;
+   FMass := Mass;
+   FSize := Size;
 end;
 
 constructor TStaticThing.Read(Stream: TReadStream);
@@ -398,13 +423,13 @@ end;
 constructor TLocationProxy.Create(Name: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    inherited Create(Name, Description, tmLudicrous, tsLudicrous);
-   FDestination := ADestination;
+   FDestination := Destination;
 end;
 
 constructor TLocationProxy.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
-   FDestination := ADestination;
+   FDestination := Destination;
 end;
 
 constructor TLocationProxy.Read(Stream: TReadStream);
@@ -584,13 +609,13 @@ end;
 constructor TDistantScenery.Create(Name: AnsiString; Direction: TCardinalDirection);
 begin
    inherited Create(Name);
-   FDirection := ADirection;
+   FDirection := Direction;
 end;
 
 constructor TDistantScenery.Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
 begin
    inherited Create(Name, Pattern);
-   FDirection := ADirection;
+   FDirection := Direction;
 end;
 
 constructor TDistantScenery.Read(Stream: TReadStream);
@@ -652,7 +677,7 @@ end;
 
 function TSpade.GetProperties(): TThingProperties;
 begin
-   Result := inherited + [tpCanDig];
+   Result := inherited GetProperties() + [tpCanDig];
 end;
 
 function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -670,8 +695,8 @@ end;
 constructor TBag.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; MaxSize: TThingSize);
 begin
    inherited Create(Name, Pattern);
-   FDescription := ADescription;
-   FMaxSize := AMaxSize;
+   FDescription := Description;
+   FMaxSize := MaxSize;
 end;
 
 constructor TBag.Read(Stream: TReadStream);
@@ -733,22 +758,22 @@ end;
 constructor THole.Create(Description: AnsiString; Size: TThingSize; PileClass: TPileClass);
 begin
    inherited Create('hole', 'hole/holes');
-   FDescription := ADescription;
-   FSize := ASize;
-   FPileClass := APileClass;
+   FDescription := Description;
+   FSize := Size;
+   FPileClass := PileClass;
 end;
 
 constructor THole.Read(Stream: TReadStream);
 var
-   AClass: TClass;
+   PileClass: TClass;
 begin
    inherited;
    FDescription := Stream.ReadAnsiString();
    FSize := TThingSize(Stream.ReadCardinal());
    {$IFOPT C-} {$HINT This could be optimised further in non-debug builds.} {$ENDIF}
-   AClass := Stream.ReadClass();
-   Assert((Class = TPile) or (Class.InheritsFrom(TPile)));
-   FPileClass := TPileClass(Class);
+   PileClass := Stream.ReadClass();
+   Assert((PileClass = TPile) or (PileClass.InheritsFrom(TPile)));
+   FPileClass := TPileClass(PileClass);
 end;
 
 procedure THole.Write(Stream: TWriteStream);
@@ -802,7 +827,7 @@ var
    Child, Previous, Next: PThingItem;
    ContentsSize: TThingSizeManifest;
    Count: Cardinal;
-   Plural: Boolean;
+   HaveMultipleOverflowing: Boolean;
    Result1, Result2, Result3: AnsiString;
 begin
    Result := '';
@@ -823,7 +848,7 @@ begin
          Result1 := '';
          Result2 := '';
          Result3 := '';
-         Plural := False;
+         HaveMultipleOverflowing := False;
          Zero(ContentsSize);
          Child := FChildren;
          while (Assigned(Child)) do
@@ -841,14 +866,14 @@ begin
                    else
                       Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ' + Result3;
                   end;
-                  Plural := (Count > 1) or Child^.Value.IsPlural(Perspective);
+                  HaveMultipleOverflowing := (Count > 1) or Child^.Value.IsPlural(Perspective);
                end;
             end;
             Child := Child^.Next;
          end;
          if (Count > 0) then
          begin
-            Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', Plural) + ' ';
+            Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', HaveMultipleOverflowing) + ' ';
             case Count of
               1: Result := Result + Result1;
               2: Result := Result + Result2 + ' and ' + Result1;
@@ -1087,20 +1112,33 @@ begin
 end;
 
 
+constructor TPile.Create(Ingredient: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+begin
+   Create([Ingredient], [Ingredient], Description, Mass, Size);
+end;
+
 constructor TPile.Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+begin
+   Create(Ingredients, Ingredients, Description, Mass, Size);
+end;
+
+constructor TPile.Create(SingularIngredients: array of AnsiString; PluralIngredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
 var
    Index: Cardinal;
    Pattern: AnsiString;
 begin
-   Assert(Length(Ingredients) > 0);
-   Pattern := 'pile/piles (of (' + Ingredients[0];
-   for Index := 0 to Length(Ingredients)-1 do
-      Pattern := Pattern + ' ' + Ingredients[Index];
-   Pattern := Pattern + ')@)?';
-   inherited Create('pile of ' + Ingredients[0], Pattern);
-   SetLength(FIngredients, Length(Ingredients));
-   for Index := 0 to Length(FIngredients)-1 do
-      FIngredients[Index] := Ingredients[Index];
+   Assert(Length(SingularIngredients) > 0);
+   Assert(Length(PluralIngredients) = Length(SingularIngredients));
+   Pattern := '((pile/piles (of (' + PluralIngredients[0];
+   if (Length(PluralIngredients) > 1) then
+      for Index := 1 to Length(PluralIngredients)-1 do
+         Pattern := Pattern + ' ' + PluralIngredients[Index];
+   Pattern := Pattern + ')@)?)';
+   for Index := 0 to Length(SingularIngredients)-1 do
+      Pattern := Pattern + ' ' + SingularIngredients[Index] + '/' + PluralIngredients[Index];
+   Pattern := Pattern + ')@';
+   inherited Create('pile of ' + PluralIngredients[0], Pattern);
+   FIngredient := PluralIngredients[0];
    FDescription := Description;
    FMass := Mass;
    FSize := Size;
@@ -1108,13 +1146,9 @@ begin
 end;
 
 constructor TPile.Read(Stream: TReadStream);
-var
-   Index: Cardinal;
 begin
    inherited;
-   SetLength(FIngredients, Stream.ReadCardinal());
-   for Index := 0 to Length(FIngredients)-1 do
-      FIngredients[Index] := Stream.ReadAnsiString();
+   FIngredient := Stream.ReadAnsiString();
    FDescription := Stream.ReadAnsiString();
    FMass := TThingMass(Stream.ReadCardinal());
    FSize := TThingSize(Stream.ReadCardinal());
@@ -1122,13 +1156,9 @@ begin
 end;
 
 procedure TPile.Write(Stream: TWriteStream);
-var
-   Index: Cardinal;
 begin
    inherited;
-   Stream.WriteCardinal(Length(FIngredients));
-   for Index := 0 to Length(FIngredients)-1 do
-      Stream.WriteAnsiString(FIngredients[Index]);
+   Stream.WriteAnsiString(FIngredient);
    Stream.WriteAnsiString(FDescription);
    Stream.WriteCardinal(Cardinal(TThingMass(FMass)));
    Stream.WriteCardinal(Cardinal(TThingSize(FSize)));
@@ -1178,12 +1208,12 @@ begin
    if (optThorough in Options) then
       Result := 'A thorough search through ' + GetDefiniteName(Perspective) + ' reveals:'
    else
-      Result := 'Scatterered amongst the ' + FIngredients[0] + ' one can see:';
+      Result := 'Scatterered amongst the ' + FIngredient + ' one can see:';
 end;
 
 function TPile.GetDescriptionEmpty(Perspective: TAvatar): AnsiString;
 begin
-   Result := 'A thorough search through ' + GetDefiniteName(Perspective) + ' reveals only a lot of ' + FIngredients[0] + '.';
+   Result := 'A thorough search through ' + GetDefiniteName(Perspective) + ' reveals only a lot of ' + FIngredient + '.';
 end;
 
 function TPile.GetDescriptionState(Perspective: TAvatar): AnsiString;
@@ -1221,19 +1251,20 @@ end;
 
 constructor TEarthPile.Create(Size: TThingSize);
 begin
-   inherited Create(['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, ASize], ASize);
+   inherited Create(['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, Size], Size);
 end;
 
 
 initialization
-   RegisterStorableClass(TStaticThing,            100000);
-   RegisterStorableClass(TScenery,                100001);
-   RegisterStorableClass(TLocationProxy,          100002);
-   RegisterStorableClass(TSurface,                100003);
-   RegisterStorableClass(TSpade,                  100004);
-   RegisterStorableClass(TBag,                    100005);
-   RegisterStorableClass(TDistantScenery,         100006);
-   RegisterStorableClass(THole,                   100007);
-   RegisterStorableClass(TPile,                   100008);
-   RegisterStorableClass(TEarthPile,              100009);
+   RegisterStorableClass(TNamedThing,             1000);
+   RegisterStorableClass(TStaticThing,            1001);
+   RegisterStorableClass(TScenery,                1002);
+   RegisterStorableClass(TLocationProxy,          1003);
+   RegisterStorableClass(TSurface,                1004);
+   RegisterStorableClass(TDistantScenery,         1005);
+   RegisterStorableClass(TSpade,                  1006);
+   RegisterStorableClass(TBag,                    1007);
+   RegisterStorableClass(THole,                   1008);
+   RegisterStorableClass(TPile,                   1009);
+   RegisterStorableClass(TEarthPile,              1010);
 end.
