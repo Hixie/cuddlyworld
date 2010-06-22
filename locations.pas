@@ -44,7 +44,7 @@ uses
 constructor TOutdoorLocation.Create();
 begin
    inherited;
-   FGround := TSurface.Create('ground', 'The ground is a flat surface.');
+   FGround := TSurface.Create('ground', 'ground/grounds', 'The ground is a flat surface.');
    Add(FGround, tpPartOfImplicit);
    FDown := FGround;
 end;
@@ -125,5 +125,5 @@ begin
 end;
 
 initialization
-   RegisterStorableClass(TFeaturelessOutdoorLocation, 1000);
+   RegisterStorableClass(TFeaturelessOutdoorLocation, 2000);
 end.

@@ -7,6 +7,14 @@ interface
 uses
    hashtable, sysutils;
 
+{ reserved ranges of keys:
+   1..99999: libraries
+        10s: player
+        20s: matcher
+      1000s: things
+      2000s: locations
+    100000+: game-specific }
+
 type
 
    TStorable = class;
@@ -23,6 +31,7 @@ type
 
    TReadStream = class
     protected
+      FActive: Boolean;
       FObjectsRead: TFixupHashTable;
       FPendingFixups: PPendingFixupItem;
       FInput: File;
@@ -31,6 +40,7 @@ type
     public
       constructor Create(var AInput: File);
       destructor Destroy; override;
+      procedure DisableChecks();
       function ReadByte: Byte;
       function ReadBoolean: Boolean;
       function ReadCardinal: Cardinal;
@@ -154,8 +164,13 @@ begin
       if (IOResultValue <> 0) then
          RunError(IOResultValue);
       Stream := TReadStream.Create(F);
-      Result := Stream.ReadObject();
-      Stream.FixupReferences();
+      try
+         Result := Stream.ReadObject();
+         Stream.FixupReferences();
+      except
+         Stream.DisableChecks();
+         raise;
+      end;
    finally
       Stream.Free();
       Close(F);
@@ -166,6 +181,7 @@ end;
 constructor TReadStream.Create(var AInput: File);
 begin
    inherited Create();
+   FActive := True;
    FInput := AInput;
    FObjectsRead := TFixupHashTable.Create(@PtrUIntHash);
    VerifyFieldType(btStream);
@@ -178,7 +194,8 @@ destructor TReadStream.Destroy;
 var
    Next: PPendingFixupItem;
 begin
-   VerifyFieldType(btStreamEnd);
+   if (FActive) then
+      VerifyFieldType(btStreamEnd);
    while (Assigned(FPendingFixups)) do
    begin
       Next := FPendingFixups^.Next;
@@ -187,6 +204,11 @@ begin
    end;
    FObjectsRead.Free();
    inherited;
+end;
+
+procedure TReadStream.DisableChecks();
+begin
+   FActive := False;
 end;
 
 procedure TReadStream.VerifyFieldType(FieldType: Byte);
@@ -266,7 +288,7 @@ end;
 function TReadStream.ReadReference(Destination: PPointer): Boolean;
 var
    Item: PPendingFixupItem;
-   ObjectID: Cardinal;
+   ObjectID: PtrUInt;
 begin
    VerifyFieldType(btReference);
    ObjectID := ReadPtrUInt();

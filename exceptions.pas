@@ -4,7 +4,8 @@ unit exceptions;
 
 interface
 
-uses sysutils, unixtype, errors;
+uses
+   sysutils, unixtype, errors;
 
 type
 
@@ -18,8 +19,8 @@ type
    TReportExceptionEvent = procedure(E: Exception) of object;
 
 const
-   KernelErrorMsg: string = 'kernel error %d: %s';
-   SocketErrorMsg: string = 'socket error %d: %s';
+   KernelErrorMsg: String = 'kernel error %d: %s';
+   SocketErrorMsg: String = 'socket error %d: %s';
 
 procedure ReportException(E: Exception);
 procedure ReportExceptionAndFree(E: Exception); { for unraised exceptions }
@@ -67,4 +68,16 @@ begin
    raise Exception.Create('Not Implemented');
 end;
 
+
+procedure AssertionHandler(const Message, FileName: ShortString; LineNo: Longint; ErrorAddr: Pointer);
+begin
+   if (Length(Message) > 0) then
+      Writeln('Assertion "', Message, '" failed on line ', LineNo, ' of ', FileName)
+   else
+      Writeln('Assertion failed on line ', LineNo, ' of ', FileName);
+   raise EAssertionFailed.Create(Message);
+end;
+
+initialization
+   AssertErrorProc := @AssertionHandler;
 end.

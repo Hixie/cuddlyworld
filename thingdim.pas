@@ -38,7 +38,8 @@ const
 implementation
 {$DEFINE PART:=IMPLEMENTATION}
 
-uses sysutils;
+uses
+   sysutils;
 
 {$DEFINE DIMENSION:=Mass} {$INCLUDE thingdim.pas} {$UNDEF DIMENSION}
 {$DEFINE DIMENSION:=Size} {$INCLUDE thingdim.pas} {$UNDEF DIMENSION}
@@ -92,7 +93,7 @@ begin
       A[Index] := 0;
 end;
 
-procedure Rationalise (var A: TThingDimensionManifest);
+procedure Rationalise(var A: TThingDimensionManifest);
 var
    Index: TThingDimension;
 begin

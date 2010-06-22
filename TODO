@@ -1,45 +1,61 @@
-NEXT
+DONE
  + change the way parsing is done so that each thing is asked how many words it can match and then the longest reply is taken as the actual length of the match
-   object lists:
-    - "<singular>"                - there must be one or more, pick one "randomly"
-    - "<plural>"                  - there must be one or more, pick them all
-    - "the <singular>"            - there must be exactly one, pick them all
-    - "the one <singular*>"       - there must be exactly one, pick them all
-    - "the <number> <plural*>"    - there must be exactly <number>, pick them all
-    - "any <plural>"              - there must be zero or more, pick them all, allow exceptions
-    - "the <plural>"              - there must be one or more, pick them all
-    - "all <plural*>"             - there must be one or more, pick them all, allow exceptions
-    - "all the <plural*>"         - there must be one or more, pick them all, allow exceptions
-    - "every <singular*>"         - there must be one or more, pick them all, allow exceptions
-    - "all of the <plural*>"      - there must be one or more, pick them all, allow exceptions
-    - "a <singular*>"             - there must be one or more, pick one "randomly"
-    - "an <singular*>"            - there must be one or more, pick one "randomly"
-    - "one <singular*>"           - there must be one or more, pick one "randomly"
-    - "any <singular>"            - there must be one or more, pick one "randomly", allow exceptions
-    - "one of the <plural*>"      - there must be one or more, pick one "randomly"
-    - "any of the <plural*>"      - there must be one or more, pick one "randomly", allow exceptions
-    - "some <singular>"           - there must be two or more, pick one "randomly"
-    - "some <plural>"             - there must be two or more, pick a non-integer fraction of them "randomly"
-    - "<number> <plural*>"        - there must be <number> or more, pick <number> of them "randomly"
-    - "all"                       - pick everything referencable
-    - "everything"                - pick everything referencable
-    =>  min count
-        allow more
-        pick all matched, pick one randomly, pick min count randomly, pick some randomly (not zero, not all)
-        allow exceptions
-
-   restrictions:
-    - "from <object list>", "in <object list>", "on <object list>"
-
-   exceptions (if allowed): add
-    - "but <object list> <restrictions>"
-    - "except <object list> <restrictions>"
-
-        
- + does "look in ground" when there's a hole that's covered work?
-   
-
  + make the synonyms thing support multiple words per synonym, the words having to appear in the given order (or else figure out whether to special case "of" in thing descriptions; also consider "south west arch" which should not be picked for the term "south arch")
+
+NEXT
+ + "take all" when there's nothing there should return a positive empty list
+ + "take all but apples" when there's nothing there should fail() about the restrictor
+ + "take an apple that is blue" when there's blue apples and red apples
+ + "take all the berries, an apple that is blue, and a coat from the table"
+ + note: "from" restrictor applies to nearest group of unrestricted clauses up to an "all" clause
+ + "take apples from the table that is blue and the bench that is green" => "take the bench that is green, and apples from the table that is blue"
+ + "take apples and all oranges from table"
+ + "take apples and all oranges but rotten"
+ + "take apples and all oranges from table but rotten"
+ + "take apples and all oranges but rotten from table"
+ + "take apples and all oranges that are not rotten from table"
+ + "take apples and all oranges from table but rotten and bananas and berries that are not strawberries from box and pineapple and kiwi from crate"
+ + "foo with bar and baz from quux"
+ + "put everything from rucksack [in bag]" (the end clauses)
+ + "take two copper coins and three gold coins but not big ones or blue ones from table"
+ + "take bottle from table"
+ + "take all bottles except bottles from table"
+ + "take all bottles that are not on the table"
+ + "take all from table but bottles"
+ + "take all bottles from tables, chairs, floor but not blue bottles"
+ + "take all from one of the tables"
+ + "take all from one of the tables that is not the head table"
+ + "take all from any of the tables that are not the burning ones"
+ + "take four bottles from two of the tables"
+ + "take all from all but fireplace"
+ + "take everything that is open"
+ + "take the bottle, the bag that is open, frogs, cats from the table, but not the blue ones that are small"
+ + "take the bottle and the bag that is open and frogs and cats from the table but not the blue ones that are small"
+ + "take the pill from the table that is small"
+ + "take pill from table that is small"
+ + "take blue from red but not big"
+ + "take blue from red that is not big"
+ + "take some sugar from the jar and some salt from the pot"
+ + note: "from" doesn't bind to "but" after it unless it was "from all", and allows "but" to bind to clause before it
+ + note: "that is" only binds to the previous clause, and only if it was singular
+ + note: "that are" only binds to the previous clause, and only if it was plural
+ + note: "all" doesn't accept "that is" or "that are"
+ + note: "from" should not accept something with multiples suggested if it is binding to something that itself doesn't have multiples suggested
+ + "take all and drop all"
+ + "take orange and apple and drop pear and banana"
+ + "take orange plus apple plus drop pear plus banana"
+ + "take orange and apple and" => "and" should not be included in the thing list
+ + "take orange plus apple plus" => thing list should fail with "plus what?"
+ + "from <object>", "in <object>", "on <object>"
+ + "from within <object>"
+ + "look at arch to the north"?
+ + given blue vase on blue table and red vase on red table: "take the vase on table" => "which table do you mean, the red table or the blue blue table?"
+ + given blue vase on blue table and red vase on red table: "take the red vase on table" => takes red vase
+ + given blue vase on blue table and red vase on red table: "take the vases on table" => "which table do you mean, the red table or the blue blue table?"
+ + given blue vase on blue table and red vase on red table: "take the vases on the tables" => ?
+ + add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
+ + put everything in rucksack => put (everything but (rucksack)) in (rucksack)
+ + does "look in ground" when there's a hole that's covered work?
  + "dilap..." should work as an adjective
 
 PLOT
@@ -115,7 +131,7 @@ THINGS
  + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
  + "Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers
-    - "look at X Y" where Y is "to the north", "to n", "to north", "in the north", "in n", "in north"
+ + "look at X Y" where Y is "to the north", "to n", "to north", "in the north", "in n", "in north"
  + "drop all but spade and sword" should work
  + "move all but inventory" should work
  + "move leaves through door", "push pile through door"

@@ -157,13 +157,20 @@ begin
 end;
 
 procedure TNetworkSocket.Disconnect();
+var
+   Error: Integer;
 begin
    if (FConnected) then
    begin
       if (Assigned(FOnDisconnect)) then
          FOnDisconnect(Self);
-      if (fpShutdown(FSocketNumber, 2) <> 0) then
-         raise ESocketError.Create(SocketError);
+      Error := fpShutdown(FSocketNumber, 2);
+      case Error of
+       0: ; { success }
+       107: ; { already disconnected }
+       else
+          raise ESocketError.Create(SocketError);
+      end;
    end;
    FConnected := False;
 end;
@@ -175,8 +182,8 @@ var
 begin
    Assert(FConnected);
    Received := fpRecv(FSocketNumber, @Data, SizeOf(Data), 0);
-   if (Received < 0) then
-      raise ESocketError.Create(SocketError);
+//   if (Received < 0) then
+//      raise ESocketError.Create(SocketError);
    Result := (Received = SizeOf(Data)) and InternalRead(Data);
 end;
 
@@ -310,8 +317,17 @@ begin
       if (IsSet > 0) then
       begin
          Dec(Pending);
-         if (not Item^.Value.Read()) then
-            Disconnect := True;
+         try
+            if (not Item^.Value.Read()) then
+               Disconnect := True;
+         except
+            on E: Exception do
+            begin
+               Writeln('When reading:');
+               ReportException(E);
+               Disconnect := True;
+            end;
+         end;
       end;
       IsSet := fpFD_ISSET(Item^.Value.FSocketNumber, fdsExcept);
       Assert(IsSet >= 0);

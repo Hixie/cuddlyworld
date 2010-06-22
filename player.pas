@@ -5,7 +5,7 @@ unit player;
 interface
 
 uses
-   storable, world, grammarian, thingdim;
+   storable, world, grammarian, thingdim, thingseeker;
 
 const
    MaxCarryMass = tmPonderous; { not inclusive }
@@ -16,8 +16,6 @@ const
 
 type
    TGender = (gMale, gFemale, gThirdGender, gRobot, gOrb, gHive);
-
-   TAllFilter = set of (afSurroundings, afSelf);
 
    TTalkVolume = (tvWhispering, tvSpeaking, tvShouting);
 
@@ -44,13 +42,10 @@ type
       procedure DoDance();
       procedure DoHelp();
       procedure DoQuit();
-      procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
-      function GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
       function Referenceable(Subject: TAtom): Boolean;
-      function GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;
-      function IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean; override;
+      function GetImpliedThing(Scope: TAllImpliedScope; PropertyFilter: TThingProperties): TThing;
       procedure SetContext(Context: AnsiString);
       procedure ResetContext();
     public
@@ -84,9 +79,11 @@ type
       procedure AnnounceDeparture(Destination: TAtom); override;
       procedure AnnounceArrival(Source: TAtom; Direction: TCardinalDirection); override;
       procedure AnnounceArrival(Source: TAtom); override;
+      procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function HasConnectedPlayer(): Boolean; override;
       function IsReadyForRemoval(): Boolean; override;
       procedure RemoveFromWorld(); override;
+      function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
       function GetUsername(): AnsiString; override;
       function GetPassword(): AnsiString;
       procedure Adopt(AOnAvatarMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
@@ -142,30 +139,19 @@ type
 
 var
    FailedCommandLog: Text;
-
-type
-   EParseError = class
-    protected
-      FMessage: String;
-    public
-      constructor Create(AMessage: String);
-      property Message: String read FMessage;
-   end;
-
-constructor EParseError.Create(AMessage: String);
-begin
-   inherited Create();
-   FMessage := AMessage;
-end;
-
+   GlobalThingCollector: TThingCollector;
 
 constructor TPlayer.Create(AName: AnsiString; APassword: AnsiString; AGender: TGender);
+var
+   Bag: TBag;
 begin
    inherited Create();
    FName := AName;
    FPassword := APassword;
    FGender := AGender;
-   Add(TBag.Create(['bag of holding', 'labeled', AName], 'the bag of holding labeled ' + Capitalise(AName), 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous), tpCarried);
+   Bag := TBag.Create('bag of holding', '(embroidered (bag/bags (of holding)?) (labeled ' + Capitalise(AName) + '))&', 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous);
+   Bag.Add(TScenery.Create('rim of bag', 'rim/rims (of bag/bags (of holding)? (labeled ' + Capitalise(AName) + ')?)?', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '"'), tpPartOfImplicit);
+   Add(Bag, tpCarried);
 end;
 
 destructor TPlayer.Destroy();
@@ -193,13 +179,8 @@ end;
 
 procedure TPlayer.Perform(Command: AnsiString);
 var
-   Tokens: TTokens;
+   Tokens, OriginalTokens: TTokens;
    CurrentToken: Cardinal;
-
-   procedure Fail(Message: AnsiString);
-   begin
-      raise EParseError.Create(Message);
-   end;
 
 {$INCLUDE parser.inc}
 
@@ -242,7 +223,8 @@ var
    Location: AnsiString;
 begin
    try
-      Tokens := Tokenise(Command);
+      OriginalTokens := Tokenise(Command);
+      Tokens := TokeniseCanonically(Command);
       if (Length(Tokens) = 0) then
          Exit;
       CurrentToken := 0;
@@ -487,27 +469,6 @@ begin
     else
       raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
-end;
-
-function TPlayer.IsMatchingWord(Word: AnsiString; Perspective: TAvatar): Boolean;
-begin
-   if (Perspective = Self) then
-      Result := Word = 'me'
-   else
-      Result := (Word = 'them') or (Word = 'player') or (Word = 'other');
-   if (not Result) then
-      case FGender of
-         gMale: Result := (Word = 'boy') or (Word = 'man') or (Word = 'person') or (Word = 'human') or (Word = 'male');
-         gFemale: Result := (Word = 'girl') or (Word = 'woman') or (Word = 'person') or (Word = 'human') or (Word = 'female');
-         gThirdGender: Result := (Word = 'person') or (Word = 'human');
-         gRobot: Result := (Word = 'robot') or (Word = 'bot');
-         gOrb: Result := (Word = 'orb');
-         gHive: Result := (Word = 'hive') or (Word = 'mind') or (Word = 'hive-mind');
-        else
-         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
-      end;
-   if (not Result) then
-      Result := inherited;
 end;
 
 function TPlayer.IsPlural(Perspective: TAvatar): Boolean;
@@ -1496,25 +1457,6 @@ begin
       Result := True;
 end;
 
-function TPlayer.GetReferencedThings(Tokens: TTokens; Start, Count: Cardinal; AllFilter: TAllFilter): PThingItem;
-var
-   FromOutside: Boolean;
-begin
-   Assert(Assigned(FParent));
-   Assert(Count > 0);
-   Result := nil;
-   { AllFilter = [] when we're expecting a single object (and shouldn't support 'all') }
-   if ((AllFilter <> []) and (Count = 1) and (MeansEverything(Tokens[Start]))) then
-   begin
-      if (afSurroundings in AllFilter) then
-         GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, afSelf in AllFilter, tpExplicit, [], Result)
-      else
-         AddImplicitlyReferencedThings(Self, True, afSelf in AllFilter, tpExplicit, [], Result);
-   end
-   else
-      GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, Start, Count, Self, FromOutside, Result);
-end;
-
 function TPlayer.Referenceable(Subject: TAtom): Boolean;
 var
    Root: TAtom;
@@ -1533,18 +1475,18 @@ begin
       raise Exception.Create('TPlayer.Referencable() does not know how to handle objects of class ' + Subject.ClassName());
 end;
 
-function TPlayer.GetImpliedThing(AllFilter: TAllFilter; PropertyFilter: TThingProperties): TThing;
+function TPlayer.GetImpliedThing(Scope: TAllImpliedScope; PropertyFilter: TThingProperties): TThing;
 var
    List: PThingItem;
    FromOutside: Boolean;
 begin
    Assert(Assigned(FParent));
-   Assert((afSelf in AllFilter) or (afSurroundings in AllFilter));
+   Assert((aisSelf in Scope) or (aisSurroundings in Scope));
    List := nil;
-   if (afSurroundings in AllFilter) then
-      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, afSelf in AllFilter, tpEverything, PropertyFilter, List)
+   if (aisSurroundings in Scope) then
+      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, aisSelf in Scope, tpEverything, PropertyFilter, List)
    else
-      AddImplicitlyReferencedThings(Self, True, afSelf in AllFilter, tpEverything, PropertyFilter, List);
+      AddImplicitlyReferencedThings(Self, True, aisSelf in Scope, tpEverything, PropertyFilter, List);
    if (Assigned(List)) then
    begin
       // should implement some kind of prioritisation scheme
@@ -1591,6 +1533,145 @@ begin
    inherited;
 end;
 
+function TPlayer.IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean;
+var
+   Word: AnsiString;
+   Aborted: Boolean;
+begin
+   GrammaticalNumber := [];
+   Word := Tokens[Start];
+   Count := 1;
+   if (Word = 'other') then
+   begin
+      Aborted := False;
+      if (Perspective = Self) then
+      begin
+         Aborted := True;
+      end
+      else
+      if (Start + Count >= Length(Tokens)) then
+      begin
+         GrammaticalNumber := [gnSingular];
+         Aborted := True;
+      end
+      else
+      begin
+         Inc(Count);
+         Word := Tokens[Start+Count-1];
+      end;
+   end
+   else
+   begin
+      Aborted := True;
+      if (Word = 'us') then
+         GrammaticalNumber := [gnPlural]
+      else
+      if (Perspective = Self) then
+      begin
+         if (Word = 'me') then
+            GrammaticalNumber := [gnSingular];
+      end
+      else
+      if (Word = 'them') then
+         GrammaticalNumber := [gnPlural]
+      else
+      if (Word = 'others') then
+         GrammaticalNumber := [gnPlural]
+      else
+         Aborted := False;
+   end;
+   if (not Aborted) then
+   begin
+      if (Word = 'player') then
+         GrammaticalNumber := [gnSingular]
+      else
+      if (Word = 'players') then
+         GrammaticalNumber := [gnPlural]
+      else
+      case FGender of
+         gMale:
+            begin
+               if ((Word = 'boy') or (Word = 'man') or (Word = 'person') or (Word = 'human') or (Word = 'male')) then
+                  GrammaticalNumber := [gnSingular]
+               else
+               if ((Word = 'boys') or (Word = 'men') or (Word = 'persons') or (Word = 'people') or (Word = 'humans') or (Word = 'males')) then
+                  GrammaticalNumber := [gnPlural];
+            end;
+         gFemale:
+            begin
+               if ((Word = 'girl') or (Word = 'woman') or (Word = 'person') or (Word = 'human') or (Word = 'female')) then
+                  GrammaticalNumber := [gnSingular]
+               else
+               if ((Word = 'girls') or (Word = 'women') or (Word = 'persons') or (Word = 'people') or (Word = 'humans') or (Word = 'females')) then
+                  GrammaticalNumber := [gnPlural];
+            end;
+         gThirdGender:
+            begin
+               if ((Word = 'person') or (Word = 'human')) then
+                  GrammaticalNumber := [gnSingular]
+               else
+               if ((Word = 'persons') or (Word = 'people') or (Word = 'humans')) then
+                  GrammaticalNumber := [gnPlural];
+            end;
+         gRobot:
+            begin
+               if ((Word = 'person') or (Word = 'robot') or (Word = 'bot')) then
+                  GrammaticalNumber := [gnSingular]
+               else
+               if ((Word = 'persons') or (Word = 'people') or (Word = 'robots') or (Word = 'bots')) then
+                  GrammaticalNumber := [gnPlural];
+            end;
+         gOrb:
+            begin
+               if ((Word = 'person') or (Word = 'orb')) then
+                  GrammaticalNumber := [gnSingular]
+               else
+               if ((Word = 'persons') or (Word = 'people') or (Word = 'orbs')) then
+                  GrammaticalNumber := [gnPlural];
+            end;
+         gHive:
+            begin
+               if (Word = 'hive') then
+               begin
+                  if (Start + Count >= Length(Tokens)) then
+                  begin
+                     GrammaticalNumber := [gnSingular];
+                  end
+                  else
+                  begin
+                     Word := Tokens[Start+Count-1];
+                     if (Word = 'mind') then
+                     begin
+                        Inc(Count);
+                        GrammaticalNumber := [gnSingular]
+                     end
+                     else
+                     if (Word = 'minds') then
+                     begin
+                        Inc(Count);
+                        GrammaticalNumber := [gnPlural];
+                     end
+                     else
+                        GrammaticalNumber := [gnSingular];
+                  end;
+               end
+               else
+               if (Word = 'hives') then
+                  GrammaticalNumber := [gnPlural]
+               else
+               if (Word = 'hive-mind') then
+                  GrammaticalNumber := [gnSingular]
+               else
+               if (Word = 'hive-minds') then
+                  GrammaticalNumber := [gnPlural];
+            end;
+        else
+         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      end;
+   end;
+   Result := GrammaticalNumber <> [];
+end;
+
 function TPlayer.GetUsername(): AnsiString;
 begin
    Result := FName;
@@ -1625,7 +1706,9 @@ initialization
    {$I-} Append(FailedCommandLog); {$I+}
    if (IOResult = 2) then
      Rewrite(FailedCommandLog);
-   RegisterStorableClass(TPlayer, 1);
+   RegisterStorableClass(TPlayer, 100);
+   GlobalThingCollector := TThingCollector.Create();
 finalization
+   GlobalThingCollector.Free();
    Close(FailedCommandLog);
 end.

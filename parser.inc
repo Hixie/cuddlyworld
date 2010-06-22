@@ -11,13 +11,6 @@
                   (Tokens[CurrentToken+1] = 'and')));
    end;
 
-   function CanJoin(): Boolean;
-   begin
-      Result := (CurrentToken < Length(Tokens)) and
-                ((Tokens[CurrentToken] = ',') or
-                 (Tokens[CurrentToken] = 'and'));
-   end;
-
    function IsQuote(): Boolean;
    begin
       Result := (CurrentToken < Length(Tokens)) and
@@ -91,7 +84,7 @@
    type
       TDirectionOptions = set of (optAllowDefiniteArticle, optRequireCompasDirection);
 
-   function TryDirection(Direction: PCardinalDirection; Options: TDirectionOptions): Boolean;
+   function TryDirection(out Direction: TCardinalDirection; Options: TDirectionOptions): Boolean;
    var
       FoundDefiniteArticle: Boolean = False;
    begin
@@ -110,18 +103,18 @@
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdNorth;
+         Direction := cdNorth;
          if (not CanEnd()) then
          begin
             if (Tokens[CurrentToken] = 'east') or (Tokens[CurrentToken] = 'e') then
             begin
                Inc(CurrentToken);
-               Direction^ := cdNorthEast;
+               Direction := cdNorthEast;
             end
             else if (Tokens[CurrentToken] = 'west') or (Tokens[CurrentToken] = 'w') then
             begin
                Inc(CurrentToken);
-               Direction^ := cdNorthWest;
+               Direction := cdNorthWest;
             end
          end;
       end
@@ -129,36 +122,36 @@
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdNorthEast;
+         Direction := cdNorthEast;
       end
       else if (Tokens[CurrentToken] = 'east') or (Tokens[CurrentToken] = 'e') then
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdEast;
+         Direction := cdEast;
       end
       else if (Tokens[CurrentToken] = 'southeast') or (Tokens[CurrentToken] = 'se') then
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdSouthEast;
+         Direction := cdSouthEast;
       end
       else if (Tokens[CurrentToken] = 'south') or (Tokens[CurrentToken] = 's') then
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdSouth;
+         Direction := cdSouth;
          if (not CanEnd()) then
          begin
             if (Tokens[CurrentToken] = 'east') or (Tokens[CurrentToken] = 'e') then
             begin
                Inc(CurrentToken);
-               Direction^ := cdSouthEast;
+               Direction := cdSouthEast;
             end
             else if (Tokens[CurrentToken] = 'west') or (Tokens[CurrentToken] = 'w') then
             begin
                Inc(CurrentToken);
-               Direction^ := cdSouthWest;
+               Direction := cdSouthWest;
             end
          end;
       end
@@ -166,19 +159,19 @@
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdSouthWest;
+         Direction := cdSouthWest;
       end
       else if (Tokens[CurrentToken] = 'west') or (Tokens[CurrentToken] = 'w') then
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdWest;
+         Direction := cdWest;
       end
       else if (Tokens[CurrentToken] = 'northwest') or (Tokens[CurrentToken] = 'nw') then
       begin
          Result := True;
          Inc(CurrentToken);
-         Direction^ := cdNorthWest;
+         Direction := cdNorthWest;
       end
       else if ((not FoundDefiniteArticle) and (not (optRequireCompasDirection in Options))) then
       begin
@@ -186,201 +179,105 @@
          begin
             Result := True;
             Inc(CurrentToken);
-            Direction^ := cdUp;
+            Direction := cdUp;
          end
          else if ((Tokens[CurrentToken] = 'down') or (Tokens[CurrentToken] = 'd')) then
          begin
             Result := True;
             Inc(CurrentToken);
-            Direction^ := cdDown;
+            Direction := cdDown;
          end
          else if ((Tokens[CurrentToken] = 'out') or (Tokens[CurrentToken] = 'outside')) then
          begin
             Result := True;
             Inc(CurrentToken);
-            Direction^ := cdOut;
+            Direction := cdOut;
          end;
       end;
       if (FoundDefiniteArticle and not Result) then
          Dec(CurrentToken);
    end;
 
-   function TryPrepositionDirection(Preposition: AnsiString; Direction: PCardinalDirection): Boolean;
+   function TryPrepositionDirection(Preposition: AnsiString; out Direction: TCardinalDirection): Boolean;
    begin
       Result := False;
       if (Tokens[CurrentToken] = Preposition) then
       begin
          Inc(CurrentToken);
-         if ((not CanEnd()) and (TryDirection(@Direction, [optAllowDefiniteArticle, optRequireCompasDirection]))) then
+         if ((not CanEnd()) and (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompasDirection]))) then
             Result := True
          else
             Dec(CurrentToken);
       end;
    end;
 
-   { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetThing(Thing: PThing; VerbString: AnsiString): Boolean;
+   { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
+   { Do not call if CanEnd(). }
+   function GetThing(out Thing: TAtom; VerbString: AnsiString): Boolean;
    var
-      FoundDefiniteArticle: Boolean = False;
-      FoundIndefiniteArticle: Boolean = False;
-      Start, Index: Cardinal;
-      Things, ThisThing: PThingItem;
-      Name, Names: AnsiString;
+      Things: PThingItem;
+      MultiplesSuggested: Boolean;
+      Count: Cardinal;
    begin
       Assert(not CanEnd());
-      if (MeansEverything(Tokens[CurrentToken])) then
-         Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
-      if (Tokens[CurrentToken] = 'the') then
-      begin
-         FoundDefiniteArticle := True;
-         Inc(CurrentToken);
-         if (CanEnd() or CanJoin()) then
-            Fail('The what?');
-      end
-      else
-      if ((Tokens[CurrentToken] = 'a') or (Tokens[CurrentToken] = 'an')) then
-      begin
-         FoundIndefiniteArticle := True;
-         Inc(CurrentToken);
-         if (CanEnd() or CanJoin()) then
-            Fail('A what?');
-      end
-      else
-      if ((Tokens[CurrentToken] = 'one')) then
-      begin
-         FoundIndefiniteArticle := True;
-         Inc(CurrentToken);
-         if (CanEnd() or CanJoin()) then
-            Fail('One what?');
-      end;
       EnsureNoPunctuation();
-      Start := CurrentToken;
-      CurrentToken := Length(Tokens);
-      Things := GetReferencedThings(Tokens, Start, CurrentToken-Start, []);
-      while ((not Assigned(Things)) and (CurrentToken-1 > Start)) do
+      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [gnSingular], [], [{ XXX ends }]);
+      if (Result) then
       begin
-         Dec(CurrentToken);
-         Things := GetReferencedThings(Tokens, Start, CurrentToken-Start, []);
-      end;
-      if (Assigned(Things)) then
-      begin
+         Count := GlobalThingCollector.GetTokenCount();
+         MultiplesSuggested := GlobalThingCollector.GetMultiplesSuggested();
+         Things := GlobalThingCollector.GetThingList(); { resets the thing collector }
          try
+            if (MultiplesSuggested) then { Things might be nil, e.g. in case input is just 'all' }
+               Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
+            Assert(Assigned(Things));
+            Assert(not Assigned(Things^.Next));
+            Thing := Things^.Value;
+            Inc(CurrentToken, Count);
             if (not CanEnd()) then
-            begin
-               if (CanJoin()) then
-                  Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
                EnsureNoPunctuation();
-            end;
-            if (Assigned(Things^.Next)) then
-            begin
-               if (FoundIndefiniteArticle) then
-               begin
-                  AutoDisambiguated(Things^.Value.GetName(Self));
-               end
-               else
-               begin
-                  Names := '';
-                  ThisThing := Things;
-                  while (Assigned(ThisThing)) do
-                  begin
-                     if (Length(Names) > 0) then
-                     begin
-                        if (Assigned(ThisThing^.Next)) then
-                           Names := Names + ', '
-                        else
-                           Names := Names + ', or ';
-                     end;
-                     Names := Names + ThisThing^.Value.GetLongDefiniteName(Self);
-                     ThisThing := ThisThing^.Next;
-                  end;
-                  Name := '';
-                  for Index := Start to CurrentToken-1 do
-                  begin
-                     if (Length(Name) > 0) then
-                        Name := Name + ' ';
-                     Name := Tokens[Index];
-                  end;
-                  Fail('Which "' + Name + '" do you want to ' + VerbString + ', ' + Names + '?');
-               end;
-            end;
-            Result := True;
-            Thing^ := Things^.Value;
          finally
             FreeThingList(Things);
          end;
-      end
-      else
-      begin
-         Result := False;
-         CurrentToken := Start;
-         if (FoundDefiniteArticle or FoundIndefiniteArticle) then
-            Dec(CurrentToken);
       end;
    end;
 
-   { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetThings(Things: PPThingItem; AllFilter: TAllFilter; AllFail: AnsiString): Boolean;
+   { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
+   { Do not call if CanEnd(). }
+   function GetThings(out Things: PThingItem; AllImpliedScope: TAllImpliedScope; NothingFail: AnsiString): Boolean;
    var
-      Start, Checkpoint: Cardinal;
-      TheseThings, LastThing: PThingItem;
+      {$IFOPT C+} MultiplesSuggested: Boolean; {$ENDIF}
+      Count: Cardinal;
    begin
-      Things^ := nil;
-      LastThing := nil;
-      try
-         Checkpoint := CurrentToken;
-         repeat
-            Assert(not CanEnd());
-            // (support 'the', 'a', 'one', 'all the' here)
-            EnsureNoPunctuation();
-            Start := CurrentToken;
-            CurrentToken := Length(Tokens);
-            TheseThings := GetReferencedThings(Tokens, Start, CurrentToken-Start, AllFilter);
-            while ((not Assigned(TheseThings)) and (CurrentToken-1 > Start)) do
+      Things := nil;
+      Assert(not CanEnd());
+      EnsureNoPunctuation();
+      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, gnEither, AllImpliedScope, [{ XXX ends }]);
+      if (Result) then
+      begin
+         Count := GlobalThingCollector.GetTokenCount();
+         {$IFOPT C+} MultiplesSuggested := GlobalThingCollector.GetMultiplesSuggested(); {$ENDIF}
+         Things := GlobalThingCollector.GetThingList(); { resets the thing collector }
+         try
+            if (not Assigned(Things)) then
             begin
-               Dec(CurrentToken);
-               TheseThings := GetReferencedThings(Tokens, Start, CurrentToken-Start, AllFilter);
+               {$IFOPT C+} Assert(MultiplesSuggested); {$ENDIF}
+               Fail(NothingFail);
             end;
-            if (Assigned(TheseThings)) then
-            begin { we found something! }
-               if (Assigned(LastThing)) then
-               begin
-                  while (Assigned(LastThing^.Next)) do
-                     LastThing := LastThing^.Next;
-                  LastThing^.Next := TheseThings;
-               end
-               else
-                  Things^ := TheseThings;
-               LastThing := TheseThings;
-               Checkpoint := CurrentToken;
-               if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = ',')) then
-                  Inc(CurrentToken);
-               if ((CurrentToken < Length(Tokens)) and (Tokens[CurrentToken] = 'and')) then
-                  Inc(CurrentToken);
-               if ((Checkpoint < CurrentToken) and (not CanEnd())) then
-                  Continue;
-               CurrentToken := Checkpoint;
-            end
-            else
-            begin
-               CurrentToken := Checkpoint;
-               if (MeansEverything(Tokens[CurrentToken])) then
-                  Fail(AllFail);
-            end;
-            Break;
-         until False;
-         if (not CanEnd()) then
-            EnsureNoPunctuation();
-         Result := Assigned(Things^);
-      except
-         { in case we fail }
-         FreeThingList(Things^);
-         Things^ := nil;
-         raise;
+            Inc(CurrentToken, Count);
+            if (not CanEnd()) then
+               EnsureNoPunctuation();
+         except
+            { in case we fail }
+            FreeThingList(Things);
+            Things := nil;
+            raise;
+         end;
       end;
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetCompoundPrepositionThing(Prepositions: array of AnsiString; VerbString, PrepositionString: AnsiString; Thing: PThing): Boolean;
+   function GetCompoundPrepositionThing(Prepositions: array of AnsiString; VerbString, PrepositionString: AnsiString; out Thing: TAtom): Boolean;
    var
       Direction: TCardinalDirection;
       Index: Cardinal;
@@ -401,10 +298,10 @@
             Fail('What do you want to ' + VerbString + ' ' + PrepositionString + '?');
          if (not GetThing(Thing, VerbString + ' ' + PrepositionString)) then
          begin
-            if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
                Fail('That''s a direction, I don''t know how to ' + VerbString + ' ' + PrepositionString + ' it.')
             else
-               Fail('I can''t see any "' + Tokens[CurrentToken] + '" here to ' + VerbString + ' ' + PrepositionString + '.');
+               Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here to ' + VerbString + ' ' + PrepositionString + '.');
          end;
       end
       else
@@ -412,7 +309,7 @@
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetPrepositionThing(Preposition: AnsiString; VerbString: AnsiString; Thing: PThing): Boolean;
+   function GetPrepositionThing(Preposition: AnsiString; VerbString: AnsiString; out Thing: TAtom): Boolean;
    begin
       Result := GetCompoundPrepositionThing([Preposition], VerbString, Preposition, Thing);
    end;
@@ -430,49 +327,49 @@
             Action.Verb := avLook;
          end
          else
-         if (TryDirection(@Action.LookDirection, []) or
-             TryPrepositionDirection('at', @Action.LookDirection) or
-             TryPrepositionDirection('to', @Action.LookDirection) or
-             TryPrepositionDirection('towards', @Action.LookDirection)) then
+         if (TryDirection(Action.LookDirection, []) or
+             TryPrepositionDirection('at', Action.LookDirection) or
+             TryPrepositionDirection('to', Action.LookDirection) or
+             TryPrepositionDirection('towards', Action.LookDirection)) then
          begin
             Action.Verb := avLookDirectional;
             if (not CanEnd()) then
-               Fail('I don''t understand how to look ' + CardinalDirectionToString(Action.LookDirection) + ' "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to look ' + CardinalDirectionToString(Action.LookDirection) + ' "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetPrepositionThing('at', 'look', @Action.LookAt)) then
+         if (GetPrepositionThing('at', 'look', Action.LookAt)) then
          begin
             Action.Verb := avLookAt;
             if (not CanEnd()) then
-               Fail('I don''t understand how to look at things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to look at things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetPrepositionThing('under', 'look', @Action.LookUnder)) then
+         if (GetPrepositionThing('under', 'look', Action.LookUnder)) then
          begin
             Action.Verb := avLookUnder;
             if (not CanEnd()) then
-               Fail('I don''t understand how to look under things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to look under things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetPrepositionThing('below', 'look', @Action.LookUnder)) then
+         if (GetPrepositionThing('below', 'look', Action.LookUnder)) then
          begin
             Action.Verb := avLookUnder;
             if (not CanEnd()) then
-               Fail('I don''t understand how to look below things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to look below things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetPrepositionThing('in', 'look', @Action.LookIn)) then
+         if (GetPrepositionThing('in', 'look', Action.LookIn)) then
          begin
             Action.Verb := avLookIn;
             if (not CanEnd()) then
-               Fail('I don''t understand how to look in things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to look in things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetPrepositionThing('inside', 'look', @Action.LookIn)) then
+         if (GetPrepositionThing('inside', 'look', Action.LookIn)) then
          begin
             Action.Verb := avLookIn;
             if (not CanEnd()) then
-               Fail('I don''t understand how to look inside things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to look inside things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
          if (Tokens[CurrentToken] = 'for') then
@@ -481,19 +378,19 @@
             Action.Verb := avFind;
             if (CanEnd()) then
                Fail('What do you want to look for?');
-            if (not GetThing(@Action.FindSubject, 'look for')) then
+            if (not GetThing(Action.FindSubject, 'look for')) then
             begin
-               if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+               if (TryDirection(Direction, [optAllowDefiniteArticle])) then
                   Fail('I don''t understand how to look for a direction.')
                else
-                  Fail('I can''t find anything like ' + IndefiniteArticle(Tokens[CurrentToken]) + ' "' + Tokens[CurrentToken] + '" here.');
+                  Fail('I can''t find anything like ' + IndefiniteArticle(Tokens[CurrentToken]) + ' "' + OriginalTokens[CurrentToken] + '" here.');
             end;
             if (not CanEnd()) then
-               Fail('I don''t understand how to look for things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to look for things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
          begin
-            Fail('I don''t understand how to look "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to look "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
@@ -511,15 +408,15 @@
          Action.Verb := avExamine;
          if (CanEnd()) then
             Fail('What do you want to examine?');
-         if (not GetThing(@Action.ExamineSubject, 'examine')) then
+         if (not GetThing(Action.ExamineSubject, 'examine')) then
          begin
-            if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
                Fail('That''s a direction, I don''t know how to examine it.')
             else
-               Fail('I can''t see any "' + Tokens[CurrentToken] + '" here to examine.');
+               Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here to examine.');
          end;
          if (not CanEnd()) then
-            Fail('I don''t understand how to examine things "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to examine things "' + OriginalTokens[CurrentToken] + '".');
       end
       else
          Result := False;
@@ -535,7 +432,7 @@
          if (not CanEnd()) then
          begin
             EnsureNoPunctuation();
-            Fail('I don''t understand how to inventory "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to inventory "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
@@ -553,15 +450,15 @@
          Action.Verb := avFind;
          if (CanEnd()) then
             Fail('What do you want to examine?');
-         if (not GetThing(@Action.FindSubject, 'find')) then
+         if (not GetThing(Action.FindSubject, 'find')) then
          begin
-            if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
                Fail('I don''t understand how to find a direction.')
             else
-               Fail('I can''t find anything like ' + IndefiniteArticle(Tokens[CurrentToken]) + ' "' + Tokens[CurrentToken] + '" here.');
+               Fail('I can''t find anything like ' + IndefiniteArticle(Tokens[CurrentToken]) + ' "' + OriginalTokens[CurrentToken] + '" here.');
          end;
          if (not CanEnd()) then
-            Fail('I don''t understand how to find things "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to find things "' + OriginalTokens[CurrentToken] + '".');
       end
       else
          Result := False;
@@ -577,23 +474,23 @@
          if (CanEnd()) then
             Fail('Where do you want to go?');
          EnsureNoPunctuation();
-         if (not TryDirection(@Action.GoDirection, [])) then
-            Fail('I don''t understand how to go "' + Tokens[CurrentToken] + '".');
+         if (not TryDirection(Action.GoDirection, [])) then
+            Fail('I don''t understand how to go "' + OriginalTokens[CurrentToken] + '".');
          if (not CanEnd()) then
          begin
             EnsureNoPunctuation();
-            Fail('I don''t understand how to go ' + CardinalDirectionToString(Action.GoDirection) + ' "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to go ' + CardinalDirectionToString(Action.GoDirection) + ' "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
-      if (TryDirection(@Action.GoDirection, [optAllowDefiniteArticle])) then
+      if (TryDirection(Action.GoDirection, [optAllowDefiniteArticle])) then
       begin
          Result := True;
          Action.Verb := avGo;
          if (not CanEnd()) then
          begin
             EnsureNoPunctuation();
-            Fail('I don''t understand how to go ' + CardinalDirectionToString(Action.GoDirection) + ' "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to go ' + CardinalDirectionToString(Action.GoDirection) + ' "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
@@ -611,19 +508,19 @@
          Action.Verb := avEnter;
          if (CanEnd()) then
             Fail('What do you want to enter?');
-         if (GetThing(@Action.EnterSubject, 'enter')) then
+         if (GetThing(Action.EnterSubject, 'enter')) then
          begin
             if (not CanEnd()) then
             begin
                EnsureNoPunctuation();
-               Fail('I don''t understand how to enter things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to enter things "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-         if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
             Fail('That''s a direction, I don''t know how to enter it.')
          else
-            Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
       end
       else
          Result := False;
@@ -642,12 +539,12 @@
          if (not CanEnd()) then
          begin
             EnsureNoPunctuation();
-            if (not TryDirection(@Action.GoDirection, [])) then
-               Fail('I don''t understand how to ' + Verb + ' "' + Tokens[CurrentToken] + '".');
+            if (not TryDirection(Action.GoDirection, [])) then
+               Fail('I don''t understand how to ' + Verb + ' "' + OriginalTokens[CurrentToken] + '".');
             if (not CanEnd()) then
             begin
                EnsureNoPunctuation();
-               Fail('I don''t understand how to ' + Verb + ' ' + CardinalDirectionToString(Action.GoDirection) + ' "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to ' + Verb + ' ' + CardinalDirectionToString(Action.GoDirection) + ' "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
@@ -683,19 +580,19 @@
          Action.TakeSubject := nil;
          if (CanEnd()) then
             Fail('What do you want to take?');
-         if (GetThings(@Action.TakeSubject, [afSurroundings], 'I can''t see anything to take.')) then
+         if (GetThings(Action.TakeSubject, [aisSurroundings], 'I can''t see anything to take.')) then
          begin
             if (not CanEnd()) then
             begin
                EnsureNoPunctuation();
-               Fail('I don''t understand how to take things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to take things "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-         if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
             Fail('That''s a direction, I don''t know how to take it.')
          else
-            Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
       end;
    end;
 
@@ -737,7 +634,7 @@
          Action.PutSubject := nil;
          if (CanEnd()) then
             Fail(WhatQ);
-         if (GetThings(@Action.PutSubject, [afSelf], 'You have nothing to ' + Verb + ' anywhere.')) then
+         if (GetThings(Action.PutSubject, [aisSelf], 'You have nothing to ' + Verb + ' anywhere.')) then
          begin
             if (CanEnd()) then
             begin
@@ -750,34 +647,34 @@
                   AutoDisambiguated(ThingPositionToString(Action.PutPosition) + ' ' + Action.PutTarget.GetDefiniteName(Self));
             end
             else
-            if (GetPrepositionThing('onto', Verb + ' things', @Action.PutTarget) or
-                GetCompoundPrepositionThing(['on', 'to'], Verb + ' things', 'on', @Action.PutTarget) or
-                GetPrepositionThing('on', Verb + ' things', @Action.PutTarget)) then
+            if (GetPrepositionThing('onto', Verb + ' things', Action.PutTarget) or
+                GetCompoundPrepositionThing(['on', 'to'], Verb + ' things', 'on', Action.PutTarget) or
+                GetPrepositionThing('on', Verb + ' things', Action.PutTarget)) then
             begin
                Action.PutPosition := tpOn;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to ' + Verb + ' things on other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to ' + Verb + ' things on other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
-            if (GetPrepositionThing('into', Verb + ' things', @Action.PutTarget) or
-                GetCompoundPrepositionThing(['in', 'to'], Verb + ' things', 'in', @Action.PutTarget) or
-                GetPrepositionThing('in', Verb + ' things', @Action.PutTarget) or
-                GetPrepositionThing('inside', Verb + ' things', @Action.PutTarget)) then
+            if (GetPrepositionThing('into', Verb + ' things', Action.PutTarget) or
+                GetCompoundPrepositionThing(['in', 'to'], Verb + ' things', 'in', Action.PutTarget) or
+                GetPrepositionThing('in', Verb + ' things', Action.PutTarget) or
+                GetPrepositionThing('inside', Verb + ' things', Action.PutTarget)) then
             begin
                Action.PutPosition := tpIn;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to ' + Verb + ' things in other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to ' + Verb + ' things in other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
             begin
-               Fail('I don''t understand how to ' + Verb + ' things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to ' + Verb + ' things "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-         if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
             Fail(DirectionQ)
          else
-            Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
       end;
    end;
 
@@ -793,31 +690,31 @@
             // pick a random direction and imply it
             Fail('Move in what direction?');
          end;
-         if (TryDirection(@Action.GoDirection, []) or
-             TryPrepositionDirection('to', @Action.GoDirection) or
-             TryPrepositionDirection('towards', @Action.GoDirection)) then
+         if (TryDirection(Action.GoDirection, []) or
+             TryPrepositionDirection('to', Action.GoDirection) or
+             TryPrepositionDirection('towards', Action.GoDirection)) then
          begin
             Action.Verb := avGo;
             Result := True;
          end
          else
-         if (GetPrepositionThing('onto', 'move', @Action.ClimbOnSubject) or
-             GetCompoundPrepositionThing(['on', 'to'], 'move', 'onto', @Action.ClimbOnSubject)) then
+         if (GetPrepositionThing('onto', 'move', Action.ClimbOnSubject) or
+             GetCompoundPrepositionThing(['on', 'to'], 'move', 'onto', Action.ClimbOnSubject)) then
          begin
             Action.Verb := avClimbOn;
             if (not CanEnd()) then
-               Fail('I don''t understand how to move onto things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to move onto things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetPrepositionThing('into', 'move', @Action.EnterSubject) or
-             GetCompoundPrepositionThing(['in', 'to'], 'move', 'into', @Action.EnterSubject)) then
+         if (GetPrepositionThing('into', 'move', Action.EnterSubject) or
+             GetCompoundPrepositionThing(['in', 'to'], 'move', 'into', Action.EnterSubject)) then
          begin
             Action.Verb := avEnter;
             if (not CanEnd()) then
-               Fail('I don''t understand how to move into things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to move into things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetThings(@Action.MoveSubject, [afSurroundings, afSelf], 'I can''t see anything to move.')) then
+         if (GetThings(Action.MoveSubject, [aisSurroundings, aisSelf], 'I can''t see anything to move.')) then
          begin
             Action.Verb := avMove;
             Result := True;
@@ -827,28 +724,28 @@
                Action.MovePosition := tpOn;
             end
             else
-            if (GetPrepositionThing('onto', 'move things', @Action.MoveTarget) or
-                GetPrepositionThing('over', 'move things', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on', 'to'], 'move things', 'onto', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on'], 'move things', 'onto', @Action.MoveTarget)) then
+            if (GetPrepositionThing('onto', 'move things', Action.MoveTarget) or
+                GetPrepositionThing('over', 'move things', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on', 'to'], 'move things', 'onto', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on'], 'move things', 'onto', Action.MoveTarget)) then
             begin
                Action.MovePosition := tpOn;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to move things onto other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to move things onto other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
-            if (GetPrepositionThing('into', 'move things', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in', 'to'], 'move things', 'into', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in'], 'move things', 'into', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside', 'of'], 'move things', 'into', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside'], 'move things', 'into', @Action.MoveTarget)) then
+            if (GetPrepositionThing('into', 'move things', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in', 'to'], 'move things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in'], 'move things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside', 'of'], 'move things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside'], 'move things', 'into', Action.MoveTarget)) then
             begin
                Action.MovePosition := tpIn;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to move things into other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to move things into other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
-            if (GetPrepositionThing('to', 'move things', @Action.MoveTarget)) then
+            if (GetPrepositionThing('to', 'move things', Action.MoveTarget)) then
             begin
                PositionOverride := tpIn;
                if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
@@ -863,7 +760,7 @@
                   Action.MovePosition := tpOn;
                end;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to move things to other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to move things to other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
             if (Tokens[CurrentToken] = 'out') then
@@ -880,15 +777,15 @@
                      Inc(CurrentToken);
                      if (CanEnd()) then
                         Fail('What do you want to move things out of?');
-                     if (not GetThing(@Action.RemoveFromObject, 'move things out of')) then
-                        Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+                     if (not GetThing(Action.RemoveFromObject, 'move things out of')) then
+                        Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
                      if (not CanEnd()) then
-                        Fail('I don''t understand how to move things out of things "' + Tokens[CurrentToken] + '".');
+                        Fail('I don''t understand how to move things out of things "' + OriginalTokens[CurrentToken] + '".');
                   end
                   else
                   begin
                      EnsureNoPunctuation();
-                     Fail('I don''t understand how to move things out "' + Tokens[CurrentToken] + '".');
+                     Fail('I don''t understand how to move things out "' + OriginalTokens[CurrentToken] + '".');
                   end;
                end;
             end
@@ -908,32 +805,32 @@
                      if (CanEnd()) then
                         Fail('What do you want to move things off?');
                   end;
-                  if (not GetThing(@Action.RemoveFromObject, 'move things off')) then
-                     Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+                  if (not GetThing(Action.RemoveFromObject, 'move things off')) then
+                     Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
                   if (not CanEnd()) then
-                     Fail('I don''t understand how to move things off things "' + Tokens[CurrentToken] + '".');
+                     Fail('I don''t understand how to move things off things "' + OriginalTokens[CurrentToken] + '".');
                end;
             end
             else
-            if (TryDirection(@Action.PushDirection, []) or
-                TryPrepositionDirection('to', @Action.PushDirection) or
-                TryPrepositionDirection('towards', @Action.PushDirection)) then
+            if (TryDirection(Action.PushDirection, []) or
+                TryPrepositionDirection('to', Action.PushDirection) or
+                TryPrepositionDirection('towards', Action.PushDirection)) then
             begin
                Assert(@Action.MoveSubject = @Action.PushSubject);
                Action.Verb := avPush;
                if (not CanEnd()) then
                begin
                   EnsureNoPunctuation();
-                  Fail('I don''t understand how to move things in a direction "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to move things in a direction "' + OriginalTokens[CurrentToken] + '".');
                end;
             end
             else
             begin
-               Fail('I don''t understand how to move things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to move things "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-            Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
       end
       else
          Result := False;
@@ -948,7 +845,7 @@
          Inc(CurrentToken);
          if (CanEnd()) then
             Fail('Push what in what direction?');
-         if (GetThings(@Action.PushSubject, [afSurroundings], 'I can''t see anything to push.')) then
+         if (GetThings(Action.PushSubject, [aisSurroundings], 'I can''t see anything to push.')) then
          begin
             Action.Verb := avPush;
             Result := True;
@@ -958,31 +855,31 @@
                Action.Verb := avPress;
             end
             else
-            if (GetPrepositionThing('onto', 'push things', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on', 'to'], 'push things', 'onto', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on'], 'push things', 'onto', @Action.MoveTarget)) then
+            if (GetPrepositionThing('onto', 'push things', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on', 'to'], 'push things', 'onto', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on'], 'push things', 'onto', Action.MoveTarget)) then
             begin
                Assert(@Action.PushSubject = @Action.MoveSubject);
                Action.Verb := avMove;
                Action.MovePosition := tpOn;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to push things onto other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to push things onto other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
-            if (GetPrepositionThing('into', 'push things', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in', 'to'], 'push things', 'into', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in'], 'push things', 'into', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside', 'of'], 'push things', 'into', @Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside'], 'push things', 'into', @Action.MoveTarget)) then
+            if (GetPrepositionThing('into', 'push things', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in', 'to'], 'push things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in'], 'push things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside', 'of'], 'push things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside'], 'push things', 'into', Action.MoveTarget)) then
             begin
                Assert(@Action.PushSubject = @Action.MoveSubject);
                Action.Verb := avMove;
                Action.MovePosition := tpIn;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to push things into other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to push things into other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
-            if (GetPrepositionThing('to', 'push things', @Action.MoveTarget)) then
+            if (GetPrepositionThing('to', 'push things', Action.MoveTarget)) then
             begin
                PositionOverride := tpIn;
                if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
@@ -1001,27 +898,27 @@
                   Action.MovePosition := tpOn;
                end;
                if (not CanEnd()) then
-                  Fail('I don''t understand how to push things to other things "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to push things to other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
-            if (TryDirection(@Action.PushDirection, []) or
-                TryPrepositionDirection('to', @Action.PushDirection) or
-                TryPrepositionDirection('towards', @Action.PushDirection)) then
+            if (TryDirection(Action.PushDirection, []) or
+                TryPrepositionDirection('to', Action.PushDirection) or
+                TryPrepositionDirection('towards', Action.PushDirection)) then
             begin
                if (not CanEnd()) then
                begin
                   EnsureNoPunctuation();
-                  Fail('I don''t understand how to push things in a direction "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to push things in a direction "' + OriginalTokens[CurrentToken] + '".');
                end;
             end
             else
             begin
                EnsureNoPunctuation();
-               Fail('I don''t understand how to push things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to push things "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-            Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
       end
       else
          Result := False;
@@ -1039,19 +936,19 @@
          Action.ShakeSubject := nil;
          if (CanEnd()) then
             Fail('What do you want to shake?');
-         if (GetThings(@Action.ShakeSubject, [afSurroundings, afSelf], 'shake')) then
+         if (GetThings(Action.ShakeSubject, [aisSurroundings, aisSelf], 'shake')) then
          begin
             if (not CanEnd()) then
             begin
                EnsureNoPunctuation();
-               Fail('I don''t understand how to shake things "' + Tokens[CurrentToken] + '".');
+               Fail('I don''t understand how to shake things "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-         if (TryDirection(@Direction, [optAllowDefiniteArticle])) then
+         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
             Fail('That''s a direction, I don''t know how to shake it.')
          else
-            Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
       end
       else
          Result := False;
@@ -1072,35 +969,35 @@
          GotThing := False;
          if (not CanEnd()) then
          begin
-            if (TryDirection(@Action.DigDirection, [])) then
+            if (TryDirection(Action.DigDirection, [])) then
             begin
                Action.Verb := avDigDirection;
             end
             else
             begin
-               GotThing := GetThing(@Action.DigTarget, 'dig');
+               GotThing := GetThing(Action.DigTarget, 'dig');
             end;
             if (not CanEnd()) then
             begin
-               if (GetPrepositionThing('with', 'dig', @Action.DigSpade)) then
+               if (GetPrepositionThing('with', 'dig', Action.DigSpade)) then
                begin
                   if (not CanEnd()) then
-                     Fail('I don''t understand how to dig "' + Tokens[CurrentToken] + '".');
+                     Fail('I don''t understand how to dig "' + OriginalTokens[CurrentToken] + '".');
                end
                else
                begin
                   EnsureNoPunctuation();
                   if (GotThing) then
-                     Fail('I don''t understand how to dig "' + Tokens[CurrentToken] + '".')
+                     Fail('I don''t understand how to dig "' + OriginalTokens[CurrentToken] + '".')
                   else
-                     Fail('I can''t see any "' + Tokens[CurrentToken] + '" here.');
+                     Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
                end;
             end;
          end;
          Message := '';
          if ((Action.Verb = avDig) and (not Assigned(Action.DigTarget))) then
          begin
-            Action.DigTarget := GetImpliedThing([afSurroundings, afSelf], [tpDiggable]);
+            Action.DigTarget := GetImpliedThing([aisSurroundings, aisSelf], [tpDiggable]);
             if (Assigned(Action.DigTarget)) then
                Message := Action.DigTarget.GetDefiniteName(Self)
             else
@@ -1108,7 +1005,7 @@
          end;
          if (not Assigned(Action.DigSpade)) then
          begin
-            Action.DigSpade := GetImpliedThing([afSurroundings, afSelf], [tpCanDig]);
+            Action.DigSpade := GetImpliedThing([aisSurroundings, aisSelf], [tpCanDig]);
             if (Assigned(Action.DigSpade)) then
             begin
                if (Length(Message) > 0) then
@@ -1162,15 +1059,15 @@
          Inc(CurrentToken);
          if (not CanEnd()) then
          begin
-            if (GetPrepositionThing('to', 'say something', @Action.TalkTarget)) then
+            if (GetPrepositionThing('to', 'say something', Action.TalkTarget)) then
             begin
                if (not CanEnd()) then
-                  Fail('I don''t understand how to say something to ' + Action.TalkTarget.GetIndefiniteName(Self) + ' "' + Tokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to say something to ' + Action.TalkTarget.GetIndefiniteName(Self) + ' "' + OriginalTokens[CurrentToken] + '".');
             end
             else
             begin
                EnsureNoPunctuation();
-               Fail('I don''t understand how to say something "' + Tokens[CurrentToken] + '". Please quote what you want to say.');
+               Fail('I don''t understand how to say something "' + OriginalTokens[CurrentToken] + '". Please quote what you want to say.');
             end;
          end;
       end;
@@ -1186,7 +1083,7 @@
          if (not CanEnd()) then
          begin
             EnsureNoPunctuation();
-            Fail('I don''t understand how to dance "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to dance "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
@@ -1217,7 +1114,7 @@
             // we should add 'help <thing>', especially 'help me'.
             // not sure how to respond to 'help fred' where fred is another player, though.
             EnsureNoPunctuation();
-            Fail('I don''t understand how to help "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to help "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
@@ -1234,7 +1131,7 @@
          if (not CanEnd()) then
          begin
             EnsureNoPunctuation();
-            Fail('I don''t understand how to quit "' + Tokens[CurrentToken] + '".');
+            Fail('I don''t understand how to quit "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
@@ -1250,7 +1147,7 @@
           GetBug(Action) or GetHelp(Action) or GetQuit(Action)) then
          Result := GetContinuation() { consumes the "next" and verifies there's something else coming }
       else
-         Fail('I don''t understand how to "' + Tokens[CurrentToken] + '".');
+         Fail('I don''t understand how to "' + OriginalTokens[CurrentToken] + '".');
    end;
 
 //  climb onto foo; avClimbOn
