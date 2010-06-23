@@ -68,9 +68,11 @@ type
       procedure GetAvatars(var List: PAvatarItem; FromOutside: Boolean); virtual;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
       function GetName(Perspective: TAvatar): AnsiString; virtual; abstract;
-      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
-      function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
+      function GetSummaryName(Perspective: TAvatar): AnsiString; virtual;
+      function GetLongName(Perspective: TAvatar): AnsiString; virtual;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual;
+      function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
+      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
       function GetSubjectPronoun(Perspective: TAvatar): AnsiString; virtual; // I
       function GetObjectPronoun(Perspective: TAvatar): AnsiString; virtual; // me
       function GetReflexivePronoun(Perspective: TAvatar): AnsiString; virtual; // myself
@@ -104,6 +106,7 @@ type
       function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
+      {$IFDEF DEBUG} function Debug(): AnsiString; virtual; {$ENDIF}
    end;
 
    PThing = ^TThing;
@@ -130,6 +133,9 @@ type
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom; override;
+      function GetSummaryName(Perspective: TAvatar): AnsiString; override;
+      function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
+      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
       function IsPlural(Perspective: TAvatar): Boolean; virtual;
       function GetTitle(Perspective: TAvatar): AnsiString; override;
       function GetHorizonDescription(Perspective: TAvatar): AnsiString; override;
@@ -162,6 +168,7 @@ type
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       procedure Dug(Target: TThing; Perspective: TAvatar; var Message: AnsiString); virtual;
       function IsOpen(): Boolean; virtual;
+      {$IFDEF DEBUG} function Debug(): AnsiString; override; {$ENDIF}
       property Parent: TAtom read FParent;
       property Position: TThingPosition read FPosition write FPosition;
    end;
@@ -231,6 +238,7 @@ type
       procedure AddGlobalThing(GlobalThing: TThing); { World will free these }
       procedure AddPlayer(Avatar: TAvatar); virtual; { these must added to the world before this method is called (derived classes can override this method to do that) }
       function GetPlayer(Name: AnsiString): TAvatar;
+      function GetPlayerCount(): Cardinal;
       procedure CheckForDisconnectedPlayers();
       procedure CheckDisposalQueue();
    end;
@@ -678,6 +686,22 @@ begin
    FromOutside := True;
 end;
 
+function TAtom.GetSummaryName(Perspective: TAvatar): AnsiString;
+begin
+   Result := GetName(Perspective);
+end;
+
+function TAtom.GetLongName(Perspective: TAvatar): AnsiString;
+begin
+   Result := GetName(Perspective);
+end;
+
+function TAtom.GetIndefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   Result := GetName(Perspective);
+   Result := IndefiniteArticle(Result) + ' ' + Result;
+end;
+
 function TAtom.GetDefiniteName(Perspective: TAvatar): AnsiString;
 begin
    Result := 'the ' + GetName(Perspective);
@@ -685,13 +709,7 @@ end;
 
 function TAtom.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
 begin
-   Result := GetDefiniteName(Perspective);
-end;
-
-function TAtom.GetIndefiniteName(Perspective: TAvatar): AnsiString;
-begin
-   Result := GetName(Perspective);
-   Result := IndefiniteArticle(Result) + ' ' + Result;
+   Result := 'the ' + GetLongName(Perspective);
 end;
 
 function TAtom.GetSubjectPronoun(Perspective: TAvatar): AnsiString;
@@ -930,6 +948,15 @@ begin
    Result := Self;
 end;
 
+{$IFDEF DEBUG}
+function TAtom.Debug(): AnsiString;
+begin
+   Result := GetName(nil) + #10 +
+             'Long Name: ' + GetLongDefiniteName(nil) + #10 +
+             'Class: ' + ClassName;
+end;
+{$ENDIF}
+
 
 constructor TThing.Create();
 begin
@@ -1036,6 +1063,35 @@ begin
       Message := GetDescriptionState(Perspective);
       if (Length(Message) = 0) then
          Message := Capitalise(GetDefiniteName(Perspective)) + ' has no discernible entrance.';
+   end;
+end;
+
+function TThing.GetSummaryName(Perspective: TAvatar): AnsiString;
+begin
+   Result := inherited;
+   Assert(Assigned(FParent));
+   case FPosition of
+    tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetSummaryName(Perspective);
+   end;
+end;
+
+function TThing.GetDefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   Result := inherited;
+   Assert(Assigned(FParent));
+   case FPosition of
+    tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetDefiniteName(Perspective);
+   end;
+end;
+
+function TThing.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   Result := inherited;
+   Assert(Assigned(FParent));
+   case FPosition of
+    tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetLongDefiniteName(Perspective);
+    tpOnImplicit: Result := Result + ' on ' + FParent.GetLongDefiniteName(Perspective);
+    tpInImplicit: Result := Result + ' in ' + FParent.GetLongDefiniteName(Perspective);
    end;
 end;
 
@@ -1451,6 +1507,15 @@ begin
    Result := False;
 end;
 
+{$IFDEF DEBUG}
+function TThing.Debug(): AnsiString;
+begin
+   Result := inherited;
+   Result := Result + #10 +
+             'Position: ' + ThingPositionToString(FPosition) + ' ' + FParent.GetName(nil);
+end;
+{$ENDIF}
+
 
 procedure TAvatar.GetAvatars(var List: PAvatarItem; FromOutside: Boolean);
 var
@@ -1827,6 +1892,19 @@ begin
       Result := Item^.Value
    else
       Result := nil;
+end;
+
+function TWorld.GetPlayerCount(): Cardinal;
+var
+   Item: PAvatarItem;
+begin
+   Result := 0;
+   Item := FPlayers;
+   while (Assigned(Item)) do
+   begin
+      Inc(Result);
+      Item := Item^.Next;
+   end;
 end;
 
 procedure TWorld.CheckForDisconnectedPlayers();

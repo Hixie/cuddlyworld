@@ -216,7 +216,7 @@
    function GetThing(out Thing: TAtom; VerbString: AnsiString): Boolean;
    var
       Things: PThingItem;
-      MultiplesSuggested: Boolean;
+      MultiplesSuggested, Disambiguate: Boolean;
       Count: Cardinal;
    begin
       Assert(not CanEnd());
@@ -226,16 +226,18 @@
       begin
          Count := GlobalThingCollector.GetTokenCount();
          MultiplesSuggested := GlobalThingCollector.GetMultiplesSuggested();
+         Disambiguate := GlobalThingCollector.GetDisambiguate();
          Things := GlobalThingCollector.GetThingList(); { resets the thing collector }
          try
-            if (MultiplesSuggested) then { Things might be nil, e.g. in case input is just 'all' }
-               Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
-            Assert(Assigned(Things));
-            Assert(not Assigned(Things^.Next));
-            Thing := Things^.Value;
-            Inc(CurrentToken, Count);
+            Assert(Assigned(Things) or MultiplesSuggested); { Things will be nil in case input is just 'all', but then MultiplesSuggested will be true }
             if (not CanEnd()) then
                EnsureNoPunctuation();
+            if ((not Assigned(Things)) or (Assigned(Things^.Next))) then
+               Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
+            Thing := Things^.Value;
+            Inc(CurrentToken, Count);
+            if (Disambiguate) then
+               AutoDisambiguated(Thing.GetDefiniteName(Self)); // should really let the caller do that
          finally
             FreeThingList(Things);
          end;
@@ -247,6 +249,7 @@
    function GetThings(out Things: PThingItem; AllImpliedScope: TAllImpliedScope; NothingFail: AnsiString): Boolean;
    var
       {$IFOPT C+} MultiplesSuggested: Boolean; {$ENDIF}
+      Disambiguate: Boolean;
       Count: Cardinal;
    begin
       Things := nil;
@@ -257,16 +260,19 @@
       begin
          Count := GlobalThingCollector.GetTokenCount();
          {$IFOPT C+} MultiplesSuggested := GlobalThingCollector.GetMultiplesSuggested(); {$ENDIF}
+         Disambiguate := GlobalThingCollector.GetDisambiguate();
          Things := GlobalThingCollector.GetThingList(); { resets the thing collector }
          try
+            if (not CanEnd()) then
+               EnsureNoPunctuation();
             if (not Assigned(Things)) then
             begin
                {$IFOPT C+} Assert(MultiplesSuggested); {$ENDIF}
                Fail(NothingFail);
             end;
             Inc(CurrentToken, Count);
-            if (not CanEnd()) then
-               EnsureNoPunctuation();
+            if (Disambiguate) then
+               AutoDisambiguated(ThingListToString(Things, Self, 'and')); // should really let the caller do that
          except
             { in case we fail }
             FreeThingList(Things);
@@ -936,7 +942,7 @@
          Action.ShakeSubject := nil;
          if (CanEnd()) then
             Fail('What do you want to shake?');
-         if (GetThings(Action.ShakeSubject, [aisSurroundings, aisSelf], 'shake')) then
+         if (GetThings(Action.ShakeSubject, [aisSurroundings, aisSelf], 'I can''t see anything to shake.')) then
          begin
             if (not CanEnd()) then
             begin
@@ -970,13 +976,9 @@
          if (not CanEnd()) then
          begin
             if (TryDirection(Action.DigDirection, [])) then
-            begin
-               Action.Verb := avDigDirection;
-            end
+               Action.Verb := avDigDirection
             else
-            begin
                GotThing := GetThing(Action.DigTarget, 'dig');
-            end;
             if (not CanEnd()) then
             begin
                if (GetPrepositionThing('with', 'dig', Action.DigSpade)) then
@@ -986,7 +988,6 @@
                end
                else
                begin
-                  EnsureNoPunctuation();
                   if (GotThing) then
                      Fail('I don''t understand how to dig "' + OriginalTokens[CurrentToken] + '".')
                   else
@@ -1099,6 +1100,62 @@
          // should also support "i wish ..."
       end
       else
+      {$IFDEF DEBUG}
+      if (Tokens[CurrentToken] = 'debug') then
+      begin
+         Inc(CurrentToken);
+         if (not CanEnd()) then
+         begin
+            if (Tokens[CurrentToken] = 'status') then
+            begin
+               Inc(CurrentToken);
+               Result := True;
+               Action.Verb := avDebugStatus;
+               if (not CanEnd()) then
+               begin
+                  EnsureNoPunctuation();
+                  Fail('Syntax: "debug status"');
+               end;
+            end
+            else
+            if (Tokens[CurrentToken] = 'things') then
+            begin
+               Inc(CurrentToken);
+               Result := True;
+               Action.Verb := avDebugThings;
+               Action.DebugThings := nil;
+               if (not CanEnd()) then
+               begin
+                  if (not GetThings(Action.DebugThings, [aisSelf, aisSurroundings], 'There''s nothing implicitly accessible here. Use "debug things" to get a list of explicitly accessible things.')) then
+                     Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
+                  if (not CanEnd()) then
+                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + ThingListToString(Action.DebugThings, Self, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+               end;
+            end
+            else
+            if (Tokens[CurrentToken] = 'thing') then
+            begin
+               Inc(CurrentToken);
+               Result := True;
+               Action.Verb := avDebugThing;
+               if (CanEnd()) then
+                  Fail('Syntax: "debug thing <thing>"');
+               if (not GetThing(Action.DebugThing, 'debug')) then
+                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
+               if (not CanEnd()) then
+                  Fail('Syntax: "debug thing <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThing.GetDefiniteName(Self) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+            end
+            else
+            begin
+               EnsureNoPunctuation();
+               Fail('Unrecognised debug command.');
+            end;
+         end
+         else
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "things", or "thing <thing>".');
+      end
+      else
+      {$ENDIF}
          Result := False;
    end;
 

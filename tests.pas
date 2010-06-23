@@ -1,10 +1,11 @@
 {$MODE OBJFPC} { -*- text -*- }
 {$INCLUDE settings.inc}
-{-$DEFINE VERBOSE}
 program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, world, player, locations, things, thingdim, grammarian, cuddlycamp;
+
+//{$DEFINE VERBOSE}
 
 type
    TExpectationKind = (ekString, ekSubstring, ekNoSubstring, ekSkip, ekDisconnected, ekRecordingStart);
@@ -356,16 +357,16 @@ procedure TestMechanics();
       CliffCamp := TDistantScenery.Create('camp', cdSouth);
       Cliff.Add(CliffCamp, tpAroundImplicit);
       Cliff.GetSurface().Add(TSpade.Create(), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large red balloon', '((large huge massive)@ red balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large orange balloon', '((large huge massive)@ orange balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large yellow balloon', '((large huge massive)@ yellow balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large green balloon', '((large huge massive)@ green balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large blue balloon', '((large huge massive)@ blue balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large violet balloon', '((large huge massive)@ (violet purple)@ balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large white balloon', '((large huge massive)@ white balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large black balloon', '((large huge massive)@ black balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large pink balloon', '((large huge massive)@ pink balloon)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large red balloon', '((large huge massive)@ red balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large orange balloon', '((large huge massive)@ orange balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large yellow balloon', '((large huge massive)@ yellow balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large green balloon', '((large huge massive)@ green balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large blue balloon', '((large huge massive)@ blue balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large violet balloon', '((large huge massive)@ (violet purple)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large white balloon', '((large huge massive)@ white balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large black balloon', '((large huge massive)@ black balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large pink balloon', '((large huge massive)@ pink balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
       Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
       Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
       World.AddLocation(Cliff);
@@ -483,7 +484,7 @@ begin
          Proxy.ExpectString('');
          Proxy.ExpectString('I can''t find anything like a "hole" here.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('move leaves onto ground; x hole; find hole; push balloon on hole; x hole; move earth on hole; find hole; move earth off; move pink out; get spade; move earth onto hole; find hole');
+         TestPlayer.Perform('move leaves onto ground; x hole; find hole; push balloons on hole; x hole; move earth on hole; find hole; move earth off; move pink out; get spade; move earth onto hole; find hole');
          Proxy.ExpectDone();
 
          // and/then/etc tests

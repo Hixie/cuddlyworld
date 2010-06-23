@@ -19,7 +19,7 @@ type
    TThingCollector = class
     protected
       FTokenCount: Cardinal;
-      FMultiplesSuggested: Boolean;
+      FMultiplesSuggested, FDisambiguate: Boolean;
       FThingList: PThingItem;
       {$IFOPT C+} FCurrentlyCollecting, FCollected: Boolean; {$ENDIF}
       FCurrentPreferredGrammaticalNumber: TGrammaticalNumber;
@@ -33,6 +33,7 @@ type
       function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds): Boolean;
       function GetTokenCount(): Cardinal;
       function GetMultiplesSuggested(): Boolean;
+      function GetDisambiguate(): Boolean;
       function GetThingList(): PThingItem; { must be called exactly once after Collect() returns true }
    end;
 
@@ -94,17 +95,15 @@ begin
          Exit;
       end
       else
+      if (GrammaticalNumber <> gnAmbiguous) then
       begin
 {$IFDEF DEBUG_SEEKER} Writeln('     new record grammatical number!'); {$ENDIF}
+         Assert(FCurrentBestGrammaticalNumber >< gnAmbiguous = FCurrentPreferredGrammaticalNumber);
+         Assert(GrammaticalNumber = FCurrentPreferredGrammaticalNumber);
          FreeThingList(FCurrentBestThingList);
          FCurrentBestThingList := nil;
          FCurrentBestLength := Count;
-         if (GrammaticalNumber <> gnAmbiguous) then
-         begin
-            Assert(FCurrentBestGrammaticalNumber >< gnAmbiguous = FCurrentPreferredGrammaticalNumber);
-            Assert(GrammaticalNumber = FCurrentPreferredGrammaticalNumber);
-            FCurrentBestGrammaticalNumber := FCurrentPreferredGrammaticalNumber;
-         end;
+         FCurrentBestGrammaticalNumber := FCurrentPreferredGrammaticalNumber;
       end;
    end;
    New(ThingItem);
@@ -140,7 +139,7 @@ type
       constructor CreateNoTokens(); virtual;
       destructor Destroy(); override;
       procedure CheckContext(); virtual; abstract;
-      procedure Select();
+      function Select(): Boolean; { returns true if the result should be explicitly disambiguated }
       procedure Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean); virtual;
       procedure Add(Next: TAbstractClause);
    end;
@@ -259,10 +258,13 @@ begin
    else
       raise EAssertionFailed.Create('tried to describe nothingness in TAbstractClause.GetInputFragment()');
    if (SiblingCount > 0) then
+   begin
+      Assert(Assigned(FNext));
       Result := Result + ' ' + FNext.GetInputFragment(Perspective, SiblingCount-1);
+   end;
 end;
 
-procedure TAbstractClause.Select();
+function TAbstractClause.Select(): Boolean;
 var
    Count: Cardinal;
    Handle: PThingItem;
@@ -299,19 +301,33 @@ begin
          raise ESelectNotEnough.Create(Self, Count);
    end;
    case FSelectionMechanism of
-    tsmPickAll: ;
-    tsmPickOne: SelectN(1);
-    tsmPickNumber: SelectN(FNumber);
+    tsmPickAll: Result := False;
+    tsmPickOne:
+       begin
+          SelectN(1);
+          Result := Count > 1;
+       end;
+    tsmPickNumber:
+       begin
+          SelectN(FNumber);
+          Result := False;
+       end;
     tsmPickSome:
        begin
           Assert(FNumber >= 2);
           if (Count <= 2) then
-             SelectN(Count)
+          begin
+             SelectN(Count);
+             Result := False;
+          end
           else
-          if (Count > 7) then
-             SelectN(7)
-          else
-             SelectN(Count div 2);
+          begin
+             if (Count > 7) then
+                SelectN(7)
+             else
+                SelectN(Count div 2);
+             Result := True;
+          end;
        end;
     tsmPickOnlyNumber:       
        begin
@@ -320,6 +336,7 @@ begin
              Assert(Count > FNumber);
              raise ESelectTooMany.Create(Self, FNumber, Count);
           end;
+          Result := False;
        end;
     else
        raise EAssertionFailed.Create('unknown thing selection mechanism');
@@ -426,7 +443,7 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
       end;
    end;
 
-   procedure Collapse(FirstClause: TAbstractClause; out Things: PThingItem; out MultiplesSuggested: Boolean);
+   procedure Collapse(FirstClause: TAbstractClause; out Things: PThingItem; out MultiplesSuggested: Boolean; out Disambiguate: Boolean);
    var
       CurrentClause: TAbstractClause;
       ChainEnd: PPThingItem;
@@ -436,14 +453,15 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
       Things := nil;
       MultiplesSuggested := False;
       ChainEnd := @Things;
+      Disambiguate := False;
       { this is going to get far more complicated when we have restricter support }
       try
 {$IFDEF DEBUG_SEEKER} Writeln(' + multiples now ', MultiplesSuggested); {$ENDIF}
          repeat
-{$IFDEF DEBUG_SEEKER} Writeln(' + collapsing "', CurrentClause.FInputFragment, '" (', CurrentClause.GetInputFragment(Perspective, 1), ')'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln(' + collapsing "', CurrentClause.FInputFragment, '" (', CurrentClause.GetInputFragment(Perspective, 0), ')'); {$ENDIF}
             CurrentClause.CheckContext();
             try
-               CurrentClause.Select();
+               Disambiguate := Disambiguate or CurrentClause.Select();
             except
                on E: EMatcherException do
                begin
@@ -670,10 +688,11 @@ begin
             end;
             Assert(FTokenCount = 0);
             Assert(not FMultiplesSuggested);
+            Assert(not FDisambiguate);
             Assert(not Assigned(FThingList));
             Assert(Assigned(FirstClause));
             try
-               Collapse(FirstClause, FThingList, FMultiplesSuggested);
+               Collapse(FirstClause, FThingList, FMultiplesSuggested, FDisambiguate);
                FTokenCount := CurrentToken - Start;
 {$IFDEF DEBUG_SEEKER}
 if (FTokenCount > 0) then
@@ -684,6 +703,7 @@ else
             except
                FTokenCount := 0;
                FMultiplesSuggested := False;
+               FDisambiguate := False;
                FreeThingList(FThingList);
                raise;
             end;
@@ -704,6 +724,7 @@ else
       begin
          Assert(FTokenCount = 0);
          Assert(not FMultiplesSuggested);
+         Assert(not FDisambiguate);
          Assert(not Assigned(FThingList));
       end;
    end;
@@ -724,6 +745,13 @@ begin
    Result := FMultiplesSuggested;
 end;
 
+function TThingCollector.GetDisambiguate(): Boolean;
+begin
+   {$IFOPT C+} Assert(not FCurrentlyCollecting); {$ENDIF}
+   {$IFOPT C+} Assert(FCollected); {$ENDIF}
+   Result := FDisambiguate;
+end;
+
 function TThingCollector.GetThingList(): PThingItem;
 begin
    {$IFOPT C+} Assert(not FCurrentlyCollecting); {$ENDIF}
@@ -731,6 +759,7 @@ begin
    Result := FThingList;
    FTokenCount := 0;
    FMultiplesSuggested := False;
+   FDisambiguate := False;
    FThingList := nil;   
    {$IFOPT C+} FCollected := False; {$ENDIF}
 end;
