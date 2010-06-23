@@ -40,6 +40,11 @@ type
       procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
       procedure DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
       procedure DoDance();
+      {$IFDEF DEBUG}
+      procedure DoDebugStatus();
+      procedure DoDebugThings(Things: PThingItem);
+      procedure DoDebugThing(Thing: TThing);
+      {$ENDIF}
       procedure DoHelp();
       procedure DoQuit();
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
@@ -62,9 +67,10 @@ type
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetName(Perspective: TAvatar): AnsiString; override;
+      function GetLongName(Perspective: TAvatar): AnsiString; override;
+      function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetSubjectPronoun(Perspective: TAvatar): AnsiString; override; // I
       function GetObjectPronoun(Perspective: TAvatar): AnsiString; override; // me
       function GetReflexivePronoun(Perspective: TAvatar): AnsiString; override; // myself
@@ -91,6 +97,13 @@ type
       property Gender: TGender read FGender write FGender;
    end;
 
+{$IFDEF DEBUG}
+type
+   TStatusReportProc = procedure (Perspective: TAvatar) of object;
+var
+   StatusReport: TStatusReportProc = nil;
+{$ENDIF}
+
 implementation
 
 uses
@@ -102,6 +115,7 @@ type
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection,
                   avTalk, avDance,
+                  {$IFDEF DEBUG} avDebugStatus, avDebugThings, avDebugThing, {$ENDIF}
                   avHelp, avQuit);
 
    PTalkMessage = ^TTalkMessage;
@@ -133,6 +147,11 @@ type
       avDig {and avDigDirection}: (DigSpade: TThing; case TActionVerb of avDig: (DigTarget: TThing); avDigDirection: (DigDirection: TCardinalDirection));
       avTalk: (TalkTarget: TThing; TalkMessage: PTalkMessage; TalkVolume: TTalkVolume);
       avDance: ();
+      {$IFDEF DEBUG}
+      avDebugStatus: ();
+      avDebugThings: (DebugThings: PThingItem);
+      avDebugThing: (DebugThing: TThing);
+      {$ENDIF}
       avHelp: ();
       avQuit: ();
    end;
@@ -150,7 +169,7 @@ begin
    FPassword := APassword;
    FGender := AGender;
    Bag := TBag.Create('bag of holding', '(embroidered (bag/bags (of holding)?) (labeled ' + Capitalise(AName) + '))&', 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous);
-   Bag.Add(TScenery.Create('rim of bag', 'rim/rims (of bag/bags (of holding)? (labeled ' + Capitalise(AName) + ')?)?', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '"'), tpPartOfImplicit);
+   Bag.Add(TScenery.Create('rim', 'rim/rims', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '"'), tpAmbiguousPartOfImplicit);
    Add(Bag, tpCarried);
 end;
 
@@ -209,6 +228,11 @@ var
        avDigDirection: DoDig(Action.DigDirection, Action.DigSpade);
        avTalk: DoTalk(Action.TalkTarget, Action.TalkMessage^.Message, Action.TalkVolume);
        avDance: DoDance();
+       {$IFDEF DEBUG}
+       avDebugStatus: DoDebugStatus();
+       avDebugThings: DoDebugThings(Action.DebugThings);
+       avDebugThing: DoDebugThing(Action.DebugThing);
+       {$ENDIF}
        avHelp: DoHelp();
        avQuit: DoQuit();
       else
@@ -243,6 +267,9 @@ begin
              avPress: FreeThingList(Action.PressSubject);
              avShake: FreeThingList(Action.ShakeSubject);
              avTalk: Dispose(Action.TalkMessage);
+             {$IFDEF DEBUG}
+             avDebugThings: FreeThingList(Action.DebugThings);
+             {$ENDIF}
             end;
          end;
          AvatarMessage('');
@@ -286,6 +313,47 @@ begin
       Contents := 'You are not carrying anything.';
    AvatarMessage(Contents);
 end;
+
+{$IFDEF DEBUG}
+procedure TPlayer.DoDebugStatus();
+begin
+   AvatarMessage('Debug build.');
+   if (Assigned(StatusReport)) then
+      StatusReport(Self);
+end;
+
+procedure TPlayer.DoDebugThings(Things: PThingItem);
+var
+   LastThing: PThingItem;
+   Collect, FromOutside: Boolean;
+begin
+   Collect := not Assigned(Things);
+   if (Collect) then
+      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, True, tpEverything, [], Things);
+   try
+      while (Assigned(Things)) do
+      begin
+         AvatarMessage(Things^.Value.GetName(Self) + ': ' + Things^.Value.GetLongDefiniteName(Self));
+         if (Collect) then
+         begin
+            LastThing := Things;
+            Things := Things^.Next;
+            Dispose(LastThing);
+         end
+         else
+            Things := Things^.Next;
+      end;
+   finally
+      if (Collect) then
+         FreeThingList(Things);
+   end;
+end;
+
+procedure TPlayer.DoDebugThing(Thing: TThing);
+begin
+   AvatarMessage(Thing.Debug());
+end;
+{$ENDIF}
 
 procedure TPlayer.DoHelp();
 begin
@@ -357,6 +425,27 @@ begin
       Result := Capitalise(FName);
 end;
 
+function TPlayer.GetLongName(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'you'
+   else
+      Result := 'other player named ' + GetName(Perspective); // "robot"
+end;
+
+function TPlayer.GetIndefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   if (Perspective = Self) then
+      Result := 'you'
+   else
+   case FGender of
+     gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
+     gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
+    else
+      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+   end;
+end;
+
 function TPlayer.GetDefiniteName(Perspective: TAvatar): AnsiString;
 begin
    if (Perspective = Self) then
@@ -376,19 +465,6 @@ begin
       Result := 'you'
    else
       Result := 'the other player named ' + GetDefiniteName(Perspective); // "robot"
-end;
-
-function TPlayer.GetIndefiniteName(Perspective: TAvatar): AnsiString;
-begin
-   if (Perspective = Self) then
-      Result := 'you'
-   else
-   case FGender of
-     gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
-     gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
-    else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
-   end;
 end;
 
 function TPlayer.GetSubjectPronoun(Perspective: TAvatar): AnsiString;

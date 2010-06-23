@@ -41,6 +41,34 @@ type
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); override;
    end;
 
+const
+   magicA = #226#152#128;
+   magicB = #226#152#129;
+   magicC = #226#152#130;
+   magicD = #226#152#131;
+   magicE = #226#152#132;
+   magicF = #226#152#133;
+   magicG = #226#152#134;
+   magicH = #226#152#135;
+   magicI = #226#152#136;
+   magicJ = #226#152#137;
+   magicK = #226#152#138;
+   magicL = #226#152#139;
+   magicM = #226#152#140;
+   magicN = #226#152#141;
+   magicO = #226#152#142;
+   magicP = #226#152#143;
+   magicQ = #226#152#144;
+   magicR = #226#152#145;
+   magicS = #226#152#146;
+   magicT = #226#152#147;
+   magicU = #226#152#148;
+   magicV = #226#152#149;
+   magicW = #226#152#150;
+   magicX = #226#152#151;
+   magicY = #226#152#152;
+   magicZ = #226#152#153;
+
 
 constructor TCuddlyWorld.Read(Stream: TReadStream);
 begin
@@ -170,18 +198,18 @@ begin
    RobotArchway := TGenderArchway.Create('southwest archway', '(((shining (silicon metalloid)& (inverted catenary)&)# ((archway/archways arch/arches)@ (to the (southwest (south west) sw)@)?))& '+
                                                               '(((southwestern (south western) southwest (south west) sw)@ shining (silicon metalloid)& (inverted catenary)&)# (archway/archways arch/arches)@)&)@',
                                          'The southwest archway is an inverted catenary arch precisely carved into a block of shining silicon metalloid. Along the rim of the arch are many dots. '+'The archway itself is in good condition, but the area surrounding it appears to be unmaintained and rarely travelled.', gThirdGender, nil);
-   Thing := TScenery.Create('rim of archway', '(shining silicon metalloid)* rim/rims (of (archway arch)@)?', 'The rim of the carved silicon metalloid is very smooth and shiny. It follows an inverted catenary shape. The rim is decorated with dots.');
+   Thing := TScenery.Create('rim', '(shining silicon metalloid)* rim/rims', 'The rim of the carved silicon metalloid is very smooth and shiny. It follows an inverted catenary shape. The rim is decorated with dots.');
    Thing.Add(TScenery.Create('dots', '(((regularly? spaced) (large small (large and small))@)# rim dot/dots)&', 'The dots are spaced regularly along the rim of the arch. Some of the dots are large and some small, but there is no obvious pattern: '#226#131#175#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175#226#131#175#226#131#175#226#131#175#226#128#162#226#128#162#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175#226#131#175#226#131#175#226#131#175#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175), tpPartOfImplicit);
-   RobotArchway.Add(Thing, tpPartOfImplicit);
+   RobotArchway.Add(Thing, tpAmbiguousPartOfImplicit);
    ArrivalsCircle.Add(RobotArchway, tpPartOfImplicit);
 
    Thing := TScenery.Create('weeds', 'weed/weeds', 'The weeds have overrun the archways to the west and southwest.');
    (Thing as TScenery).CannotMoveExcuse := 'The weeds have evolved very strong roots. It would take some sort of inhuman hive-mind/robot alliance to clean them up.';
    ArrivalsCircle.Add(Thing, tpAroundImplicit);
 
-   ArrivalsPedestal := TStaticThing.Create('stone pedestal', '((big glowing ((twelve-pointed (twelve (pointed point)))@ star)& stone)# arrivals (pedestal/pedestals slab/slabs)@)&',
+   ArrivalsPedestal := TStaticThing.Create('stone pedestal', '((big glowing stone ((twelve-pointed twelve-point (twelve (pointed point)@))@ star)&)# arrivals (pedestal/pedestals slab/slabs)@)&',
                                            'The arrivals pedestal is a big stone slab, in the shape of a twelve-pointed star, over which you materialised when you arrived in Cuddly World. Glowing sigils are engraved at each point of the star, and a circle is engraved around the center.', tmLudicrous, tsMassive);
-   ArrivalsPedestal.Add(TScenery.Create('glowing engraved sigils', '((glowing engraved (deep? magic))# (sigil/sigils engraving/engravings)@)&', 'The sigils are of a deep magic.'), tpPartOfImplicit);
+   ArrivalsPedestal.Add(TScenery.Create('glowing engraved sigils', '((glowing engraved (deep? magic))# (sigil/sigils engraving/engravings)@)&', 'The sigils are of a deep magic. '+'Each point has a symbol engraved in it. There are eight unique symbols; two are repeated twice, and one presumably important symbol is repeated three times. '+'Starting from the northern-most point of the star and going around the circle in a clockwise direction, you see the following symbols: '+magicA+magicL+magicM+magicA+magicG+magicI+magicC+magicA+magicR+magicR+magicI+magicV), tpPartOfImplicit);
    ArrivalsPedestal.Add(TScenery.Create('engraved circle', '((center engraved)# (circle/circles engraving/engravings)@)&', 'The circle is engraved around the center of the pedestal.'), tpPartOfImplicit);
    ArrivalsCircle.Add(ArrivalsPedestal, tpAt);
 

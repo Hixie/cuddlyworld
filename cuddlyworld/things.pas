@@ -20,9 +20,11 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): AnsiString; override;
-      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
+      function GetSummaryName(Perspective: TAvatar): AnsiString; override;
+      function GetLongName(Perspective: TAvatar): AnsiString; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
+      {$IFDEF DEBUG} function Debug(): AnsiString; override; {$ENDIF}
       property LongName: AnsiString read FLongName write FLongName;
       property Plural: Boolean read FPlural write FPlural;
    end;
@@ -233,9 +235,9 @@ begin
    {$ENDIF}
    FPlural := not NameIsSingular;
    if (FPlural) then
-      FLongName := 'the ' + FPluralPattern.GetLongestMatch(' ')
+      FLongName := FPluralPattern.GetLongestMatch(' ')
    else
-      FLongName := 'the ' + FSingularPattern.GetLongestMatch(' ');
+      FLongName := FSingularPattern.GetLongestMatch(' ');
 end;
 
 destructor TNamedThing.Destroy();
@@ -270,7 +272,16 @@ begin
    Result := FName;
 end;
 
-function TNamedThing.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+function TNamedThing.GetSummaryName(Perspective: TAvatar): AnsiString;
+begin
+   Result := FName;
+   Assert(Assigned(FParent));
+   case FPosition of
+    tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetSummaryName(Perspective);
+   end;
+end;
+
+function TNamedThing.GetLongName(Perspective: TAvatar): AnsiString;
 begin
    Result := FLongName;
 end;
@@ -307,6 +318,15 @@ function TNamedThing.IsPlural(Perspective: TAvatar): Boolean;
 begin
    Result := FPlural;
 end;
+
+{$IFDEF DEBUG}
+function TNamedThing.Debug(): AnsiString;
+begin
+   Result := inherited;
+   Result := Result + #10 +
+             'Singular pattern as dot file: ' + #10 + FSingularPattern.GetPatternDotFileLabels();
+end;
+{$ENDIF}
 
 
 constructor TStaticThing.Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);

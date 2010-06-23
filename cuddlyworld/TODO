@@ -1,16 +1,28 @@
-DONE
- + change the way parsing is done so that each thing is asked how many words it can match and then the longest reply is taken as the actual length of the match
- + make the synonyms thing support multiple words per synonym, the words having to appear in the given order (or else figure out whether to special case "of" in thing descriptions; also consider "south west arch" which should not be picked for the term "south arch")
-
-NEXT
+FIXED
+ + "dilap..." should work as an adjective [fixed by making archway not be dilapidated]
+ + "the shining silicon metalloid rim of archway" - rim of which archway?
+ + "the rim of bag of holding labeled Hixie" sounds dumb because of the missing "the"
+ + "debug thing rim" => assumes i mean the dots; "debug things rim" => asks which rim, but only list two of the threeN
  + "take all" when there's nothing there should return a positive empty list
- + "take all but apples" when there's nothing there should fail() about the restrictor
+
+REGRESSIONS
+ + "drop all" drops self
+ + "drop bag" while standing on pedestal: "It is not clear how to get inside the stone pedestal"?!
+ + the automatic long name determination puts long phrases before individual words:
+    - "the shining silicon metalloid rim of the silicon metalloid inverted catenary shining archway to the south west of the Arrivals Circle" has different uses of "shining"
+    - "the twelve pointed point star big glowing stone arrivals pedestal" makes no sense
+ + does "look in ground" when there's a hole that's covered work?
+ + "which...do you mean" is excessively verbose
+ + "You feel a disturbance in the force that whispers "Invalid type cast"." when saying "out" from pedestal
+
+THING SEEKER IMPROVEMENTS
  + "take an apple that is blue" when there's blue apples and red apples
  + "take all the berries, an apple that is blue, and a coat from the table"
- + note: "from" restrictor applies to nearest group of unrestricted clauses up to an "all" clause
+    - note: "from" restrictor applies to nearest group of unrestricted clauses up to an "all" clause
  + "take apples from the table that is blue and the bench that is green" => "take the bench that is green, and apples from the table that is blue"
  + "take apples and all oranges from table"
  + "take apples and all oranges but rotten"
+ + "take all but apples" when there's nothing there should fail() about the restrictor
  + "take apples and all oranges from table but rotten"
  + "take apples and all oranges but rotten from table"
  + "take apples and all oranges that are not rotten from table"
@@ -55,8 +67,6 @@ NEXT
  + given blue vase on blue table and red vase on red table: "take the vases on the tables" => ?
  + add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
  + put everything in rucksack => put (everything but (rucksack)) in (rucksack)
- + does "look in ground" when there's a hole that's covered work?
- + "dilap..." should work as an adjective
 
 PLOT
  + plot
@@ -143,6 +153,7 @@ THINGS
  + "take leaves with spade"
  + "put x under y" should say (by putting y on x) (first taking y)
  + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
+ + "look on" should list what's on something (maybe including things like engravings?)
 
 NETWORK
  + password command

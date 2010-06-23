@@ -5,6 +5,7 @@ uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, baseunix, client, network, exceptions,
    storable, world, locations,
+   {$IFDEF DEBUG} player, {$ENDIF}
    cuddlycamp;
 
 type
@@ -19,6 +20,9 @@ type
       FOldReportExceptionMethod: TReportExceptionEvent;
       procedure InitialiseWorld();
       procedure SaveWorld();
+      {$IFDEF DEBUG}
+      procedure ReportStatus(Perspective: TAvatar);
+      {$ENDIF}
    end;
 
 var 
@@ -37,6 +41,7 @@ begin
    inherited;
    {$IFDEF DEBUG}
    Writeln('CuddlyWorld debugging enabled.');
+   player.StatusReport := @Self.ReportStatus;
    {$ENDIF}
    InitialiseWorld();
    FServer := TCuddlyWorldServer.Create(10000, 'http://software.hixie.ch', 'ws://damowmow.com:10000/cuddlyworld', FWorld);
@@ -70,6 +75,9 @@ end;
 
 destructor TMain.Destroy();
 begin
+   {$IFDEF DEBUG}
+   player.StatusReport := nil;
+   {$ENDIF}
    FServer.Free();
    FWorld.Free();
    SetReportExceptionMethod(FOldReportExceptionMethod);
@@ -93,6 +101,13 @@ begin
    Writeln(E.Message);
    Dump_Stack(Output, Get_Frame);
 end;
+
+{$IFDEF DEBUG}
+procedure TMain.ReportStatus(Perspective: TAvatar);
+begin
+   Perspective.AvatarMessage('Players: ' + IntToStr(FWorld.GetPlayerCount()));
+end;
+{$ENDIF}
 
 begin
    try

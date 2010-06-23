@@ -165,12 +165,8 @@ begin
       if (Assigned(FOnDisconnect)) then
          FOnDisconnect(Self);
       Error := fpShutdown(FSocketNumber, 2);
-      case Error of
-       0: ; { success }
-       107: ; { already disconnected }
-       else
-          raise ESocketError.Create(SocketError);
-      end;
+      if ((Error <> 0) and (SocketError <> 107)) then // 107 = already disconnected
+         raise ESocketError.Create(SocketError);
    end;
    FConnected := False;
 end;
