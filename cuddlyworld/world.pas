@@ -69,10 +69,10 @@ type
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
       function GetName(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetSummaryName(Perspective: TAvatar): AnsiString; virtual;
-      function GetLongName(Perspective: TAvatar): AnsiString; virtual;
+      function GetLongName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
-      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
+      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetSubjectPronoun(Perspective: TAvatar): AnsiString; virtual; // I
       function GetObjectPronoun(Perspective: TAvatar): AnsiString; virtual; // me
       function GetReflexivePronoun(Perspective: TAvatar): AnsiString; virtual; // myself
@@ -84,11 +84,12 @@ type
       function GetLookAt(Perspective: TAvatar): AnsiString; virtual;
       function GetExamine(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
-      function GetBasicDescription(Perspective: TAvatar; Context: TThing = nil): AnsiString; virtual;
-      function GetHorizonDescription(Perspective: TAvatar): AnsiString; virtual;
+      function GetBasicDescription(Perspective: TAvatar; Context: TAtom = nil): AnsiString; virtual;
+      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString; virtual;
+      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString; virtual;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetDescriptionState(Perspective: TAvatar): AnsiString; virtual; { e.g. 'The bottle is open.' }
-      function GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString; virtual; abstract;
+      function GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString; virtual; abstract;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): AnsiString;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: AnsiString): AnsiString; virtual;
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
@@ -138,12 +139,13 @@ type
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
       function IsPlural(Perspective: TAvatar): Boolean; virtual;
       function GetTitle(Perspective: TAvatar): AnsiString; override;
-      function GetHorizonDescription(Perspective: TAvatar): AnsiString; override;
+      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString; override;
+      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; virtual;
       function GetLookIn(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetInventory(Perspective: TAvatar): AnsiString; virtual;
-      function GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString; override;
+      function GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString; override;
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; override;
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; virtual;
@@ -176,6 +178,7 @@ type
    { Thing that can move of its own volition }
    TAvatar = class(TThing)
     protected
+      function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean; override;
     public
       procedure GetAvatars(var List: PAvatarItem; FromOutside: Boolean); override;
       procedure DoLook(); virtual; abstract;
@@ -209,7 +212,7 @@ type
       function GetAtomForDirection(Direction: TCardinalDirection): TAtom;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString; override;
+      function GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
@@ -375,6 +378,9 @@ begin
    else
    if (Position = tpOn) then
    begin
+      ATo := ATo.GetSurface();
+      Assert(Assigned(ATo));
+      Assert(ATo is TThing);
       Message := '';
       Success := (ATo as TThing).CanPut(Perspective, Position, Perspective, Message);
       if (Success) then
@@ -775,7 +781,7 @@ function TAtom.GetLook(Perspective: TAvatar): AnsiString;
 begin
    Result := Capitalise(GetTitle(Perspective)) + #10 +
              GetBasicDescription(Perspective) +
-             WithNewlineIfNotEmpty(GetHorizonDescription(Perspective)) +
+             WithNewlineIfNotEmpty(GetHorizonDescription(Perspective, Self)) +
              WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn])) +
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optOmitPerspective]));
 end;
@@ -794,16 +800,21 @@ begin
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren, optThorough]));
 end;
 
-function TAtom.GetBasicDescription(Perspective: TAvatar; Context: TThing = nil): AnsiString;
+function TAtom.GetBasicDescription(Perspective: TAvatar; Context: TAtom = nil): AnsiString;
 begin
    Result := GetDescriptionSelf(Perspective) +
              WithSpaceIfNotEmpty(GetDescriptionState(Perspective)) +
              WithSpaceIfNotEmpty(GetDescriptionHere(Perspective, Context));
 end;
 
-function TAtom.GetHorizonDescription(Perspective: TAvatar): AnsiString;
+function TAtom.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString;
 begin
    Result := '';
+end;
+
+function TAtom.GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString;
+begin
+   Result := GetBasicDescription(Perspective, Context);
 end;
 
 function TAtom.GetDescriptionState(Perspective: TAvatar): AnsiString; { e.g. 'The bottle is open.' }
@@ -1089,9 +1100,9 @@ begin
    Result := inherited;
    Assert(Assigned(FParent));
    case FPosition of
-    tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetLongDefiniteName(Perspective);
-    tpOnImplicit: Result := Result + ' on ' + FParent.GetLongDefiniteName(Perspective);
-    tpInImplicit: Result := Result + ' in ' + FParent.GetLongDefiniteName(Perspective);
+    tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetDefiniteName(Perspective);
+    tpOnImplicit: Result := Result + ' on ' + FParent.GetDefiniteName(Perspective);
+    tpInImplicit: Result := Result + ' in ' + FParent.GetDefiniteName(Perspective);
    end;
 end;
 
@@ -1109,12 +1120,28 @@ begin
       Result := inherited;
 end;
 
-function TThing.GetHorizonDescription(Perspective: TAvatar): AnsiString;
+function TThing.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString;
 begin
    if (((Perspective.Parent = Self) and (Perspective.Position in tpContained)) or (FPosition in tpContained)) then
       Result := inherited
    else
-      Result := FParent.GetBasicDescription(Perspective, Self) + WithNewlineIfNotEmpty(FParent.GetHorizonDescription(Perspective));
+      Result := FParent.GetDescriptionForHorizon(Perspective, Context);
+end;
+
+function TThing.GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString;
+var
+   Part1, Part2: AnsiString;
+begin
+   Assert(Assigned(FParent));
+   if (FParent.GetSurface() <> Self) then
+      Part1 := inherited
+   else
+      Part1 := '';
+   Part2 := GetHorizonDescription(Perspective, Context);
+   if ((Part1 <> '') and (Part2 <> '')) then
+      Result := Part1 + #10 + Part2
+   else
+      Result := Part1 + Part2;
 end;
 
 function TThing.GetLookUnder(Perspective: TAvatar): AnsiString;
@@ -1214,7 +1241,7 @@ begin
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' not carrying anything.';
 end;
 
-function TThing.GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString;
+function TThing.GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString;
 var
    Child: PThingItem;
 begin
@@ -1222,6 +1249,7 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
+      { we exclude context so that, e.g., we don't say "there's a pedestal here!" when you're on it }
       if ((Child^.Value <> Context) and (Child^.Value.Position in tpAutoDescribe)) then
       begin
          if (Length(Result) > 0) then
@@ -1512,10 +1540,20 @@ function TThing.Debug(): AnsiString;
 begin
    Result := inherited;
    Result := Result + #10 +
-             'Position: ' + ThingPositionToString(FPosition) + ' ' + FParent.GetName(nil);
+             'Position: ' + ThingPositionToString(FPosition) + ' ' + FParent.GetName(nil) + #10 +
+             'GetIntrinsicSize(): ' + AnsiString(GetIntrinsicSize()) + #10 +
+             'GetSurfaceSizeManifest(): ' + AnsiString(GetSurfaceSizeManifest()) + #10;
 end;
 {$ENDIF}
 
+
+function TAvatar.IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean;
+begin
+   if (Perspective = Self) then
+      Result := False
+   else
+      Result := inherited;
+end;
 
 procedure TAvatar.GetAvatars(var List: PAvatarItem; FromOutside: Boolean);
 var
@@ -1650,7 +1688,7 @@ begin
    Result := '';
 end;
 
-function TLocation.GetDescriptionHere(Perspective: TAvatar; Context: TThing = nil): AnsiString;
+function TLocation.GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString;
 
    procedure ProcessThing(Thing: TThing; PresenceStatement: AnsiString);
    begin

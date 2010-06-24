@@ -169,7 +169,7 @@ begin
    FPassword := APassword;
    FGender := AGender;
    Bag := TBag.Create('bag of holding', '(embroidered (bag/bags (of holding)?) (labeled ' + Capitalise(AName) + '))&', 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous);
-   Bag.Add(TScenery.Create('rim', 'rim/rims', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '"'), tpAmbiguousPartOfImplicit);
+   Bag.Add(TScenery.Create('rim', 'bag? rim/rims', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '".'), tpAmbiguousPartOfImplicit);
    Add(Bag, tpCarried);
 end;
 
@@ -818,7 +818,7 @@ end;
 procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThingPosition);
 // this is somewhat convoluted -- feel free to refactor it...
 
-   function CanBePushedTo(Thing: TThing; Surface: TAtom): Boolean;
+   function CanBePushedTo(Thing: TThing; Surface: TAtom): Boolean; { Thing is being pushed onto Surface }
    var
       Ancestor: TAtom;
    begin
@@ -852,7 +852,7 @@ procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThi
       Result := False;
    end;
 
-   function CanBePushedInto(Thing: TThing; Surface: TAtom): Boolean;
+   function CanBePushedInto(Thing: TThing; Surface: TAtom): Boolean; { Thing is being pushed into something whose inside is Surface }
    var
       Ancestor: TAtom;
    begin
@@ -1518,13 +1518,13 @@ end;
 
 function TPlayer.CanPush(Thing: TThing; var Message: AnsiString): Boolean;
 begin
-   if (Thing.GetMassManifest() > MaxPushMass) then
+   if (Thing.GetMassManifest() >= MaxPushMass) then
    begin
       Result := False;
       Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too heavy.';
    end
    else
-   if (Thing.GetOutsideSizeManifest() > MaxPushSize) then
+   if (Thing.GetOutsideSizeManifest() >= MaxPushSize) then
    begin
       Result := False;
       Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too big.';

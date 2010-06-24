@@ -644,11 +644,19 @@
          begin
             if (CanEnd()) then
             begin
-               Action.PutTarget := FParent.GetDefaultAtom().GetSurface();
-               if (Action.PutTarget = FParent.GetDefaultAtom()) then
-                  Action.PutPosition := tpIn
+               if (FPosition in tpContained) then
+               begin
+                  Action.PutPosition := tpIn;
+                  Action.PutTarget := FParent.GetInside(Action.PutPosition)
+                  {$IFOPT C+} ; Assert(Assigned(Action.PutTarget)); Action.PutTarget := Action.PutTarget {$ENDIF}
+                                                                           .GetSurface();
+               end
                else
+               begin
                   Action.PutPosition := tpOn;
+                  Action.PutTarget := FParent.GetDefaultAtom().GetSurface();
+               end;
+               Assert(Assigned(Action.PutTarget));
                if (Action.PutCarefully) then
                   AutoDisambiguated(ThingPositionToString(Action.PutPosition) + ' ' + Action.PutTarget.GetDefiniteName(Self));
             end
@@ -1206,5 +1214,3 @@
       else
          Fail('I don''t understand how to "' + OriginalTokens[CurrentToken] + '".');
    end;
-
-//  climb onto foo; avClimbOn

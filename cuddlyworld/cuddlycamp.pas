@@ -166,7 +166,7 @@ begin
    MaleArchway := TGenderArchway.Create('north archway', '(((((navy dark)@ blue)& painted Lancet (wooden wood)@)# ((archway/archways arch/arches)@ (to the (north n)@)?))& ((((navy dark)@ blue)& painted Lancet (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', 'The north archway is a Lancet arch made of painted wood. It is a predominantly dark blue affair, with small white geometric shapes (primarily circles and arrows, all pointing diagonally upwards and to the right) painted on its tall columns.', gMale, MalePath);
    MaleArchway.Add(TScenery.Create('small white geometric shapes', '((small white geometric)# shape/shapes)&', 'The geometric shapes are small white circles painted against the blue wooden arch. Each circle has an arrow pointing out of the circle at the top left. Each arrow is the same length as the diameter of the circle from which it extends.'), tpPartOfImplicit);
    MaleArchway.Add(TScenery.Create('wood', '((stiff painted blue)# wood)&', 'The northern archway''s wood is painted blue with small white geometric shapes. The wood is stiff.'), tpPartOfImplicit);
-   ArrivalsCircle.Add(MaleArchway, tpPartOfImplicit);
+   ArrivalsCircle.GetSurface().Add(MaleArchway, tpPartOfImplicit);
 
    FemaleArchway := TGenderArchway.Create('south archway', '(((((light pink)& light-pink)@ thick (semicircular semi-circular)@ crystal)# (archway/archways arch/arches)@ (to the (south s)@))& '+
                                                            '((((light pink)& light-pink)@ thick (semicircular semi-circular)@ crystal (southern south s)@)# (archway/archways arch/arches)@)&)@',
@@ -176,7 +176,7 @@ begin
                                                  '((circle-and-cross (circle and cross))@ diamond/diamonds)& '+
                                                  '((circle-and-cross/circles-and-crosses (circle/circles and cross/crosses) circle/circles cross/crosses)@ of (diamond diamonds)@)&)@',
                                      'The diamonds reflect the light perfectly. They are embedded in the gold inlay, arranged so as to form a perfect circle with a perfect square cross underneath. The top of the top arm of the cross touches the bottom of the circle.'), tpPartOfImplicit);
-   ArrivalsCircle.Add(FemaleArchway, tpPartOfImplicit);
+   ArrivalsCircle.GetSurface().Add(FemaleArchway, tpPartOfImplicit);
 
    ThirdGenderArchway := TGenderArchway.Create('east archway', '((three-foiled cusped ((archway/archways arch/arches)@ (of stone)? (to the (east e)@)?))& '+
                                                                '(((three-foiled cusped)& stone)# ((archway/archways arch/arches)@ (to the (east e)@)?))& '+
@@ -184,7 +184,7 @@ begin
                                                                '((eastern east e)@ (three-foiled cusped)& ((archway/archways arch/arches)@ (of stone)?))&)@',
                                                'The east archway is a three-foiled cusped arch made of stone. Carved in the face of the arch are a series of human figures cooking, building huts, hunting, playing, digging, and so forth.', gThirdGender, nil);
    ThirdGenderArchway.Add(TScenery.Create('human figures', '((carved human figure/figures)& (human figure carving/carvings)&)@', 'The carvings appear to represent humans partaking in typical day-to-day activities. The recognisable acts depicted are the cooking of a meal, the building of wooden huts, hunting, children playing, the digging of a hole, and fornication.'), tpPartOfImplicit);
-   ArrivalsCircle.Add(ThirdGenderArchway, tpPartOfImplicit);
+   ArrivalsCircle.GetSurface().Add(ThirdGenderArchway, tpPartOfImplicit);
 
    HiveArchway := TGenderArchway.Create('west archway', '((((stainless steel)& horseshoe)# ((archway/archways arch/arches)@ (to the (west w)@)?))& ' +
                                                         '(((stainless steel)& horseshoe (western west w)@)# (archway/archways arch/arches)@)&)@',
@@ -193,7 +193,7 @@ begin
                                            '(buried stainless steel bar/bars)& '+
                                            '((stainless steel)& bar/bars (buried under tension))&)@',
                                    'The stainless steel bars are bent into a horseshoe shape and kept in place by virtue of being buried in the ground.'), tpPartOfImplicit);
-   ArrivalsCircle.Add(HiveArchway, tpPartOfImplicit);
+   ArrivalsCircle.GetSurface().Add(HiveArchway, tpPartOfImplicit);
 
    RobotArchway := TGenderArchway.Create('southwest archway', '(((shining (silicon metalloid)& (inverted catenary)&)# ((archway/archways arch/arches)@ (to the (southwest (south west) sw)@)?))& '+
                                                               '(((southwestern (south western) southwest (south west) sw)@ shining (silicon metalloid)& (inverted catenary)&)# (archway/archways arch/arches)@)&)@',
@@ -201,17 +201,17 @@ begin
    Thing := TScenery.Create('rim', '(shining silicon metalloid)* rim/rims', 'The rim of the carved silicon metalloid is very smooth and shiny. It follows an inverted catenary shape. The rim is decorated with dots.');
    Thing.Add(TScenery.Create('dots', '(((regularly? spaced) (large small (large and small))@)# rim dot/dots)&', 'The dots are spaced regularly along the rim of the arch. Some of the dots are large and some small, but there is no obvious pattern: '#226#131#175#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175#226#131#175#226#131#175#226#131#175#226#128#162#226#128#162#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175#226#131#175#226#131#175#226#131#175#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#128#162#226#131#175#226#128#162#226#128#162#226#131#175#226#131#175), tpPartOfImplicit);
    RobotArchway.Add(Thing, tpAmbiguousPartOfImplicit);
-   ArrivalsCircle.Add(RobotArchway, tpPartOfImplicit);
+   ArrivalsCircle.GetSurface().Add(RobotArchway, tpPartOfImplicit);
 
    Thing := TScenery.Create('weeds', 'weed/weeds', 'The weeds have overrun the archways to the west and southwest.');
    (Thing as TScenery).CannotMoveExcuse := 'The weeds have evolved very strong roots. It would take some sort of inhuman hive-mind/robot alliance to clean them up.';
-   ArrivalsCircle.Add(Thing, tpAroundImplicit);
+   ArrivalsCircle.GetSurface().Add(Thing, tpAroundImplicit);
 
    ArrivalsPedestal := TStaticThing.Create('stone pedestal', '((big glowing stone ((twelve-pointed twelve-point (twelve (pointed point)@))@ star)&)# arrivals (pedestal/pedestals slab/slabs)@)&',
-                                           'The arrivals pedestal is a big stone slab, in the shape of a twelve-pointed star, over which you materialised when you arrived in Cuddly World. Glowing sigils are engraved at each point of the star, and a circle is engraved around the center.', tmLudicrous, tsMassive);
+                                           'The arrivals pedestal is a big stone slab, in the shape of a twelve-pointed star, over which you materialised when you arrived in Cuddly World. Glowing sigils are engraved at each point of the star, and a circle is engraved around the center.', tmLudicrous, tsGigantic);
    ArrivalsPedestal.Add(TScenery.Create('glowing engraved sigils', '((glowing engraved (deep? magic))# (sigil/sigils engraving/engravings)@)&', 'The sigils are of a deep magic. '+'Each point has a symbol engraved in it. There are eight unique symbols; two are repeated twice, and one presumably important symbol is repeated three times. '+'Starting from the northern-most point of the star and going around the circle in a clockwise direction, you see the following symbols: '+magicA+magicL+magicM+magicA+magicG+magicI+magicC+magicA+magicR+magicR+magicI+magicV), tpPartOfImplicit);
    ArrivalsPedestal.Add(TScenery.Create('engraved circle', '((center engraved)# (circle/circles engraving/engravings)@)&', 'The circle is engraved around the center of the pedestal.'), tpPartOfImplicit);
-   ArrivalsCircle.Add(ArrivalsPedestal, tpAt);
+   ArrivalsCircle.GetSurface().Add(ArrivalsPedestal, tpAt);
 
    // signs
 
@@ -223,7 +223,10 @@ begin
 
    // temporary
    World.AddLocation(MalePath);
+   MalePath.ConnectCardinals(Forest, Forest, ArrivalsCircle, Forest);
+   MalePath.Add(TSpade.Create(), tpOn);
    World.AddLocation(FemalePath);
+   FemalePath.ConnectCardinals(ArrivalsCircle, Forest, Forest, Forest);
 
    Result := World;
 end;

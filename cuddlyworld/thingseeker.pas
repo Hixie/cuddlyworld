@@ -629,20 +629,30 @@ var
    function TryClause(ClauseKind: TClauseKind; CandidateTokens: array of AnsiString; out NextClauseKind: TClauseKind; out NextClauseLength: Cardinal): Boolean;
    var
       Index: Cardinal;
+{$IFDEF DEBUG_SEEKER}
+I: Integer;
+S: String;
+{$ENDIF}
    begin
+{$IFDEF DEBUG_SEEKER}
+S := '';
+for I := 0 to Length(CandidateTokens)-1 do
+   S := S + ' "' + CandidateTokens[I] + '"';
+Writeln(' * TryClause(', ClauseKind, ',', S, '):');
+{$ENDIF}
       Assert(ClauseKind <> ckStart);
       Assert(Length(CandidateTokens) > 0);
-      if (not (ClauseKind in Ends)) then
+      if ((not (ClauseKind in Ends)) and (CurrentToken + Length(CandidateTokens) <= Length(Tokens))) then
       begin
-         if (CurrentToken + Length(CandidateTokens) <= Length(Tokens)) then
+         for Index := 0 to Length(CandidateTokens) - 1 do
          begin
-            for Index := 0 to Length(CandidateTokens) - 1 do
+            if (Tokens[CurrentToken + Index] <> CandidateTokens[Index]) then
             begin
-               if (Tokens[CurrentToken + Index] <> CandidateTokens[Index]) then
-               begin
-                  Result := False;
-                  Exit;
-               end;
+               Result := False;
+{$IFDEF DEBUG_SEEKER}
+Writeln(' * TryClause() finished, result = ', Result);
+{$ENDIF}
+               Exit;
             end;
          end;
          NextClauseKind := ClauseKind;
@@ -653,6 +663,9 @@ var
       begin
          Result := False;
       end;
+{$IFDEF DEBUG_SEEKER}
+Writeln(' * TryClause() finished, result = ', Result);
+{$ENDIF}
    end;
 
 var
@@ -660,7 +673,7 @@ var
    NextClauseLength: Cardinal;
    FirstClause, CurrentClause, NextClause: TAbstractClause;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('collecting for: "' + Serialise(OriginalTokens, Start, 1) + '" of "' + Serialise(OriginalTokens, 0, Length(OriginalTokens))); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('collecting for: "' + Serialise(OriginalTokens, Start, 1) + '" of "' + Serialise(OriginalTokens, 0, Length(OriginalTokens)) + '"'); {$ENDIF}
    {$IFOPT C+}
    Assert(not FCurrentlyCollecting);
    Assert(not FCollected);
@@ -671,6 +684,9 @@ begin
       CurrentToken := Start;
       if (CollectArticleAndThings(ckStart, 0, FirstClause)) then
       begin
+{$IFDEF DEBUG_SEEKER}
+Writeln('FirstClause matched ', CurrentToken - Start, ' tokens.');
+{$ENDIF}
          try
             Assert(Assigned(FirstClause));
             CurrentClause := FirstClause;
@@ -682,6 +698,9 @@ begin
                     TryClause(ckAnd, ['and'], NextClauseKind, NextClauseLength)) and
                    (CollectArticleAndThings(NextClauseKind, NextClauseLength, NextClause))) do
             begin
+{$IFDEF DEBUG_SEEKER}
+Writeln('NextClause increased the total number of matched tokens to ', CurrentToken - Start, ' tokens.');
+{$ENDIF}
                Assert(Assigned(NextClause));
                CurrentClause.Add(NextClause);
                CurrentClause := NextClause;
@@ -696,15 +715,16 @@ begin
                FTokenCount := CurrentToken - Start;
 {$IFDEF DEBUG_SEEKER}
 if (FTokenCount > 0) then
- Writeln('  collapsed "' + Serialise(OriginalTokens, Start, FTokenCount) + '" to "' + ThingListToString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested)
+ Writeln('collapsed "' + Serialise(OriginalTokens, Start, FTokenCount) + '" to "' + ThingListToString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested)
 else
- Writeln('  collapsed nothing to "' + ThingListToString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested);
+ Writeln('collapsed nothing to "' + ThingListToString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested);
 {$ENDIF}
             except
                FTokenCount := 0;
                FMultiplesSuggested := False;
                FDisambiguate := False;
                FreeThingList(FThingList);
+               FThingList := nil;
                raise;
             end;
             Result := True;
@@ -717,7 +737,14 @@ else
          Result := False;
       end;
    {$IFOPT C+}
+{$IFDEF DEBUG_SEEKER}
+Writeln('collecting successful; result = ', Result);
+{$ENDIF}
    finally
+{$IFDEF DEBUG_SEEKER}
+Writeln('collecting complete.');
+Writeln();
+{$ENDIF}
       FCurrentlyCollecting := False;
       FCollected := Result;
       if (not FCollected) then
