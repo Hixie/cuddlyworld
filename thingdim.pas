@@ -64,6 +64,10 @@ end.
 
 procedure Zero(out A: TThingDimensionManifest); inline;
 operator := (const A: TThingDimension): TThingDimensionManifest; inline;
+{$IFDEF DEBUG}
+operator := (const A: TThingDimension): AnsiString;
+operator := (const A: TThingDimensionManifest): AnsiString;
+{$ENDIF}
 operator + (const A, B: TThingDimensionManifest): TThingDimensionManifest; inline;
 operator + (const A: TThingDimensionManifest; const B: TThingDimension): TThingDimensionManifest; inline;
 operator - (A, B: TThingDimensionManifest): TThingDimensionManifest; inline;
@@ -109,6 +113,39 @@ begin
    Zero(Result);
    Result[A] := 1;
 end;
+
+{$IFDEF DEBUG}
+operator := (const A: TThingDimension): AnsiString;
+var
+   Index: TThingDimension;
+begin
+   Result := '(';
+   for Index := Low(TThingDimension) to High(TThingDimension) do
+   begin
+      if (Length(Result) > 1) then
+         Result := Result + ',';
+      if (Index = A) then
+         Result := Result + '1'
+      else
+         Result := Result + '0';
+   end;
+   Result := Result + ')';
+end;
+
+operator := (const A: TThingDimensionManifest): AnsiString;
+var
+   Index: TThingDimension;
+begin
+   Result := '(';
+   for Index := Low(TThingDimension) to High(TThingDimension) do
+   begin
+      if (Length(Result) > 1) then
+         Result := Result + ',';
+      Result := Result + IntToStr(A[Index]);
+   end;
+   Result := Result + ')';
+end;
+{$ENDIF}
 
 operator + (const A, B: TThingDimensionManifest): TThingDimensionManifest;
 var

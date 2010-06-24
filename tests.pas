@@ -403,6 +403,25 @@ begin
          TestPlayer.Perform('look');
          Proxy.ExpectDone();
 
+         // Basic parsing of things
+         Proxy.Test('Parsing of things');
+         Proxy.ExpectString('I can''t see any "xyzzy" here to examine.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('x xyzzy');
+         Proxy.ExpectString('The bag has the name "Tester" embroidered around its rim.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('x bag');
+         Proxy.ExpectString('Around the bag''s rim is embroidered the name "Tester".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('x rim');
+         Proxy.ExpectString('Around the bag''s rim is embroidered the name "Tester".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('x bag rim');
+         Proxy.ExpectString('I don''t understand how to examine things "bag".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('x rim bag');
+         Proxy.ExpectDone();
+
          // Dig and cover test
          Proxy.Test('Digging');
          Proxy.ExpectNoSubstring('I can''t see anything to move.');
@@ -436,14 +455,18 @@ begin
          Proxy.ExpectString('Moved onto the hole.');
          Proxy.ExpectString('');
          Proxy.SkipLine();
-         Proxy.ExpectSubstring('On the hole is a pile of leaves');
+         Proxy.ExpectSubstring('On the hole is a pile of leaves'); // examine hole
+         Proxy.ExpectString('');
+         Proxy.ExpectString('The hole is covered by a pile of leaves.'); // look in hole
+         Proxy.ExpectString('');
+         Proxy.ExpectString('To look in the ground, you first need to dig a hole in it.'); // look in ground
          Proxy.ExpectString('');
          Proxy.ExpectString('Foot of Cliff Face');
          Proxy.ExpectNoSubstring('hole');
          Proxy.AndAlso();
          Proxy.ExpectSubstring('leaves');
          Proxy.WaitUntilString('');
-         TestPlayer.Perform('move all n; n; dig; l; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l');
+         TestPlayer.Perform('move all n; n; dig; l; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l in hole; look in ground; l');
          Proxy.ExpectDone();
 
          // overfill test

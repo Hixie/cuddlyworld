@@ -1,19 +1,20 @@
 FIXED
- + "dilap..." should work as an adjective [fixed by making archway not be dilapidated]
- + "the shining silicon metalloid rim of archway" - rim of which archway?
- + "the rim of bag of holding labeled Hixie" sounds dumb because of the missing "the"
- + "debug thing rim" => assumes i mean the dots; "debug things rim" => asks which rim, but only list two of the threeN
- + "take all" when there's nothing there should return a positive empty list
-
-REGRESSIONS
  + "drop all" drops self
  + "drop bag" while standing on pedestal: "It is not clear how to get inside the stone pedestal"?!
+ + "drop bag" while standing on pedestal: "There is not enough room on the stone pedestal for the bag of holding."?!
+ + does "look in ground" when there's a hole that's covered work?
+ + "You feel a disturbance in the force that whispers "Invalid type cast"." when saying "out" from pedestal
+ + when you're on the pedestal it told you what the ground is like - fixed the horizon code to not refer to the ground
+ + you can push the pedestal!
+ + "which...do you mean" is excessively verbose - fixed a little, still might need work
+
+REGRESSIONS
  + the automatic long name determination puts long phrases before individual words:
     - "the shining silicon metalloid rim of the silicon metalloid inverted catenary shining archway to the south west of the Arrivals Circle" has different uses of "shining"
-    - "the twelve pointed point star big glowing stone arrivals pedestal" makes no sense
- + does "look in ground" when there's a hole that's covered work?
- + "which...do you mean" is excessively verbose
- + "You feel a disturbance in the force that whispers "Invalid type cast"." when saying "out" from pedestal
+    - "the twelve pointed star big glowing stone arrivals pedestal" should have "big" at the front
+    - it also doesn't support finding the "best" alternative when it's a hyphenated word ("twelve pointed" is preferred over "twelve-pointed")
+    - could be fixed by adding changing the end marker to two bytes rather than the 0xFE/0xFF thing
+    - or add one byte at the start of each state which gives the bits to follow for the long name, and use 0xFF as the last byte, and sort the transitions (don't bunch them)
 
 THING SEEKER IMPROVEMENTS
  + "take an apple that is blue" when there's blue apples and red apples
@@ -93,7 +94,7 @@ NAVIGATION
  + "climb cliff": I don't understand how to "climb".
  + "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
  + "move to north", "move to hut"
- + "get on pile" should mean the same as "move onto pile"
+ + "climb on pedestal", "climb up onto pedestal", "up onto pedestal", "up", "get on pedestal" should mean the same as "move onto pedestal"
  + "move off", "move off pile", "move me off pile" when standing on the pile of leaves
  + "off" and "get off" should be required to be used instead of "out" when on an object
  + announce when a player disconnects or reconnects
@@ -154,6 +155,11 @@ THINGS
  + "put x under y" should say (by putting y on x) (first taking y)
  + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
  + "look on" should list what's on something (maybe including things like engravings?)
+ + Looking at something that itself contains things has weird spacing before the second "contains":
+    | The hole contains:
+    |   A bag of holding.   The bag of holding contains:
+    |     A spade.
+
 
 NETWORK
  + password command
