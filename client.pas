@@ -17,18 +17,19 @@ type
       procedure HandleForceDisconnect();
       procedure Handshake(); override;
     public
-      constructor Create(AListener: TListenerSocket; AOrigin: String; ALocation: String; AWorld: TWorld);
+      constructor Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString; AWorld: TWorld);
       destructor Destroy(); override;
     end;
 
    TCuddlyWorldServer = class(TNetworkServer)
     protected
-      FOrigin: String;
-      FLocation: String;
+      FOrigin: AnsiString;
+      FHostName: AnsiString;
+      FResource: AnsiString;
       FWorld: TWorld;
       function CreateNetworkSocket(AListenerSocket: TListenerSocket): TNetworkSocket; override;
     public
-      constructor Create(APort: Word; AOrigin: String; ALocation: String; AWorld: TWorld);
+      constructor Create(APort: Word; AOrigin: AnsiString; AHostName: AnsiString; AResource: AnsiString; AWorld: TWorld);
    end;
 
 implementation
@@ -36,9 +37,9 @@ implementation
 uses
    sysutils;
 
-constructor TCuddlyWorldClient.Create(AListener: TListenerSocket; AOrigin: String; ALocation: String; AWorld: TWorld);
+constructor TCuddlyWorldClient.Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString; AWorld: TWorld);
 begin
-   inherited Create(AListener, AOrigin, ALocation);
+   inherited Create(AListener, AOrigin, AHostName, APort, AResource);
    FWorld := AWorld;
 end;
 
@@ -132,17 +133,18 @@ begin
 end;
 
 
-constructor TCuddlyWorldServer.Create(APort: Word; AOrigin: String; ALocation: String; AWorld: TWorld);
+constructor TCuddlyWorldServer.Create(APort: Word; AOrigin: AnsiString; AHostName: AnsiString; AResource: AnsiString; AWorld: TWorld);
 begin
    inherited Create(APort);
    FOrigin := AOrigin;
-   FLocation := ALocation;
+   FHostName := AHostName;
+   FResource := AResource;
    FWorld := AWorld;
 end;
 
 function TCuddlyWorldServer.CreateNetworkSocket(AListenerSocket: TListenerSocket): TNetworkSocket;
 begin
-   Result := TCuddlyWorldClient.Create(AListenerSocket, FOrigin, FLocation, FWorld);
+   Result := TCuddlyWorldClient.Create(AListenerSocket, FOrigin, FHostName, FPort, FResource, FWorld);
 end;
 
 end.

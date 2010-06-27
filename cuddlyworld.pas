@@ -44,7 +44,7 @@ begin
    player.StatusReport := @Self.ReportStatus;
    {$ENDIF}
    InitialiseWorld();
-   FServer := TCuddlyWorldServer.Create(10000, 'http://software.hixie.ch', 'ws://damowmow.com:10000/cuddlyworld', FWorld);
+   FServer := TCuddlyWorldServer.Create(10000, 'http://software.hixie.ch', 'damowmow.com', 'cuddlyworld', FWorld);
    New(NewAction);
    if (not Assigned(NewAction)) then
       OutOfMemoryError();

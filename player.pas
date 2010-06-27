@@ -169,7 +169,7 @@ begin
    FPassword := APassword;
    FGender := AGender;
    Bag := TBag.Create('bag of holding', '(embroidered (bag/bags (of holding)?) (labeled ' + Capitalise(AName) + '))&', 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous);
-   Bag.Add(TScenery.Create('rim', 'bag? rim/rims', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '".'), tpAmbiguousPartOfImplicit);
+   Bag.Add(TScenery.Create('rim', '(rim/rims (bag? rim/rims))@', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '".'), tpAmbiguousPartOfImplicit); { the weird pattern is to avoid putting "bag" in the canonical description }
    Add(Bag, tpCarried);
 end;
 

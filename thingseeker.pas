@@ -30,14 +30,12 @@ type
     public
       constructor Create();
       destructor Destroy(); override;
-      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds): Boolean;
+      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds; Verb: AnsiString): Boolean;
       function GetTokenCount(): Cardinal;
       function GetMultiplesSuggested(): Boolean;
       function GetDisambiguate(): Boolean;
       function GetThingList(): PThingItem; { must be called exactly once after Collect() returns true }
    end;
-
-function ThingListToString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
 
 implementation
 
@@ -115,17 +113,13 @@ end;
 
 type
    TThingSelectionMechanism = (tsmPickAll, tsmPickOne, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber);
-   TClauseMode = (cmSpecific, cmAll, cmAllInSingularContext, cmSpecificNoToken); { cmAllInSingularContext is for cases like "look at all" - "can't look at multiple things" }
-
-const
-   cmAlls = [cmAll, cmAllInSingularContext];
 
 type
    TAbstractClause = class
      private
-      FMode: TClauseMode;
       FNumber: Cardinal;
       FSelectionMechanism: TThingSelectionMechanism;
+      FAllowExceptions: Boolean;
       FMultiplesSuggested: Boolean;
       FThings: PThingItem;
       FInputFragment: AnsiString;
@@ -133,9 +127,9 @@ type
       FPrevious: TAbstractClause;
       function GetInputFragment(Perspective: TAvatar; SiblingCount: Cardinal): AnsiString;
      public
-      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; MultiplesSuggested: Boolean; Things: PThingItem; InputFragment: AnsiString); virtual;
-      constructor CreateAll(Things: PThingItem); virtual;
-      constructor CreateNoMatchAll(); virtual;
+      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; AllowExceptions, MultiplesSuggested: Boolean; Things: PThingItem; InputFragment: AnsiString); virtual;
+      constructor CreateAll(Things: PThingItem; AllowExceptions: Boolean); virtual;
+      constructor CreateAllNoScope(); virtual;
       constructor CreateNoTokens(); virtual;
       destructor Destroy(); override;
       procedure CheckContext(); virtual; abstract;
@@ -176,7 +170,7 @@ end;
 
 function ESelectNotEnough.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
 begin
-   Result := 'About "' + Input + '"... I can only find ' + NumberToEnglish(FCount) + ': ' + ThingListToString(FClause.FThings, Perspective, 'and') + '.';
+   Result := 'About "' + Input + '"... I can only find ' + NumberToEnglish(FCount) + ': ' + ThingListToLongDefiniteString(FClause.FThings, Perspective, 'and') + '.';
 end;
 
 constructor ESelectTooMany.Create(Clause: TAbstractClause; Wanted, Got: Cardinal);
@@ -189,52 +183,48 @@ end;
 function ESelectTooMany.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
 begin
    if (FWanted = 1) then
-      Result := 'Which "' + Input + '" do you mean, ' + ThingListToString(FClause.FThings, Perspective, 'or') + '?'
+      Result := 'Which "' + Input + '" do you mean, ' + ThingListToLongDefiniteString(FClause.FThings, Perspective, 'or') + '?'
    else
       Result := 'About "' + Input + '"... I count ' + NumberToEnglish(FGot) + ', not ' + NumberToEnglish(FWanted) + '.';
 end;
 
-constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; MultiplesSuggested: Boolean; Things: PThingItem; InputFragment: AnsiString);
+constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; AllowExceptions, MultiplesSuggested: Boolean; Things: PThingItem; InputFragment: AnsiString);
 begin
    inherited Create();
-   FMode := cmSpecific;
    FNumber := Number;
    FSelectionMechanism := SelectionMechanism;
+   FAllowExceptions := AllowExceptions;
    FMultiplesSuggested := MultiplesSuggested;
    FThings := Things;
    FInputFragment := InputFragment;
-{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.Create(', Number, ', ..., ', MultiplesSuggested, ', ', ThingListToString(Things, nil, 'and'), ', ', InputFragment, ')'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.Create(', Number, ', ..., ', MultiplesSuggested, ', ', ThingListToLongDefiniteString(Things, nil, 'and'), ', ', InputFragment, ')'); {$ENDIF}
 end;
 
-constructor TAbstractClause.CreateAll(Things: PThingItem);
+constructor TAbstractClause.CreateAll(Things: PThingItem; AllowExceptions: Boolean);
 begin
    inherited Create();
-   if (Assigned(Things)) then
-      FMode := cmAll
-   else
-      FMode := cmAllInSingularContext;
    FNumber := 0;
    FSelectionMechanism := tsmPickAll;
+   FAllowExceptions := AllowExceptions;
    FMultiplesSuggested := True;
    FThings := Things;
-{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateAll(', ThingListToString(Things, nil, 'and'), ')'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateAll(', ThingListToLongDefiniteString(Things, nil, 'and'), ')'); {$ENDIF}
 end;
 
-constructor TAbstractClause.CreateNoMatchAll();
+constructor TAbstractClause.CreateAllNoScope();
 begin
    inherited Create();
-   FMode := cmAll;
    FNumber := 0;
    FSelectionMechanism := tsmPickAll;
+   FAllowExceptions := False;
    FMultiplesSuggested := True;
    FThings := nil;
-{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateNoMatchAll()'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateAllNoScope()'); {$ENDIF}
 end;
 
 constructor TAbstractClause.CreateNoTokens();
 begin
    inherited Create();
-   FMode := cmSpecificNoToken;
 {$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateNoTokens()'); {$ENDIF}
 end;
 
@@ -253,10 +243,7 @@ begin
    if (Length(FInputFragment) > 0) then
       Result := FInputFragment
    else
-   if (FMode in cmAlls) then
-      Result := 'everything'
-   else
-      raise EAssertionFailed.Create('tried to describe nothingness in TAbstractClause.GetInputFragment()');
+      Result := 'everything';
    if (SiblingCount > 0) then
    begin
       Assert(Assigned(FNext));
@@ -277,6 +264,7 @@ var
       begin
          Assert(Assigned(Handle));
          Handle := Handle^.Next;
+         Dec(N);
       end;
       Assert(Assigned(Handle));
       if (Assigned(Handle^.Next)) then
@@ -296,25 +284,19 @@ begin
    end;
    if (Count < FNumber) then
    begin
-      Assert((Count > 0) or (FSelectionMechanism = tsmPickAll));
+      Assert((Count > 0) or (FSelectionMechanism = tsmPickAll), 'Count=' + IntToStr(Count) + '; FSelectionMechanism=' + IntToStr(Cardinal(FSelectionMechanism)));
       if (Count > 0) then
          raise ESelectNotEnough.Create(Self, Count);
    end;
    case FSelectionMechanism of
     tsmPickAll: Result := False;
-    tsmPickOne:
-       begin
-          SelectN(1);
-          Result := Count > 1;
-       end;
     tsmPickNumber:
        begin
           SelectN(FNumber);
-          Result := False;
+          Result := Count > FNumber;
        end;
     tsmPickSome:
        begin
-          Assert(FNumber >= 2);
           if (Count <= 2) then
           begin
              SelectN(Count);
@@ -412,7 +394,7 @@ const
       TInClause}
    );
 
-function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds): Boolean;
+function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds; Verb: AnsiString): Boolean;
 
    procedure Deduplicate(var Things: PThingItem);
    var
@@ -448,6 +430,7 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
       CurrentClause: TAbstractClause;
       ChainEnd: PPThingItem;
    begin
+{$IFDEF DEBUG_SEEKER} Writeln(' Collapse()'); {$ENDIF}
       Assert(FirstClause is TStartClause);
       CurrentClause := FirstClause;
       Things := nil;
@@ -461,7 +444,8 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
 {$IFDEF DEBUG_SEEKER} Writeln(' + collapsing "', CurrentClause.FInputFragment, '" (', CurrentClause.GetInputFragment(Perspective, 0), ')'); {$ENDIF}
             CurrentClause.CheckContext();
             try
-               Disambiguate := Disambiguate or CurrentClause.Select();
+               if (CurrentClause.Select()) then
+                  Disambiguate := True;
             except
                on E: EMatcherException do
                begin
@@ -470,7 +454,7 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
             end;
             CurrentClause.Bank(ChainEnd, MultiplesSuggested);
 {$IFDEF DEBUG_SEEKER} Writeln(' + multiples now ', MultiplesSuggested); {$ENDIF}
-            CurrentClause := FirstClause.FNext;
+            CurrentClause := CurrentClause.FNext;
          until not Assigned(CurrentClause);
       except
          FreeThingList(Things);
@@ -482,147 +466,152 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
 var
    CurrentToken: Cardinal;
 
-   function CollectArticleAndThings(ClauseKind: TClauseKind; ClauseLength: Cardinal; out Clause: TAbstractClause): Boolean;
+   function CollectArticleAndThings(ClauseClass: TAbstractClauseClass; ClauseLength: Cardinal; out Clause: TAbstractClause): Boolean;
 
-      function CollectExplicitThings(var GrammaticalNumber: TGrammaticalNumber): Boolean;
+      function CollectExplicitThings(PreferredGrammaticalNumber: TGrammaticalNumber; Number: Cardinal; SingularThingSelectionMechanism, PluralThingSelectionMechanism: TThingSelectionMechanism; AllowExceptions, ForceMatch: Boolean): Boolean;
       var
          FromOutside: Boolean;
+         Start: Cardinal;
       begin
-{$IFDEF DEBUG_SEEKER} Writeln(' - CollectExplicitThings(', GrammaticalNumberToString(GrammaticalNumber), ')'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('    CollectExplicitThings():'); {$ENDIF}
+         Assert((PreferredGrammaticalNumber <> []));
          Assert(not Assigned(FCurrentBestThingList));
-         Assert(CurrentToken < Length(Tokens));
-         FCurrentPreferredGrammaticalNumber := GrammaticalNumber;
-         FCurrentBestLength := 0;
-         FCurrentBestGrammaticalNumber := [];
-         FCurrentBestThingList := nil;
-         try
-            Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @ReferencedCallback);
-         except
-            FreeThingList(FCurrentBestThingList);
-            raise;
-         end;
-         Result := Assigned(FCurrentBestThingList);
-         if (Result) then
-            Inc(CurrentToken, FCurrentBestLength);
-{$IFDEF DEBUG_SEEKER} Writeln(' - CollectExplicitThings returned ', Result, ': ', ThingListToString(FCurrentBestThingList, Perspective, 'and'), ' (', GrammaticalNumberToString(FCurrentBestGrammaticalNumber), ')'); {$ENDIF}
-      end;
-
-      function CollectImplicitThings(): Boolean;
-      var
-         FromOutside: Boolean;
-      begin
-         Assert(not Assigned(FCurrentBestThingList));
-         if (aisSurroundings in Scope) then
-         begin
-            FCurrentBestThingList := nil;
-            Perspective.GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Perspective, FromOutside, aisSelf in Scope, tpExplicit, [], FCurrentBestThingList);
-            Result := Assigned(FCurrentBestThingList);
-         end
-         else
-         if (aisSelf in Scope) then
-         begin
-            FCurrentBestThingList := nil;
-            Perspective.                                 AddImplicitlyReferencedThings(Perspective, True,        True,             tpExplicit, [], FCurrentBestThingList);
-            Result := Assigned(FCurrentBestThingList);
-         end
-         else
-         begin
-            FCurrentBestThingList := nil;
-            Result := True;
-         end;
-      end;
-
-   var
-      Start: Cardinal;
-
-      function GetMatchedTokens(): AnsiString;
-      begin
-         Result := Serialise(OriginalTokens, Start, CurrentToken - Start);
-      end;
-
-   var
-      GrammaticalNumber: TGrammaticalNumber;
-      ClauseClass: TAbstractClauseClass;
-   begin
-      Assert(not Assigned(FCurrentBestThingList));
-      ClauseClass := ClauseKindToClass[ClauseKind];
-      Assert(Assigned(ClauseClass));
-      Clause := nil;
-      Inc(CurrentToken, ClauseLength);
-      if (CurrentToken < Length(Tokens)) then
-      begin
          Start := CurrentToken;
-
-{
-   object lists:
-    - "all <plural*>"             - there must be one or more, pick them all, allow exceptions
-    - "all the <plural*>"         - there must be one or more, pick them all, allow exceptions; had definite article
-    - "all of the <plural*>"      - there must be one or more, pick them all, allow exceptions; had definite article
-    - "all"                       - pick everything referencable in scope, allow exceptions
-    - "everything"                - pick everything referencable in scope, allow exceptions
-    - "every <singular*>"         - there must be one or more, pick them all, allow exceptions
-    - "any <plural>"              - there must be zero or more, pick them all, allow exceptions
-    - "any of the <plural*>"      - there must be one or more, pick one "randomly", allow exceptions; had definite article
-    - "any <singular>"            - there must be one or more, pick one "randomly", allow exceptions
-
-    - "a <singular*>"             - there must be one or more, pick one "randomly"
-    - "an <singular*>"            - there must be one or more, pick one "randomly"
-    - "one of the <plural*>"      - there must be one or more, pick one "randomly"; had definite article
-    - "one <singular*>"           - there must be one or more, pick one "randomly"
-    - "<number> <plural*>"        - there must be <number> or more, pick <number> of them "randomly"
-    - "some <plural>"             - there must be two or more, pick a non-integer fraction of them "randomly"    \__
-    - "some <singular>"           - there must be two or more, pick one "randomly"                               /  |
-    - "the one <singular*>"       - there must be one, pick number; had definite article                            |
-    - "the <number> <plural*>"    - there must be <number>, pick number; had definite article                       |
-    - "the <plural>"              - there must be one or more, pick them all; had definite article               \__|
-    - "the <singular>"            - there must be one, pick number; had definite article                         /  |
-    - "<plural>"                  - there must be one or more, pick them all                                     \__|
-    - "<singular>"                - there must be one, pick number                                               /  `----> prefer based on verb
-    + "one" / "ones"
-}
-
-         if (Tokens[CurrentToken] = 'all') then
+         if (CurrentToken < Length(Tokens)) then
          begin
-            Inc(CurrentToken);
-            if (CollectImplicitThings()) then
-            begin
-               Clause := ClauseClass.CreateAll(FCurrentBestThingList);
-               FCurrentBestThingList := nil;
-            end
-            else
-            begin
-               Clause := ClauseClass.CreateNoMatchAll();
+            FCurrentPreferredGrammaticalNumber := PreferredGrammaticalNumber;
+            FCurrentBestLength := 0;
+            FCurrentBestGrammaticalNumber := [];
+            FCurrentBestThingList := nil;
+            try
+               Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @ReferencedCallback);
+            except
+               FreeThingList(FCurrentBestThingList);
+               raise;
             end;
-         end
-         else
-         begin
-            GrammaticalNumber := PreferredGrammaticalNumber;
-            if (CollectExplicitThings(GrammaticalNumber)) then
+            if (Assigned(FCurrentBestThingList)) then
             begin
+               Inc(CurrentToken, FCurrentBestLength);
                Assert(CurrentToken > Start);
+               if (CurrentToken < Length(Tokens)) then
+               begin
+                  Assert(FCurrentPreferredGrammaticalNumber = PreferredGrammaticalNumber);
+                  if ((FCurrentPreferredGrammaticalNumber <= FCurrentBestGrammaticalNumber) and
+                      (((PreferredGrammaticalNumber = [gnSingular]) and (Tokens[CurrentToken] = 'one')) or
+                       ((PreferredGrammaticalNumber = [gnPlural]) and (Tokens[CurrentToken] = 'ones')))) then
+                  begin
+                     Inc(CurrentToken);
+                  end;
+               end;
                if (gnPlural in FCurrentBestGrammaticalNumber) then { take apples }
                begin
-                  Clause := ClauseClass.Create(1, tsmPickAll, True, FCurrentBestThingList, GetMatchedTokens())
+                  Assert(Assigned(FCurrentBestThingList));
+                  Clause := ClauseClass.Create(Number, PluralThingSelectionMechanism, AllowExceptions, True, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))
                end
                else { take apple }
                begin
                   Assert(gnSingular in FCurrentBestGrammaticalNumber);
-                  Clause := ClauseClass.Create(1, tsmPickOnlyNumber, False, FCurrentBestThingList, GetMatchedTokens());
+                  Assert(Assigned(FCurrentBestThingList));
+                  Clause := ClauseClass.Create(Number, SingularThingSelectionMechanism, AllowExceptions, False, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
                end;
                FCurrentBestThingList := nil;
+            end
+            else
+            begin
+               Assert(Start = CurrentToken);
+               if (ForceMatch) then
+                  Fail('I can''t see any "' + Serialise(OriginalTokens, CurrentToken, 1) + '" here to ' + Verb + '.');
+               Clause := nil;
             end;
+         end
+         else
+         begin
+            Clause := ClauseClass.CreateNoTokens();
          end;
+{$IFDEF DEBUG_SEEKER} Writeln('    CollectExplicitThings() finished.'); {$ENDIF}
+         Result := Assigned(Clause);
+      end;
+
+      procedure CollectImplicitThings(AllowExceptions: Boolean);
+      var
+         FromOutside: Boolean;
+      begin
+{$IFDEF DEBUG_SEEKER} Writeln('    CollectImplicitThings():'); {$ENDIF}
+         Assert(not Assigned(FCurrentBestThingList));
+         if (aisSurroundings in Scope) then
+         begin
+            Perspective.GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Perspective, FromOutside, aisSelf in Scope, tpExplicit, [], FCurrentBestThingList);
+            Clause := ClauseClass.CreateAll(FCurrentBestThingList, AllowExceptions);
+         end
+         else
+         if (aisSelf in Scope) then
+         begin
+            Perspective.AddImplicitlyReferencedThings(Perspective, True, True, tpExplicit, [], FCurrentBestThingList);
+            Clause := ClauseClass.CreateAll(FCurrentBestThingList, AllowExceptions);
+         end
+         else
+            Clause := ClauseClass.CreateAllNoScope();
+         FCurrentBestThingList := nil;
+{$IFDEF DEBUG_SEEKER} Writeln('    CollectImplicitThings() finished'); {$ENDIF}
+      end;
+
+{
+   object lists:
+    - "one <either-s>"               - there must be one or more, pick number "randomly"
+    - "one of the <either-p>"        - there must be one or more, pick number "randomly"; had definite article
+    - "<number> <either-p>"          - there must be <number> or more, pick <number> of them "randomly"
+    - "the one <either-s>"           - there must be one, pick number; had definite article                            
+    - "the <number> <either-p>"      - there must be <number>, pick number; had definite article                       
+
+    - "any of the <either-p>"        - there must be one or more, pick number "randomly", allow exceptions; had definite article
+    - "any of the <number> <plural>" - there must be one or more, pick number "randomly", allow exceptions; had definite article
+    - "any <plural>"                 - there must be zero or more, pick them all, allow exceptions
+    - "any <singular>"               - there must be one or more, pick number "randomly", allow exceptions
+}
+
+   begin
+{$IFDEF DEBUG_SEEKER} Writeln('CollectArticleAndThings() called'); {$ENDIF}
+      Assert(not Assigned(FCurrentBestThingList));
+      Assert(Assigned(ClauseClass));
+      Clause := nil;
+      Inc(CurrentToken, ClauseLength);
+      if (TryMatch(CurrentToken, Tokens, ['all', 'of', 'the'])) then
+         CollectExplicitThings([gnPlural, gnSingular], 1, tsmPickOnlyNumber, tsmPickAll, True, True)
+      { "take all of the <number> spades" isn't supported }
+      { "take all of spade" isn't supported; should it be? }
+      else
+      if (TryMatch(CurrentToken, Tokens, ['all', 'the'])) then
+         CollectExplicitThings([gnPlural], 1, tsmPickOnlyNumber, tsmPickAll, True, True)
+      else
+      if (TryMatch(CurrentToken, Tokens, ['all'])) then
+      begin
+         if ((CurrentToken >= Length(Tokens)) or (not CollectExplicitThings([gnPlural], 1, tsmPickAll, tsmPickAll, True, False))) then
+            CollectImplicitThings(True);
       end
       else
-      if (ClauseLength > 0) then
-      begin
-         Clause := ClauseClass.CreateNoTokens();
-         { so that the collapser can generate "from what?"-like messages }
-      end;
+      if (TryMatch(CurrentToken, Tokens, ['everything'])) then
+         CollectImplicitThings(True)
+      else
+      if (TryMatch(CurrentToken, Tokens, ['a'])) then
+         CollectExplicitThings([gnSingular], 1, tsmPickNumber, tsmPickNumber, False, True)
+      else
+      if (TryMatch(CurrentToken, Tokens, ['an'])) then
+         CollectExplicitThings([gnSingular], 1, tsmPickNumber, tsmPickNumber, False, True)
+      else
+      if (TryMatch(CurrentToken, Tokens, ['every'])) then
+         CollectExplicitThings([gnSingular], 1, tsmPickAll, tsmPickAll, True, True)
+      else
+      if (TryMatch(CurrentToken, Tokens, ['the'])) then
+         CollectExplicitThings(PreferredGrammaticalNumber, 1, tsmPickOnlyNumber, tsmPickAll, False, True)
+      else
+      if (TryMatch(CurrentToken, Tokens, ['some'])) then
+         CollectExplicitThings(PreferredGrammaticalNumber, 1, tsmPickNumber, tsmPickSome, False, True)
+      else
+         CollectExplicitThings(PreferredGrammaticalNumber, 1, tsmPickOnlyNumber, tsmPickAll, False, False);
       Result := Assigned(Clause);
       if (not Result) then
          Dec(CurrentToken, ClauseLength);
-      FCurrentBestThingList := nil;
+      Assert(not Assigned(FCurrentBestThingList));
 {$IFDEF DEBUG_SEEKER} Writeln(' = CollectArticleAndThings() returned ', Result); {$ENDIF}
    end;
 
@@ -677,12 +666,16 @@ begin
    {$IFOPT C+}
    Assert(not FCurrentlyCollecting);
    Assert(not FCollected);
+   Assert(FTokenCount = 0);
+   Assert(not FMultiplesSuggested);
+   Assert(not FDisambiguate);
+   Assert(not Assigned(FThingList));
    FCurrentlyCollecting := True;
    Result := False;
    try
    {$ENDIF}
       CurrentToken := Start;
-      if (CollectArticleAndThings(ckStart, 0, FirstClause)) then
+      if (CollectArticleAndThings(TStartClause, 0, FirstClause)) then
       begin
 {$IFDEF DEBUG_SEEKER}
 Writeln('FirstClause matched ', CurrentToken - Start, ' tokens.');
@@ -696,7 +689,7 @@ Writeln('FirstClause matched ', CurrentToken - Start, ' tokens.');
                     TryClause(ckCommaAnd, [',', 'and'], NextClauseKind, NextClauseLength) or
                     TryClause(ckComma, [','], NextClauseKind, NextClauseLength) or
                     TryClause(ckAnd, ['and'], NextClauseKind, NextClauseLength)) and
-                   (CollectArticleAndThings(NextClauseKind, NextClauseLength, NextClause))) do
+                   (CollectArticleAndThings(ClauseKindToClass[NextClauseKind], NextClauseLength, NextClause))) do
             begin
 {$IFDEF DEBUG_SEEKER}
 Writeln('NextClause increased the total number of matched tokens to ', CurrentToken - Start, ' tokens.');
@@ -715,9 +708,9 @@ Writeln('NextClause increased the total number of matched tokens to ', CurrentTo
                FTokenCount := CurrentToken - Start;
 {$IFDEF DEBUG_SEEKER}
 if (FTokenCount > 0) then
- Writeln('collapsed "' + Serialise(OriginalTokens, Start, FTokenCount) + '" to "' + ThingListToString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested)
+ Writeln('collapsed "' + Serialise(OriginalTokens, Start, FTokenCount) + '" to "' + ThingListToLongDefiniteString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested)
 else
- Writeln('collapsed nothing to "' + ThingListToString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested);
+ Writeln('collapsed nothing to "' + ThingListToLongDefiniteString(FThingList, Perspective, 'and') + '"; multiples=', FMultiplesSuggested);
 {$ENDIF}
             except
                FTokenCount := 0;
@@ -735,6 +728,10 @@ else
       else
       begin
          Result := False;
+         Assert(FTokenCount = 0);
+         Assert(not FMultiplesSuggested);
+         Assert(not FDisambiguate);
+         Assert(not Assigned(FThingList));
       end;
    {$IFOPT C+}
 {$IFDEF DEBUG_SEEKER}
@@ -789,23 +786,6 @@ begin
    FDisambiguate := False;
    FThingList := nil;   
    {$IFOPT C+} FCollected := False; {$ENDIF}
-end;
-
-function ThingListToString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
-begin
-   Result := '';
-   while (Assigned(Things)) do
-   begin
-      if (Length(Result) > 0) then
-      begin
-         if (Assigned(Things^.Next)) then
-            Result := Result + ', '
-         else
-            Result := Result + ', ' + Conjunction + ' ';
-      end;
-      Result := Result + Things^.Value.GetLongDefiniteName(Perspective);
-      Things := Things^.Next;
-   end;
 end;
 
 end.

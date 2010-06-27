@@ -408,6 +408,9 @@ begin
          Proxy.ExpectString('I can''t see any "xyzzy" here to examine.');
          Proxy.ExpectString('');
          TestPlayer.Perform('x xyzzy');
+         Proxy.ExpectString('I can''t see any "xyzzy" here to examine.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('x the xyzzy');
          Proxy.ExpectString('The bag has the name "Tester" embroidered around its rim.');
          Proxy.ExpectString('');
          TestPlayer.Perform('x bag');
@@ -420,6 +423,10 @@ begin
          Proxy.ExpectString('I don''t understand how to examine things "bag".');
          Proxy.ExpectString('');
          TestPlayer.Perform('x rim bag');
+         Proxy.ExpectString('Pile of leaves: You shake the pile of leaves.');
+         Proxy.ExpectString('MacGuffin: You shake the MacGuffin.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake the pile, some leaves, and a macguffin');
          Proxy.ExpectDone();
 
          // Dig and cover test
@@ -653,12 +660,12 @@ var
          Writeln('FAILED matcher test ', TestID, '; expected to match ', Pass, ' tokens but matched ', Result);
    end;
 
-   procedure RunLongestMatchTest(TestMatcher: TMatcher; Pass: AnsiString);
+   procedure RunCanonicalMatchTest(TestMatcher: TMatcher; Pass: AnsiString);
    var
       Result: AnsiString;
    begin
       Inc(TestID);
-      Result := TestMatcher.GetLongestMatch(' ');
+      Result := TestMatcher.GetCanonicalMatch(' ');
       if (Result <> Pass) then
          Writeln('FAILED matcher test ', TestID, '; expected to find longest match "', Pass, '" but got "', Result, '"');
    end;
@@ -678,7 +685,7 @@ begin
    TestID := 0;
 
    CompilePattern('the', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the');
+   RunCanonicalMatchTest(TestMatcher, 'the');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
@@ -687,7 +694,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the) green', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the green');
+   RunCanonicalMatchTest(TestMatcher, 'the green');
    RunMatcherTest(TestMatcher, Strings, 0, 2);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
@@ -696,7 +703,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(((the green lantern glowing)))', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the green lantern glowing');
+   RunCanonicalMatchTest(TestMatcher, 'the green lantern glowing');
    RunMatcherTest(TestMatcher, Strings, 0, 4);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
@@ -705,7 +712,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('the? (green lantern)? glowing', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the green lantern glowing');
+   RunCanonicalMatchTest(TestMatcher, 'the green lantern glowing');
    RunMatcherTest(TestMatcher, Strings, 0, 4);
    RunMatcherTest(TestMatcher, Strings, 1, 3);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
@@ -714,7 +721,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('the? ((glowing green)# lantern)&', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the glowing green lantern');
+   RunCanonicalMatchTest(TestMatcher, 'the glowing green lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 3);
    RunMatcherTest(TestMatcher, Strings, 1, 2);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -723,7 +730,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(glowing lantern)@', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'glowing');
+   RunCanonicalMatchTest(TestMatcher, 'glowing');
    RunMatcherTest(TestMatcher, Strings, 0, 0);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -732,7 +739,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)*', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunCanonicalMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 2);
@@ -741,7 +748,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)#', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunCanonicalMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 2);
@@ -750,7 +757,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)%', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunCanonicalMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -759,7 +766,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('(the glowing lantern)&', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunCanonicalMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
@@ -768,7 +775,7 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('the+ glowing? lantern+', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunCanonicalMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 0);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
@@ -777,12 +784,12 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('the/fail FAIL?/fail green lantern/fail (FAIL FAIL)?/glowing', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the FAIL green lantern FAIL FAIL');
+   RunCanonicalMatchTest(TestMatcher, 'the FAIL green lantern FAIL FAIL');
    RunMatcherTest(TestMatcher, Strings, 0, 3);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
    RunMatcherTest(TestMatcher, Strings, 3, 0);
-   RunLongestMatchTest(OtherMatcher, 'fail fail green fail glowing');
+   RunCanonicalMatchTest(OtherMatcher, 'fail fail green fail glowing');
    RunMatcherTest(OtherMatcher, Strings, 0, 0);
    RunMatcherTest(OtherMatcher, Strings, 1, 0);
    RunMatcherTest(OtherMatcher, Strings, 2, 0);
@@ -791,12 +798,12 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('the (glowing)?/(yellow green blue red)& lantern/(glowing lantern)*', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'the glowing lantern');
+   RunCanonicalMatchTest(TestMatcher, 'the glowing lantern');
    RunMatcherTest(TestMatcher, Strings, 0, 0);
    RunMatcherTest(TestMatcher, Strings, 1, 0);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
    RunMatcherTest(TestMatcher, Strings, 3, 0);
-   RunLongestMatchTest(OtherMatcher, 'the yellow green blue red glowing lantern');
+   RunCanonicalMatchTest(OtherMatcher, 'the yellow green blue red glowing lantern');
    RunMatcherTest(OtherMatcher, Strings, 0, 4);
    RunMatcherTest(OtherMatcher, Strings, 1, 0);
    RunMatcherTest(OtherMatcher, Strings, 2, 0);
@@ -805,8 +812,8 @@ begin
    OtherMatcher.Free();
 
    CompilePattern('((((navy blue)& (wooden wood)@)# ((archway/archways arch/arches)@ (to the (north n)@)?))& (((navy blue)& (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', TestMatcher, OtherMatcher);
-   RunLongestMatchTest(TestMatcher, 'navy blue wooden archway to the north');
-   RunLongestMatchTest(OtherMatcher, 'navy blue wooden archways to the north');
+   RunCanonicalMatchTest(TestMatcher, 'navy blue wooden archway to the north');
+   RunCanonicalMatchTest(OtherMatcher, 'navy blue wooden archways to the north');
    TestMatcher.Free();
    OtherMatcher.Free();
 end;

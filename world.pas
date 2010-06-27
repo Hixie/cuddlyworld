@@ -99,10 +99,10 @@ type
       procedure AddImplicitlyReferencedThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem); virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); virtual;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
-      function GetDefaultAtom(): TAtom; virtual;
+      function GetDefaultAtom(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
       function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
-      function GetSurface(): TAtom; virtual;
+      function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetDefaultAtom) }
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
       function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
@@ -251,6 +251,9 @@ procedure FreeAvatarList(AAvatarItem: PAvatarItem);
 function MergeAvatarLists(List1, List2: PAvatarItem): PAvatarItem; inline;
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);
+
+function ThingListToDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
+function ThingListToLongDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
 
 procedure QueueForDisposal(Atom: TAtom);
 
@@ -430,6 +433,54 @@ begin
    end
    else
       raise EAssertionFailed.Create('unexpected position for navigation: ' + IntToStr(Cardinal(Position)));
+end;
+
+function ThingListToDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
+var
+   Count: Cardinal;
+begin
+   Result := '';
+   Count := 0;
+   while (Assigned(Things)) do
+   begin
+      if (Count > 0) then
+      begin
+         if (Assigned(Things^.Next)) then
+            Result := Result + ', '
+         else
+         if (Count > 1) then
+            Result := Result + ', ' + Conjunction + ' '
+         else
+            Result := Result + ' ' + Conjunction + ' ';
+      end;
+      Result := Result + Things^.Value.GetDefiniteName(Perspective);
+      Things := Things^.Next;
+      Inc(Count);
+   end;
+end;
+
+function ThingListToLongDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
+var
+   Count: Cardinal;
+begin
+   Result := '';
+   Count := 0;
+   while (Assigned(Things)) do
+   begin
+      if (Count > 0) then
+      begin
+         if (Assigned(Things^.Next)) then
+            Result := Result + ', '
+         else
+         if (Count > 1) then
+            Result := Result + ', ' + Conjunction + ' '
+         else
+            Result := Result + ' ' + Conjunction + ' ';
+      end;
+      Result := Result + Things^.Value.GetLongDefiniteName(Perspective);
+      Things := Things^.Next;
+      Inc(Count);
+   end;
 end;
 
 var
@@ -1078,32 +1129,44 @@ begin
 end;
 
 function TThing.GetSummaryName(Perspective: TAvatar): AnsiString;
+var
+   Context: TAtom;
 begin
    Result := inherited;
    Assert(Assigned(FParent));
-   case FPosition of
-    tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetSummaryName(Perspective);
-   end;
+   Context := FParent.GetDefaultAtom();
+   if (Context is TThing) then
+      case FPosition of
+       tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetSummaryName(Perspective);
+      end;
 end;
 
 function TThing.GetDefiniteName(Perspective: TAvatar): AnsiString;
+var
+   Context: TAtom;
 begin
    Result := inherited;
    Assert(Assigned(FParent));
-   case FPosition of
-    tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetDefiniteName(Perspective);
-   end;
+   Context := FParent.GetDefaultAtom();
+   if (Context is TThing) then
+      case FPosition of
+       tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetDefiniteName(Perspective);
+      end;
 end;
 
 function TThing.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+var
+   Context: TAtom;
 begin
    Result := inherited;
    Assert(Assigned(FParent));
-   case FPosition of
-    tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetDefiniteName(Perspective);
-    tpOnImplicit: Result := Result + ' on ' + FParent.GetDefiniteName(Perspective);
-    tpInImplicit: Result := Result + ' in ' + FParent.GetDefiniteName(Perspective);
-   end;
+   Context := FParent.GetDefaultAtom();
+   if (Context is TThing) then
+      case FPosition of
+       tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetDefiniteName(Perspective);
+       tpOnImplicit: Result := Result + ' on ' + Context.GetDefiniteName(Perspective);
+       tpInImplicit: Result := Result + ' in ' + Context.GetDefiniteName(Perspective);
+      end;
 end;
 
 function TThing.IsPlural(Perspective: TAvatar): Boolean;
