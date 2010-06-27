@@ -32,8 +32,9 @@ type
    TListenerSocket = class(TBaseSocket)
     protected
       FOnNewConnection: TNewConnectionEvent;
+      FPort: Word;
     public
-      constructor Create(APort: Word);
+      constructor Create(Port: Word);
       destructor Destroy(); override;
       procedure Disconnect(); override;
       function Read(): Boolean; override;
@@ -67,6 +68,7 @@ type
       FFileDescriptorSet: TFDSet;
       FMaxSocketNumber: cint;
       FHavePendingDisconnects: Boolean;
+      FPort: Word;
       procedure Add(Socket: TBaseSocket);
       procedure Remove(Socket: TBaseSocket);
       procedure Empty();
@@ -74,7 +76,7 @@ type
       procedure HandleDisconnect(Socket: TBaseSocket);
       function CreateNetworkSocket(ListenerSocket: TListenerSocket): TNetworkSocket; virtual; abstract;
     public
-      constructor Create(APort: Word);
+      constructor Create(Port: Word);
       destructor Destroy(); override;
       procedure Select(Timeout: cint);
    end;
@@ -84,22 +86,40 @@ implementation
 uses
    sysutils;
 
-constructor TListenerSocket.Create(APort: Word);
+constructor TListenerSocket.Create(Port: Word);
 var
    Addr: TINetSockAddr;
+   FoundPort: Boolean;
 begin
    inherited Create();
    FSocketNumber := fpSocket(AF_INET, SOCK_STREAM, 0);
    if (FSocketNumber < 0) then
       raise ESocketError.Create(SocketError);
    Addr.sin_family := AF_INET;
-   Addr.sin_port := htons(APort);
    Addr.sin_addr.s_addr := htonl(INADDR_ANY);
-   if (fpBind(FSocketNumber, @Addr, SizeOf(Addr)) <> 0) then
-      raise ESocketError.Create(SocketError);
+   repeat
+      Addr.sin_port := htons(Port);
+      if (fpBind(FSocketNumber, @Addr, SizeOf(Addr)) = 0) then
+      begin
+         FoundPort := True;
+      end
+      else
+      begin
+         if (SocketError = 98) then
+         begin
+            FoundPort := False;
+            Inc(Port);
+            if (Port > 10010) then
+               Port := 10000;
+         end
+         else
+            raise ESocketError.Create(SocketError);
+      end;
+   until FoundPort;
    if (fpListen(FSocketNumber, 32) <> 0) then // allow up to 32 pending connections at once
       raise ESocketError.Create(SocketError);
    FConnected := True;
+   FPort := Port;
 end;
 
 destructor TListenerSocket.Destroy();
@@ -205,15 +225,16 @@ begin
 end;
 
 
-constructor TNetworkServer.Create(APort: Word);
+constructor TNetworkServer.Create(Port: Word);
 var
    Listener: TListenerSocket;
 begin
    inherited Create();
    fpFD_ZERO(FFileDescriptorSet);
-   Listener := TListenerSocket.Create(APort);
+   Listener := TListenerSocket.Create(Port);
    Listener.OnNewConnection := @Self.HandleNewConnection;
    Add(Listener);
+   FPort := Listener.FPort;
 end;
 
 destructor TNetworkServer.Destroy();

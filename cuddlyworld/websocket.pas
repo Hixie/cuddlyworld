@@ -21,7 +21,9 @@ type
       FUsername: AnsiString;
       FPassword: AnsiString;
       FOrigin: AnsiString;
-      FLocation: AnsiString;
+      FHostName: AnsiString;
+      FPort: Word;
+      FResource: AnsiString;
       FCurrentFieldName, FCurrentFieldValue, FHandshakeKey1, FHandshakeKey2, FHandshakeKey3: AnsiString;
       function InternalRead(c: Byte): Boolean; override;
       function HandleMessage(s: AnsiString): Boolean; virtual; abstract;
@@ -29,7 +31,7 @@ type
       procedure Handshake(); virtual;
       procedure CheckField(); virtual;
     public
-      constructor Create(AListener: TListenerSocket; AOrigin: AnsiString; ALocation: AnsiString);
+      constructor Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString);
       destructor Destroy(); override;
     end;
 
@@ -38,12 +40,14 @@ implementation
 uses
    md5;
 
-constructor TWebSocket.Create(AListener: TListenerSocket; AOrigin: AnsiString; ALocation: AnsiString);
+constructor TWebSocket.Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString);
 begin
    inherited Create(AListener);
    FState := wsGET;
    FOrigin := AOrigin;
-   FLocation := ALocation;
+   FHostName := AHostName;
+   FPort := APort;
+   FResource := AResource;
 end;
 
 destructor TWebSocket.Destroy();
@@ -196,7 +200,7 @@ begin
       Response := Response + Chr(Digest[Index]);
    Write('HTTP/1.1 101 WebSocket Protocol Handshake'#13#10);
    Write('Connection: Upgrade'#13#10);
-   Write('Sec-WebSocket-Location: ' + FLocation + '/' + FUsername + '/' + FPassword + #13#10);
+   Write('Sec-WebSocket-Location: ws://' + FHostName + ':' + IntToStr(FPort) + '/' + FResource + '/' + FUsername + '/' + FPassword + #13#10);
    Write('Sec-WebSocket-Origin: ' + FOrigin + #13#10);
    Write('Upgrade: WebSocket'#13#10);
    Write(#13#10);

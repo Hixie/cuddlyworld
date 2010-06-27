@@ -25,9 +25,8 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function Matches(Tokens: TTokens; Start: Cardinal): Cardinal; { case-insensitive, but tokens must be lowercase already }
-      function GetLongestMatch(Separator: AnsiString): AnsiString;
+      function GetCanonicalMatch(Separator: AnsiString): AnsiString;
       {$IFDEF DEBUG} function GetPatternDescription(): AnsiString; {$ENDIF}
-      {$IFDEF DEBUG} function GetPatternDotFileRecords(): AnsiString; {$ENDIF}
       {$IFDEF DEBUG} function GetPatternDotFileLabels(): AnsiString; {$ENDIF}
    end;
 
@@ -73,58 +72,83 @@ implementation
 uses
    sysutils;
 
- { A compiled pattern consists of a sequence of sequences of byte
-   pairs. Each sequence of byte pairs is a state for a
+ { A compiled pattern consists of a zero byte, a series of byte pairs,
+   and a $FF byte. Each sequence of byte pairs is a state for a
    pattern-matching state machine and is identified by the position of
    the first byte in that sequence in the overall sequence. The first
    state in the pattern is the start state for running the
    pattern. Each byte pair represents a state transition for the state
    and consists of a byte representing the token to match to follow
    the transition, and a byte representing the state to switch to if
-   that token is matched. The special token IDs $FE and $FF are always
-   matched. They mean the same, except that the last byte pair in each
-   state is $FF, other "always matched" transitions are $FE. There is
-   always at least one of these transitions; the $FF is how the last
-   transition of the state is recognised. There are also two special
-   state IDs; $FE means the pattern matched, $FF means it failed. The
-   least significant bit of the second byte of each transition is set
-   if the state machine must avoid transitioning through this state
-   twice while matching the pattern.
+   that token is matched. The special token ID $FE is always
+   matched. There is also a special state ID, $FF, meaning the pattern
+   matched. For other state IDs, the least significant bit of the
+   second byte of each transition is set if the state machine must
+   avoid transitioning through this state twice while matching the
+   pattern.
+
+   Notes:
+
+    - The first byte of each state is currently unused (it's only
+      helpful in aligning the states to even byte boundaries). It
+      provides eight bits of per-state magic for future expansion.
+
+    - Since the whole pattern has to fit in 255 bytes and each
+      transition takes at least 2 bytes; the most tokens that could
+      possibly be used in a pattern is therefore 127. Token $FF
+      indicates the end of the state. Token $FE indicates is always
+      matched. This leaves tokens $80 to FD for other magic purposes.
+
+    - States always start on an even numbered byte, since each state
+      is an even number of bytes long; so the least-significant bit of
+      each transition byte can be used for magic. It's used for
+      indicating that the transition can't be repeated.
+
+    - No state can start on the last three bytes, so state IDs $FF,
+      $FE, and $FD can be used for magic. Currently only $FF is used
+      in the pattern, to indicate a successful match. $FE is used in
+      the state machine to indicate blocked paths (one of the magic
+      tokens could be used easily too, if necessary). $FD is used for
+      debugging purposes.
 
    For example,
-      00 04 FF FF 01 FE FF FF
+      00 00 04 FF 00 01 FF FF
    ...would match the token sequence 00 01, but nothing else.
 
    Similarly,
-      00 04 FF 04 01 FE FF FF
+      00 00 06 FE 06 FF 00 01 FF FF
    ...would match either the token 01 on its own, or the token
    sequence 00 01.
 
-   Transitions are listed in the states of a pattern in _reverse_
-   canonical order.
+   Transitions are listed in the states of a pattern in canonical
+   order, and to get the canonical value should be walked depth first
+   until you get a match, avoiding following any token-specific
+   transition more than once.
 
    For example:
-     00 07 01 07 02 07 FF FF FE 00 FF FE
+     00 00 07 01 07 02 07 FF 00 FE 00 FE FF FF
    ...would match the following sequences:
      00, 01, 02, 00 01, 00 02, 01 00, 01 02, 02 00, 02 01, 00 01 02,
      00 02 01, 01 00 02, 01 02 00, 02 00 01, 02 01 00
-   ...but the canonical longest sequence that represents this pattern
-   would be:
-     02 01 00
+   ...but the canonical sequence that represents this pattern would
+   be:
+     00 01 02
 
    }
 
 const
+   { Magic State Flags }
+   msfNormal = $00;
    { Magic Tokens }
+   mtMaxTrueToken = $7F;
+   mtNone = $80;
    mtFollow = $FE;
-   mtLastFollow = $FF;
-   mtMaxTrueToken = $FD;
-   mtFollowMask = $FE; { mtFollow and mtFollowMask = mtLastFollow and mtFollowMask = mtFollowMask }
-   mtNone = $FF;
+   mtStateEnd = $FF;
    { Magic Pattern States }
-   mpsMatch = $FE;
-   mpsFail = $FF;
-   mpsMaxTrueTransition = $FD;
+   mpsMatch = $FF;
+   mpsBlocked = $FE;
+   {$IFOPT C+} mpsNotSerialised = $FD; {$ENDIF}
+   mpsMaxTrueTransition = $FC;
    mpsPreventDuplicatesMask = $01;
 
 type
@@ -132,8 +156,7 @@ type
    PTransition = ^TTransition;
 
    TState = record
-     TokenTransitions: PTransition;
-     FollowTransitions: PTransition;
+     Transitions: PTransition;
      TransitionCount: Cardinal;
      NextState: PState;
      PreviousState: PState;
@@ -256,11 +279,11 @@ begin
             I := I + 1;
             J := J - 1;
          end;
-      until I > J;
+      until (I > J);
       if (L < J) then
          DualQuickSort(MasterList, SlaveList, L, J);
       L := I;
-   until I >= R;
+   until (I >= R);
 end;
 
 procedure DualRemoveDuplicates(var MasterList, SlaveList: TTokens);
@@ -300,20 +323,13 @@ var
    Transition: PTransition;
 begin
    Assert(Assigned(State));
+   Assert(Assigned(TargetState));
    New(Transition);
    Transition^.Token := Token;
    Transition^.State := TargetState;
    Transition^.BlockDuplicates := BlockDuplicates;
-   if (Token = mtFollow) then
-   begin
-      Transition^.NextTransition := State^.FollowTransitions;
-      State^.FollowTransitions := Transition;
-   end
-   else
-   begin
-      Transition^.NextTransition := State^.TokenTransitions;
-      State^.TokenTransitions := Transition;
-   end;
+   Transition^.NextTransition := State^.Transitions;
+   State^.Transitions := Transition;
    Inc(State^.TransitionCount);
 end;
 
@@ -674,6 +690,8 @@ begin
 end;
 
 
+//{$DEFINE DEBUG_PATTERN_COMPILER}
+
 type
    TPatternCompiler = class
     protected
@@ -696,7 +714,7 @@ begin
    inherited Create();
    FRoot := Root;
    FRoot.ReportTokens(@TokenCollector);
-   Assert(High(FTokens) <= High(TByteCode), 'Too many unique strings in pattern');
+   Assert(High(FTokens) <= mtMaxTrueToken, 'Too many unique strings in pattern');
    DualQuickSort(FTokens, FOriginalTokens);
    DualRemoveDuplicates(FTokens, FOriginalTokens);
    FRoot.FixTokenIDs(@GetTokenID);
@@ -714,8 +732,7 @@ end;
 function TPatternCompiler.GetNewState(): PState;
 begin
    New(Result);
-   Result^.TokenTransitions := nil;
-   Result^.FollowTransitions := nil;
+   Result^.Transitions := nil;
    Result^.TransitionCount := 0;
    Result^.Index := 0;
    Result^.NextState := FLastState;
@@ -736,8 +753,8 @@ function TPatternCompiler.GetTokenID(Token: AnsiString): TByteCode;
 var
    L, R, M: TByteCode;
 begin
-   Assert(Low(FTokens) >= Low(TByteCode));
-   Assert(High(FTokens) <= High(TByteCode));
+   Assert(Low(FTokens) >= 0);
+   Assert(High(FTokens) <= mtMaxTrueToken);
    Token := Canonicalise(Token);
    L := Low(FTokens);
    R := High(FTokens);
@@ -767,24 +784,20 @@ procedure TPatternCompiler.GetCompiledPattern(out Pattern: PCompiledPattern; out
    function GetUltimateTarget(State: PState): PState;
    begin
       Result := State;
-      while (Assigned(Result) and (Result <> FLastState) and (Result^.TransitionCount = 1)) do
+      while ((Result^.TransitionCount = 1) and (Result^.Transitions^.Token = mtFollow)) do
       begin
-         Assert(not Assigned(Result^.TokenTransitions));
-         Assert(Assigned(Result^.FollowTransitions));
-         Assert(not Assigned(Result^.FollowTransitions^.NextTransition));
-         Assert(Assigned(Result^.FollowTransitions^.State));
-         Result := Result^.FollowTransitions^.State;
+         Assert(Assigned(Result));
+         Assert(Result <> FLastState);
+         Assert(not Assigned(Result^.Transitions^.NextTransition));
+         Assert(Assigned(Result^.Transitions^.State));
+         Result := Result^.Transitions^.State;
       end;
    end;
 
-   procedure OptimiseTransitions(Transition: PTransition);
+   function StateNeedsSerialising(State: PState): Boolean; inline;
    begin
-      while (Assigned(Transition)) do
-      begin
-         Transition^.State := GetUltimateTarget(Transition^.State);
-         Transition := Transition^.NextTransition;
-      end;
-
+      Assert(Assigned(State));
+      Result := (State = FFirstState { see note above }) or (State^.TransitionCount > 1) or (State^.Transitions^.Token <> mtFollow);
    end;
 
 var
@@ -794,146 +807,190 @@ var
 begin
    { Build state machine }
    New(FFirstState);
-   FFirstState^.TokenTransitions := nil;
-   FFirstState^.FollowTransitions := nil;
+   FFirstState^.Transitions := nil;
    FFirstState^.TransitionCount := 0;
    FFirstState^.Index := 0;
    FFirstState^.PreviousState := nil;
    New(FLastState);
-   FLastState^.TokenTransitions := nil;
-   FLastState^.FollowTransitions := nil;
+   FLastState^.Transitions := nil;
    FLastState^.TransitionCount := 0;
    FLastState^.Index := 0;
    FLastState^.NextState := nil;
    FFirstState^.NextState := FLastState;
    FLastState^.PreviousState := FFirstState;
    FRoot.HookStates(FFirstState, FLastState, @GetNewState);
-   { Fill in transitions and check for invariants }
-   State := FFirstState;
-   while (Assigned(State)) do
-   begin
-      Assert((State = FLastState) or (State^.TransitionCount >= 1));
-      if (not Assigned(State^.FollowTransitions)) then
-         AddTransition(State, mtFollow, nil, False);
-      if (State^.TransitionCount = 1) then
-      begin
-         Assert(not Assigned(State^.TokenTransitions));
-         Assert(Assigned(State^.FollowTransitions));
-         Assert(not Assigned(State^.FollowTransitions^.NextTransition));
-      end;
-      State := State^.NextState;
-   end;
+
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('FFirstState=', HexStr(FFirstState)); {$ENDIF}
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('FLastState=', HexStr(FLastState)); {$ENDIF}
+
    { Optimise transitions through surrogates }
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('GetCompiledPattern(): optimising...'); {$ENDIF}
    State := FFirstState;
-   while (Assigned(State)) do
-   begin
-      OptimiseTransitions(State^.TokenTransitions);
-      OptimiseTransitions(State^.FollowTransitions);
+   repeat
+      Assert(Assigned(State));
+      Assert(State^.TransitionCount >= 1);
+
+{$IFDEF DEBUG_PATTERN_COMPILER}
+  Writeln('  Looking at state $', HexStr(State), '...');
+  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
+  Writeln('  It has these transitions:');
+  Transition := State^.Transitions;
+  while (Assigned(Transition)) do
+  begin
+     if (Transition^.State = FLastState) then
+        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
+     else
+        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' with dentists ', StateNeedsSerialising(Transition^.State));
+     Transition := Transition^.NextTransition;
+  end;  
+  Writeln('  --');
+{$ENDIF}
+
+      Transition := State^.Transitions;
+      repeat
+         Assert(Assigned(Transition));
+         Transition^.State := GetUltimateTarget(Transition^.State);
+         Assert((Transition^.State = FLastState) or (StateNeedsSerialising(Transition^.State)));
+         Transition := Transition^.NextTransition;
+      until (not Assigned(Transition));
+
+{$IFDEF DEBUG_PATTERN_COMPILER}
+  Writeln('  Looking again at state $', HexStr(State), ' after optimising.');
+  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
+  Writeln('  It now has these transitions:');
+  Transition := State^.Transitions;
+  while (Assigned(Transition)) do
+  begin
+     if (Transition^.State = FLastState) then
+        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
+     else
+        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' with dentists ', StateNeedsSerialising(Transition^.State));
+     Transition := Transition^.NextTransition;
+  end;  
+  Writeln('  --');
+{$ENDIF}
+
       State := State^.NextState;
-   end;
+   until (State = FLastState);
+   { Future optimisation idea: We currently always serialise the first
+     state even if it could be optimised away, because optimising it
+     away would require making sure the next state came first.  What
+     we really should do is detect this case, and copy all the states
+     from the next state to the first state, then fixing all the
+     transitions to that state to point to the first state, then
+     removing the transitions from that state so it gets optimised
+     away. (We would then rinse-repeat, in case the next state was
+     also redundant.) }
+
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('GetCompiledPattern(): Minting state IDs...'); {$ENDIF}
    { Establish state IDs }
    Index := 0;
    State := FFirstState;
-   Assert(FLastState^.TransitionCount = 1);
-   while (Assigned(State)) do
-   begin
-      { We always serialise the first state even if it could be
-        optimised away, because optimising it away would require
-        making sure the next state came first.  What we really should
-        do is detect this case, and copy all the states from the next
-        state to the first state, then fixing all the transitions to
-        that state to point to the first state, then removing the
-        transitions from that state so it gets optimised away. (We
-        would then rinse-repeat, in case the next state was also
-        redundant.) }
-      if ((State = FFirstState) or (State^.TransitionCount > 1)) then
+   Assert(FLastState^.TransitionCount = 0);
+   repeat
+      Assert(Assigned(State));
+      Assert(State <> FLastState);
+      Assert(State^.TransitionCount >= 1);
+      Assert(Index >= 0);
+      Assert(Index <= mpsMaxTrueTransition);
+      Assert(Index mod 2 = 0);
+
+{$IFDEF DEBUG_PATTERN_COMPILER}
+  Writeln('  Looking at state $', HexStr(State), '...');
+  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
+  Writeln('  It has these transitions:');
+  Transition := State^.Transitions;
+  while (Assigned(Transition)) do
+  begin
+     if (Transition^.State = FLastState) then
+        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
+     else
+        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' with dentists ', StateNeedsSerialising(Transition^.State));
+     Transition := Transition^.NextTransition;
+  end;  
+  Writeln('  --');
+{$ENDIF}
+
+      if (StateNeedsSerialising(State)) then
       begin
-         Assert(State <> FLastState);
-         Assert(Index >= Low(TByteCode));
-         Assert(Index <= High(TByteCode));
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('  minting state ', Index); {$ENDIF}
          State^.Index := Index;
-         Inc(Index, State^.TransitionCount * 2);
-         Assert(Index <= High(TByteCode), 'Pattern too complicated.');
-      end;
+         Inc(Index, 2 + State^.TransitionCount * 2);
+         Assert(Index <= mpsMaxTrueTransition, 'Pattern too complicated.');
+      end {$IFOPT C+} else State^.Index := mpsNotSerialised {$ENDIF};
       State := State^.NextState;
-   end;
+   until (State = FLastState);
+   FLastState^.Index := mpsMatch;
    { Serialise the compiled pattern }
    PatternLength := Index;
    NewPattern(Pattern, PatternLength);
    Index := 0;
    State := FFirstState;
-   while (State <> FLastState) do
-   begin
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('GetCompiledPattern(): Serialising... PatternLength=', PatternLength); {$ENDIF}
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at start'); {$ENDIF}
+   repeat
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at top of state loop'); {$ENDIF}
+{$IFDEF DEBUG_PATTERN_COMPILER}
+  Writeln('  Looking at state $', HexStr(State), ' marked as index ', State^.Index, '.');
+  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
+  Writeln('  It has these transitions:');
+  Transition := State^.Transitions;
+  while (Assigned(Transition)) do
+  begin
+     if (Transition^.State = FLastState) then
+        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
+     else
+        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' marked as index ', Transition^.State^.Index, ' with dentists ', StateNeedsSerialising(Transition^.State));
+     Transition := Transition^.NextTransition;
+  end;  
+  Writeln('  --');
+{$ENDIF}
       Assert(Assigned(State));
-      if ((State = FFirstState { see note above }) or (State^.TransitionCount > 1)) then
-      begin { references to states with just one transition get optimised away above }
-         Transition := State^.TokenTransitions;
-         while (Assigned(Transition)) do
-         begin
+      Assert(State <> FLastState);
+      Assert(State^.TransitionCount >= 1);
+      Assert(Assigned(State^.Transitions));
+      if (StateNeedsSerialising(State)) then
+      begin
+         Pattern^[Index] := msfNormal;
+         Inc(Index);
+         Transition := State^.Transitions;
+         Inc(Index, (State^.TransitionCount) * 2 + 1);
+         repeat
+            Assert(Assigned(Transition));
+            Assert((Transition^.State = FLastState) or (StateNeedsSerialising(Transition^.State)));
+            Dec(Index, 3);
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at top of transition loop'); {$ENDIF}
+            Assert(Assigned(Transition));
             Pattern^[Index] := Transition^.Token;
             Inc(Index);
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' for target state'); {$ENDIF}
             Assert(Assigned(Transition^.State));
-            if (Transition^.State = FLastState) then
-               Pattern^[Index] := mpsMatch
-            else
             if (Transition^.BlockDuplicates) then
                Pattern^[Index] := Transition^.State^.Index or mpsPreventDuplicatesMask
             else
                Pattern^[Index] := Transition^.State^.Index;
-            Inc(Index);
             Transition := Transition^.NextTransition;
-         end;
-         Transition := State^.FollowTransitions;
-         while (Assigned(Transition)) do
-         begin
-            Assert(Transition^.Token = mtFollow);
-            if (Assigned(Transition^.NextTransition)) then
-               Pattern^[Index] := mtFollow
-            else
-               Pattern^[Index] := mtLastFollow;
-            Inc(Index);
-            Assert(Index < PatternLength);
-            if (Transition^.State = FLastState) then
-            begin
-               Pattern^[Index] := mpsMatch;
-            end
-            else
-            if (Assigned(Transition^.State)) then
-            begin
-               if (Transition^.BlockDuplicates) then
-                  Pattern^[Index] := Transition^.State^.Index or mpsPreventDuplicatesMask
-               else
-                  Pattern^[Index] := Transition^.State^.Index;
-            end
-            else
-            begin
-               Pattern^[Index] := mpsFail;
-            end;
-            Inc(Index);
-            Transition := Transition^.NextTransition;
-         end;
-      end;
+         until (not Assigned(Transition));
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' after transition loop'); {$ENDIF}
+         Inc(Index, (State^.TransitionCount-1) * 2 + 1);
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' for state trailer'); {$ENDIF}
+         Pattern^[Index] := mtStateEnd;
+         Inc(Index);
+      end {$IFDEF DEBUG_PATTERN_COMPILER} else Writeln('skipped a state! wee!') {$ENDIF} ;
       State := State^.NextState;
-   end;
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at end of state'); {$ENDIF}
+   until (State = FLastState);
    Assert(Index = PatternLength);
    { Release memory }
    while (Assigned(FFirstState)) do
    begin
       State := FFirstState;
       FFirstState := State^.NextState;
-      while (Assigned(State^.TokenTransitions)) do
+      while (Assigned(State^.Transitions)) do
       begin
-         Transition := State^.TokenTransitions;
-         State^.TokenTransitions := State^.TokenTransitions^.NextTransition;
+         Transition := State^.Transitions;
+         State^.Transitions := State^.Transitions^.NextTransition;
          Dispose(Transition);
-         Transition := nil;
-      end;
-      while (Assigned(State^.FollowTransitions)) do
-      begin
-         Transition := State^.FollowTransitions;
-         State^.FollowTransitions := State^.FollowTransitions^.NextTransition;
-         Dispose(Transition);
-         Transition := nil;
       end;
       {$IFOPT C+}
       if (not Assigned(FFirstState)) then
@@ -1050,7 +1107,7 @@ type
          Dec(Source^.RefCount);
          Source := CreateSharedCompiledPattern(Source^.Data);
       end;
-      Source^.Data^[Index] := mpsFail;
+      Source^.Data^[Index] := mpsBlocked;
    end;
 
    procedure DisposeSharedCompiledPattern(var Source: PSharedCompiledPattern); inline;
@@ -1128,29 +1185,36 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
       CurrentStateMachine := StateMachines^.Next;
       while (Assigned(CurrentStateMachine)) do
       begin
-         CurrentTransition := CurrentStateMachine^.State;
+         Assert(CurrentStateMachine^.Pattern^.Data^[CurrentStateMachine^.State] = msfNormal); { we could have other state flags some day }
+         CurrentTransition := CurrentStateMachine^.State + 1;
          repeat
             Assert(CurrentTransition < High(CurrentTransition));
-            if (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] and mtFollowMask = mtFollowMask) then
+            if (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = mtFollow) then
             begin
                NextState := CurrentStateMachine^.Pattern^.Data^[CurrentTransition+1];
+               if (NextState = mpsMatch) then
+               begin
+                  MatchLength := Position - Start;
+               end
+               else
+               {$IFOPT C+}
                if (NextState <= mpsMaxTrueTransition) then
+               {$ENDIF}
                begin
                   ChildStateMachine := AppendStateMachine(CurrentStateMachine);
                   ChildStateMachine^.State := NextState and not mpsPreventDuplicatesMask;
                   if (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
                      ObliterateTransition(ChildStateMachine^.Pattern, CurrentTransition+1);
                end
+               {$IFOPT C+}
                else
-               if (NextState = mpsMatch) then
                begin
-                  Assert(Position - Start <= High(TByteCode));
-                  Assert(Position - Start >= Low(TByteCode));
-                  MatchLength := Position - Start;
+                  Assert(NextState = mpsBlocked);
                end;
+               {$ENDIF}
             end;
             Inc(CurrentTransition, 2);
-         until (CurrentStateMachine^.Pattern^.Data^[CurrentTransition-2] = mtLastFollow);
+         until (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = mtStateEnd);
          CurrentStateMachine := CurrentStateMachine^.Next;
       end;
       { Now follow the links that match the token, removing any state machines that don't have a match }
@@ -1164,13 +1228,14 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
       while (Assigned(CurrentStateMachine)) do
       begin
          NextStateMachine := CurrentStateMachine^.Next;
+         Assert(CurrentStateMachine^.Pattern^.Data^[CurrentStateMachine^.State] = msfNormal); { we could have other state flags some day }
          if (TokenID = mtNone) then
          begin
             KillStateMachine(CurrentStateMachine);
          end
          else
          begin
-            CurrentTransition := CurrentStateMachine^.State;
+            CurrentTransition := CurrentStateMachine^.State + 1;
             Transitioned := False;
             repeat
                if (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = TokenID) then
@@ -1178,143 +1243,103 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
                   NextState := CurrentStateMachine^.Pattern^.Data^[CurrentTransition+1];
                   if (NextState = mpsMatch) then
                   begin
-                     Assert(Position - Start <= High(TByteCode));
-                     Assert(Position - Start >= Low(TByteCode));
                      MatchLength := Position - Start + 1;
                   end
                   else
+                  {$IFOPT C+}
+                  if (NextState <= mpsMaxTrueTransition) then
+                  {$ENDIF}
                   begin
-                     Assert(NextState <= mpsMaxTrueTransition);
                      CurrentStateMachine^.State := NextState and not mpsPreventDuplicatesMask;
                      if (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
                         ObliterateTransition(CurrentStateMachine^.Pattern, CurrentTransition+1);
                      Transitioned := True;
+                  end
+                  {$IFOPT C+}
+                  else
+                  begin
+                     Assert(NextState = mpsBlocked);
                   end;
+                  {$ENDIF}
                end;
                if (not Transitioned) then
                   Inc(CurrentTransition, 2);
-            until ((Transitioned) or (CurrentStateMachine^.Pattern^.Data^[CurrentTransition-2] = mtLastFollow));
+            until ((Transitioned) or (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = mtStateEnd));
             if (not Transitioned) then
-            begin
                KillStateMachine(CurrentStateMachine);
-            end;
          end;
          CurrentStateMachine := NextStateMachine;
       end;
       Inc(Position);
    end;
+   Assert(not Assigned(StateMachines^.Next));
    KillStateMachine(StateMachines);
    Result := MatchLength;
 end;
 
-function TMatcher.GetLongestMatch(Separator: AnsiString): AnsiString;
+function TMatcher.GetCanonicalMatch(Separator: AnsiString): AnsiString;
 var
    Pattern: PCompiledPattern;
+   Match: AnsiString;
 
-//{$DEFINE DEBUG_LONGEST_MATCH}
+//{$DEFINE DEBUG_CANONICAL_MATCH}
 
-   function GetLongestBranch(State: TByteCode; out Match: AnsiString; out MatchLength: Cardinal {$IFDEF DEBUG_LONGEST_MATCH}; Prefix: AnsiString = ''{$ENDIF}): Boolean;
+   function GetCanonicalBranch(State: TByteCode {$IFDEF DEBUG_CANONICAL_MATCH}; Prefix: AnsiString = '' {$ENDIF}): Boolean;
    var
-      CurrentMatch, TryMatch: AnsiString;
-      TryLength: Cardinal;
-      TryResult: Boolean;
       CurrentIndex, NextState: TByteCode;
-{$IFDEF DEBUG_LONGEST_MATCH} S: AnsiString; TestState: TByteCode; {$ENDIF}
    begin
-{$IFDEF DEBUG_LONGEST_MATCH} Prefix := Prefix + '   '; {$ENDIF}
-{$IFDEF DEBUG_LONGEST_MATCH} Writeln(Prefix, 'GetLongestBranch(', State, '): enter'); {$ENDIF}
-      Result := False;
-      Match := '';
-      MatchLength := 0;
-      CurrentIndex := State;
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   GetCanonicalBranch(', State, '); starting with "', Match, '"'); {$ENDIF}
+      CurrentIndex := State+1;
       repeat
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   trying transition ', CurrentIndex); {$ENDIF}
          NextState := Pattern^[CurrentIndex+1];
-{$IFDEF DEBUG_LONGEST_MATCH}
- if (NextState = mpsFail) then
-    S := 'FAIL'
- else
- if (NextState = mpsMatch) then
-    S := 'MATCH'
- else
-    S := IntToStr(NextState and not mpsPreventDuplicatesMask); 
- if (Pattern^[CurrentIndex] <= mtMaxTrueToken) then
-    Writeln(Prefix, 'GetLongestBranch(', State, '): looking at transition ', CurrentIndex, ' which goes to ', S, ' if it matches ', FOriginalTokens[Pattern^[CurrentIndex]])
- else
-    Writeln(Prefix, 'GetLongestBranch(', State, '): looking at transition ', CurrentIndex, ' which goes to ', S, ' always');
-{$ENDIF}
-         if (NextState <> mpsFail) then
+         if (NextState <> mpsBlocked) then 
          begin
             if (Pattern^[CurrentIndex] <= mtMaxTrueToken) then
-               CurrentMatch := FOriginalTokens[Pattern^[CurrentIndex]]
-            else
-               CurrentMatch := '';
+            begin
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   ...for token ', FOriginalTokens[Pattern^[CurrentIndex]]); {$ENDIF}
+               if (Match <> '') then
+                  Match := Match + Separator;
+               Match := Match + FOriginalTokens[Pattern^[CurrentIndex]];
+            end;
             if (NextState = mpsMatch) then
             begin
-               TryResult := True;
-               TryMatch := CurrentMatch;
-               if (CurrentMatch <> '') then
-                  TryLength := 1
-               else
-                  TryLength := 0;
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   MATCH'); {$ENDIF}
+               Result := True;
+               Exit;
             end
             else
             begin
-{$IFDEF DEBUG_LONGEST_MATCH} Writeln(Prefix, 'GetLongestBranch(', State, '): blocking off transition at ', CurrentIndex); {$ENDIF}
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   ...going to nest...'); {$ENDIF}
                if ((Pattern^[CurrentIndex] <= mtMaxTrueToken) or (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask)) then
-                   Pattern^[CurrentIndex+1] := mpsFail;
-{$IFDEF DEBUG_LONGEST_MATCH}
- TestState := Pattern^[CurrentIndex+1];
- if (TestState = mpsFail) then
-    S := 'FAIL'
- else
- if (TestState = mpsMatch) then
-    S := 'MATCH'
- else
-    S := IntToStr(TestState and not mpsPreventDuplicatesMask); 
- if (Pattern^[CurrentIndex] <= mtMaxTrueToken) then
-    Writeln(Prefix, 'GetLongestBranch(', State, '): transition ', CurrentIndex, ' now goes to ', S, ' if it matches ', FOriginalTokens[Pattern^[CurrentIndex]])
- else
-    Writeln(Prefix, 'GetLongestBranch(', State, '): transition ', CurrentIndex, ' now goes to ', S, ' always');
-{$ENDIF}
-               if (GetLongestBranch(NextState and not mpsPreventDuplicatesMask, TryMatch, TryLength {$IFDEF DEBUG_LONGEST_MATCH}, Prefix {$ENDIF})) then
+                   Pattern^[CurrentIndex+1] := mpsBlocked;
+               if (GetCanonicalBranch(NextState and not mpsPreventDuplicatesMask {$IFDEF DEBUG_CANONICAL_MATCH}, Prefix + '  ' {$ENDIF})) then
                begin
-                  TryResult := True;
-                  if (CurrentMatch <> '') then
-                  begin
-                     if (TryMatch <> '') then
-                        TryMatch := CurrentMatch + Separator + TryMatch
-                     else
-                        TryMatch := CurrentMatch;
-                     Inc(TryLength);
-                  end
-               end
-               else
-                  TryResult := False;
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   MATCH'); {$ENDIF}
+                  Result := True;
+                  Exit;
+               end;
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   FAIL'); {$ENDIF}
                Pattern^[CurrentIndex+1] := NextState;
-{$IFDEF DEBUG_LONGEST_MATCH} Writeln(Prefix, 'GetLongestBranch(', State, '): unblocking transition at ', CurrentIndex); {$ENDIF}
-            end;
-            if ((TryResult) and (TryLength >= MatchLength)) then { use >= because patterns have the tokens in reverse canonical order }
-            begin
-               Result := True;
-               Match := TryMatch;
-               MatchLength := TryLength;
-{$IFDEF DEBUG_LONGEST_MATCH} Writeln(Prefix, 'GetLongestBranch(', State, '): got a better candidate: match = "', Match, '", match length = ', MatchLength, ', result = ', Result); {$ENDIF}
             end;
          end;
          Inc(CurrentIndex, 2);
-      until Pattern^[CurrentIndex-2] = mtLastFollow;
-{$IFDEF DEBUG_LONGEST_MATCH} Writeln(Prefix, 'GetLongestBranch(', State, '): exit with match = "', Match, '", match length = ', MatchLength, ', result = ', Result); {$ENDIF}
+      until (Pattern^[CurrentIndex] = mtStateEnd);
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   UTTER FAIL'); {$ENDIF}
+      Result := False;
    end;
 
-var
-   Length: Cardinal;
 begin
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln('GetCanonicalMatch() starting...'); {$ENDIF}
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln('Pattern: ', GetPatternDescription()); {$ENDIF}
    NewPattern(Pattern, FPatternLength);
    Move(FPattern^, Pattern^, FPatternLength * SizeOf(TByteCode));
-   {$IFOPT C+} Assert( {$ENDIF} GetLongestBranch(0, Result, Length) {$IFOPT C+} ) {$ENDIF} ;
-   Assert(Length > 0);
+   Match := '';
+   {$IFOPT C+} Assert( {$ENDIF} GetCanonicalBranch(0) {$IFOPT C+} ) {$ENDIF} ;
+   Result := Match;
    Assert(Result <> '');
    DisposePattern(Pattern, FPatternLength);
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln('   => ', Result); {$ENDIF}
 end;
 
 {$IFDEF DEBUG}
@@ -1327,65 +1352,29 @@ begin
    while (Index < FPatternLength) do
    begin
       Result := Result + ' ' + IntToStr(Index) + ':' + #10;
+      Inc(Index);
       repeat
          Result := Result + '   ';
-         if (FPattern^[Index] and mtFollowMask = mtFollowMask) then
+         if (FPattern^[Index] = mtFollow) then
             Result := Result + 'ELSE'
          else
             Result := Result + IntToStr(FPattern^[Index]) + ':"' + FOriginalTokens[FPattern^[Index]] + '"';
          Result := Result + ' -> ';
-         case (FPattern^[Index+1]) of
-           mpsMatch: Result := Result + 'MATCH';
-           mpsFail: Result := Result + 'FAIL';
+         if (FPattern^[Index+1] = mpsMatch) then
+            Result := Result + 'MATCH'
          else
-           Result := Result + IntToStr(FPattern^[Index+1] and not mpsPreventDuplicatesMask);
-           if (FPattern^[Index+1] and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
-              Result := Result + ' (duplicates blocked)';
-         end;
+            Result := Result + IntToStr(FPattern^[Index+1] and not mpsPreventDuplicatesMask);
+         if (FPattern^[Index+1] and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
+            Result := Result + ' (duplicates blocked)';
          Result := Result + #10;
          Inc(Index, 2);
-      until FPattern^[Index-2] = mtLastFollow;
+      until (FPattern^[Index] = mtStateEnd);
+      Inc(Index);
    end;
 end;
 {$ENDIF}
 
 {$IFDEF DEBUG}
-function TMatcher.GetPatternDotFileRecords(): AnsiString;
-var
-   Index, State: TByteCode;
-   Edges: AnsiString;
-begin
-   Result := 'digraph pattern { graph [ rankdir = "LR" ];' + #10;
-   Edges := '';
-   Index := 0;
-   while (Index < FPatternLength) do
-   begin
-      Result := Result + '"state' + IntToStr(Index) + '" [ label = "<state> ' + IntToStr(Index);
-      State := Index;
-      repeat
-         if (FPattern^[Index] and mtFollowMask = mtFollowMask) then
-            Result := Result + '|<i' + IntToStr(Index) + '> *'
-         else
-            Result := Result + '|<i' + IntToStr(Index) + '> ' + FOriginalTokens[FPattern^[Index]];
-         Edges := Edges + '"state' + IntToStr(State) + '":i' + IntToStr(Index) + ' -> ';
-         case (FPattern^[Index+1]) of
-           mpsMatch: Edges := Edges + '"match"';
-           mpsFail: Edges := Edges + '"fail"';
-         else
-           Edges := Edges + '"state' + IntToStr(FPattern^[Index+1] and not mpsPreventDuplicatesMask) + '":state';
-           if (FPattern^[Index+1] and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
-             Edges := Edges + ' [ color = "darkgreen" ]';
-         end;
-         Edges := Edges + ';' + #10;
-         Inc(Index, 2);
-      until FPattern^[Index-2] = mtLastFollow;
-      Result := Result + '" shape = "record" ];' + #10;
-   end;
-   Result := Result + '"match" [ label = "Match" shape = "ellipse" ];' + #10;
-   Result := Result + '"fail" [ label = "Fail" shape = "ellipse" ];' + #10;
-   Result := Result + Edges + '}';
-end;
-
 { using labels }
 function TMatcher.GetPatternDotFileLabels(): AnsiString;
 var
@@ -1402,38 +1391,43 @@ begin
       else
          S := 'rect';
       State := Index;
+      Inc(Index);
       NeedLoop := False;
       repeat
          Result := Result + '"' + IntToStr(State) + '" -> ';
          S := 'red';
-         case (FPattern^[Index+1]) of
-           mpsMatch: begin Result := Result + '"match" [ arrowhead="diamond" fontcolor="navy" '; S := 'blue'; end;
-           mpsFail: begin Result := Result + '"fail" [ arrowhead="diamond" fontcolor="grey91" '; S := 'grey91'; end;
+         if (FPattern^[Index+1] = mpsMatch) then
+         begin
+            Result := Result + '"match" [ arrowhead="diamond" fontcolor="navy" ';
+            S := 'blue';
+         end
          else
-           if ((FPattern^[Index+1] and not mpsPreventDuplicatesMask) = State) then
-           begin
-              Result := Result + '"' + IntToStr(State) + 'p" [ ';
-              NeedLoop := True;
-           end
-           else
-              Result := Result + '"' + IntToStr(FPattern^[Index+1] and not mpsPreventDuplicatesMask) + '" [ ';
-           if (FPattern^[Index+1] and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
-           begin
-              Result := Result + 'arrowhead="diamond" fontcolor="navy" ';
-              S := 'blue';
-           end
-           else
-           begin
-              S := 'black';
-           end;
+         begin
+            if ((FPattern^[Index+1] and not mpsPreventDuplicatesMask) = State) then
+            begin
+               Result := Result + '"' + IntToStr(State) + 'p" [ ';
+               NeedLoop := True;
+            end
+            else
+               Result := Result + '"' + IntToStr(FPattern^[Index+1] and not mpsPreventDuplicatesMask) + '" [ ';
+            if (FPattern^[Index+1] and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
+            begin
+               Result := Result + 'arrowhead="diamond" fontcolor="navy" ';
+               S := 'blue';
+            end
+            else
+            begin
+               S := 'black';
+            end;
          end;
-         if (FPattern^[Index] and mtFollowMask = mtFollowMask) then
+         if (FPattern^[Index] = mtFollow) then
             Result := Result + 'color="' + S + ':' + S + '" '
          else
             Result := Result + 'color="' + S + '" label="' + FOriginalTokens[FPattern^[Index]] + '" fontsize=10 samehead="' + IntToStr(State) + '" ';
          Result := Result + '];' + #10;
          Inc(Index, 2);
-      until FPattern^[Index-2] = mtLastFollow;
+      until (FPattern^[Index] = mtStateEnd);
+      Inc(Index);
       if (NeedLoop) then
       begin
          Result := Result + '"' + IntToStr(State) + 'p" [ label="' + IntToStr(State) + '''" shape="diamond" ];' + #10;
@@ -1441,7 +1435,6 @@ begin
       end;
    end;
    Result := Result + '"match" [ label="Match" shape="ellipse" ];' + #10;
-   Result := Result + '"fail" [ label="Fail" shape="ellipse" color="grey91" fontcolor="grey91" ];' + #10;
    Result := Result + '}';
 end;
 {$ENDIF}
@@ -1625,7 +1618,9 @@ end;
 
 procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMatcher);
 begin
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln(#10#10'Pattern: "', S, '"'); {$ENDIF}
    Singular := CompilePatternVersion(S, 0);
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln(#10#10); {$ENDIF}
    Plural := CompilePatternVersion(S, 1);
 end;
 

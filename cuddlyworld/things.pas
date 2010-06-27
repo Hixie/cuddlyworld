@@ -235,9 +235,9 @@ begin
    {$ENDIF}
    FPlural := not NameIsSingular;
    if (FPlural) then
-      FLongName := FPluralPattern.GetLongestMatch(' ')
+      FLongName := FPluralPattern.GetCanonicalMatch(' ')
    else
-      FLongName := FSingularPattern.GetLongestMatch(' ');
+      FLongName := FSingularPattern.GetCanonicalMatch(' ');
 end;
 
 destructor TNamedThing.Destroy();
@@ -692,7 +692,7 @@ end;
 
 constructor TSpade.Create();
 begin
-   inherited Create('spade', 'metal? (spade/spades shovel/shovels)@', 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
+   inherited Create('spade', '(metal (spade/spades shovel/shovels)@)&', 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
 end;
 
 function TSpade.GetProperties(): TThingProperties;

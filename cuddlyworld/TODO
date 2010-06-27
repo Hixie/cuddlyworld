@@ -1,20 +1,14 @@
 FIXED
- + "drop all" drops self
- + "drop bag" while standing on pedestal: "It is not clear how to get inside the stone pedestal"?!
- + "drop bag" while standing on pedestal: "There is not enough room on the stone pedestal for the bag of holding."?!
- + does "look in ground" when there's a hole that's covered work?
- + "You feel a disturbance in the force that whispers "Invalid type cast"." when saying "out" from pedestal
- + when you're on the pedestal it told you what the ground is like - fixed the horizon code to not refer to the ground
- + you can push the pedestal!
- + "which...do you mean" is excessively verbose - fixed a little, still might need work
-
-REGRESSIONS
+ + "bag rim of bag" => "rim of bag"
+ + "the navy blue painted Lancet wooden archway to the north of the ground" => "the navy blue painted Lancet wooden archway to the north"
  + the automatic long name determination puts long phrases before individual words:
     - "the shining silicon metalloid rim of the silicon metalloid inverted catenary shining archway to the south west of the Arrivals Circle" has different uses of "shining"
     - "the twelve pointed star big glowing stone arrivals pedestal" should have "big" at the front
     - it also doesn't support finding the "best" alternative when it's a hyphenated word ("twelve pointed" is preferred over "twelve-pointed")
-    - could be fixed by adding changing the end marker to two bytes rather than the 0xFE/0xFF thing
-    - or add one byte at the start of each state which gives the bits to follow for the long name, and use 0xFF as the last byte, and sort the transitions (don't bunch them)
+ + make it try different ports if the port is busy
+
+REGRESSIONS
+ + "take spade and bag and" should fail (add test)
 
 THING SEEKER IMPROVEMENTS
  + "take an apple that is blue" when there's blue apples and red apples
@@ -54,10 +48,7 @@ THING SEEKER IMPROVEMENTS
  + note: "that are" only binds to the previous clause, and only if it was plural
  + note: "all" doesn't accept "that is" or "that are"
  + note: "from" should not accept something with multiples suggested if it is binding to something that itself doesn't have multiples suggested
- + "take all and drop all"
- + "take orange and apple and drop pear and banana"
  + "take orange plus apple plus drop pear plus banana"
- + "take orange and apple and" => "and" should not be included in the thing list
  + "take orange plus apple plus" => thing list should fail with "plus what?"
  + "from <object>", "in <object>", "on <object>"
  + "from within <object>"
@@ -70,6 +61,7 @@ THING SEEKER IMPROVEMENTS
  + put everything in rucksack => put (everything but (rucksack)) in (rucksack)
 
 PLOT
+ + give the archways reasons they can't be moved that are archway-specific
  + plot
 
 WIZARDING

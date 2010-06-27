@@ -221,7 +221,7 @@
    begin
       Assert(not CanEnd());
       EnsureNoPunctuation();
-      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [gnSingular], [], [{ XXX ends }]);
+      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [gnSingular], [], [{ XXX ends }], VerbString);
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
@@ -246,7 +246,7 @@
 
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
-   function GetThings(out Things: PThingItem; AllImpliedScope: TAllImpliedScope; NothingFail: AnsiString): Boolean;
+   function GetThings(out Things: PThingItem; AllImpliedScope: TAllImpliedScope; VerbString: AnsiString; NothingFail: AnsiString = ''): Boolean;
    var
       {$IFOPT C+} MultiplesSuggested: Boolean; {$ENDIF}
       Disambiguate: Boolean;
@@ -255,7 +255,7 @@
       Things := nil;
       Assert(not CanEnd());
       EnsureNoPunctuation();
-      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, gnEither, AllImpliedScope, [{ XXX ends }]);
+      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, gnEither, AllImpliedScope, [{ XXX ends }], VerbString);
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
@@ -268,11 +268,14 @@
             if (not Assigned(Things)) then
             begin
                {$IFOPT C+} Assert(MultiplesSuggested); {$ENDIF}
-               Fail(NothingFail);
+               if (NothingFail <> '') then
+                  Fail(NothingFail)
+               else
+                  Fail('I don''t see anything to ' + VerbString + ' here.');
             end;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(ThingListToString(Things, Self, 'and')); // should really let the caller do that
+               AutoDisambiguated(ThingListToDefiniteString(Things, Self, 'and')); // should really let the caller do that
          except
             { in case we fail }
             FreeThingList(Things);
@@ -586,7 +589,7 @@
          Action.TakeSubject := nil;
          if (CanEnd()) then
             Fail('What do you want to take?');
-         if (GetThings(Action.TakeSubject, [aisSurroundings], 'I can''t see anything to take.')) then
+         if (GetThings(Action.TakeSubject, [aisSurroundings], 'take')) then
          begin
             if (not CanEnd()) then
             begin
@@ -640,7 +643,7 @@
          Action.PutSubject := nil;
          if (CanEnd()) then
             Fail(WhatQ);
-         if (GetThings(Action.PutSubject, [aisSelf], 'You have nothing to ' + Verb + ' anywhere.')) then
+         if (GetThings(Action.PutSubject, [aisSelf], Verb, 'You have nothing to ' + Verb + ' anywhere.')) then
          begin
             if (CanEnd()) then
             begin
@@ -728,7 +731,7 @@
                Fail('I don''t understand how to move into things "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetThings(Action.MoveSubject, [aisSurroundings, aisSelf], 'I can''t see anything to move.')) then
+         if (GetThings(Action.MoveSubject, [aisSurroundings, aisSelf], 'move')) then
          begin
             Action.Verb := avMove;
             Result := True;
@@ -859,7 +862,7 @@
          Inc(CurrentToken);
          if (CanEnd()) then
             Fail('Push what in what direction?');
-         if (GetThings(Action.PushSubject, [aisSurroundings], 'I can''t see anything to push.')) then
+         if (GetThings(Action.PushSubject, [aisSurroundings], 'push')) then
          begin
             Action.Verb := avPush;
             Result := True;
@@ -950,7 +953,7 @@
          Action.ShakeSubject := nil;
          if (CanEnd()) then
             Fail('What do you want to shake?');
-         if (GetThings(Action.ShakeSubject, [aisSurroundings, aisSelf], 'I can''t see anything to shake.')) then
+         if (GetThings(Action.ShakeSubject, [aisSurroundings, aisSelf], 'shake')) then
          begin
             if (not CanEnd()) then
             begin
@@ -1134,10 +1137,10 @@
                Action.DebugThings := nil;
                if (not CanEnd()) then
                begin
-                  if (not GetThings(Action.DebugThings, [aisSelf, aisSurroundings], 'There''s nothing implicitly accessible here. Use "debug things" to get a list of explicitly accessible things.')) then
+                  if (not GetThings(Action.DebugThings, [aisSelf, aisSurroundings], 'debug', 'There''s nothing implicitly accessible here. Use "debug things" to get a list of explicitly accessible things.')) then
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                   if (not CanEnd()) then
-                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + ThingListToString(Action.DebugThings, Self, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + ThingListToLongDefiniteString(Action.DebugThings, Self, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
                end;
             end
             else

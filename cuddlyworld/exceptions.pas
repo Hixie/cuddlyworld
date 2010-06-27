@@ -70,12 +70,15 @@ end;
 
 
 procedure AssertionHandler(const Message, FileName: ShortString; LineNo: Longint; ErrorAddr: Pointer);
+var
+   CompleteMessage: AnsiString;
 begin
-   if (Length(Message) > 0) then
-      Writeln('Assertion "', Message, '" failed on line ', LineNo, ' of ', FileName)
+   if (Message <> '') then
+      CompleteMessage := 'Assertion "' + Message + '" failed on line ' + IntToStr(LineNo) + ' of ' + FileName
    else
-      Writeln('Assertion failed on line ', LineNo, ' of ', FileName);
-   raise EAssertionFailed.Create(Message);
+      CompleteMessage := 'Assertion failed on line ' + IntToStr(LineNo) + ' of ' + FileName;
+   Writeln(CompleteMessage);
+   raise EAssertionFailed.Create(CompleteMessage);
 end;
 
 initialization

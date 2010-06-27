@@ -193,6 +193,7 @@ begin
       begin
          if (Tokens[CurrentToken+Index] <> Pattern[Index]) then
             Exit;
+         Inc(Index);
       end;
       Inc(CurrentToken, Length(Pattern));
       Result := True;
