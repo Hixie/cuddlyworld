@@ -547,6 +547,16 @@ begin
          Proxy.ExpectString('You say b.');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a then, say b');
+         Proxy.ExpectString('You say a.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Then what?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('say a then say b then');
+         Proxy.ExpectString('You say a.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('And what?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('say a and say b and');
          Proxy.WaitUntilSubstring('Taken');
          Proxy.WaitUntilString('');
          Proxy.WaitUntilSubstring('dig');
@@ -554,6 +564,23 @@ begin
          Proxy.WaitUntilSubstring('Dropped');
          Proxy.WaitUntilString('');
          TestPlayer.Perform('take all and dig and drop all in hole');
+         Proxy.ExpectString('And what?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take bag and spade and');
+         Proxy.ExpectString('And what?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all and');
+         Proxy.ExpectString('Then what?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all and then');
+         Proxy.ExpectString('Taken.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('I don''t understand how to "and".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take spade and and');
+         Proxy.ExpectString('I don''t understand your use of commas.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take bag, spade, ');
          Proxy.ExpectDone();
       except
          on E: ETestError do

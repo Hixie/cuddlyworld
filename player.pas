@@ -253,6 +253,13 @@ begin
          Exit;
       CurrentToken := 0;
       repeat
+         { This is suboptimal, but it's not clear how else to do it.
+           The parsing is dependent on the world's state. To support
+           things like "drop all then take all", we have to execute
+           the actions as we parse them. However, this means that "a
+           then b then" will do a, then fail to do b and complain
+           about the trailing then, which isn't ideal.
+         }
          Action.Verb := avNone;
          try
             More := ParseAction(Action);

@@ -1,14 +1,7 @@
-FIXED
- + "bag rim of bag" => "rim of bag"
- + "the navy blue painted Lancet wooden archway to the north of the ground" => "the navy blue painted Lancet wooden archway to the north"
- + the automatic long name determination puts long phrases before individual words:
-    - "the shining silicon metalloid rim of the silicon metalloid inverted catenary shining archway to the south west of the Arrivals Circle" has different uses of "shining"
-    - "the twelve pointed star big glowing stone arrivals pedestal" should have "big" at the front
-    - it also doesn't support finding the "best" alternative when it's a hyphenated word ("twelve pointed" is preferred over "twelve-pointed")
- + make it try different ports if the port is busy
-
-REGRESSIONS
- + "take spade and bag and" should fail (add test)
+NEXT
+ + "that is"
+ + "but"
+ + "from"
 
 THING SEEKER IMPROVEMENTS
  + "take an apple that is blue" when there's blue apples and red apples

@@ -246,8 +246,8 @@ type
       procedure CheckDisposalQueue();
    end;
 
-procedure FreeThingList(ThingItem: PThingItem);
-procedure FreeAvatarList(AAvatarItem: PAvatarItem);
+procedure FreeThingList(ThingItem: PThingItem); inline;
+procedure FreeAvatarList(AAvatarItem: PAvatarItem); inline;
 function MergeAvatarLists(List1, List2: PAvatarItem): PAvatarItem; inline;
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);

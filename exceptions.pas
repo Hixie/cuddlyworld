@@ -48,7 +48,10 @@ begin
    if (Assigned(ReportExceptionMethod)) then
       ReportExceptionMethod(E)
    else
+   begin
       Writeln(E.Message);
+      Dump_Stack(Output, Get_Frame);
+   end;
 end;
 
 procedure ReportExceptionAndFree(E: Exception);
@@ -72,13 +75,15 @@ end;
 procedure AssertionHandler(const Message, FileName: ShortString; LineNo: Longint; ErrorAddr: Pointer);
 var
    CompleteMessage: AnsiString;
+   E: Exception;
 begin
    if (Message <> '') then
       CompleteMessage := 'Assertion "' + Message + '" failed on line ' + IntToStr(LineNo) + ' of ' + FileName
    else
       CompleteMessage := 'Assertion failed on line ' + IntToStr(LineNo) + ' of ' + FileName;
-   Writeln(CompleteMessage);
-   raise EAssertionFailed.Create(CompleteMessage);
+   E := EAssertionFailed.Create(CompleteMessage);
+   ReportException(E);
+   raise E;
 end;
 
 initialization
