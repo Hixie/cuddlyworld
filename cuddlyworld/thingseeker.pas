@@ -113,21 +113,21 @@ end;
 
 type
    TThingSelectionMechanism = (tsmPickAll, tsmPickOne, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber);
+   TClauseFlags = set of (cfAllowExceptions, cfMultiplesSuggested, cfNoTokens);
 
 type
    TAbstractClause = class
      private
+      FFlags: TClauseFlags;
       FNumber: Cardinal;
       FSelectionMechanism: TThingSelectionMechanism;
-      FAllowExceptions: Boolean;
-      FMultiplesSuggested: Boolean;
       FThings: PThingItem;
       FInputFragment: AnsiString;
       FNext: TAbstractClause;
       FPrevious: TAbstractClause;
       function GetInputFragment(Perspective: TAvatar; SiblingCount: Cardinal): AnsiString;
      public
-      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; AllowExceptions, MultiplesSuggested: Boolean; Things: PThingItem; InputFragment: AnsiString); virtual;
+      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: PThingItem; InputFragment: AnsiString); virtual;
       constructor CreateAll(Things: PThingItem; AllowExceptions: Boolean); virtual;
       constructor CreateAllNoScope(); virtual;
       constructor CreateNoTokens(); virtual;
@@ -139,7 +139,11 @@ type
    end;
    TAbstractClauseClass = class of TAbstractClause;
 
-type
+   TContinuationClause = class(TAbstractClause)
+      procedure CheckContext(); override;
+      procedure ReportNoTokens(); virtual; abstract;
+   end;
+
    EMatcherException = class
       FClause: TAbstractClause;
       constructor Create(Clause: TAbstractClause);
@@ -188,16 +192,15 @@ begin
       Result := 'About "' + Input + '"... I count ' + NumberToEnglish(FGot) + ', not ' + NumberToEnglish(FWanted) + '.';
 end;
 
-constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; AllowExceptions, MultiplesSuggested: Boolean; Things: PThingItem; InputFragment: AnsiString);
+constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: PThingItem; InputFragment: AnsiString);
 begin
    inherited Create();
    FNumber := Number;
    FSelectionMechanism := SelectionMechanism;
-   FAllowExceptions := AllowExceptions;
-   FMultiplesSuggested := MultiplesSuggested;
+   FFlags := Flags;
    FThings := Things;
    FInputFragment := InputFragment;
-{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.Create(', Number, ', ..., ', MultiplesSuggested, ', ', ThingListToLongDefiniteString(Things, nil, 'and'), ', ', InputFragment, ')'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.Create(', Number, ', ', SelectionMechanism, ', ..., ', ThingListToLongDefiniteString(Things, nil, 'and'), ', ', InputFragment, ')'); {$ENDIF}
 end;
 
 constructor TAbstractClause.CreateAll(Things: PThingItem; AllowExceptions: Boolean);
@@ -205,8 +208,10 @@ begin
    inherited Create();
    FNumber := 0;
    FSelectionMechanism := tsmPickAll;
-   FAllowExceptions := AllowExceptions;
-   FMultiplesSuggested := True;
+   if (AllowExceptions) then
+      FFlags := [cfAllowExceptions, cfMultiplesSuggested]
+   else
+      FFlags := [cfMultiplesSuggested];
    FThings := Things;
 {$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateAll(', ThingListToLongDefiniteString(Things, nil, 'and'), ')'); {$ENDIF}
 end;
@@ -216,8 +221,7 @@ begin
    inherited Create();
    FNumber := 0;
    FSelectionMechanism := tsmPickAll;
-   FAllowExceptions := False;
-   FMultiplesSuggested := True;
+   FFlags := [cfMultiplesSuggested];
    FThings := nil;
 {$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateAllNoScope()'); {$ENDIF}
 end;
@@ -225,6 +229,7 @@ end;
 constructor TAbstractClause.CreateNoTokens();
 begin
    inherited Create();
+   FFlags := [cfNoTokens];
 {$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateNoTokens()'); {$ENDIF}
 end;
 
@@ -329,7 +334,7 @@ procedure TAbstractClause.Bank(var ChainEnd: PPThingItem; var MultiplesSuggested
 begin
    Assert(Assigned(ChainEnd));
    Assert(not Assigned(ChainEnd^));
-   MultiplesSuggested := MultiplesSuggested or FMultiplesSuggested or (Assigned(FThings) and Assigned(FThings^.Next));
+   MultiplesSuggested := MultiplesSuggested or (cfMultiplesSuggested in FFlags) or (Assigned(FThings) and Assigned(FThings^.Next));
    ChainEnd^ := FThings;
    if (Assigned(FThings)) then
    begin
@@ -349,6 +354,14 @@ begin
 end;
 
 
+procedure TContinuationClause.CheckContext();
+begin
+   Assert(Assigned(FPrevious));
+   if (cfNoTokens in FFlags) then
+      ReportNoTokens();;
+end;
+
+
 type
    TStartClause = class(TAbstractClause)
       procedure CheckContext(); override;
@@ -361,23 +374,42 @@ end;
 
 
 type
-   TAbstractJoiningClause = class(TAbstractClause)
-      procedure CheckContext(); override;
+   TAbstractJoiningClause = class(TContinuationClause)
       procedure Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean); override;
    end;
-   TCommaClause = class(TAbstractJoiningClause) end;
-   TAndClause = class(TAbstractJoiningClause) end;
-
-procedure TAbstractJoiningClause.CheckContext();
-begin
-   Assert(Assigned(FPrevious));
-end;
+   TCommaClause = class(TAbstractJoiningClause)
+      procedure ReportNoTokens(); override;
+   end;
+   TAndClause = class(TAbstractJoiningClause)
+      procedure ReportNoTokens(); override;
+   end;
 
 procedure TAbstractJoiningClause.Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean);
 begin
    MultiplesSuggested := True;
    inherited;
 end;
+
+procedure TCommaClause.ReportNoTokens();
+begin
+   Fail('I don''t understand your use of commas.');
+end;
+
+procedure TAndClause.ReportNoTokens();
+begin
+   Fail('And what?');
+end;
+
+
+type
+   TAbstractFilterClause = class(TContinuationClause)
+      procedure Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean); override;
+   end;
+{   TThatIsClause = class(TAbstractFilterClause)
+      procedure CheckContext(); override;
+      procedure ReportNoTokens(); override;
+   end;}
+
 
 const
    ClauseKindToClass: array[TClauseKind] of TAbstractClauseClass = (
@@ -430,7 +462,6 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
       CurrentClause: TAbstractClause;
       ChainEnd: PPThingItem;
    begin
-{$IFDEF DEBUG_SEEKER} Writeln(' Collapse()'); {$ENDIF}
       Assert(FirstClause is TStartClause);
       CurrentClause := FirstClause;
       Things := nil;
@@ -439,9 +470,7 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
       Disambiguate := False;
       { this is going to get far more complicated when we have restricter support }
       try
-{$IFDEF DEBUG_SEEKER} Writeln(' + multiples now ', MultiplesSuggested); {$ENDIF}
          repeat
-{$IFDEF DEBUG_SEEKER} Writeln(' + collapsing "', CurrentClause.FInputFragment, '" (', CurrentClause.GetInputFragment(Perspective, 0), ')'); {$ENDIF}
             CurrentClause.CheckContext();
             try
                if (CurrentClause.Select()) then
@@ -453,11 +482,11 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
                end;
             end;
             CurrentClause.Bank(ChainEnd, MultiplesSuggested);
-{$IFDEF DEBUG_SEEKER} Writeln(' + multiples now ', MultiplesSuggested); {$ENDIF}
             CurrentClause := CurrentClause.FNext;
          until not Assigned(CurrentClause);
       except
          FreeThingList(Things);
+         Things := nil;
          raise;
       end;
       Deduplicate(Things);
@@ -472,11 +501,16 @@ var
       var
          FromOutside: Boolean;
          Start: Cardinal;
+         Flags: TClauseFlags;
       begin
 {$IFDEF DEBUG_SEEKER} Writeln('    CollectExplicitThings():'); {$ENDIF}
          Assert((PreferredGrammaticalNumber <> []));
          Assert(not Assigned(FCurrentBestThingList));
          Start := CurrentToken;
+         if (AllowExceptions) then
+            Flags := [cfAllowExceptions]
+         else
+            Flags := [];
          if (CurrentToken < Length(Tokens)) then
          begin
             FCurrentPreferredGrammaticalNumber := PreferredGrammaticalNumber;
@@ -487,6 +521,7 @@ var
                Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @ReferencedCallback);
             except
                FreeThingList(FCurrentBestThingList);
+               FCurrentBestThingList := nil;
                raise;
             end;
             if (Assigned(FCurrentBestThingList)) then
@@ -506,13 +541,13 @@ var
                if (gnPlural in FCurrentBestGrammaticalNumber) then { take apples }
                begin
                   Assert(Assigned(FCurrentBestThingList));
-                  Clause := ClauseClass.Create(Number, PluralThingSelectionMechanism, AllowExceptions, True, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))
+                  Clause := ClauseClass.Create(Number, PluralThingSelectionMechanism, Flags + [cfMultiplesSuggested], FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
                end
                else { take apple }
                begin
                   Assert(gnSingular in FCurrentBestGrammaticalNumber);
                   Assert(Assigned(FCurrentBestThingList));
-                  Clause := ClauseClass.Create(Number, SingularThingSelectionMechanism, AllowExceptions, False, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
+                  Clause := ClauseClass.Create(Number, SingularThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
                end;
                FCurrentBestThingList := nil;
             end
