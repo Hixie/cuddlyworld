@@ -116,6 +116,7 @@ type
    TClauseFlags = set of (cfAllowExceptions, cfMultiplesSuggested, cfNoTokens);
 
 type
+   TAbstractJoiningClause = class;
    TAbstractClause = class
      private
       FFlags: TClauseFlags;
@@ -132,16 +133,56 @@ type
       constructor CreateAllNoScope(); virtual;
       constructor CreateNoTokens(); virtual;
       destructor Destroy(); override;
-      procedure CheckContext(); virtual; abstract;
+      procedure CheckContext(); virtual;
+      procedure ReportNoTokens(); virtual; abstract;
+      function AcceptsJoins(Peer: TAbstractClause): Boolean; virtual; abstract;
+      procedure RegisterJoin(Peer: TAbstractJoiningClause); virtual; abstract;
       function Select(): Boolean; { returns true if the result should be explicitly disambiguated }
-      procedure Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean); virtual;
+      procedure Process(); virtual; abstract;
       procedure Add(Next: TAbstractClause);
+      class function GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber; virtual;
    end;
    TAbstractClauseClass = class of TAbstractClause;
 
-   TContinuationClause = class(TAbstractClause)
+   TAbstractJoiningClause = class(TAbstractClause)
+     protected
+      FJoinedTo: TAbstractClause;
+     public
       procedure CheckContext(); override;
-      procedure ReportNoTokens(); virtual; abstract;
+      function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
+      procedure RegisterJoin(Peer: TAbstractJoiningClause); override;
+      procedure ReportNoAcceptedJoin(); virtual; abstract;
+      procedure Process(); override;
+   end;
+   TAbstractPlainJoiningClause = class(TAbstractJoiningClause)
+      procedure ReportNoAcceptedJoin(); override;
+   end;
+   TCommaClause = class(TAbstractPlainJoiningClause)
+      procedure ReportNoTokens(); override;
+   end;
+   TAndClause = class(TAbstractPlainJoiningClause)
+      procedure ReportNoTokens(); override;
+   end;
+
+   TJoinArray = array of TAbstractJoiningClause;
+
+   TJoinableClause = class(TAbstractClause)
+     protected
+      FRegisteredJoins: TJoinArray;
+     public
+      function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
+      procedure RegisterJoin(Peer: TAbstractJoiningClause); override;
+      procedure Process(); override;
+   end;
+
+   TAbstractFilteringClause = class(TJoinableClause)
+      procedure Process(); override;
+   end;
+
+   TStartClause = class(TJoinableClause)
+      procedure CheckContext(); override;
+      function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
+      procedure Bank(var Things: PThingItem; var MultiplesSuggested: Boolean);
    end;
 
    EMatcherException = class
@@ -201,6 +242,8 @@ begin
    FThings := Things;
    FInputFragment := InputFragment;
 {$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.Create(', Number, ', ', SelectionMechanism, ', ..., ', ThingListToLongDefiniteString(Things, nil, 'and'), ', ', InputFragment, ')'); {$ENDIF}
+   if (Assigned(FThings) and Assigned(FThings^.Next)) then
+      Include(FFlags, cfMultiplesSuggested);
 end;
 
 constructor TAbstractClause.CreateAll(Things: PThingItem; AllowExceptions: Boolean);
@@ -256,6 +299,13 @@ begin
    end;
 end;
 
+procedure TAbstractClause.CheckContext();
+begin
+   Assert(Assigned(FPrevious) xor (Self is TStartClause));
+   if (cfNoTokens in FFlags) then
+      ReportNoTokens();
+end;
+
 function TAbstractClause.Select(): Boolean;
 var
    Count: Cardinal;
@@ -280,6 +330,7 @@ var
    end;
 
 begin
+   Assert((not (cfAllowExceptions in FFlags)) or (FSelectionMechanism = tsmPickAll));
    Count := 0;
    Handle := FThings;
    while (Assigned(Handle)) do
@@ -316,7 +367,7 @@ begin
              Result := True;
           end;
        end;
-    tsmPickOnlyNumber:       
+    tsmPickOnlyNumber:
        begin
           if (Count <> FNumber) then
           begin
@@ -330,20 +381,6 @@ begin
    end;
 end;
 
-procedure TAbstractClause.Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean);
-begin
-   Assert(Assigned(ChainEnd));
-   Assert(not Assigned(ChainEnd^));
-   MultiplesSuggested := MultiplesSuggested or (cfMultiplesSuggested in FFlags) or (Assigned(FThings) and Assigned(FThings^.Next));
-   ChainEnd^ := FThings;
-   if (Assigned(FThings)) then
-   begin
-      while (Assigned(ChainEnd^)) do
-         ChainEnd := @(ChainEnd^^.Next);
-      FThings := nil;
-   end;
-end;
-
 procedure TAbstractClause.Add(Next: TAbstractClause);
 begin
    Assert(Assigned(Next));
@@ -353,41 +390,50 @@ begin
    Next.FPrevious := Self;
 end;
 
-
-procedure TContinuationClause.CheckContext();
+class function TAbstractClause.GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber;
 begin
-   Assert(Assigned(FPrevious));
-   if (cfNoTokens in FFlags) then
-      ReportNoTokens();;
+   Result := DefaultGrammaticalNumber;
 end;
 
 
-type
-   TStartClause = class(TAbstractClause)
-      procedure CheckContext(); override;
-   end;
-
-procedure TStartClause.CheckContext();
+procedure TAbstractJoiningClause.CheckContext();
+var
+   EarlierClause: TAbstractClause;
 begin
-   Assert(not Assigned(FPrevious));
-end;
-
-
-type
-   TAbstractJoiningClause = class(TContinuationClause)
-      procedure Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean); override;
-   end;
-   TCommaClause = class(TAbstractJoiningClause)
-      procedure ReportNoTokens(); override;
-   end;
-   TAndClause = class(TAbstractJoiningClause)
-      procedure ReportNoTokens(); override;
-   end;
-
-procedure TAbstractJoiningClause.Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean);
-begin
-   MultiplesSuggested := True;
    inherited;
+   EarlierClause := FPrevious;
+   while (not EarlierClause.AcceptsJoins(Self)) do
+   begin
+      EarlierClause := EarlierClause.FPrevious;
+      if (not Assigned(EarlierClause)) then
+         ReportNoAcceptedJoin();
+   end;
+   FJoinedTo := EarlierClause;
+end;
+
+procedure TAbstractJoiningClause.Process();
+begin
+   Assert(Assigned(FJoinedTo));
+   FJoinedTo.RegisterJoin(Self);
+end;
+
+function TAbstractJoiningClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
+begin
+   Assert(Assigned(FJoinedTo));
+   Result := FJoinedTo.AcceptsJoins(Peer);
+end;
+
+procedure TAbstractJoiningClause.RegisterJoin(Peer: TAbstractJoiningClause);
+begin
+   Assert(Assigned(FJoinedTo));
+   FJoinedTo.RegisterJoin(Peer);
+end;
+
+
+procedure TAbstractPlainJoiningClause.ReportNoAcceptedJoin();
+begin
+   Assert(False);
+   Fail('I just don''t understand.');
 end;
 
 procedure TCommaClause.ReportNoTokens();
@@ -401,14 +447,66 @@ begin
 end;
 
 
-type
-   TAbstractFilterClause = class(TContinuationClause)
-      procedure Bank(var ChainEnd: PPThingItem; var MultiplesSuggested: Boolean); override;
+procedure TJoinableClause.Process();
+var
+   Index: Cardinal;
+   CurrentThing: PThingItem;
+begin
+   if (Length(FRegisteredJoins) > 0) then
+   begin
+      Include(FFlags, cfMultiplesSuggested);
+      CurrentThing := FThings;
+      for Index := Low(FRegisteredJoins) to High(FRegisteredJoins) do
+      begin
+         Assert(Assigned(CurrentThing));
+         while (Assigned(CurrentThing^.Next)) do
+            CurrentThing := CurrentThing^.Next;
+         CurrentThing^.Next := FRegisteredJoins[Index].FThings;
+         CurrentThing := FRegisteredJoins[Index].FThings;
+         FRegisteredJoins[Index].FThings := nil;
+      end;
    end;
-{   TThatIsClause = class(TAbstractFilterClause)
-      procedure CheckContext(); override;
-      procedure ReportNoTokens(); override;
-   end;}
+end;
+
+function TJoinableClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
+begin
+   Result := False;
+end;
+
+procedure TJoinableClause.RegisterJoin(Peer: TAbstractJoiningClause);
+begin
+   SetLength(FRegisteredJoins, Length(FRegisteredJoins)+1);
+   FRegisteredJoins[High(FRegisteredJoins)] := Peer;
+end;
+
+
+
+procedure TAbstractFilteringClause.Process();
+begin
+   inherited;
+   // WIP
+   // This has to go through the people we're filtering and filter them
+end;
+
+
+procedure TStartClause.CheckContext();
+begin
+   inherited;
+   Assert(not Assigned(FPrevious));
+end;
+
+function TStartClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
+begin
+   Result := Peer is TAbstractPlainJoiningClause;
+end;
+
+procedure TStartClause.Bank(var Things: PThingItem; var MultiplesSuggested: Boolean);
+begin
+   Things := FThings;
+   FThings := nil;
+   MultiplesSuggested := cfMultiplesSuggested in FFlags;
+   Assert(Assigned(Things) or MultiplesSuggested);
+end;
 
 
 const
@@ -459,36 +557,31 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
 
    procedure Collapse(FirstClause: TAbstractClause; out Things: PThingItem; out MultiplesSuggested: Boolean; out Disambiguate: Boolean);
    var
-      CurrentClause: TAbstractClause;
-      ChainEnd: PPThingItem;
+      CurrentClause, LastClause: TAbstractClause;
    begin
       Assert(FirstClause is TStartClause);
       CurrentClause := FirstClause;
       Things := nil;
       MultiplesSuggested := False;
-      ChainEnd := @Things;
       Disambiguate := False;
-      { this is going to get far more complicated when we have restricter support }
-      try
-         repeat
-            CurrentClause.CheckContext();
-            try
-               if (CurrentClause.Select()) then
-                  Disambiguate := True;
-            except
-               on E: EMatcherException do
-               begin
-                  Fail(E.Message(Perspective, CurrentClause.FInputFragment));
-               end;
-            end;
-            CurrentClause.Bank(ChainEnd, MultiplesSuggested);
-            CurrentClause := CurrentClause.FNext;
-         until not Assigned(CurrentClause);
-      except
-         FreeThingList(Things);
-         Things := nil;
-         raise;
-      end;
+      repeat
+         CurrentClause.CheckContext();
+         LastClause := CurrentClause;
+         CurrentClause := CurrentClause.FNext;
+      until not Assigned(CurrentClause);
+      CurrentClause := LastClause;
+      repeat
+         try
+            if (CurrentClause.Select()) then
+               Disambiguate := True;
+            CurrentClause.Process();
+         except
+            on E: EMatcherException do { raised by Select() }
+               Fail(E.Message(Perspective, CurrentClause.FInputFragment));
+         end;
+         CurrentClause := CurrentClause.FPrevious;
+      until not Assigned(CurrentClause);
+      (FirstClause as TStartClause).Bank(Things, MultiplesSuggested);
       Deduplicate(Things);
    end;
 
@@ -497,23 +590,19 @@ var
 
    function CollectArticleAndThings(ClauseClass: TAbstractClauseClass; ClauseLength: Cardinal; out Clause: TAbstractClause): Boolean;
 
-      function CollectExplicitThings(PreferredGrammaticalNumber: TGrammaticalNumber; Number: Cardinal; SingularThingSelectionMechanism, PluralThingSelectionMechanism: TThingSelectionMechanism; AllowExceptions, ForceMatch: Boolean): Boolean;
+      function CollectExplicitThings(ExplicitGrammaticalNumber: TGrammaticalNumber; Number: Cardinal; SingularThingSelectionMechanism, PluralThingSelectionMechanism: TThingSelectionMechanism; AllowExceptions, ForceMatch: Boolean): Boolean;
       var
          FromOutside: Boolean;
          Start: Cardinal;
          Flags: TClauseFlags;
       begin
 {$IFDEF DEBUG_SEEKER} Writeln('    CollectExplicitThings():'); {$ENDIF}
-         Assert((PreferredGrammaticalNumber <> []));
+         Assert((ExplicitGrammaticalNumber <> []));
          Assert(not Assigned(FCurrentBestThingList));
          Start := CurrentToken;
-         if (AllowExceptions) then
-            Flags := [cfAllowExceptions]
-         else
-            Flags := [];
          if (CurrentToken < Length(Tokens)) then
          begin
-            FCurrentPreferredGrammaticalNumber := PreferredGrammaticalNumber;
+            FCurrentPreferredGrammaticalNumber := ExplicitGrammaticalNumber;
             FCurrentBestLength := 0;
             FCurrentBestGrammaticalNumber := [];
             FCurrentBestThingList := nil;
@@ -530,10 +619,10 @@ var
                Assert(CurrentToken > Start);
                if (CurrentToken < Length(Tokens)) then
                begin
-                  Assert(FCurrentPreferredGrammaticalNumber = PreferredGrammaticalNumber);
+                  Assert(FCurrentPreferredGrammaticalNumber = ExplicitGrammaticalNumber);
                   if ((FCurrentPreferredGrammaticalNumber <= FCurrentBestGrammaticalNumber) and
-                      (((PreferredGrammaticalNumber = [gnSingular]) and (Tokens[CurrentToken] = 'one')) or
-                       ((PreferredGrammaticalNumber = [gnPlural]) and (Tokens[CurrentToken] = 'ones')))) then
+                      (((ExplicitGrammaticalNumber = [gnSingular]) and (Tokens[CurrentToken] = 'one')) or
+                       ((ExplicitGrammaticalNumber = [gnPlural]) and (Tokens[CurrentToken] = 'ones')))) then
                   begin
                      Inc(CurrentToken);
                   end;
@@ -541,13 +630,17 @@ var
                if (gnPlural in FCurrentBestGrammaticalNumber) then { take apples }
                begin
                   Assert(Assigned(FCurrentBestThingList));
-                  Clause := ClauseClass.Create(Number, PluralThingSelectionMechanism, Flags + [cfMultiplesSuggested], FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
+                  if (AllowExceptions) then
+                     Flags := [cfAllowExceptions, cfMultiplesSuggested]
+                  else
+                     Flags := [cfMultiplesSuggested];
+                  Clause := ClauseClass.Create(Number, PluralThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
                end
                else { take apple }
                begin
                   Assert(gnSingular in FCurrentBestGrammaticalNumber);
                   Assert(Assigned(FCurrentBestThingList));
-                  Clause := ClauseClass.Create(Number, SingularThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
+                  Clause := ClauseClass.Create(Number, SingularThingSelectionMechanism, [], FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start));
                end;
                FCurrentBestThingList := nil;
             end
@@ -595,8 +688,8 @@ var
     - "one <either-s>"               - there must be one or more, pick number "randomly"
     - "one of the <either-p>"        - there must be one or more, pick number "randomly"; had definite article
     - "<number> <either-p>"          - there must be <number> or more, pick <number> of them "randomly"
-    - "the one <either-s>"           - there must be one, pick number; had definite article                            
-    - "the <number> <either-p>"      - there must be <number>, pick number; had definite article                       
+    - "the one <either-s>"           - there must be one, pick number; had definite article
+    - "the <number> <either-p>"      - there must be <number>, pick number; had definite article
 
     - "any of the <either-p>"        - there must be one or more, pick number "randomly", allow exceptions; had definite article
     - "any of the <number> <plural>" - there must be one or more, pick number "randomly", allow exceptions; had definite article
@@ -637,12 +730,12 @@ var
          CollectExplicitThings([gnSingular], 1, tsmPickAll, tsmPickAll, True, True)
       else
       if (TryMatch(CurrentToken, Tokens, ['the'])) then
-         CollectExplicitThings(PreferredGrammaticalNumber, 1, tsmPickOnlyNumber, tsmPickAll, False, True)
+         CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickOnlyNumber, tsmPickAll, False, True)
       else
       if (TryMatch(CurrentToken, Tokens, ['some'])) then
-         CollectExplicitThings(PreferredGrammaticalNumber, 1, tsmPickNumber, tsmPickSome, False, True)
+         CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickNumber, tsmPickSome, False, True)
       else
-         CollectExplicitThings(PreferredGrammaticalNumber, 1, tsmPickOnlyNumber, tsmPickAll, False, False);
+         CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickOnlyNumber, tsmPickAll, False, False);
       Result := Assigned(Clause);
       if (not Result) then
          Dec(CurrentToken, ClauseLength);
@@ -819,7 +912,7 @@ begin
    FTokenCount := 0;
    FMultiplesSuggested := False;
    FDisambiguate := False;
-   FThingList := nil;   
+   FThingList := nil;
    {$IFOPT C+} FCollected := False; {$ENDIF}
 end;
 
