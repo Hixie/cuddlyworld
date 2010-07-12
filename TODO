@@ -1,5 +1,6 @@
 NEXT
- + "that is"
+ + "take all that is wood" should work
+ + "take the wood one" should work
  + "but"
  + "from"
 
@@ -18,6 +19,7 @@ THING SEEKER IMPROVEMENTS
  + "foo with bar and baz from quux"
  + "put everything from rucksack [in bag]" (the end clauses)
  + "take two copper coins and three gold coins but not big ones or blue ones from table"
+ + "take all that is two bottles" should fail
  + "take bottle from table"
  + "take all bottles except bottles from table"
  + "take all bottles that are not on the table"

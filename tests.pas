@@ -476,6 +476,24 @@ begin
          TestPlayer.Perform('move all n; n; dig; l; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l in hole; look in ground; l');
          Proxy.ExpectDone();
 
+         // complex parsing
+         Proxy.Test('Thing Seeker');
+         Proxy.ExpectSubstring('It is coloured pink.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine the balloon that is pink');
+         Proxy.ExpectSubstring('It is coloured pink.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine the pink that is a balloon');
+         Proxy.ExpectSubstring('Which "balloon that is large" do you mean, ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine the balloon that is large');
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine the balloon that is pink that is pink');
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine balloons that is pink');
+
          // overfill test
          Proxy.Test('Overfilling');
          Proxy.ExpectString('Moved onto the ground.');
