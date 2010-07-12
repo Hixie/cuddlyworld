@@ -216,7 +216,7 @@
    function GetThing(out Thing: TAtom; VerbString: AnsiString): Boolean;
    var
       Things: PThingItem;
-      MultiplesSuggested, Disambiguate: Boolean;
+      {$IFOPT C+} Disambiguate: Boolean; {$ENDIF}
       Count: Cardinal;
    begin
       Assert(not CanEnd());
@@ -225,11 +225,9 @@
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
-         MultiplesSuggested := GlobalThingCollector.GetMultiplesSuggested();
          Disambiguate := GlobalThingCollector.GetDisambiguate();
          Things := GlobalThingCollector.GetThingList(); { resets the thing collector }
          try
-            Assert(Assigned(Things) or MultiplesSuggested); { Things will be nil in case input is just 'all', but then MultiplesSuggested will be true }
             if (not CanEnd()) then
                EnsureNoPunctuation();
             if ((not Assigned(Things)) or (Assigned(Things^.Next))) then
@@ -248,7 +246,6 @@
    { Do not call if CanEnd(). }
    function GetThings(out Things: PThingItem; AllImpliedScope: TAllImpliedScope; VerbString: AnsiString; NothingFail: AnsiString = ''): Boolean;
    var
-      {$IFOPT C+} MultiplesSuggested: Boolean; {$ENDIF}
       Disambiguate: Boolean;
       Count: Cardinal;
    begin
@@ -259,7 +256,6 @@
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
-         {$IFOPT C+} MultiplesSuggested := GlobalThingCollector.GetMultiplesSuggested(); {$ENDIF}
          Disambiguate := GlobalThingCollector.GetDisambiguate();
          Things := GlobalThingCollector.GetThingList(); { resets the thing collector }
          try
@@ -267,7 +263,6 @@
                EnsureNoPunctuation();
             if (not Assigned(Things)) then
             begin
-               {$IFOPT C+} Assert(MultiplesSuggested); {$ENDIF}
                if (NothingFail <> '') then
                   Fail(NothingFail)
                else
