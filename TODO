@@ -1,11 +1,16 @@
-NEXT
- + "take all that is wood" should work
+FIXED
  + "take the wood one" should work
+ + "examine all that is shovel" should work (and disambiguate)
+ + "take all that is shovel" should work
+ + "take an apple that is blue" when there's blue apples and red apples
+ + numbers, as in "take all three balloons"
+ + "take all that is two bottles" should fail
+
+NEXT
  + "but"
  + "from"
 
 THING SEEKER IMPROVEMENTS
- + "take an apple that is blue" when there's blue apples and red apples
  + "take all the berries, an apple that is blue, and a coat from the table"
     - note: "from" restrictor applies to nearest group of unrestricted clauses up to an "all" clause
  + "take apples from the table that is blue and the bench that is green" => "take the bench that is green, and apples from the table that is blue"
@@ -19,7 +24,6 @@ THING SEEKER IMPROVEMENTS
  + "foo with bar and baz from quux"
  + "put everything from rucksack [in bag]" (the end clauses)
  + "take two copper coins and three gold coins but not big ones or blue ones from table"
- + "take all that is two bottles" should fail
  + "take bottle from table"
  + "take all bottles except bottles from table"
  + "take all bottles that are not on the table"
@@ -39,7 +43,6 @@ THING SEEKER IMPROVEMENTS
  + "take blue from red that is not big"
  + "take some sugar from the jar and some salt from the pot"
  + note: "from" doesn't bind to "but" after it unless it was "from all", and allows "but" to bind to clause before it
- + note: "that is" only binds to the previous clause, and only if it was singular
  + note: "that are" only binds to the previous clause, and only if it was plural
  + note: "all" doesn't accept "that is" or "that are"
  + note: "from" should not accept something with multiples suggested if it is binding to something that itself doesn't have multiples suggested
@@ -54,9 +57,13 @@ THING SEEKER IMPROVEMENTS
  + given blue vase on blue table and red vase on red table: "take the vases on the tables" => ?
  + add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
  + put everything in rucksack => put (everything but (rucksack)) in (rucksack)
+ + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
+ + "take all that is ground" should take the ground, but "take all" shouldn't consider the ground
+    - "take all of the arches" works but "take all that is an arch" does not, which is inconsistent UI
+    - could be solved by making "all that is" explicit in the list of phrases we know
 
 PLOT
- + give the archways reasons they can't be moved that are archway-specific
+ + give the archways reasons they can't be moved that are archway-specific - right now they are "part of the ground".
  + plot
 
 WIZARDING
@@ -146,6 +153,7 @@ THINGS
     | The hole contains:
     |   A bag of holding.   The bag of holding contains:
     |     A spade.
+ + Things claim to be "part of the ground" when they are partOf the ground and you try to take them, which looks weird.
 
 
 NETWORK

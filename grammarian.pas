@@ -50,7 +50,8 @@ const
 
 function Tokenise(const S: AnsiString): TTokens;
 function TokeniseCanonically(const S: AnsiString): TTokens;
-function TryMatch(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString): Boolean; inline;
+function TryMatch(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString): Boolean;
+function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; out Number: Cardinal): Boolean; { '#' in the pattern is the number -- only matches numbers in the range 2..999,999,999}
 function Serialise(const Tokens: TTokens; const Start, Count: Cardinal; const Separator: AnsiString = ' '): AnsiString;
 function Canonicalise(const S: AnsiString): AnsiString;
 function IndefiniteArticle(Noun: AnsiString): AnsiString; inline;
@@ -197,6 +198,94 @@ begin
       end;
       Inc(CurrentToken, Length(Pattern));
       Result := True;
+   end;
+end;
+
+function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; out Number: Cardinal): Boolean;
+// would be good to extend this to supprot "a dozen" "one dozen" etc
+var
+   Index, Subindex: Cardinal;
+   FoundNumber, Digits: Boolean;
+begin
+   Result := False;
+   FoundNumber := False;
+   if (CurrentToken + Length(Pattern) <= Length(Tokens)) then
+   begin
+      Index := 0;
+      while (Index < Length(Pattern)) do
+      begin
+         if (Pattern[Index] = '#') then
+         begin
+            Assert(not FoundNumber);
+            FoundNumber := True;
+            Assert(Length(Tokens[CurrentToken+Index]) > 0);
+            Digits := True;
+            Subindex := 1;
+            while (Digits and (Subindex <= Length(Tokens[CurrentToken+Index]))) do
+            begin
+               if (not (Tokens[CurrentToken+Index][Subindex] in ['0'..'9'])) then
+                  Digits := False
+               else
+                  Inc(Subindex);
+            end;
+            if (Digits) then
+            begin
+               { only numbers in the range 2..999,999,999 are supported }
+               if (Length(Tokens[CurrentToken+Index]) >= 10) then
+                  Exit;
+               if (Tokens[CurrentToken+Index][1] = '0') then
+                  Exit;
+               if (Tokens[CurrentToken+Index] = '1') then
+                  Exit;
+               Val(Tokens[CurrentToken+Index], Number, Subindex);
+               Assert(Subindex = 0, 'Digits was true for non-numeric string "' + Tokens[CurrentToken+Index] + '"');
+               Assert(Number >= 2);
+               Assert(Number <= 999999999);
+            end
+            else
+            if (Tokens[CurrentToken+Index] = 'two') then
+               Number := 2
+            else
+            if (Tokens[CurrentToken+Index] = 'three') then
+               Number := 3
+            else
+            if (Tokens[CurrentToken+Index] = 'four') then
+               Number := 4
+            else
+            if (Tokens[CurrentToken+Index] = 'five') then
+               Number := 5
+            else
+            if (Tokens[CurrentToken+Index] = 'six') then
+               Number := 6
+            else
+            if (Tokens[CurrentToken+Index] = 'seven') then
+               Number := 7
+            else
+            if (Tokens[CurrentToken+Index] = 'eight') then
+               Number := 8
+            else
+            if (Tokens[CurrentToken+Index] = 'nine') then
+               Number := 9
+            else
+            if (Tokens[CurrentToken+Index] = 'ten') then
+               Number := 10
+            else
+            if (Tokens[CurrentToken+Index] = 'eleven') then
+               Number := 11
+            else
+            if (Tokens[CurrentToken+Index] = 'twelve') then
+               Number := 12
+            else
+               Exit;
+         end
+         else
+         if (Tokens[CurrentToken+Index] <> Pattern[Index]) then
+            Exit;
+         Inc(Index);
+      end;
+      Inc(CurrentToken, Length(Pattern));
+      Result := True;
+      Assert(FoundNumber);
    end;
 end;
 

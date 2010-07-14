@@ -408,25 +408,39 @@ begin
          Proxy.ExpectString('I can''t see any "xyzzy" here to examine.');
          Proxy.ExpectString('');
          TestPlayer.Perform('x xyzzy');
+
          Proxy.ExpectString('I can''t see any "xyzzy" here to examine.');
          Proxy.ExpectString('');
          TestPlayer.Perform('x the xyzzy');
+
          Proxy.ExpectString('The bag has the name "Tester" embroidered around its rim.');
          Proxy.ExpectString('');
          TestPlayer.Perform('x bag');
+
          Proxy.ExpectString('Around the bag''s rim is embroidered the name "Tester".');
          Proxy.ExpectString('');
          TestPlayer.Perform('x rim');
+
          Proxy.ExpectString('Around the bag''s rim is embroidered the name "Tester".');
          Proxy.ExpectString('');
          TestPlayer.Perform('x bag rim');
+
          Proxy.ExpectString('I don''t understand how to examine things "bag".');
          Proxy.ExpectString('');
          TestPlayer.Perform('x rim bag');
+
          Proxy.ExpectString('Pile of leaves: You shake the pile of leaves.');
          Proxy.ExpectString('MacGuffin: You shake the MacGuffin.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the pile, some leaves, and a macguffin');
+
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take pile that is the leaf ones');
+
+         Proxy.ExpectString('The pile of leaves slips through your fingers.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take pile that is the leaf one');
          Proxy.ExpectDone();
 
          // Dig and cover test
@@ -481,18 +495,90 @@ begin
          Proxy.ExpectSubstring('It is coloured pink.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine the balloon that is pink');
+
          Proxy.ExpectSubstring('It is coloured pink.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine the pink that is a balloon');
+
          Proxy.ExpectSubstring('Which "balloon that is large" do you mean, ');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine the balloon that is large');
+
          Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine the balloon that is pink that is pink');
+
          Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine balloons that is pink');
+
+         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine all that is balloon');
+
+         Proxy.ExpectString('(the large pink balloon)');
+         Proxy.ExpectSubstring('It is coloured pink.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine all that is pink');
+
+         Proxy.ExpectSubstring(' balloon)');
+         Proxy.ExpectSubstring('It is coloured');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine a balloon that is large');
+
+         Proxy.ExpectSubstring(' balloon)');
+         Proxy.ExpectSubstring('It is coloured');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine any of the balloons');
+
+         Proxy.ExpectSubstring(' balloon)');
+         Proxy.ExpectSubstring('It is coloured');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine one balloon');
+
+         Proxy.ExpectSubstring(' balloon)');
+         Proxy.ExpectSubstring('It is coloured');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine some balloon');
+
+         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine some balloons');
+
+         Proxy.ExpectString('(the large pink balloon)');
+         Proxy.ExpectSubstring('It is coloured pink.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine all that is pink');
+         Proxy.ExpectDone();
+
+         // counting and parsing with numbers
+         Proxy.Test('Counting');
+         Proxy.ExpectSubstring('(');
+         Proxy.ExpectSubstring('balloon: Taken.');
+         Proxy.ExpectSubstring('balloon: Taken.');
+         Proxy.ExpectSubstring('balloon: Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take three balloons');
+
+         Proxy.ExpectSubstring('(');
+         Proxy.ExpectSubstring('balloon: (first');
+         Proxy.ExpectSubstring('balloon: Taken.');
+         Proxy.ExpectSubstring('balloon: Dropped.');
+         Proxy.ExpectSubstring('balloon: (first');
+         Proxy.ExpectSubstring('balloon: Taken.');
+         Proxy.ExpectSubstring('balloon: Dropped.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('drop any two balloons');
+
+         Proxy.ExpectString('About "balloons"... I count 10, not two.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('drop the two balloons');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all balloons');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectDone();
 
          // overfill test
          Proxy.Test('Overfilling');
@@ -540,41 +626,49 @@ begin
          Proxy.ExpectString('You say hello.');
          Proxy.ExpectString('');
          TestPlayer.Perform('say hello');
+
          Proxy.ExpectString('You say a.');
          Proxy.ExpectString('');
          Proxy.ExpectString('You say b.');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a and say b');
+
          Proxy.ExpectString('You say a.');
          Proxy.ExpectString('');
          Proxy.ExpectString('You say b.');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a and, then, say b');
+
          Proxy.ExpectString('You say a.');
          Proxy.ExpectString('');
          Proxy.ExpectString('You say b.');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a; then say b');
+
          Proxy.ExpectString('You say a.');
          Proxy.ExpectString('');
          Proxy.ExpectString('You say b.');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a; say b');
+
          Proxy.ExpectString('You say a.');
          Proxy.ExpectString('');
          Proxy.ExpectString('You say b.');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a then, say b');
+
          Proxy.ExpectString('You say a.');
          Proxy.ExpectString('');
          Proxy.ExpectString('Then what?');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a then say b then');
+
          Proxy.ExpectString('You say a.');
          Proxy.ExpectString('');
          Proxy.ExpectString('And what?');
          Proxy.ExpectString('');
          TestPlayer.Perform('say a and say b and');
+
          Proxy.WaitUntilSubstring('Taken');
          Proxy.WaitUntilString('');
          Proxy.WaitUntilSubstring('dig');
@@ -582,24 +676,30 @@ begin
          Proxy.WaitUntilSubstring('Dropped');
          Proxy.WaitUntilString('');
          TestPlayer.Perform('take all and dig and drop all in hole');
+
          Proxy.ExpectString('And what?');
          Proxy.ExpectString('');
          TestPlayer.Perform('take bag and spade and');
+
          Proxy.ExpectString('And what?');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all and');
+
          Proxy.ExpectString('Then what?');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all and then');
+
          Proxy.ExpectString('Taken.');
          Proxy.ExpectString('');
          Proxy.ExpectString('I don''t understand how to "and".');
          Proxy.ExpectString('');
          TestPlayer.Perform('take spade and and');
+
          Proxy.ExpectString('I don''t understand your use of commas.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take bag, spade, ');
          Proxy.ExpectDone();
+
       except
          on E: ETestError do
          begin
