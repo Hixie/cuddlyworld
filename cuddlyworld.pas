@@ -12,17 +12,34 @@ type
    TMain = class
       constructor Create();
       destructor Destroy(); override;
-      procedure Run();
+      procedure Run(); virtual; abstract;
       procedure ReportException(E: Exception);
     protected
       FWorld: TWorld;
-      FServer: TCuddlyWorldServer;
       FOldReportExceptionMethod: TReportExceptionEvent;
       procedure InitialiseWorld();
       procedure SaveWorld();
       {$IFDEF DEBUG}
       procedure ReportStatus(Perspective: TAvatar);
       {$ENDIF}
+   end;
+
+   TNetworkMain = class(TMain)
+      constructor Create();
+      destructor Destroy(); override;
+      procedure Run(); override;
+    protected
+      FServer: TCuddlyWorldServer;
+   end;
+
+   TCommandLineMain = class(TMain)
+      constructor Create(Username, Password: AnsiString);
+      destructor Destroy(); override;
+      procedure Run(); override;
+      procedure HandleForceDisconnect();
+      procedure HandleAvatarMessage(Message: AnsiString);
+    protected
+      FPlayer: TPlayer;
    end;
 
 var 
@@ -44,7 +61,6 @@ begin
    player.StatusReport := @Self.ReportStatus;
    {$ENDIF}
    InitialiseWorld();
-   FServer := TCuddlyWorldServer.Create(10000, 'http://software.hixie.ch', 'damowmow.com', 'cuddlyworld', FWorld);
    New(NewAction);
    if (not Assigned(NewAction)) then
       OutOfMemoryError();
@@ -78,22 +94,9 @@ begin
    {$IFDEF DEBUG}
    player.StatusReport := nil;
    {$ENDIF}
-   FServer.Free();
    FWorld.Free();
    SetReportExceptionMethod(FOldReportExceptionMethod);
    inherited;
-end;
-
-procedure TMain.Run();
-begin
-   Writeln('CuddlyWorld running...');
-   repeat
-      FServer.Select(timeoutForever);
-      FWorld.CheckForDisconnectedPlayers();
-      FWorld.CheckDisposalQueue();
-      SaveWorld();
-   until Aborted;
-   Writeln('CuddlyWorld aborted');
 end;
 
 procedure TMain.ReportException(E: Exception);
@@ -109,15 +112,118 @@ begin
 end;
 {$ENDIF}
 
+
+constructor TNetworkMain.Create();
+begin
+   inherited;
+   FServer := TCuddlyWorldServer.Create(10000, 'http://software.hixie.ch', 'damowmow.com', 'cuddlyworld', FWorld);
+end;
+
+destructor TNetworkMain.Destroy();
+begin
+   FServer.Free();
+   inherited;
+end;
+
+procedure TNetworkMain.Run();
+begin
+   Writeln('CuddlyWorld running...');
+   repeat
+      FServer.Select(timeoutForever);
+      FWorld.CheckForDisconnectedPlayers();
+      FWorld.CheckDisposalQueue();
+      SaveWorld();
+   until Aborted;
+   Writeln('CuddlyWorld aborted');
+end;
+
+
+constructor TCommandLineMain.Create(Username, Password: AnsiString);
+begin
+   inherited Create();
+   FPlayer := FWorld.GetPlayer(Username) as TPlayer;
+   if (Assigned(FPlayer)) then
+   begin
+      if (FPlayer.GetPassword() = Password) then
+      begin
+         FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
+         Writeln('Logged in as ' + FPlayer.GetDefiniteName(nil) + '.');
+         Writeln('');
+         FPlayer.DoLook();
+         FPlayer.DoInventory();
+         Writeln('');
+      end
+      else
+      begin
+         raise Exception.Create('Wrong Password');
+      end;
+   end
+   else
+   begin
+      FPlayer := TPlayer.Create(Username, Password, gOrb);
+      FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
+      FWorld.AddPlayer(FPlayer); { this puts it into the world }
+      FPlayer.AnnounceAppearance();
+      Writeln('Welcome to CuddlyWorld, ' + FPlayer.GetDefiniteName(nil) + '.');
+      Writeln('');
+      FPlayer.DoLook();
+      Writeln('');
+   end;
+end;
+
+procedure TCommandLineMain.HandleAvatarMessage(Message: AnsiString);
+begin
+   Writeln(Message);
+end;
+
+procedure TCommandLineMain.HandleForceDisconnect();
+begin
+end;
+
+destructor TCommandLineMain.Destroy();
+begin
+   FPlayer.Abandon();
+   inherited;
+end;
+
+procedure TCommandLineMain.Run();
+var
+   S: AnsiString;
+begin
+   repeat
+      Write('> ');
+      Readln(S);
+      FPlayer.Perform(S);
+      FWorld.CheckDisposalQueue();
+      SaveWorld();
+   until Aborted;
+end;
+
+var
+   Main: TMain;
 begin
    try
-      with (TMain.Create()) do
+      if (ParamCount() > 0) then
       begin
-         try
-            Run();
-         finally
-            Free();
+         if (ParamCount() <> 2) then
+         begin
+            Writeln('Usage: cuddlyworld [username password]');
+            Writeln('Without arguments, runs a WebSocket server on a port in the range 10000..10009.');
+            Writeln('With arguments, runs locally in single-user mode using the given username and password.');
+         end
+         else
+         begin
+            Main := TCommandLineMain.Create(ParamStr(1), ParamStr(2));
          end;
+      end
+      else
+      begin
+         Main := TNetworkMain.Create();
+      end;
+      try
+         Main.Run();
+      finally
+         Main.Free();
       end;
    except
      on E: Exception do

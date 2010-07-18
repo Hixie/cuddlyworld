@@ -1,16 +1,11 @@
-FIXED
- + "take the wood one" should work
- + "examine all that is shovel" should work (and disambiguate)
- + "take all that is shovel" should work
- + "take an apple that is blue" when there's blue apples and red apples
- + numbers, as in "take all three balloons"
- + "take all that is two bottles" should fail
-
-NEXT
+DONE
  + "but"
- + "from"
 
 THING SEEKER IMPROVEMENTS
+ + "from"
+ + "all that is" as a dedicated clause
+ + "and that is" clause
+ + "all that is pink and that is an arch" should work
  + "take all the berries, an apple that is blue, and a coat from the table"
     - note: "from" restrictor applies to nearest group of unrestricted clauses up to an "all" clause
  + "take apples from the table that is blue and the bench that is green" => "take the bench that is green, and apples from the table that is blue"
