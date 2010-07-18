@@ -11,8 +11,8 @@ type
    TAllImpliedScope = set of (aisSurroundings, aisSelf);
    TClauseKind = (ckStart,
                   ckComma, ckCommaAnd, ckAnd,
-                  ckThatIs{, ckThatIsNot, ckThatAre, ckThatAreNot,
-                  ckBut,
+                  ckThatIs{, ckThatIsNot, ckThatAre, ckThatAreNot},
+                  ckBut{,
                   ckFrom, ckIn});
    TClauseKinds = set of TClauseKind;
 
@@ -170,6 +170,7 @@ type
       FRegisteredJoins: array of TAbstractJoiningClause;
      public
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
+      function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); override;
       procedure Process(); override;
    end;
@@ -202,7 +203,16 @@ type
       function GetFragmentAnnotation(): AnsiString; override;
    end;
 
-   TExceptionFilteringClause = class(TAbstractFilteringClause) { filters that filter the nearest sequence of "all"s }
+   TExclusionFilteringClause = class(TAbstractFilteringClause)
+      procedure Filter(Victim: TAbstractClause); override;
+      procedure ReportNothingLeft(); virtual;
+   end;
+   TExceptionFilteringClause = class(TExclusionFilteringClause) { filters that filter the nearest sequence of "all"s }
+      function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
+   end;
+   TButClause = class(TExceptionFilteringClause)
+      procedure ReportNoVictims(); override;
+      function GetFragmentAnnotation(): AnsiString; override;
    end;
 
    TStartClause = class(TJoinableClause)
@@ -313,7 +323,7 @@ begin
    if (Peer is TExceptionFilteringClause) then
    begin
       Result := cfAllowExceptions in FFlags;
-      CanContinue := Result;
+      CanContinue := True;
    end
    else
    if (Peer is TThatIsClause) then
@@ -513,6 +523,13 @@ begin
    Result := False;
 end;
 
+function TJoinableClause.AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean;
+begin
+   Result := inherited AcceptsFilter(Peer, CanContinue);
+   if (Peer is TExceptionFilteringClause) then
+      CanContinue := Result;
+end;
+
 procedure TJoinableClause.RegisterJoin(Peer: TAbstractJoiningClause);
 begin
    SetLength(FRegisteredJoins, Length(FRegisteredJoins)+1);
@@ -534,6 +551,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('   examining clause that is a ', CurrentClause.ClassName); {$ENDIF}
       // we'll have to add some special magic here to handle "and that is" clauses
       // so that "take arch and that is blue" doesn't work but "take arch that is red and that is blue" does
+      // (also once "all that is" is considered a simple prefix clause type, we need to handle that)
       if (CurrentClause.AcceptsFilter(Self, Continue)) then
       begin
 {$IFDEF DEBUG_SEEKER} Writeln('   they said yes'); {$ENDIF}
@@ -660,6 +678,67 @@ end;
 function TThatIsClause.GetSelectionMechanism(): TThingSelectionMechanism;
 begin
    Result := tsmPickAll;
+end;
+
+
+procedure TExclusionFilteringClause.Filter(Victim: TAbstractClause);
+var
+   VictimThing, CondemnedThing, FilterThing: PThingItem;
+   LastNext: PPThingItem;
+begin
+   VictimThing := Victim.FThings;
+   Victim.FThings := nil;
+   LastNext := @Victim.FThings;
+   while (Assigned(VictimThing)) do
+   begin
+      FilterThing := FThings;
+      while (Assigned(FilterThing) and (FilterThing^.Value <> VictimThing^.Value)) do
+      begin
+         FilterThing := FilterThing^.Next;
+      end;
+      if (not Assigned(FilterThing)) then
+      begin
+         { put the victim's thing back in its list }
+         LastNext^ := VictimThing;
+         LastNext := @VictimThing^.Next;
+         VictimThing := VictimThing^.Next;
+         LastNext^ := nil;
+      end
+      else
+      begin
+         { get rid of this thing's entry }
+         Assert(FilterThing^.Value = VictimThing^.Value);
+         CondemnedThing := VictimThing;
+         VictimThing := VictimThing^.Next;
+         Dispose(CondemnedThing);
+      end;
+   end;
+   if (not Assigned(Victim.FThings)) then
+      ReportNothingLeft();
+   Victim.FInputFragment := Victim.FInputFragment + ' ' + GetFragmentAnnotation();
+end;
+
+procedure TExclusionFilteringClause.ReportNothingLeft();
+begin
+   Fail('It''s not clear to what you are referring.');
+end;
+
+
+function TExceptionFilteringClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
+begin
+   Result := Peer is TAbstractPlainJoiningClause;
+end;
+
+
+procedure TButClause.ReportNoVictims();
+begin
+   { e.g. "take all but knife but fork" }
+   Fail('You used the term "but" in a way I don''t understand.');
+end;
+
+function TButClause.GetFragmentAnnotation(): AnsiString;
+begin
+   Result := 'but ' + FInputFragment;
 end;
 
 
@@ -993,11 +1072,13 @@ var
       end;
    const
       EOT = ''; _ = EOT; { to make the constant below prettier }
+      { order by length of Tokens, then alphabetically }
       ClauseConfigurations: array[TClauseConfigurationIndex] of TClauseConfiguration = (
          (Tokens: (',', 'and',                     _,EOT); ClauseClass: TAndClause;       ClauseKind: ckCommaAnd),
          (Tokens: ('that', 'is',                   _,EOT); ClauseClass: TThatIsClause;    ClauseKind: ckThatIs),
          (Tokens: (',',                          _,_,EOT); ClauseClass: TCommaClause;     ClauseKind: ckComma),
-         (Tokens: ('and',                        _,_,EOT); ClauseClass: TAndClause;       ClauseKind: ckAnd)
+         (Tokens: ('and',                        _,_,EOT); ClauseClass: TAndClause;       ClauseKind: ckAnd),
+         (Tokens: ('but',                        _,_,EOT); ClauseClass: TButClause;       ClauseKind: ckBut)
       );
    var
       Index: TClauseConfigurationIndex;

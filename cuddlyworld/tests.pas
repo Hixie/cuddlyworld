@@ -578,6 +578,39 @@ begin
          TestPlayer.Perform('drop all balloons');
          Proxy.StopSkipping();
 
+         // insert tests for 'but' here
+         Proxy.Test('"But"');
+         Proxy.ExpectSubstring('Pile of earth:');
+         Proxy.ExpectSubstring('Pile of leaves:');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but balloons');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all balloons');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectSubstring('green');
+         Proxy.ExpectSubstring('blue');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but piles and red and orange and yellow and balloon that is pink and violet and purple and white and black and gray');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all balloons');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectSubstring('violet');
+         Proxy.ExpectSubstring('white');
+         Proxy.ExpectSubstring('black');
+         Proxy.ExpectSubstring('red');
+         Proxy.ExpectSubstring('orange');
+         Proxy.ExpectSubstring('yellow');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all balloons but pink ones, blue ones, the green one that is large, and the gray one');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all balloons');
+         Proxy.StopSkipping();
+
          Proxy.ExpectDone();
 
          // overfill test
