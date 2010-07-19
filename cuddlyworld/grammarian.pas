@@ -114,7 +114,7 @@ begin
        tsWordStart:
           case S[Index] of
            ' ', #9: begin end;
-           ',', ';', ':', '.', '?', '!', '+', '&': begin PushToken(S[Index]); end;
+           ',', ';', ':', '.', '?', '!', '+', '&': begin PushToken(S[Index]); end; { if you change this also change the serialiser }
            '''': begin Start := Index+1; TokeniserState := tsQuoted; end;
            '"': begin Start := Index+1; TokeniserState := tsDoubleQuoted; end;
           else
@@ -297,8 +297,21 @@ begin
    Assert(Count > 0);
    Result := Tokens[Start];
    if (Count > 1) then
+   begin
       for Index := Start+1 to Start+Count-1 do
-         Result := Result + Separator + Tokens[Index];
+      begin
+         { if you change this also update the tokeniser }
+         if ((Tokens[Index] = ',') or
+             (Tokens[Index] = ';') or
+             (Tokens[Index] = ':') or
+             (Tokens[Index] = '.') or
+             (Tokens[Index] = '?') or
+             (Tokens[Index] = '!')) then
+            Result := Result + Tokens[Index]
+         else
+            Result := Result + Separator + Tokens[Index];
+      end;
+   end;
 end;
 
 function IndefiniteArticle(Noun: AnsiString): AnsiString;
