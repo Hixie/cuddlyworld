@@ -1,11 +1,7 @@
-DONE
- + "but"
-
 THING SEEKER IMPROVEMENTS
- + "from"
- + "all that is" as a dedicated clause
  + "and that is" clause
- + "all that is pink and that is an arch" should work
+    - "all that is pink and that is an arch" should work
+ + "from"
  + "take all the berries, an apple that is blue, and a coat from the table"
     - note: "from" restrictor applies to nearest group of unrestricted clauses up to an "all" clause
  + "take apples from the table that is blue and the bench that is green" => "take the bench that is green, and apples from the table that is blue"
@@ -53,6 +49,9 @@ THING SEEKER IMPROVEMENTS
  + add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
  + put everything in rucksack => put (everything but (rucksack)) in (rucksack)
  + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
+    - this basically means reworking how the "scope" mechanism works so that it implicitly filters each overall clause, if they all would still match something
+    - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one
+    - maybe we should move the "expecting only one" logic completely out of the thingseeker in fact
  + "take all that is ground" should take the ground, but "take all" shouldn't consider the ground
     - "take all of the arches" works but "take all that is an arch" does not, which is inconsistent UI
     - could be solved by making "all that is" explicit in the list of phrases we know

@@ -413,6 +413,50 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('x the xyzzy');
 
+         Proxy.ExpectString('I was with you until you said "but xyzzy".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but xyzzy');
+
+         Proxy.ExpectString('I was with you until you said "but the xyzzy".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but the xyzzy one');
+
+         Proxy.ExpectString('I was with you until you said "all that is xyzzy".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all that is xyzzy');
+
+         Proxy.ExpectString('I was with you until you said "that is xyzzy".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take bag that is xyzzy');
+
+         Proxy.ExpectString('All 1234 what?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all 1234');
+
+         Proxy.ExpectString('I was with you until you said "but but".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but but');
+
+         Proxy.ExpectString('I don''t understand your use of commas.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take ,');
+
+         Proxy.ExpectString('I can''t see any "," here to take.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('TAKE THE,');
+
+         Proxy.ExpectString('Penny: Taken.');
+         Proxy.ExpectString('MacGuffin: Taken.');
+         Proxy.ExpectSubstring('Pile of leaves: ');
+         Proxy.ExpectSubstring('Bag of holding: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all, and bag');
+
+         Proxy.ExpectString('Penny: Dropped.');
+         Proxy.ExpectString('MacGuffin: Dropped.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('drop all but bag');
+
          Proxy.ExpectString('The bag has the name "Tester" embroidered around its rim.');
          Proxy.ExpectString('');
          TestPlayer.Perform('x bag');
@@ -585,9 +629,10 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but balloons');
 
-         Proxy.SkipEverything();
-         TestPlayer.Perform('drop all balloons');
-         Proxy.StopSkipping();
+         Proxy.ExpectString('You are carrying:');
+         Proxy.ExpectString('  A bag of holding.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('i');
 
          Proxy.ExpectSubstring('green');
          Proxy.ExpectSubstring('blue');
