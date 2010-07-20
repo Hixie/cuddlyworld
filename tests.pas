@@ -833,6 +833,11 @@ begin
          TestPlayer.Perform('look');
          Proxy.ExpectDone();
 
+         Proxy.ExpectString('(the bag of holding)');
+         Proxy.ExpectString('You already have that.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all, and bag');
+
          // test round-tripping
          Proxy.Test('Round-tripping');
          RegisterStorableClass(TTestPlayer, 19);

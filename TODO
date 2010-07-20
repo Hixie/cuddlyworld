@@ -1,3 +1,6 @@
+DONE
+ + "take all, and bag" when there's nothing to take had an assertion failure
+
 THING SEEKER IMPROVEMENTS
  + "and that is" clause
     - "all that is pink and that is an arch" should work

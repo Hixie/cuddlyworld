@@ -12,7 +12,7 @@ type
    TClauseKind = (ckStart,
                   ckComma, ckCommaAnd, ckAnd,
                   ckThatIs{, ckThatIsNot, ckThatAre, ckThatAreNot},
-                  ckBut{,
+                  ckBut{, ckExcept,
                   ckFrom, ckIn});
    TClauseKinds = set of TClauseKind;
 
@@ -138,7 +138,7 @@ type
       procedure Process(); virtual; abstract;
       procedure Add(Next: TAbstractClause);
       class function GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber; virtual;
-      class function RequiresMatch(): Boolean; virtual;
+      class function IsPlainClause(): Boolean; virtual;
       class function CanFail(): Boolean; virtual; { return True if the clause could also be a preposition or action join (e.g. "from", "and") }
    end;
    TAbstractClauseClass = class of TAbstractClause;
@@ -153,9 +153,10 @@ type
       procedure ReportNoAcceptedJoin(); virtual; abstract;
       procedure Process(); override;
    end;
+
    TAbstractPlainJoiningClause = class(TAbstractJoiningClause)
       procedure ReportNoAcceptedJoin(); override;
-      class function RequiresMatch(): Boolean; override;
+      class function IsPlainClause(): Boolean; override;
    end;
    TCommaClause = class(TAbstractPlainJoiningClause)
       class function CanFail(): Boolean; override;
@@ -215,11 +216,15 @@ type
    end;
 
    TStartClause = class(TJoinableClause)
+     protected
+      FDisambiguate: Boolean;
+     public
       procedure CheckContext(); override;
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
-      procedure Bank(var Things: PThingItem);
-      class function RequiresMatch(): Boolean; override;
+      procedure Process(); override;
+      procedure Bank(var Things: PThingItem; var Disambiguate: Boolean);
+      class function IsPlainClause(): Boolean; override;
       class function CanFail(): Boolean; override;
    end;
 
@@ -426,7 +431,7 @@ begin
    Result := DefaultGrammaticalNumber;
 end;
 
-class function TAbstractClause.RequiresMatch(): Boolean;
+class function TAbstractClause.IsPlainClause(): Boolean;
 begin
    Result := False;
 end;
@@ -477,7 +482,7 @@ begin
    Fail('I just don''t understand.');
 end;
 
-class function TAbstractPlainJoiningClause.RequiresMatch(): Boolean;
+class function TAbstractPlainJoiningClause.IsPlainClause(): Boolean;
 begin
    Result := True;
 end;
@@ -506,13 +511,19 @@ begin
       CurrentThing := FThings;
       for Index := Low(FRegisteredJoins) to High(FRegisteredJoins) do
       begin
-         Assert(Assigned(CurrentThing));
-         while (Assigned(CurrentThing^.Next)) do
-            CurrentThing := CurrentThing^.Next;
          Assert(not (cfFakeEverything in FRegisteredJoins[Index].FFlags));
-         Assert(Assigned(FRegisteredJoins[Index].FThings));
-         CurrentThing^.Next := FRegisteredJoins[Index].FThings;
-         CurrentThing := FRegisteredJoins[Index].FThings;
+         if (Assigned(FRegisteredJoins[Index].FThings)) then
+         begin
+            if (Assigned(CurrentThing)) then
+            begin
+               while (Assigned(CurrentThing^.Next)) do
+                  CurrentThing := CurrentThing^.Next;
+               CurrentThing^.Next := FRegisteredJoins[Index].FThings;
+            end;
+            CurrentThing := FRegisteredJoins[Index].FThings;
+            if (not Assigned(FThings)) then
+               FThings := CurrentThing;
+         end;
          FRegisteredJoins[Index].FThings := nil;
       end;
    end;
@@ -767,24 +778,13 @@ begin
    CanContinue := False;
 end;
 
-procedure TStartClause.Bank(var Things: PThingItem);
+procedure TStartClause.Process();
 begin
-   Things := FThings;
-   FThings := nil;
+   FDisambiguate := Length(FRegisteredJoins) > 0;
+   inherited;
 end;
 
-class function TStartClause.RequiresMatch(): Boolean;
-begin
-   Result := True;
-end;
-
-class function TStartClause.CanFail(): Boolean;
-begin
-   Result := True;
-end;
-
-
-function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds; Verb: AnsiString): Boolean;
+procedure TStartClause.Bank(var Things: PThingItem; var Disambiguate: Boolean);
 
    procedure Deduplicate(var Things: PThingItem);
    var
@@ -815,21 +815,47 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
       end;
    end;
 
+begin
+   Deduplicate(FThings);
+   Things := FThings;
+   if ((Assigned(FThings)) and (not Assigned(FThings^.Next)) and (FDisambiguate)) then
+      Disambiguate := True;
+   FThings := nil;
+end;
+
+class function TStartClause.IsPlainClause(): Boolean;
+begin
+   Result := True;
+end;
+
+class function TStartClause.CanFail(): Boolean;
+begin
+   Result := True;
+end;
+
+
+function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds; Verb: AnsiString): Boolean;
+
    procedure Collapse(FirstClause: TAbstractClause; out Things: PThingItem; out Disambiguate: Boolean);
    var
       CurrentClause, LastClause: TAbstractClause;
    begin
+{$IFDEF DEBUG_SEEKER} Writeln('Collapsing clauses...'); {$ENDIF}
       Assert(FirstClause is TStartClause);
       CurrentClause := FirstClause;
       Things := nil;
       Disambiguate := False;
+{$IFDEF DEBUG_SEEKER} Writeln(' Forwards:'); {$ENDIF}
       repeat
+{$IFDEF DEBUG_SEEKER} Writeln('   ', CurrentClause.ClassName); {$ENDIF}
          CurrentClause.CheckContext();
          LastClause := CurrentClause;
          CurrentClause := CurrentClause.FNext;
       until not Assigned(CurrentClause);
       CurrentClause := LastClause;
+{$IFDEF DEBUG_SEEKER} Writeln(' In reverse:'); {$ENDIF}
       repeat
+{$IFDEF DEBUG_SEEKER} Writeln('   ', CurrentClause.ClassName); {$ENDIF}
          try
             if (CurrentClause.Select()) then
                Disambiguate := True;
@@ -840,8 +866,7 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
          end;
          CurrentClause := CurrentClause.FPrevious;
       until not Assigned(CurrentClause);
-      (FirstClause as TStartClause).Bank(Things);
-      Deduplicate(Things);
+      (FirstClause as TStartClause).Bank(Things, Disambiguate);
    end;
 
 var
@@ -934,7 +959,7 @@ var
                Assert(Start = CurrentToken);
                if (not CanFail) then
                begin
-                  if (ClauseClass.RequiresMatch()) then
+                  if (ClauseClass.IsPlainClause()) then
                      Fail('I can''t see any "' + Serialise(OriginalTokens, CurrentToken, 1) + '" here to ' + Verb + '.')
                   else
                      Fail('I was with you until you said "' + Serialise(OriginalTokens, ClauseStart, CurrentToken - ClauseStart + 1) + '".');
