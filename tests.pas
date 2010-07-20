@@ -652,6 +652,11 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all balloons but pink ones, blue ones, the green one that is large, and the gray one');
 
+         Proxy.ExpectString('(the pile of earth)');
+         Proxy.ExpectSubstring('slips');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all piles but the pile that is the pile of leaves');
+
          Proxy.SkipEverything();
          TestPlayer.Perform('drop all balloons');
          Proxy.StopSkipping();
@@ -837,6 +842,11 @@ begin
          Proxy.ExpectString('You already have that.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all, and bag');
+
+         Proxy.ExpectString('(the south archway)');
+         Proxy.ExpectSubstring('pink');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine all that is pink and that is arch');
 
          // test round-tripping
          Proxy.Test('Round-tripping');
