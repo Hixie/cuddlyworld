@@ -216,7 +216,7 @@
    function GetThing(out Thing: TAtom; VerbString: AnsiString): Boolean;
    var
       Things: PThingItem;
-      {$IFOPT C+} Disambiguate: Boolean; {$ENDIF}
+      Disambiguate: Boolean;
       Count: Cardinal;
    begin
       Assert(not CanEnd());
