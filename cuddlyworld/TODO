@@ -1,18 +1,17 @@
 DONE
- + "take all, and bag" when there's nothing to take had an assertion failure
+ + "take all that is pink and that is an arch" works
+ + "take bag that is embroidered and that is bag of holding" works
+ + "take all arches but arch that is pink and that is thick" works
 
 THING SEEKER IMPROVEMENTS
- + "and that is" clause
-    - "all that is pink and that is an arch" should work
  + "from"
  + "take all the berries, an apple that is blue, and a coat from the table"
     - note: "from" restrictor applies to nearest group of unrestricted clauses up to an "all" clause
  + "take apples from the table that is blue and the bench that is green" => "take the bench that is green, and apples from the table that is blue"
  + "take apples and all oranges from table"
- + "take apples and all oranges but rotten"
- + "take all but apples" when there's nothing there should fail() about the restrictor
  + "take apples and all oranges from table but rotten"
  + "take apples and all oranges but rotten from table"
+ + "take arches that are thick or that are wood"
  + "take apples and all oranges that are not rotten from table"
  + "take apples and all oranges from table but rotten and bananas and berries that are not strawberries from box and pineapple and kiwi from crate"
  + "foo with bar and baz from quux"
