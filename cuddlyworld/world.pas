@@ -232,6 +232,7 @@ type
       FLocations: PLocationItem;
       FGlobalThings: PThingItem;
       FPlayers: PAvatarItem;
+      FDirty: Boolean;
     public
       constructor Create();
       destructor Destroy(); override;
@@ -244,6 +245,9 @@ type
       function GetPlayerCount(): Cardinal;
       procedure CheckForDisconnectedPlayers();
       procedure CheckDisposalQueue();
+      procedure SetDirty();
+      procedure Saved();
+      property Dirty: Boolean read FDirty;
    end;
 
 procedure FreeThingList(ThingItem: PThingItem); inline;
@@ -1603,6 +1607,7 @@ function TThing.Debug(): AnsiString;
 begin
    Result := inherited;
    Result := Result + #10 +
+             'IsPlural: ' + TernaryConditional('singular', 'plural', IsPlural(nil)) + #10 +
              'Position: ' + ThingPositionToString(FPosition) + ' ' + FParent.GetName(nil) + #10 +
              'GetIntrinsicSize(): ' + AnsiString(GetIntrinsicSize()) + #10 +
              'GetSurfaceSizeManifest(): ' + AnsiString(GetSurfaceSizeManifest()) + #10;
@@ -2034,6 +2039,16 @@ end;
 procedure TWorld.CheckDisposalQueue();
 begin
    EmptyDisposalQueue();
+end;
+
+procedure TWorld.SetDirty();
+begin
+   FDirty := True;
+end;
+
+procedure TWorld.Saved();
+begin
+   FDirty := False;
 end;
 
 end.

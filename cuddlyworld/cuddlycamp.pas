@@ -172,9 +172,9 @@ begin
                                                            '((((light pink)& light-pink)@ thick (semicircular semi-circular)@ crystal (southern south s)@)# (archway/archways arch/arches)@)&)@',
                                           'The south archway is a thick, semicircular arch made of a light-pink crystal. At the top of the arch is a gold inlay, which itself is decorated with a diamond-studded circle above a diamond-studded cross.', gFemale, FemalePath);
    FemaleArchway.Add(TScenery.Create('gold inlay', '(((diamond-studded (diamond studded)&)@ gold)# inlay/inlays)&', 'The gold is inlaid in the crystal archway. Diamonds are studded in the gold inlay, forming a circle and a cross.'), tpPartOfImplicit);
-   FemaleArchway.Add(TScenery.Create('diamonds', '(((diamond-studded (diamond studded?))@ (circle-and-cross/circles-and-crosses (circle/circles and cross/crosses) circle/circles cross/crosses)@)& '+
-                                                 '((circle-and-cross (circle and cross))@ diamond/diamonds)& '+
-                                                 '((circle-and-cross/circles-and-crosses (circle/circles and cross/crosses) circle/circles cross/crosses)@ of (diamond diamonds)@)&)@',
+   FemaleArchway.Add(TScenery.Create('diamonds', '(((circle-and-cross (circle and cross))@ diamond/diamonds)& '+
+                                                 '((diamond-studded (diamond studded?))@ (circle-and-cross/circles-and-crosses (circle/circles and cross/crosses) circle/circles cross/crosses)@)& '+
+                                                 '((circle-and-cross/circles-and-crosses (circle/circles and cross/crosses) circle/circles cross/crosses)@ (of (diamond diamonds)@))&)@',
                                      'The diamonds reflect the light perfectly. They are embedded in the gold inlay, arranged so as to form a perfect circle with a perfect square cross underneath. The top of the top arm of the cross touches the bottom of the circle.'), tpPartOfImplicit);
    ArrivalsCircle.GetSurface().Add(FemaleArchway, tpPartOfImplicit);
 

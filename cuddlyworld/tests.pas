@@ -309,12 +309,13 @@ end;
 
 type
    TTestWorld = class(TWorld)
+     FStartLocation: TLocation;
      procedure AddPlayer(Avatar: TAvatar); override;
    end;
 
 procedure TTestWorld.AddPlayer(Avatar: TAvatar);
 begin
-   FLocations^.Next^.Value.GetSurface().Add(Avatar, tpOn);
+   FStartLocation.GetSurface().Add(Avatar, tpOn);
    inherited;
 end;
 
@@ -324,15 +325,21 @@ procedure TestMechanics();
    function InitTestEden: TWorld;
    var
       World: TTestWorld;
-      Camp, Cliff: TLocation;
+      Camp, Cliff, Cave1, Cave2, Cave3, Cave4: TLocation;
       CampMountain, CampForest: TThing;
       CliffMountain, CliffForest, CliffCamp, CliffCliff: TThing;
+      Thing: TThing;
    begin
       World := TTestWorld.Create();
 
       { Locations }
       Camp := TFeaturelessOutdoorLocation.Create('Camp Cuddlyfort', 'Camp Cuddlyfort', 'a camp', 'This is a camp nestled in a forest, under the shadow of a mountain to the north.');
-      Cliff := TFeaturelessOutdoorLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff is a sheer rock face, essentially unclimbable. Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.');
+      Cliff := TFeaturelessOutdoorLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff to the north is a sheer rock face, essentially unclimbable, with a cave entrance. ' + ' Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.');
+      Cave1 := TFeaturelessOutdoorLocation.Create('Cave one', 'the first cave', 'a cave', 'The cave is very well-lit from the south.');
+      Cave2 := TFeaturelessOutdoorLocation.Create('Cave two', 'the second cave', 'a cave', 'The cave is somewhat well-lit from the south.');
+      Cave3 := TFeaturelessOutdoorLocation.Create('Cave three', 'the third cave', 'a cave', 'The cave is lit from the south.');
+      Cave4 := TFeaturelessOutdoorLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is dimly lit from the south.');
+      World.FStartLocation := Camp;
 
       { Camp }
       CampMountain := TDistantScenery.Create('mountain', cdNorth);
@@ -350,7 +357,7 @@ procedure TestMechanics();
       CliffMountain := TScenery.Create('mountain', 'From here you cannot get a good sense of the size of the mountain. Its cliff face dominates your view.');
       (CliffMountain as TScenery).FindDescription := 'The mountain towers high above you.';
       Cliff.Add(CliffMountain, tpAtImplicit);
-      CliffCliff := TScenery.Create('cliff', 'The cliff consists of a sheer rock face.');
+      CliffCliff := TScenery.Create('cliff', 'The cliff consists of a sheer rock face with a cave entrace in it.');
       CliffMountain.Add(CliffCliff, tpPartOfImplicit);
       CliffForest := TScenery.Create('forest', '((forest/forests (of trees)?) tree/trees)@', 'The forest is dense and impassable.');
       Cliff.Add(CliffForest, tpAroundImplicit);
@@ -367,9 +374,113 @@ procedure TestMechanics();
       Cliff.GetSurface().Add(TStaticThing.Create('large black balloon', '((large huge massive)@ black balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
       Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
       Cliff.GetSurface().Add(TStaticThing.Create('large pink balloon', '((large huge massive)@ pink balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
-      Cliff.ConnectCardinals(CliffCliff, CliffForest, Camp, CliffForest);
+      Cliff.ConnectCardinals(Cave1, CliffForest, Camp, CliffForest);
       Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
       World.AddLocation(Cliff);
+
+      { Cave 1 }
+      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
+      Cave1.GetSurface().Add(TSpade.Create(), tpOn);
+      Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
+      Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpIn);
+      Cave1.ConnectCardinals(Cave2, nil, Cliff, nil);
+      World.AddLocation(Cave1);
+
+      { Cave 2 }
+      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
+      Cave2.GetSurface().Add(TSpade.Create(), tpOn);
+      Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
+      Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpIn);
+      Cave2.ConnectCardinals(Cave3, nil, Cave1, nil);
+      World.AddLocation(Cave2);
+
+      { Cave 3 }
+      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
+      Cave3.GetSurface().Add(TSpade.Create(), tpOn);
+      Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
+      Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpIn);
+      Cave3.ConnectCardinals(Cave4, nil, Cave2, nil);
+      World.AddLocation(Cave3);
+
+      { Cave 4 }
+      Thing := TStaticThing.Create('silver table', '(silver table/tables)&', 'The table is made of silver.', tmPonderous, tsMassive);
+      Cave4.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('stainless steel table', '(stainless steel table/tables)&', 'The table is made of stainless steel.', tmPonderous, tsMassive);
+      Cave4.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing := TStaticThing.Create('plastic table', '(plastic table/tables)&', 'The table is made of plastic.', tmPonderous, tsMassive);
+      Cave4.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
+      Cave4.GetSurface().Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpOn);
+      Cave4.ConnectCardinals(nil, nil, Cave3, nil);
+      World.AddLocation(Cave4);
 
       Result := World;
    end;
@@ -622,7 +733,6 @@ begin
          TestPlayer.Perform('drop all balloons');
          Proxy.StopSkipping();
 
-         // insert tests for 'but' here
          Proxy.Test('"But"');
          Proxy.ExpectSubstring('Pile of earth:');
          Proxy.ExpectSubstring('Pile of leaves:');
@@ -660,6 +770,32 @@ begin
          Proxy.SkipEverything();
          TestPlayer.Perform('drop all balloons');
          Proxy.StopSkipping();
+
+         Proxy.Test('"From"');
+         Proxy.ExpectSubstring('(the pile of earth)');
+         Proxy.ExpectSubstring('slips');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all from ground but balloons');
+
+         Proxy.ExpectSubstring('(the pile of leaves)');
+         Proxy.ExpectSubstring('slips');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all from hole but balloons');
+
+         Proxy.ExpectSubstring('(the pile of earth)');
+         Proxy.ExpectSubstring('slips');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but balloons from ground');
+
+         Proxy.ExpectSubstring('(the pile of leaves)');
+         Proxy.ExpectSubstring('slips');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but balloons from hole');
+
+         Proxy.ExpectSubstring('Pile of earth:');
+         Proxy.ExpectSubstring('Pile of leaves:');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but balloons from ground and all but earth from hole');
 
          Proxy.ExpectDone();
 
@@ -783,27 +919,179 @@ begin
          TestPlayer.Perform('take bag, spade, ');
          Proxy.ExpectDone();
 
+         // More parsing tests
+         Proxy.Test('"From", continued');
+         Proxy.SkipEverything();
+         TestPlayer.Perform('north');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectString('Silver fork: Taken.');
+         Proxy.ExpectString('Plastic fork: Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take forks from the table that is kitchen and from the table that is dining');
+
+         Proxy.ExpectString('Stainless steel spoon: Taken.');
+         Proxy.ExpectString('Stainless steel fork: Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take spoons and all forks from desk');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all then look then north');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectString('You used the term "but" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take knives and all steel from desk but fork');
+
+         Proxy.ExpectString('Stainless steel knife: Taken.');
+         Proxy.ExpectString('Stainless steel spoon: Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take knives and all steel but fork from desk');
+
+         Proxy.ExpectString('(the silver spoon, the silver fork, and the silver knife)');
+         Proxy.ExpectString('Silver spoon: Taken.');
+         Proxy.ExpectString('Silver fork: Taken.');
+         Proxy.ExpectString('Silver knife: Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all from one of the tables');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all then look then north');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectString('(the silver spoon, the silver fork, the silver knife, and the stainless steel spoon)');
+         Proxy.ExpectString('Silver spoon: Taken.');
+         Proxy.ExpectString('Silver fork: Taken.');
+         Proxy.ExpectString('Silver knife: Taken.');
+         Proxy.ExpectString('Stainless steel spoon: Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take four utensils from two of the tables');
+
+         Proxy.ExpectString('About the four "forks from tables"... I can only find two: the stainless steel fork and the plastic fork.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take four forks from two of the tables');
+
+         Proxy.ExpectSubstring('Wooden spoon: ');
+         Proxy.ExpectSubstring('Lunch: ');
+         Proxy.ExpectSubstring('Clove of garlic: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from all but table');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all then look');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectString('Taken.');
+         Proxy.ExpectString('');
+         Proxy.ExpectSubstring('You are carrying:');
+         Proxy.ExpectString('  A plastic spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take the spoon from the table that is kitchen then inventory');
+
+         Proxy.ExpectSubstring('(the plastic fork and the stainless steel fork)');
+         Proxy.ExpectSubstring('shake');
+         Proxy.ExpectSubstring('shake');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some utensil from the kitchen table and some utensil from the desk');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('drop all then look then north');
+         Proxy.StopSkipping();
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('put silver fork on plastic table');
+         TestPlayer.Perform('put plastic fork on steel table');
+         TestPlayer.Perform('put steel fork on silver table');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectSubstring('Plastic fork: ');
+         Proxy.ExpectSubstring('Silver fork: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all forks from all tables but silver');
+
+         Proxy.ExpectSubstring('Stainless steel fork: ');
+         Proxy.ExpectSubstring('Plastic fork: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all forks from tables but silver');
+
+         Proxy.ExpectSubstring('Plastic fork: ');
+         Proxy.ExpectSubstring('Silver fork: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake forks from all tables but silver');
+
+         Proxy.ExpectSubstring('You used the term "but" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake forks from tables but silver');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('put spoons on plastic table');
+         Proxy.StopSkipping();
+ 
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake spoons from silver table and from plastic table');
+
+         Proxy.ExpectDone();
+
       except
          on E: ETestError do
          begin
+            Writeln('TEST ERROR');
             Writeln(E.Message);
             DumpExceptionBackTrace(Output);
+            Writeln('ABORTING');
             Proxy.Clear();
             Failed := True;
          end;
          on E: Exception do
          begin
+            Writeln('UNEXPECTED INTERNAL ERROR');
             Writeln(E.Message);
             DumpExceptionBackTrace(Output);
+            Writeln('RERAISING');
             raise;
          end;
       end;
-      Proxy.ExpectDone();
-      Proxy.ExpectDisconnect(True);
+      try
+         Proxy.ExpectDisconnect(True);
+      except
+         on E: ETestError do
+         begin
+            if (not Failed) then
+            begin
+               Writeln('TEST ERROR AT END');
+               Writeln(E.Message);
+               DumpExceptionBackTrace(Output);
+               Writeln('ABORTING');
+               Failed := True;
+            end;
+         end;
+         on E: Exception do
+         begin
+            Writeln('UNEXPECTED INTERNAL ERROR');
+            Writeln(E.Message);
+            DumpExceptionBackTrace(Output);
+            Writeln('RERAISING');
+            raise;
+         end;
+      end;
    finally
-      TestWorld.CheckDisposalQueue();
-      TestWorld.Free();
-      Proxy.Free();
+      try
+         TestWorld.CheckDisposalQueue();
+         TestWorld.Free();
+         Proxy.Free();
+      except
+         on E: Exception do
+         begin
+            Writeln('UNEXPECTED INTERNAL ERROR WHILE RELEASING MEMORY');
+            Writeln(E.Message);
+            DumpExceptionBackTrace(Output);
+            Writeln('IGNORING ERROR');
+         end;
+      end;
    end;
    if (Failed) then
    begin
@@ -847,6 +1135,14 @@ begin
          Proxy.ExpectSubstring('pink');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine all that is pink and that is arch');
+
+         Proxy.ExpectString('The diamonds are part of the south archway.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take diamonds from arch');
+
+         Proxy.ExpectSubstring('Which "arch" do you mean, ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take diamonds from the arch');
 
          // test round-tripping
          Proxy.Test('Round-tripping');

@@ -54,6 +54,7 @@ function TCuddlyWorldClient.HandleMessage(Message: AnsiString): Boolean;
 begin
    WriteFrame('> ' + Message);
    try
+      FWorld.SetDirty();
       FPlayer.Perform(Message);
    except
       on EExternal do raise;

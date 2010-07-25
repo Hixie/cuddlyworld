@@ -87,6 +87,7 @@ end;
 procedure TMain.SaveWorld();
 begin
    StoreObjectToFile(kWorldFileName, FWorld, kSaveDataVersion);
+   FWorld.Saved();
 end;
 
 destructor TMain.Destroy();
@@ -132,7 +133,8 @@ begin
       FServer.Select(timeoutForever);
       FWorld.CheckForDisconnectedPlayers();
       FWorld.CheckDisposalQueue();
-      SaveWorld();
+      if (FWorld.Dirty) then
+         SaveWorld();
    until Aborted;
    Writeln('CuddlyWorld aborted');
 end;
