@@ -9,12 +9,8 @@ uses
 
 type
    TAllImpliedScope = set of (aisSurroundings, aisSelf);
-   TClauseKind = (ckStart,
-                  ckComma, ckCommaAnd, ckAnd,
-                  ckThatIs, ckCommaAndThatIs, ckAndThatIs{, ckThatIsNot, ckThatAre, ckThatAreNot},
-                  ckBut{, ckExcept,
-                  ckFrom, ckIn}); // this we just need to have around so that we can distinguish "take pot in oven" from "put pot in oven", but we really should decouple this from the list of different clauses later, only listing here the things we need for Ends to work
-   TClauseKinds = set of TClauseKind;
+   TEndingClauseKind = (eckNormal{, eckIn});
+   TEndingClauseKinds = set of TEndingClauseKind;
 
    TThingCollector = class
     protected
@@ -30,7 +26,7 @@ type
     public
       constructor Create();
       destructor Destroy(); override;
-      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds; Verb: AnsiString): Boolean;
+      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
       function GetTokenCount(): Cardinal;
       function GetDisambiguate(): Boolean;
       function GetThingList(): PThingItem; { must be called exactly once after Collect() returns true }
@@ -41,10 +37,11 @@ implementation
 //{$DEFINE DEBUG_SEEKER}
 
 uses
+   {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils;
 
 type
-   TThingSelectionMechanism = (tsmPickAll, tsmPickOne, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber);
+   TThingSelectionMechanism = (tsmPickAll, tsmPickOne, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber, tsmPickOnlyRelevantNumber);
    TClauseFlags = set of (cfAllowExceptions, cfSingular, cfExpectedSingleThing, cfFakeEverything,
                           cfDisambiguateLoneResult, cfHaveThatIsClause);
 
@@ -59,8 +56,9 @@ type
       FInputFragment: AnsiString;
       FNext: TAbstractClause;
       FPrevious: TAbstractClause;
-      function GetSelectionMechanism(): TThingSelectionMechanism; virtual;
+      procedure Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); virtual;
       function IsPlainClause(): Boolean; virtual;
+      function GetPreviousOpenClause(): TAbstractClause; virtual;
      public
       constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: PThingItem; InputFragment: AnsiString); virtual;
       constructor CreateAll(Things: PThingItem; Flags: TClauseFlags); virtual;
@@ -69,7 +67,7 @@ type
       function AcceptsJoins(Peer: TAbstractClause): Boolean; virtual; abstract;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); virtual; abstract;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; virtual;
-      function Select(): Boolean; { returns true if the result should be explicitly disambiguated }
+      function Select(): Boolean; virtual; { returns true if the result should be explicitly disambiguated }
       procedure Process(); virtual; abstract;
       procedure Add(Next: TAbstractClause);
       class function GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber; virtual;
@@ -82,17 +80,17 @@ type
      protected
       FJoinedTo: TAbstractClause;
       function IsPlainClause(): Boolean; override;
+      function GetPreviousOpenClause(): TAbstractClause; override;
      public
       procedure CheckContext(); override;
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); override;
       procedure Process(); override;
    end;
-   TCommaClause = class(TAbstractJoiningClause)
-      class function CanFail(): Boolean; override;
-   end;
    TAndClause = class(TAbstractJoiningClause)
       class function CanFail(): Boolean; override;
+   end;
+   TAndFromClause = class(TAbstractJoiningClause)
    end;
 
    TJoinableClause = class(TAbstractClause)
@@ -100,7 +98,6 @@ type
       FRegisteredJoins: array of TAbstractJoiningClause;
      public
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
-      function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); override;
       procedure Process(); override;
    end;
@@ -108,24 +105,30 @@ type
    TAbstractFilteringClause = class(TJoinableClause)
      protected
       FVictims: array of TAbstractClause;
+      function GetPreviousOpenClause(): TAbstractClause; override;
+      procedure Filter(Victim: TAbstractClause); virtual; abstract;
       procedure Victimise(Clause: TAbstractClause); virtual;
      public
       procedure CheckContext(); override;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
       procedure ReportNoVictims(); virtual; abstract;
       procedure Process(); override;
-      procedure Filter(Victim: TAbstractClause); virtual; abstract;
       function GetFragmentAnnotation(): AnsiString; virtual; abstract;
       class function GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber; override;
    end;
 
-   TUnionFilterClause = class(TAbstractFilteringClause)
+   TInclusionFilterClause = class(TAbstractFilteringClause)
+     protected
       procedure Filter(Victim: TAbstractClause); override;
+      function IsMatch(Candidate, Condition: TThing): Boolean; virtual; abstract;
+     public
       procedure ReportNothingLeft(); virtual;
    end;
-   TAbstractThatIsClause = class(TUnionFilterClause)
+   TAbstractThatIsClause = class(TInclusionFilterClause)
      protected
-      function GetSelectionMechanism(): TThingSelectionMechanism; override;
+      procedure Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); override;
+      procedure Filter(Victim: TAbstractClause); override;
+      function IsMatch(Candidate, Condition: TThing): Boolean; override;
       procedure Victimise(Clause: TAbstractClause); override;
      public
       procedure CheckContext(); override;
@@ -145,8 +148,20 @@ type
       procedure ReportExplicitNumber(); override;
       function GetFragmentAnnotation(): AnsiString; override;
    end;
+   TFromClause = class(TInclusionFilterClause)
+     protected
+      procedure Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); override;
+      function IsMatch(Candidate, Condition: TThing): Boolean; override;
+     public
+      function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
+      procedure ReportNoVictims(); override;
+      function GetFragmentAnnotation(): AnsiString; override;
+   end;
 
    TExclusionFilteringClause = class(TAbstractFilteringClause)
+     protected
+      procedure Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); override;
+     public
       procedure Filter(Victim: TAbstractClause); override;
       procedure ReportNothingLeft(); virtual;
    end;
@@ -176,14 +191,14 @@ type
       constructor Create(Clause: TAbstractClause);
       function Message(Perspective: TAvatar; Input: AnsiString): AnsiString; virtual; abstract;
    end;
-   ESelectNotEnough = class(EMatcherException)
-      FCount: Cardinal;
-      constructor Create(Clause: TAbstractClause; Count: Cardinal);
-      function Message(Perspective: TAvatar; Input: AnsiString): AnsiString; override;
-   end;
-   ESelectTooMany = class(EMatcherException)
+   ECountWrong = class(EMatcherException)
       FWanted, FGot: Cardinal;
       constructor Create(Clause: TAbstractClause; Wanted, Got: Cardinal);
+   end;
+   ESelectNotEnough = class(ECountWrong)
+      function Message(Perspective: TAvatar; Input: AnsiString): AnsiString; override;
+   end;
+   ESelectTooMany = class(ECountWrong)
       function Message(Perspective: TAvatar; Input: AnsiString): AnsiString; override;
    end;
 
@@ -193,23 +208,19 @@ begin
    FClause := Clause;
 end;
 
-constructor ESelectNotEnough.Create(Clause: TAbstractClause; Count: Cardinal);
+constructor ECountWrong.Create(Clause: TAbstractClause; Wanted, Got: Cardinal);
 begin
    inherited Create(Clause);
-   FCount := Count;
+   FWanted := Wanted;
+   FGot := Got;
 end;
 
 function ESelectNotEnough.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
 begin
    Assert(Length(Input) > 0);
-   Result := 'About "' + Input + '"... I can only find ' + NumberToEnglish(FCount) + ': ' + ThingListToLongDefiniteString(FClause.FThings, Perspective, 'and') + '.';
-end;
-
-constructor ESelectTooMany.Create(Clause: TAbstractClause; Wanted, Got: Cardinal);
-begin
-   inherited Create(Clause);
-   FWanted := Wanted;
-   FGot := Got;
+   Assert(FGot > 0);
+   Assert(FWanted > FGot);
+   Result := 'About the ' + NumberToEnglish(FWanted) + ' "' + Input + '"... I can only find ' + NumberToEnglish(FGot) + ': ' + ThingListToLongDefiniteString(FClause.FThings, Perspective, 'and') + '.';
 end;
 
 function ESelectTooMany.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
@@ -257,12 +268,15 @@ begin
 end;
 
 function TAbstractClause.AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean;
+var
+   PreviousOpen: TAbstractClause;
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.AcceptsFilter() called on a ', ClassName, ' for a peer that is a ', Peer.ClassName); {$ENDIF}
    if (Peer is TExceptionFilteringClause) then
    begin
       Result := cfAllowExceptions in FFlags;
-      CanContinue := True;
+      PreviousOpen := GetPreviousOpenClause();
+      CanContinue := (not Result) or (Assigned(PreviousOpen) and ((Self is TAbstractFilteringClause) = (PreviousOpen is TAbstractFilteringClause)));
    end
    else
    if (Peer is TThatIsClause) then
@@ -275,6 +289,12 @@ begin
    begin
       Result := cfHaveThatIsClause in FFlags;
       CanContinue := not IsPlainClause();
+   end
+   else
+   if (Peer is TFromClause) then
+   begin
+      Result := IsPlainClause();
+      CanContinue := True;
    end
    else
    begin
@@ -307,8 +327,11 @@ var
       end;
    end;
 
+var
+   SelectionMechanism: TThingSelectionMechanism;
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('Select() called for ', ClassName(), ': ', FSelectionMechanism, '; number=', FNumber); {$ENDIF}
+   Assert((FSelectionMechanism <> tsmPickOnlyRelevantNumber) or (FNumber = 1));
    Count := 0;
    Handle := FThings;
    while (Assigned(Handle)) do
@@ -320,9 +343,11 @@ begin
    begin
       Assert((Count > 0) or (FSelectionMechanism = tsmPickAll), 'Count=' + IntToStr(Count) + '; FSelectionMechanism=' + IntToStr(Cardinal(FSelectionMechanism)));
       if (Count > 0) then
-         raise ESelectNotEnough.Create(Self, Count);
+         raise ESelectNotEnough.Create(Self, FNumber, Count);
    end;
-   case GetSelectionMechanism() of
+   SelectionMechanism := FSelectionMechanism;
+   Preselect(Count, SelectionMechanism);
+   case SelectionMechanism of
     tsmPickAll: Result := False;
     tsmPickNumber:
        begin
@@ -345,8 +370,9 @@ begin
              Result := True;
           end;
        end;
-    tsmPickOnlyNumber:
+    tsmPickOnlyNumber, tsmPickOnlyRelevantNumber:
        begin
+          Assert((SelectionMechanism <> tsmPickOnlyRelevantNumber) or (FNumber = 1));
           if (Count <> FNumber) then
           begin
              Assert(Count > FNumber);
@@ -359,6 +385,11 @@ begin
    end;
    if (cfExpectedSingleThing in FFlags) then
       Result := True;
+{$IFDEF DEBUG_SEEKER} Writeln('Select() resulted in the following list: ', ThingListToLongDefiniteString(FThings, nil, 'and')); {$ENDIF}
+end;
+
+procedure TAbstractClause.Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
+begin
 end;
 
 procedure TAbstractClause.Add(Next: TAbstractClause);
@@ -370,14 +401,14 @@ begin
    Next.FPrevious := Self;
 end;
 
-function TAbstractClause.GetSelectionMechanism(): TThingSelectionMechanism;
-begin
-   Result := FSelectionMechanism;
-end;
-
 function TAbstractClause.IsPlainClause(): Boolean;
 begin
    Result := False;
+end;
+
+function TAbstractClause.GetPreviousOpenClause(): TAbstractClause;
+begin
+   Result := FPrevious;
 end;
 
 class function TAbstractClause.GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber;
@@ -405,7 +436,7 @@ begin
    EarlierClause := FPrevious;
    while (not EarlierClause.AcceptsJoins(Self)) do
    begin
-      EarlierClause := EarlierClause.FPrevious;
+      EarlierClause := EarlierClause.GetPreviousOpenClause();
       Assert(Assigned(EarlierClause));
    end;
    FJoinedTo := EarlierClause;
@@ -435,10 +466,10 @@ begin
    Result := FJoinedTo.IsPlainClause();
 end;
 
-
-class function TCommaClause.CanFail(): Boolean;
+function TAbstractJoiningClause.GetPreviousOpenClause(): TAbstractClause;
 begin
-   Result := True;
+   Assert(Assigned(FJoinedTo));
+   Result := FJoinedTo;
 end;
 
 
@@ -482,13 +513,6 @@ begin
    Result := False;
 end;
 
-function TJoinableClause.AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean;
-begin
-   Result := inherited AcceptsFilter(Peer, CanContinue);
-   if (Peer is TExceptionFilteringClause) then
-      CanContinue := Result;
-end;
-
 procedure TJoinableClause.RegisterJoin(Peer: TAbstractJoiningClause);
 begin
    SetLength(FRegisteredJoins, Length(FRegisteredJoins)+1);
@@ -498,12 +522,13 @@ end;
 
 procedure TAbstractFilteringClause.CheckContext();
 var
-   CurrentClause: TAbstractClause;
+   CurrentClause, SkipUntilClause: TAbstractClause;
    Continue: Boolean;
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.CheckContext() called on a ', ClassName); {$ENDIF}
    inherited;
    CurrentClause := FPrevious;
+   SkipUntilClause := CurrentClause;
    Continue := True;
    while (Continue) do
    begin
@@ -513,12 +538,17 @@ begin
       // (also once "all that is" is considered a simple prefix clause type, we need to handle that)
       if (CurrentClause.AcceptsFilter(Self, Continue)) then
       begin
-{$IFDEF DEBUG_SEEKER} Writeln('   they said yes'); {$ENDIF}
-         Victimise(CurrentClause);
+{$IFDEF DEBUG_SEEKER} Writeln('   they said yes, continue=', Continue); {$ENDIF}
+         if (CurrentClause = SkipUntilClause) then
+            Victimise(CurrentClause)
+{$IFDEF DEBUG_SEEKER} else Writeln('   ...but we''re skipping them') {$ENDIF};
       end
-{$IFDEF DEBUG_SEEKER} else Writeln('   they said no') {$ENDIF};
+{$IFDEF DEBUG_SEEKER} else Writeln('   they said no, continue=', Continue) {$ENDIF};
+      if (SkipUntilClause = CurrentClause) then
+         SkipUntilClause := CurrentClause.GetPreviousOpenClause();
       CurrentClause := CurrentClause.FPrevious;
       Assert((not Continue) or (Assigned(CurrentClause)));
+{$IFDEF DEBUG_SEEKER} Writeln('   continue=', Continue) {$ENDIF};
    end;
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.CheckContext() done'); {$ENDIF}
    if (not (Length(FVictims) > 0)) then
@@ -533,13 +563,22 @@ end;
 
 function TAbstractFilteringClause.AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean;
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.AcceptsFilter() called on a ', ClassName, ' for a peer that is a ', Peer.ClassName); {$ENDIF}
    if (Peer is ClassType) then
    begin
       Result := False;
       CanContinue := False;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.AcceptsFilter() on a ', ClassName, ' is saying don''t continue.') {$ENDIF};
    end
    else
       Result := inherited;
+{$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
+end;
+
+function TAbstractFilteringClause.GetPreviousOpenClause(): TAbstractClause;
+begin
+   Assert(Length(FVictims) > 0);
+   Result := FVictims[High(FVictims)];
 end;
 
 procedure TAbstractFilteringClause.Process();
@@ -557,42 +596,23 @@ begin
 end;
 
 
-procedure TUnionFilterClause.Filter(Victim: TAbstractClause);
+procedure TInclusionFilterClause.Filter(Victim: TAbstractClause);
 var
    VictimThing, CondemnedThing, FilterThing: PThingItem;
    LastNext: PPThingItem;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TUnionFilterClause.Filter() called on a ', ClassName); {$ENDIF}
-   if (cfFakeEverything in Victim.FFlags) then
-   begin
-      Victim.FThings := FThings;
-      Exclude(Victim.FFlags, cfFakeEverything);
-      FThings := nil;
-      Exit;
-   end;
+   Assert(not (cfFakeEverything in Victim.FFlags));
    VictimThing := Victim.FThings;
    Victim.FThings := nil;
    LastNext := @Victim.FThings;
    while (Assigned(VictimThing)) do
    begin
-{$IFDEF DEBUG_SEEKER} Writeln('  Filter(): considering ', VictimThing^.Value.GetDefiniteName(nil)); {$ENDIF}
       FilterThing := FThings;
-{$IFDEF DEBUG_SEEKER} Writeln('            ...against ', FilterThing^.Value.GetDefiniteName(nil)); {$ENDIF}
-      while (Assigned(FilterThing) and (FilterThing^.Value <> VictimThing^.Value)) do
-      begin
+      while (Assigned(FilterThing) and (not IsMatch(VictimThing^.Value, FilterThing^.Value))) do
          FilterThing := FilterThing^.Next;
-{$IFDEF DEBUG_SEEKER}
-if (Assigned(FilterThing)) then
- Writeln('            ...and against ', FilterThing^.Value.GetDefiniteName(nil))
-else
- Writeln('            ...and that''s it.')
-{$ENDIF}
-      end;
       if (Assigned(FilterThing)) then
       begin
          { put the victim's thing back in its list }
-         Assert(FilterThing^.Value = VictimThing^.Value);
-{$IFDEF DEBUG_SEEKER} Writeln('  Filter(): ', VictimThing^.Value.GetDefiniteName(nil), ' is IN'); {$ENDIF}
          LastNext^ := VictimThing;
          LastNext := @VictimThing^.Next;
          VictimThing := VictimThing^.Next;
@@ -601,7 +621,6 @@ else
       else
       begin
          { get rid of this thing's entry }
-{$IFDEF DEBUG_SEEKER} Writeln('  Filter(): ', VictimThing^.Value.GetDefiniteName(nil), ' is OUT'); {$ENDIF}
          CondemnedThing := VictimThing;
          VictimThing := VictimThing^.Next;
          Dispose(CondemnedThing);
@@ -612,11 +631,28 @@ else
    Victim.FInputFragment := Victim.FInputFragment + ' ' + GetFragmentAnnotation();
 end;
 
-procedure TUnionFilterClause.ReportNothingLeft();
+procedure TInclusionFilterClause.ReportNothingLeft();
 begin
    Fail('It''s not clear to what you are referring.');
 end;
 
+
+procedure TAbstractThatIsClause.Filter(Victim: TAbstractClause);
+begin
+   if (cfFakeEverything in Victim.FFlags) then
+   begin
+      Victim.FThings := FThings;
+      Exclude(Victim.FFlags, cfFakeEverything);
+      FThings := nil;
+      Exit;
+   end;
+   inherited;
+end;
+
+function TAbstractThatIsClause.IsMatch(Candidate, Condition: TThing): Boolean;
+begin
+   Result := Candidate = Condition;
+end;
 
 procedure TAbstractThatIsClause.CheckContext();
 begin
@@ -633,9 +669,9 @@ begin
    Include(Clause.FFlags, cfHaveThatIsClause);
 end;
 
-function TAbstractThatIsClause.GetSelectionMechanism(): TThingSelectionMechanism;
+procedure TAbstractThatIsClause.Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
-   Result := tsmPickAll;
+   SelectionMechanism := tsmPickAll;
 end;
 
 
@@ -666,6 +702,7 @@ end;
 
 function TAndThatIsClause.AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean;
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAndThatIsClause.AcceptsFilter() called on a ', ClassName, ' for a peer that is a ', Peer.ClassName); {$ENDIF}
    if (Peer is TAndThatIsClause) then
    begin
       Result := False;
@@ -673,6 +710,7 @@ begin
    end
    else
       Result := inherited;
+{$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
 procedure TAndThatIsClause.ReportNoVictims();
@@ -699,6 +737,121 @@ begin
    Result := 'and that is ' + FInputFragment;
 end;
 
+
+function TFromClause.IsMatch(Candidate, Condition: TThing): Boolean;
+begin
+   Assert(Assigned(Candidate));
+   Assert(Assigned(Candidate.Parent));
+   Assert(Assigned(Condition));
+   Result := Candidate.Parent = Condition;
+end;
+
+procedure TFromClause.Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
+var
+   NeedMatching, HaveMatching, VictimIndex: Cardinal;
+   VictimThing, FilterThing, BadThings: PThingItem;
+   LastNextGood, LastNextBad: PPThingItem;
+begin
+   case SelectionMechanism of
+    tsmPickOne, tsmPickSome: NeedMatching := 1;
+    tsmPickNumber, tsmPickOnlyRelevantNumber: NeedMatching := FNumber;
+   else
+     NeedMatching := 0;
+   end;
+   Assert(NeedMatching <= Count);
+   if ((NeedMatching > 0) and (NeedMatching < Count)) then
+   begin
+      HaveMatching := 0;
+      FilterThing := FThings;
+      FThings := nil;
+      LastNextGood := @FThings;
+      BadThings := nil;
+      LastNextBad := @BadThings;
+      while (Assigned(FilterThing)) do
+      begin
+         Assert(Length(FVictims) > 0);
+         VictimIndex := Low(FVictims);
+         VictimThing := FVictims[VictimIndex].FThings;
+         while (Assigned(VictimThing) and (not IsMatch(VictimThing^.Value, FilterThing^.Value))) do
+         begin
+            VictimThing := VictimThing^.Next;
+            if (not Assigned(VictimThing)) then
+            begin
+               Inc(VictimIndex);
+               if (VictimIndex <= High(FVictims)) then
+                  VictimThing := FVictims[VictimIndex].FThings;
+            end;
+         end;
+         if (Assigned(VictimThing)) then
+         begin
+            { this FilterThing is ok, keep it }
+            LastNextGood^ := FilterThing;
+            LastNextGood := @FilterThing^.Next;
+            FilterThing := FilterThing^.Next;
+            LastNextGood^ := nil;
+            Inc(HaveMatching);
+         end
+         else
+         begin
+            { this FilterThing is useless, put it aside for now }
+            LastNextBad^ := FilterThing;
+            LastNextBad := @FilterThing^.Next;
+            FilterThing := FilterThing^.Next;
+            LastNextBad^ := nil;
+         end;
+      end;
+      if (not Assigned(FThings)) then
+      begin
+         FreeThingList(BadThings);
+         ReportNothingLeft();
+      end;
+      Assert(Assigned(FThings)); { because ReportNothingLeft() is supposed to throw an exception }
+      if (HaveMatching < NeedMatching) then
+      begin
+         Assert(NeedMatching > 1); { if it was 1, then we must have 0; if we have 0, FThings would be nil }
+         Assert(Assigned(BadThings)); { we must have thrown something away to end up with fewer than we needed }
+         LastNextGood^ := BadThings;
+      end
+      else
+      begin
+         if (HaveMatching < Count) then
+         begin
+            Assert(Assigned(BadThings));
+            FreeThingList(BadThings);
+         end
+         else
+         begin
+            Assert(not Assigned(BadThings));
+         end;
+         Count := HaveMatching;
+      end;
+   end;
+end;
+
+function TFromClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
+begin
+   Result := Peer is TAndFromClause;
+end;
+
+procedure TFromClause.ReportNoVictims();
+begin
+   { e.g. "take fruit from table from ground" (though we could also just make that work) }
+   { e.g. "take fruit from table that is blue from ground" }
+   Fail('You used the term "from" in a way I don''t understand.');
+end;
+
+function TFromClause.GetFragmentAnnotation(): AnsiString;
+begin
+   Result := 'from ' + FInputFragment;
+end;
+
+
+procedure TExclusionFilteringClause.Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
+begin
+   if (((SelectionMechanism <> tsmPickNumber) and (SelectionMechanism <> tsmPickOnlyNumber)) or
+       ((SelectionMechanism <> tsmPickNumber) and (FNumber = 1))) then
+     SelectionMechanism := tsmPickAll;
+end;
 
 procedure TExclusionFilteringClause.Filter(Victim: TAbstractClause);
 var
@@ -746,7 +899,7 @@ end;
 
 function TExceptionFilteringClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
 begin
-   Result := Peer is TAbstractJoiningClause;
+   Result := Peer is TAndClause;
 end;
 
 
@@ -770,13 +923,15 @@ end;
 
 function TStartClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
 begin
-   Result := Peer is TAbstractJoiningClause;
+   Result := Peer is TAndClause;
 end;
 
 function TStartClause.AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean;
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TStartClause.AcceptsFilter() called on a ', ClassName, ' for a peer that is a ', Peer.ClassName); {$ENDIF}
    Result := inherited;
    CanContinue := False;
+{$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
 procedure TStartClause.Process();
@@ -908,7 +1063,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('     current grammatical number: ', GrammaticalNumberToString(FCurrentBestGrammaticalNumber)); {$ENDIF}
 end;
 
-function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TClauseKinds; Verb: AnsiString): Boolean;
+function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
 
    procedure Collapse(FirstClause: TAbstractClause; out Things: PThingItem; out Disambiguate: Boolean);
    var
@@ -968,7 +1123,7 @@ var
          Message: AnsiString;
       begin
 {$IFDEF DEBUG_SEEKER} Writeln('    CollectExplicitThings():'); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} Writeln('       CalFail=', CanFail); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('       CanFail=', CanFail); {$ENDIF}
          Assert((ExplicitGrammaticalNumber <> []));
          Assert(not Assigned(FCurrentBestThingList));
          Start := CurrentToken;
@@ -1199,7 +1354,7 @@ var
       if (TryMatch(CurrentToken, Tokens, ['some'])) then
          Result := CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickNumber, tsmPickSome, [cfDisambiguateLoneResult], False)
       else
-         Result := CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickOnlyNumber, tsmPickAll, [], ClauseClass.CanFail());
+         Result := CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickOnlyRelevantNumber, tsmPickAll, [], ClauseClass.CanFail());
       if (not Result) then
          Dec(CurrentToken, ClauseLength);
       Assert(not Assigned(FCurrentBestThingList));
@@ -1226,26 +1381,28 @@ var
       end;
 
    type
-      TClauseConfigurationIndex = Low(TClauseKind)..Pred(High(TClauseKind));
       TClauseConfiguration = record
          Tokens: array[0..MaxTokensInClause] of AnsiString;
          ClauseClass: TAbstractClauseClass;
-         ClauseKind: TClauseKind;
+         EndingClauseKind: TEndingClauseKind;
       end;
    const
       EOT = ''; _ = EOT; { to make the constant below prettier }
       { order by length of Tokens, then alphabetically }
-      ClauseConfigurations: array[TClauseConfigurationIndex] of TClauseConfiguration = (
-         (Tokens: (',', 'and', 'that', 'is',         EOT); ClauseClass: TAndThatIsClause;    ClauseKind: ckCommaAndThatIs),
-         (Tokens: ('and', 'that', 'is',            _,EOT); ClauseClass: TAndThatIsClause;    ClauseKind: ckAndThatIs),
-         (Tokens: (',', 'and',                   _,_,EOT); ClauseClass: TAndClause;          ClauseKind: ckCommaAnd),
-         (Tokens: ('that', 'is',                 _,_,EOT); ClauseClass: TThatIsClause;       ClauseKind: ckThatIs),
-         (Tokens: (',',                        _,_,_,EOT); ClauseClass: TCommaClause;        ClauseKind: ckComma),
-         (Tokens: ('and',                      _,_,_,EOT); ClauseClass: TAndClause;          ClauseKind: ckAnd),
-         (Tokens: ('but',                      _,_,_,EOT); ClauseClass: TButClause;          ClauseKind: ckBut)
+      ClauseConfigurations: array[0..9] of TClauseConfiguration = (
+         (Tokens: (',', 'and', 'that', 'is',         EOT); ClauseClass: TAndThatIsClause;    EndingClauseKind: eckNormal),
+         (Tokens: (',', 'and', 'from',             _,EOT); ClauseClass: TAndFromClause;      EndingClauseKind: eckNormal),
+         (Tokens: ('and', 'that', 'is',            _,EOT); ClauseClass: TAndThatIsClause;    EndingClauseKind: eckNormal),
+         (Tokens: (',', 'and',                   _,_,EOT); ClauseClass: TAndClause;          EndingClauseKind: eckNormal),
+         (Tokens: ('and', 'from',                _,_,EOT); ClauseClass: TAndFromClause;      EndingClauseKind: eckNormal),
+         (Tokens: ('that', 'is',                 _,_,EOT); ClauseClass: TThatIsClause;       EndingClauseKind: eckNormal),
+         (Tokens: (',',                        _,_,_,EOT); ClauseClass: TAndClause;          EndingClauseKind: eckNormal),
+         (Tokens: ('and',                      _,_,_,EOT); ClauseClass: TAndClause;          EndingClauseKind: eckNormal),
+         (Tokens: ('but',                      _,_,_,EOT); ClauseClass: TButClause;          EndingClauseKind: eckNormal),
+         (Tokens: ('from',                     _,_,_,EOT); ClauseClass: TFromClause;         EndingClauseKind: eckNormal)
       );
    var
-      Index: TClauseConfigurationIndex;
+      Index: Cardinal;
       {$IFOPT C+} TokenIndex, LastLength: Cardinal; {$ENDIF}
       {$IFOPT C+} FoundEOT: Boolean; {$ENDIF}
    begin
@@ -1276,27 +1433,26 @@ end;
 {$ENDIF}
       for Index := Low(ClauseConfigurations) to High(ClauseConfigurations) do
       begin
-         Assert(ClauseConfigurations[Index].ClauseKind <> ckStart);
-         if (not (ClauseConfigurations[Index].ClauseKind in Ends)) then
+         if ((not (ClauseConfigurations[Index].EndingClauseKind in Ends)) and
+             (TryClause(ClauseConfigurations[Index].Tokens, NextClauseLength))) then
          begin
-{$IFDEF DEBUG_SEEKER} Writeln('trying clause ', ClauseConfigurations[Index].ClauseKind); {$ENDIF}
-            if (TryClause(ClauseConfigurations[Index].Tokens, NextClauseLength)) then
-            begin
-               Result := True;
-               NextClauseClass := ClauseConfigurations[Index].ClauseClass;
-{$IFDEF DEBUG_SEEKER} Writeln('  found! clause ', ClauseConfigurations[Index].ClauseKind, ' with length ', NextClauseLength, ' and class ', NextClauseClass.ClassName); {$ENDIF}
-               Exit;
-            end;
+            Result := True;
+            NextClauseClass := ClauseConfigurations[Index].ClauseClass;
+            Exit;
          end;
       end;
-{$IFDEF DEBUG_SEEKER} Writeln('no clause found'); {$ENDIF}
       Result := False;
    end;
 
 var
    NextClauseClass: TAbstractClauseClass;
    NextClauseLength: Cardinal;
+   {$IFDEF DEBUG} OldHeapInfo: THeapInfo; {$ENDIF}
 begin
+   {$IFDEF DEBUG}
+   OldHeapInfo := SetHeapInfo('ThingSeeker: "' + Copy(Serialise(OriginalTokens, 0, Length(OriginalTokens)), 1, HeapInfoSize - 20) + '"');
+   try
+   {$ENDIF}
 {$IFDEF DEBUG_SEEKER} Writeln('collecting for: "' + Serialise(OriginalTokens, Start, 1) + '" of "' + Serialise(OriginalTokens, 0, Length(OriginalTokens)) + '"'); {$ENDIF}
    {$IFOPT C+}
    Assert(not FCurrentlyCollecting);
@@ -1360,6 +1516,11 @@ Writeln();
          Assert(not FDisambiguate);
          Assert(not Assigned(FThingList));
       end;
+   end;
+   {$ENDIF}
+   {$IFDEF DEBUG}
+   finally
+      SetHeapInfo(OldHeapInfo);
    end;
    {$ENDIF}
 end;

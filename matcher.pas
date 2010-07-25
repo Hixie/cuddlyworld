@@ -1539,7 +1539,7 @@ function CompilePatternVersion(S: AnsiString; Version: Cardinal): TMatcher;
             end;
           pmListType:
             begin
-               Assert(Length(List) > 0);
+               Assert(Length(List) > 0, 'Lists must not be empty.');
                case S[Index] of
                 '+': Result := TRepeatableSequencePatternNode.Create(List);
                 '?': Result := TOptionalSequencePatternNode.Create(List);
