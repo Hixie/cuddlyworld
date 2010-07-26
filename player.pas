@@ -336,7 +336,7 @@ var
 begin
    Collect := not Assigned(Things);
    if (Collect) then
-      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, True, tpEverything, [], Things);
+      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedDescendantThings(Self, FromOutside, True, tpEverything, [], Things);
    try
       while (Assigned(Things)) do
       begin
@@ -1567,9 +1567,9 @@ begin
    Assert((aisSelf in Scope) or (aisSurroundings in Scope));
    List := nil;
    if (aisSurroundings in Scope) then
-      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Self, FromOutside, aisSelf in Scope, tpEverything, PropertyFilter, List)
+      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedDescendantThings(Self, FromOutside, aisSelf in Scope, tpEverything, PropertyFilter, List)
    else
-      AddImplicitlyReferencedThings(Self, True, aisSelf in Scope, tpEverything, PropertyFilter, List);
+      AddImplicitlyReferencedDescendantThings(Self, True, aisSelf in Scope, tpEverything, PropertyFilter, List);
    if (Assigned(List)) then
    begin
       // should implement some kind of prioritisation scheme
