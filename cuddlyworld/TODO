@@ -1,10 +1,5 @@
-FIXED
- + "take diamonds" said "The diamonds is part of the south archway."
- + "from"
-
 THING SEEKER IMPROVEMENTS
  + "look" (lists nothing) "look in pile" (lists many things) "take all from pile" (fails!)
- + "put everything from rucksack [in bag]" (the end clauses)
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
  + "take arches THAT ARE thick OR THAT ARE wood"
     - "that are" only binds to the previous clause, and only if it was plural
@@ -19,6 +14,7 @@ THING SEEKER IMPROVEMENTS
  + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones THAT ARE small"
  + "take foo WITH bar and baz from quux"
  + "IN <object>"
+ + "put everything from rucksack [in bag]" (the end clauses)
  + "ON <object>"
     - given blue vase on blue table and red vase on red table: "take the vase on table" => "which table do you mean, the red table or the blue blue table?"
     - given blue vase on blue table and red vase on red table: "take the red vase on table" => takes red vase
@@ -92,6 +88,8 @@ PLAYER INTERACTION
  + bounce balloon
 
 THINGS
+ + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it's heavy
+    -- especially for the rim of the bag of holding, which can't possibly be too heavy to shake!
  + make orbs smaller but with no carrying capability
  + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
  + you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
@@ -104,6 +102,7 @@ THINGS
  + "empty x" should be like "move all from x out"
  + "remove"
  + "put all in x" should look everywhere, not just in hands
+ + "put y in x" should say "the y is already in the x" when that is the case, it shouldn't take it then put it back in
  + "take bag then move leaves into bag then move leaves out of bag" fails because when you're holding the bag it doesn't think to push them onto the floor
  + "push leaves into bag; push leaves onto ground" - the second part fails because when you're holding the bag it is too far from the floor
  + support "it". In particular, if "look" only mentions one thing, "take it" should work.

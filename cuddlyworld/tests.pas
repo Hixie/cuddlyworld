@@ -1,11 +1,12 @@
 {$MODE OBJFPC} { -*- text -*- }
+
+//{$DEFINE VERBOSE}
+
 {$INCLUDE settings.inc}
 program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, world, player, locations, things, thingdim, grammarian, cuddlycamp;
-
-//{$DEFINE VERBOSE}
 
 type
    TExpectationKind = (ekString, ekSubstring, ekNoSubstring, ekSkip, ekDisconnected, ekRecordingStart);
@@ -214,7 +215,7 @@ begin
       Kind := ekDisconnected;
       Target := '(disconnected)';
       SkipUntilFound := Eventually;
-   end;   
+   end;
 end;
 
 procedure TTestProxy.AndAlso();
@@ -532,7 +533,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but the xyzzy one');
 
-         Proxy.ExpectString('I was with you until you said "all that is xyzzy".');
+         Proxy.ExpectString('I was with you until you said "that is xyzzy".');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all that is xyzzy');
 
@@ -772,8 +773,8 @@ begin
          Proxy.StopSkipping();
 
          Proxy.Test('"From"');
-         Proxy.ExpectSubstring('(the pile of earth)');
-         Proxy.ExpectSubstring('slips');
+         Proxy.ExpectSubstring('Pile of earth: ');
+         Proxy.ExpectSubstring('Hole: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all from ground but balloons');
 
@@ -782,8 +783,8 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all from hole but balloons');
 
-         Proxy.ExpectSubstring('(the pile of earth)');
-         Proxy.ExpectSubstring('slips');
+         Proxy.ExpectSubstring('Pile of earth: ');
+         Proxy.ExpectSubstring('Hole: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but balloons from ground');
 
@@ -793,6 +794,7 @@ begin
          TestPlayer.Perform('take all but balloons from hole');
 
          Proxy.ExpectSubstring('Pile of earth:');
+         Proxy.ExpectSubstring('Hole: ');
          Proxy.ExpectSubstring('Pile of leaves:');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but balloons from ground and all but earth from hole');
@@ -920,7 +922,7 @@ begin
          Proxy.ExpectDone();
 
          // More parsing tests
-         Proxy.Test('"From", continued');
+         Proxy.Test('More thingseeker tests');
          Proxy.SkipEverything();
          TestPlayer.Perform('north');
          Proxy.StopSkipping();
@@ -998,6 +1000,12 @@ begin
          TestPlayer.Perform('drop all then look then north');
          Proxy.StopSkipping();
 
+         Proxy.ExpectSubstring('Silver table: ');
+         Proxy.ExpectSubstring('Silver spoon: ');
+         Proxy.ExpectSubstring('Silver knife: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all that is silver but fork');
+
          Proxy.SkipEverything();
          TestPlayer.Perform('put silver fork on plastic table');
          TestPlayer.Perform('put plastic fork on steel table');
@@ -1026,7 +1034,7 @@ begin
          Proxy.SkipEverything();
          TestPlayer.Perform('put spoons on plastic table');
          Proxy.StopSkipping();
- 
+
          Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');

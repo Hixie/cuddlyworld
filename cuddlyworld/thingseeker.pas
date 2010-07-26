@@ -1,4 +1,7 @@
 {$MODE OBJFPC} { -*- text -*- }
+
+//{$DEFINE DEBUG_SEEKER}
+
 {$INCLUDE settings.inc}
 unit thingseeker;
 
@@ -34,21 +37,18 @@ type
 
 implementation
 
-//{$DEFINE DEBUG_SEEKER}
-
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils;
 
 type
    TThingSelectionMechanism = (tsmPickAll, tsmPickOne, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber, tsmPickOnlyRelevantNumber);
-   TClauseFlags = set of (cfAllowExceptions, cfSingular, cfExpectedSingleThing, cfFakeEverything,
-                          cfDisambiguateLoneResult, cfHaveThatIsClause);
+   TClauseFlags = set of (cfAllowExceptions, cfSingular, cfDisambiguateLoneResult, cfHaveThatIsClause, cfRemoveHiddenThings);
 
 type
    TAbstractJoiningClause = class;
    TAbstractClause = class
-     private
+     protected
       FFlags: TClauseFlags;
       FNumber: Cardinal;
       FSelectionMechanism: TThingSelectionMechanism;
@@ -61,13 +61,13 @@ type
       function GetPreviousOpenClause(): TAbstractClause; virtual;
      public
       constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: PThingItem; InputFragment: AnsiString); virtual;
-      constructor CreateAll(Things: PThingItem; Flags: TClauseFlags); virtual;
       destructor Destroy(); override;
       procedure CheckContext(); virtual;
       function AcceptsJoins(Peer: TAbstractClause): Boolean; virtual; abstract;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); virtual; abstract;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; virtual;
-      function Select(): Boolean; virtual; { returns true if the result should be explicitly disambiguated }
+      procedure SelfCensor(Whitelist: PThingItem); virtual;
+      function Select(): Boolean; virtual;
       procedure Process(); virtual; abstract;
       procedure Add(Next: TAbstractClause);
       class function GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber; virtual;
@@ -127,7 +127,6 @@ type
    TAbstractThatIsClause = class(TInclusionFilterClause)
      protected
       procedure Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); override;
-      procedure Filter(Victim: TAbstractClause); override;
       function IsMatch(Candidate, Condition: TThing): Boolean; override;
       procedure Victimise(Clause: TAbstractClause); override;
      public
@@ -242,17 +241,6 @@ begin
    FThings := Things;
    FInputFragment := InputFragment;
 {$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.Create(', Number, ', ', SelectionMechanism, ', ..., ', ThingListToLongDefiniteString(Things, nil, 'and'), ', ', InputFragment, ')'); {$ENDIF}
-end;
-
-constructor TAbstractClause.CreateAll(Things: PThingItem; Flags: TClauseFlags);
-begin
-   inherited Create();
-   FNumber := 0;
-   FSelectionMechanism := tsmPickAll;
-   FFlags := Flags + [cfDisambiguateLoneResult];
-   FThings := Things;
-   FInputFragment := 'everything';
-{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.CreateAll(', ThingListToLongDefiniteString(Things, nil, 'and'), ')'); {$ENDIF}
 end;
 
 destructor TAbstractClause.Destroy();
@@ -383,9 +371,38 @@ begin
     else
        raise EAssertionFailed.Create('unknown thing selection mechanism');
    end;
-   if (cfExpectedSingleThing in FFlags) then
-      Result := True;
 {$IFDEF DEBUG_SEEKER} Writeln('Select() resulted in the following list: ', ThingListToLongDefiniteString(FThings, nil, 'and')); {$ENDIF}
+end;
+
+procedure TAbstractClause.SelfCensor(Whitelist: PThingItem);
+var
+   CurrentThing, CondemnedThing, FilterThing: PThingItem;
+   LastNext: PPThingItem;
+begin
+   CurrentThing := FThings;
+   FThings := nil;
+   LastNext := @FThings;
+   while (Assigned(CurrentThing)) do
+   begin
+      FilterThing := Whitelist;
+      while (Assigned(FilterThing) and (CurrentThing^.Value <> FilterThing^.Value)) do
+         FilterThing := FilterThing^.Next;
+      if (Assigned(FilterThing)) then
+      begin
+         { found it, keep it }
+         LastNext^ := CurrentThing;
+         LastNext := @CurrentThing^.Next;
+         CurrentThing := CurrentThing^.Next;
+         LastNext^ := nil;
+      end
+      else
+      begin
+         { get rid of this thing's entry }
+         CondemnedThing := CurrentThing;
+         CurrentThing := CurrentThing^.Next;
+         Dispose(CondemnedThing);
+      end;
+   end;
 end;
 
 procedure TAbstractClause.Preselect(var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
@@ -484,13 +501,11 @@ var
    Index: Cardinal;
    CurrentThing: PThingItem;
 begin
-   Assert(not (cfFakeEverything in FFlags));
    if (Length(FRegisteredJoins) > 0) then
    begin
       CurrentThing := FThings;
       for Index := Low(FRegisteredJoins) to High(FRegisteredJoins) do
       begin
-         Assert(not (cfFakeEverything in FRegisteredJoins[Index].FFlags));
          if (Assigned(FRegisteredJoins[Index].FThings)) then
          begin
             if (Assigned(CurrentThing)) then
@@ -601,7 +616,6 @@ var
    VictimThing, CondemnedThing, FilterThing: PThingItem;
    LastNext: PPThingItem;
 begin
-   Assert(not (cfFakeEverything in Victim.FFlags));
    VictimThing := Victim.FThings;
    Victim.FThings := nil;
    LastNext := @Victim.FThings;
@@ -628,6 +642,8 @@ begin
    end;
    if (not Assigned(Victim.FThings)) then
       ReportNothingLeft();
+   if (not (cfRemoveHiddenThings in FFlags)) then
+      Exclude(Victim.FFlags, cfRemoveHiddenThings);
    Victim.FInputFragment := Victim.FInputFragment + ' ' + GetFragmentAnnotation();
 end;
 
@@ -636,18 +652,6 @@ begin
    Fail('It''s not clear to what you are referring.');
 end;
 
-
-procedure TAbstractThatIsClause.Filter(Victim: TAbstractClause);
-begin
-   if (cfFakeEverything in Victim.FFlags) then
-   begin
-      Victim.FThings := FThings;
-      Exclude(Victim.FFlags, cfFakeEverything);
-      FThings := nil;
-      Exit;
-   end;
-   inherited;
-end;
 
 function TAbstractThatIsClause.IsMatch(Candidate, Condition: TThing): Boolean;
 begin
@@ -858,7 +862,6 @@ var
    VictimThing, CondemnedThing, FilterThing: PThingItem;
    LastNext: PPThingItem;
 begin
-   Assert(not (cfFakeEverything in Victim.FFlags));
    VictimThing := Victim.FThings;
    Victim.FThings := nil;
    LastNext := @Victim.FThings;
@@ -975,7 +978,7 @@ procedure TStartClause.Bank(var Things: PThingItem; var Disambiguate: Boolean);
 begin
    Deduplicate(FThings);
    Things := FThings;
-   if ((Assigned(FThings)) and (not Assigned(FThings^.Next)) and ((cfDisambiguateLoneResult in FFlags) or (cfFakeEverything in FFlags))) then
+   if ((Assigned(FThings)) and (not Assigned(FThings^.Next)) and (cfDisambiguateLoneResult in FFlags)) then
       Disambiguate := True;
    FThings := nil;
 end;
@@ -1068,6 +1071,9 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
    procedure Collapse(FirstClause: TAbstractClause; out Things: PThingItem; out Disambiguate: Boolean);
    var
       CurrentClause, LastClause: TAbstractClause;
+      FromOutside, GotWhitelist: Boolean;
+      Root: TAtom;
+      WhiteList: PThingItem;
    begin
 {$IFDEF DEBUG_SEEKER} Writeln('Collapsing clauses...'); {$ENDIF}
       Assert(FirstClause is TStartClause);
@@ -1083,18 +1089,42 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
       until not Assigned(CurrentClause);
       CurrentClause := LastClause;
 {$IFDEF DEBUG_SEEKER} Writeln(' In reverse:'); {$ENDIF}
-      repeat
-{$IFDEF DEBUG_SEEKER} Writeln('   ', CurrentClause.ClassName); {$ENDIF}
-         try
-            if (CurrentClause.Select()) then
-               Disambiguate := True;
-            CurrentClause.Process();
-         except
-            on E: EMatcherException do { raised by Select() }
-               Fail(E.Message(Perspective, CurrentClause.FInputFragment));
-         end;
-         CurrentClause := CurrentClause.FPrevious;
-      until not Assigned(CurrentClause);
+      GotWhitelist := False;
+      try
+         repeat
+   {$IFDEF DEBUG_SEEKER} Writeln('   ', CurrentClause.ClassName); {$ENDIF}
+            try
+               if ((cfRemoveHiddenThings in CurrentClause.FFlags) and (Scope <> [])) then
+               begin
+   {$IFDEF DEBUG_SEEKER} Writeln('      Self Censoring...'); {$ENDIF}
+                  if (not GotWhitelist) then
+                  begin
+                     Whitelist := nil;
+                     if (aisSurroundings in Scope) then
+                        Root := Perspective.GetSurroundingsRoot(FromOutside)
+                     else
+                     if (aisSelf in Scope) then
+                        Root := Perspective
+                     else
+                        raise EAssertionFailed.Create('unexpected TAllImpliedScope value');
+                     Root.AddImplicitlyReferencedDescendantThings(Perspective, FromOutside, aisSelf in Scope, tpExplicit, [], WhiteList);
+                     GotWhitelist := True;
+                  end;
+                  CurrentClause.SelfCensor(Whitelist);
+               end;
+               if (CurrentClause.Select()) then
+                  Disambiguate := True;
+               CurrentClause.Process();
+            except
+               on E: EMatcherException do { raised by Select() }
+                  Fail(E.Message(Perspective, CurrentClause.FInputFragment));
+            end;
+            CurrentClause := CurrentClause.FPrevious;
+         until not Assigned(CurrentClause);
+      finally
+         if (GotWhitelist) then
+            FreeThingList(Whitelist);
+      end;
       (FirstClause as TStartClause).Bank(Things, Disambiguate);
    end;
 
@@ -1213,41 +1243,9 @@ var
          FromOutside: Boolean;
       begin
          Assert(not Assigned(FCurrentBestThingList));
-         Assert(cfAllowExceptions in Flags); // if we don't end up removing this assertion, then we should just automatically add cfAllowExceptions to Flags here; if we do, then we should revisit whether 'but' is handled correctly with the cases were this is not set
-         if (aisSurroundings in Scope) then
-         begin
-            Perspective.GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Perspective, FromOutside, aisSelf in Scope, tpExplicit, [], FCurrentBestThingList);
-            AppendClause(ClauseClass.CreateAll(FCurrentBestThingList, Flags));
-            Result := True;
-         end
-         else
-         if (aisSelf in Scope) then
-         begin
-            Perspective.AddImplicitlyReferencedThings(Perspective, True, True, tpExplicit, [], FCurrentBestThingList);
-            AppendClause(ClauseClass.CreateAll(FCurrentBestThingList, Flags));
-            Result := True;
-         end
-         else
-         begin
-            { we can only reach here if the caller is expecting only a single thing to be returned and will always fail with multiple things }
-            Assert(Scope = []);
-            Perspective.GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedThings(Perspective, FromOutside, True, tpExplicit, [], FCurrentBestThingList);
-            AppendClause(ClauseClass.CreateAll(FCurrentBestThingList, Flags + [cfExpectedSingleThing]));
-            Result := True;
-         end;
+         Perspective.GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedDescendantThings(Perspective, FromOutside, True, tpEverything, [], FCurrentBestThingList);
+         AppendClause(ClauseClass.Create(0, tsmPickAll, Flags, FCurrentBestThingList, Serialise(OriginalTokens, ClauseStart, CurrentToken - ClauseStart)));
          FCurrentBestThingList := nil;
-         Assert(Result);
-      end;
-
-      function CollectFakeEverything(Flags: TClauseFlags): Boolean;
-      begin
-         Assert(cfAllowExceptions in Flags); // if we don't end up removing this assertion, then we should just automatically add cfAllowExceptions to Flags here; if we do, then we should revisit whether 'but' is handled correctly with the cases were this is not set
-         if ((not (aisSurroundings in Scope)) and (not (aisSelf in Scope))) then
-         begin
-            Assert(Scope = []);
-            Include(Flags, cfExpectedSingleThing);
-         end;
-         AppendClause(ClauseClass.CreateAll(nil, Flags + [cfFakeEverything]));
          Result := True;
       end;
 
@@ -1281,20 +1279,11 @@ var
       if (TryMatchWithNumber(CurrentToken, Tokens, ['all', '#'], Number)) then
          Result := CollectExplicitThings([gnPlural], Number, tsmPickOnlyNumber, tsmPickOnlyNumber, [cfAllowExceptions, cfDisambiguateLoneResult], False)
       else
-      if (TryMatch(CurrentToken, Tokens, ['all', 'that', 'is'])) then
-      begin
-         Result := CollectFakeEverything([cfAllowExceptions, cfSingular]);
-         Assert(Result);
-         ClauseClass := TThatIsClause;
-         Result := CollectExplicitThings([gnSingular], 1, tsmPickAll, tsmPickAll, [cfAllowExceptions, cfDisambiguateLoneResult], False);
-         Assert(Result);
-      end
-      else
       if (TryMatch(CurrentToken, Tokens, ['all'])) then
       begin
          Result := (((CurrentToken < Length(Tokens)) and
                      (CollectExplicitThings([gnPlural], 1, tsmPickAll, tsmPickAll, [cfAllowExceptions, cfDisambiguateLoneResult], True))) or
-                    (CollectImplicitThings([cfAllowExceptions, cfSingular, cfDisambiguateLoneResult])));
+                    (CollectImplicitThings([cfAllowExceptions, cfSingular, cfDisambiguateLoneResult, cfRemoveHiddenThings])));
       end
       else
       if (TryMatch(CurrentToken, Tokens, ['any', 'of', 'the'])) then
@@ -1315,17 +1304,8 @@ var
       if (TryMatch(CurrentToken, Tokens, ['a'])) then
          Result := CollectExplicitThings([gnSingular], 1, tsmPickNumber, tsmPickNumber, [cfDisambiguateLoneResult], False)
       else
-      if (TryMatch(CurrentToken, Tokens, ['everything', 'that', 'is'])) then
-      begin
-         Result := CollectFakeEverything([cfAllowExceptions, cfSingular]);
-         Assert(Result);
-         ClauseClass := TThatIsClause;
-         Result := CollectExplicitThings([gnSingular], 1, tsmPickAll, tsmPickAll, [cfAllowExceptions], False);
-         Assert(Result);
-      end
-      else
       if (TryMatch(CurrentToken, Tokens, ['everything'])) then
-         Result := CollectImplicitThings([cfAllowExceptions, cfSingular])
+         Result := CollectImplicitThings([cfAllowExceptions, cfSingular, cfDisambiguateLoneResult, cfRemoveHiddenThings])
       else
       if (TryMatch(CurrentToken, Tokens, ['every'])) then
          Result := CollectExplicitThings([gnSingular], 1, tsmPickAll, tsmPickAll, [cfAllowExceptions], False)
@@ -1467,10 +1447,19 @@ begin
       CurrentToken := Start;
       FirstClause := nil;
       try
+         {$IFDEF DEBUG_SEEKER} Writeln('collecting starting at ', CurrentToken, ':', Serialise(OriginalTokens, CurrentToken, 1)); {$ENDIF}
          if (CollectArticleAndThings(TStartClause, 0)) then
          begin
+            {$IFDEF DEBUG_SEEKER} Writeln('Found a start.'); {$ENDIF}
             Assert(Assigned(FirstClause));
-            repeat until ((CurrentToken > Length(Tokens)) or
+            repeat
+               {$IFDEF DEBUG_SEEKER}
+               if (CurrentToken < Length(Tokens)) then
+                  Writeln('collecting continuing at ', CurrentToken, ':', Serialise(OriginalTokens, CurrentToken, 1))
+               else
+                  Writeln('collecting continuing at end');
+               {$ENDIF}
+                   until ((CurrentToken > Length(Tokens)) or
                           (not TryClauses(NextClauseClass, NextClauseLength)) or
                           (not CollectArticleAndThings(NextClauseClass, NextClauseLength)));
             Assert(FTokenCount = 0);

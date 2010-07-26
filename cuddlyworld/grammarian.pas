@@ -51,6 +51,7 @@ const
 function Tokenise(const S: AnsiString): TTokens;
 function TokeniseCanonically(const S: AnsiString): TTokens;
 function TryMatch(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString): Boolean;
+function TryMatchWithLookahead(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; LookAheadPattern: array of AnsiString): Boolean;
 function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; out Number: Cardinal): Boolean; { '#' in the pattern is the number -- only matches numbers in the range 2..999,999,999}
 function Serialise(const Tokens: TTokens; const Start, Count: Cardinal; const Separator: AnsiString = ' '): AnsiString;
 function Canonicalise(const S: AnsiString): AnsiString;
@@ -196,6 +197,35 @@ begin
             Exit;
          Inc(Index);
       end;
+      Assert(Index = Length(Pattern));
+      Inc(CurrentToken, Index);
+      Result := True;
+   end;
+end;
+
+function TryMatchWithLookahead(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; LookAheadPattern: array of AnsiString): Boolean;
+var
+   Index, LookAheadIndex: Cardinal;
+begin
+   Result := False;
+   if (CurrentToken + Length(Pattern) + Length(LookAheadPattern) <= Length(Tokens)) then
+   begin
+      Index := 0;
+      while (Index < Length(Pattern)) do
+      begin
+         if (Tokens[CurrentToken+Index] <> Pattern[Index]) then
+            Exit;
+         Inc(Index);
+      end;
+      LookAheadIndex := 0;
+      while (LookAheadIndex < Length(LookAheadPattern)) do
+      begin
+         if (Tokens[CurrentToken+Index] <> LookAheadPattern[LookAheadIndex]) then
+            Exit;
+         Inc(Index);
+         Inc(LookAheadIndex);
+      end;
+      Assert(Index = Length(Pattern) + Length(LookAheadPattern));
       Inc(CurrentToken, Length(Pattern));
       Result := True;
    end;
