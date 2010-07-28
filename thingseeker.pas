@@ -1096,7 +1096,6 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
             try
                if ((cfRemoveHiddenThings in CurrentClause.FFlags) and (Scope <> [])) then
                begin
-   {$IFDEF DEBUG_SEEKER} Writeln('      Self Censoring...'); {$ENDIF}
                   if (not GotWhitelist) then
                   begin
                      Whitelist := nil;
@@ -1107,9 +1106,10 @@ function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: T
                         Root := Perspective
                      else
                         raise EAssertionFailed.Create('unexpected TAllImpliedScope value');
-                     Root.AddImplicitlyReferencedDescendantThings(Perspective, FromOutside, aisSelf in Scope, tpExplicit, [], WhiteList);
+                     Root.AddImplicitlyReferencedDescendantThings(Perspective, FromOutside, aisSelf in Scope, tpCountsForAll, [], WhiteList);
                      GotWhitelist := True;
                   end;
+   {$IFDEF DEBUG_SEEKER} Writeln('      Self Censoring... (Whitelist: ', ThingListToLongDefiniteString(Whitelist, Perspective, 'and'), ')'); {$ENDIF}
                   CurrentClause.SelfCensor(Whitelist);
                end;
                if (CurrentClause.Select()) then

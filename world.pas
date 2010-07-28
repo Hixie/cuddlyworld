@@ -729,6 +729,8 @@ procedure TAtom.HandleAdd(Thing: TThing; Blame: TAvatar);
 begin
 end;
 
+{ this is used when notifying players of something, e.g. shouting }
+{ it should propagate to all of the things that should get the message }
 procedure TAtom.GetAvatars(var List: PAvatarItem; FromOutside: Boolean);
 var
    Child: PThingItem;
@@ -736,7 +738,7 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
-      if (FromOutside or (Child^.Value.Position in tpContained)) then
+      if (FromOutside or (Child^.Value.Position in tpContained)) then { assumes that we are closed (TThing.GetAvatars solves that) }
          Child^.Value.GetAvatars(List, True);
       Child := Child^.Next;
    end;
@@ -1190,7 +1192,8 @@ begin
       case FPosition of
        tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetDefiniteName(Perspective);
        tpOnImplicit: Result := Result + ' on ' + Context.GetDefiniteName(Perspective);
-       tpInImplicit: Result := Result + ' in ' + Context.GetDefiniteName(Perspective);
+       tpAtImplicit: Result := Result + ' at ' + Context.GetDefiniteName(Perspective);
+       tpAroundImplicit: Result := Result + ' near ' + Context.GetDefiniteName(Perspective);
       end;
 end;
 
@@ -1369,11 +1372,11 @@ end;
 
 function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString;
 
-   procedure ProcessBatch(Child: PThingItem; ExpectedPosition: TThingPosition);
+   procedure ProcessBatch(Child: PThingItem; ExpectedPositionFilter: TThingPositionFilter);
    begin
       while (Assigned(Child)) do
       begin
-         if (((Child^.Value <> Perspective) or (not (optOmitPerspective in Options))) and (Child^.Value.Position = ExpectedPosition)) then
+         if (((Child^.Value <> Perspective) or (not (optOmitPerspective in Options))) and (Child^.Value.Position in ExpectedPositionFilter)) then
          begin
             if (Length(Result) > 0) then
                Result := Result + #10;
@@ -1388,18 +1391,23 @@ function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionC
 var
    Inside, Surface: TAtom;
    ExpectedPosition: TThingPosition;
+   ExpectedPositionFilter: TThingPositionFilter;
 begin
    Result := '';
-   ProcessBatch(FChildren, tpIn);
+   if (optThorough in Options) then
+      ExpectedPositionFilter := [tpIn, tpEmbedded]
+   else
+      ExpectedPositionFilter := [tpIn];
+   ProcessBatch(FChildren, ExpectedPositionFilter);
    Surface := GetSurface();
    if (Surface <> Self) then
-      ProcessBatch(Surface.FChildren, tpIn);
+      ProcessBatch(Surface.FChildren, ExpectedPositionFilter);
    if (optFar in Options) then
    begin
       ExpectedPosition := tpIn;
       Inside := GetInside(ExpectedPosition);
-      if (Assigned(Inside) and (((Inside <> Self) and (Inside <> Surface)) or (ExpectedPosition <> tpIn))) then
-         ProcessBatch(Inside.FChildren, ExpectedPosition);
+      if (Assigned(Inside) and (((Inside <> Self) and (Inside <> Surface)) or (not (ExpectedPosition in ExpectedPositionFilter)))) then
+         ProcessBatch(Inside.FChildren, [ExpectedPosition]);
    end;
    if (Length(Result) > 0) then
       Result := Prefix + GetDescriptionInTitle(Perspective, Options) + #10 + Result;

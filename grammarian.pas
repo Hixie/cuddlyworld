@@ -33,19 +33,19 @@ type
    { Ambiguous means that the placement is made explicit in the name (e.g. "rim" + "of bag") }
    { Implicit means that the thing isn't mentioned when looking at its parent }
    { See further notes below for other implications of these values }
-   TThingPosition = (tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit,
-                     tpOpening, tpAt, tpOn, tpIn, tpCarried);
+   TThingPosition = (tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit,
+                     tpOpening, tpAt, tpOn, tpIn, tpEmbedded, tpCarried);
    TThingPositionFilter = set of TThingPosition;
 
 const
-   tpEverything = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit, tpOpening, tpAt, tpOn, tpIn, tpCarried];
-   tpImplicit = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit]; { parent is assumed to include the description of these children already }
+   tpEverything = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpOpening, tpAt, tpOn, tpIn, tpEmbedded, tpCarried];
+   tpImplicit = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit]; { parent is assumed to include the description of these children already }
    tpAutoDescribe = [tpOpening, tpAt]; { things that should be included in the main description of an object }
-   tpExplicit = [tpOnImplicit, tpInImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
-   tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpInImplicit, tpOpening, tpAt]; { parent includes the mass of these children already }
-   tpContained = [tpInImplicit, tpIn]; { affects how things are pushed around }
+   tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpOpening, tpAt]; { parent includes the mass of these children already }
+   tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
    tpStacked = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { affects how things are removed }
-   tpSeparate = [tpAroundImplicit, tpAtImplicit, tpInImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
+   tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
+   tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed }
    tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
 
 function Tokenise(const S: AnsiString): TTokens;
@@ -495,7 +495,7 @@ begin
      tpAroundImplicit: Result := 'around';
      tpAtImplicit, tpAt: Result := 'at';
      tpOn: Result := 'on';
-     tpOpening, tpInImplicit, tpIn: Result := 'in';
+     tpOpening, tpIn, tpEmbedded: Result := 'in';
      tpCarried: Result := 'being carried by';
     else
      raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));
@@ -511,7 +511,7 @@ begin
      tpAtImplicit: Result := 'to'; // assert instead?
      tpAt: Result := 'to';
      tpOn: Result := 'onto';
-     tpOpening, tpInImplicit, tpIn: Result := 'into';
+     tpOpening, tpIn, tpEmbedded: Result := 'into';
      tpCarried: Result := 'so that it is carried by'; // assert instead?
     else
      raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));

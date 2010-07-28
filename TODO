@@ -1,5 +1,7 @@
-THING SEEKER IMPROVEMENTS
+FIXED
  + "look" (lists nothing) "look in pile" (lists many things) "take all from pile" (fails!)
+
+THING SEEKER IMPROVEMENTS
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
  + "take arches THAT ARE thick OR THAT ARE wood"
     - "that are" only binds to the previous clause, and only if it was plural
