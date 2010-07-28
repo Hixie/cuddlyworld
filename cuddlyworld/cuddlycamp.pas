@@ -224,7 +224,13 @@ begin
    // temporary
    World.AddLocation(MalePath);
    MalePath.ConnectCardinals(Forest, Forest, ArrivalsCircle, Forest);
-   MalePath.Add(TSpade.Create(), tpOn);
+   MalePath.GetSurface().Add(TSpade.Create(), tpOn);
+   MalePath.GetSurface().Add(TStaticThing.Create('penny', '(copper (penny/pennies coin/coins)@)&', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
+   MalePath.GetSurface().Add(TStaticThing.Create('penny', '(copper (penny/pennies coin/coins)@)&', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
+   MalePath.GetSurface().Add(TStaticThing.Create('penny', '(copper (penny/pennies coin/coins)@)&', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
+   MalePath.GetSurface().Add(TStaticThing.Create('farthing', '(brass (farthing/farthings coin/coins)@)&', 'The farthing is a brass coin of little value.', tmLight, tsSmall), tpOn);
+   MalePath.GetSurface().Add(TStaticThing.Create('farthing', '(brass (farthing/farthings coin/coins)@)&', 'The farthing is a brass coin of little value.', tmLight, tsSmall), tpOn);
+   MalePath.GetSurface().Add(TStaticThing.Create('farthing', '(brass (farthing/farthings coin/coins)@)&', 'The farthing is a brass coin of little value.', tmLight, tsSmall), tpOn);
    World.AddLocation(FemalePath);
    FemalePath.ConnectCardinals(ArrivalsCircle, Forest, Forest, Forest);
 

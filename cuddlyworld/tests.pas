@@ -403,7 +403,7 @@ procedure TestMechanics();
       Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
       Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
       Cave1.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpIn);
+      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
       Cave1.ConnectCardinals(Cave2, nil, Cliff, nil);
       World.AddLocation(Cave1);
 
@@ -431,7 +431,7 @@ procedure TestMechanics();
       Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
       Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
       Cave2.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpIn);
+      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
       Cave2.ConnectCardinals(Cave3, nil, Cave1, nil);
       World.AddLocation(Cave2);
 
@@ -459,7 +459,7 @@ procedure TestMechanics();
       Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
       Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
       Cave3.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpIn);
+      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
       Cave3.ConnectCardinals(Cave4, nil, Cave2, nil);
       World.AddLocation(Cave3);
 
@@ -1041,6 +1041,57 @@ begin
          Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake spoons from silver table and from plastic table');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('take all the spoons; push everything but the spoons south; drop the spoons; s; s; s; take a spade; n; n; n; l');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectString('With much effort, you dig a huge hole.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('dig the ground with the spade that is metal');
+
+         Proxy.ExpectString('Silver spoon: Moved into the hole.');
+         Proxy.ExpectString('Stainless steel spoon: Moved into the hole.');
+         Proxy.ExpectString('Plastic spoon: Moved into the hole.');
+         Proxy.ExpectString('Wooden spoon: Moved into the hole.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Moved into the hole.');
+         Proxy.ExpectString('You fill the hole with the pile of earth.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('push all the spoons into the hole, then push the pile of earth into the hole');
+
+         Proxy.ExpectString('With much effort, you dig a huge hole.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('dig the ground with the spade that is metal');
+
+         Proxy.ExpectString('I don''t see anything to take here.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all but pile');
+
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all spoons');
+
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from pile');
+
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from all that is earth');
+
+         Proxy.ExpectString('It''s not clear to what you are referring.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from all that is earth but pile');
 
          Proxy.ExpectDone();
 

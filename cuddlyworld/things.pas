@@ -171,15 +171,12 @@ type
       function GetProperties(): TThingProperties; override;
    end;
 
-   TPileState = set of (psTidy);
    TPile = class(TNamedThing)
     protected
       FIngredient: AnsiString;
       FDescription: AnsiString;
       FMass: TThingMass;
       FSize: TThingSize;
-      FState: TPileState;
-      function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
     public
       constructor Create(Ingredient: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
       constructor Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
@@ -191,7 +188,6 @@ type
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionState(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; override;
       function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString; override;
       function GetDescriptionEmpty(Perspective: TAvatar): AnsiString; override;
@@ -584,10 +580,10 @@ begin
          { This is a little hairy, because we're walking the FChildren list just ahead of where we are mutating it }
          LastThing := Child^.Value;
          Child := Child^.Next;
-         if (LastThing.Position = tpIn) then
+         if (LastThing.Position in tpContained) then
          begin
             Assert(not (LastThing is TEarthPile));
-            Pile.Add(LastThing, tpIn);
+            Pile.Add(LastThing, tpEmbedded);
          end;
       end;
       Add(Pile, tpOn);
@@ -1155,14 +1151,17 @@ begin
          Pattern := Pattern + ' ' + PluralIngredients[Index];
    Pattern := Pattern + ')@)?)';
    for Index := 0 to Length(SingularIngredients)-1 do
+   begin
+      {$IFDEF DEBUG} Assert(not HasPatternChars(SingularIngredients[Index])); {$ENDIF}
+      {$IFDEF DEBUG} Assert(not HasPatternChars(PluralIngredients[Index])); {$ENDIF}
       Pattern := Pattern + ' ' + SingularIngredients[Index] + '/' + PluralIngredients[Index];
+   end;
    Pattern := Pattern + ')@';
    inherited Create('pile of ' + PluralIngredients[0], Pattern);
    FIngredient := PluralIngredients[0];
    FDescription := Description;
    FMass := Mass;
    FSize := Size;
-   FState := [psTidy];
 end;
 
 constructor TPile.Read(Stream: TReadStream);
@@ -1172,7 +1171,6 @@ begin
    FDescription := Stream.ReadAnsiString();
    FMass := TThingMass(Stream.ReadCardinal());
    FSize := TThingSize(Stream.ReadCardinal());
-   FState := TPileState(Stream.ReadCardinal());
 end;
 
 procedure TPile.Write(Stream: TWriteStream);
@@ -1182,12 +1180,6 @@ begin
    Stream.WriteAnsiString(FDescription);
    Stream.WriteCardinal(Cardinal(TThingMass(FMass)));
    Stream.WriteCardinal(Cardinal(TThingSize(FSize)));
-   Stream.WriteCardinal(Cardinal(TPileState(FState)));
-end;
-
-function TPile.IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
-begin
-   Result := ((not (Child.Position in tpContained)) or (not FromOutside) or (not (psTidy in FState))) and inherited;
 end;
 
 function TPile.GetIntrinsicMass(): TThingMass;
@@ -1217,7 +1209,7 @@ end;
 
 function TPile.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString;
 begin
-   if ((optThorough in Options) or (not (psTidy in FState))) then
+   if (optThorough in Options) then
       Result := inherited
    else
       Result := '';
@@ -1234,17 +1226,6 @@ end;
 function TPile.GetDescriptionEmpty(Perspective: TAvatar): AnsiString;
 begin
    Result := 'A thorough search through ' + GetDefiniteName(Perspective) + ' reveals only a lot of ' + FIngredient + '.';
-end;
-
-function TPile.GetDescriptionState(Perspective: TAvatar): AnsiString;
-begin
-   Result := inherited;
-   if (not (psTidy in FState)) then
-   begin
-      if (Length(Result) > 0) then
-         Result := Result + ' ';
-      Result := Result + Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' spread somewhat all over the place.';
-   end;
 end;
 
 function TPile.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
