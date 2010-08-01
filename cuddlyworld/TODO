@@ -1,5 +1,8 @@
-FIXED
- + "look" (lists nothing) "look in pile" (lists many things) "take all from pile" (fails!)
+DONE
+ + "put everything from rucksack [in bag]" (the end clauses)
+ + given blue vase on blue table and red vase on red table: "take the vase on table" => "which table do you mean, the red table or the blue blue table?"
+ + given blue vase on blue table and red vase on red table: "take the vases on table" => "which table do you mean, the red table or the blue blue table?"
+ + given blue vase on blue table and red vase on red table: "take the red vase on table" => takes red vase
 
 THING SEEKER IMPROVEMENTS
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
@@ -14,15 +17,7 @@ THING SEEKER IMPROVEMENTS
  + "take everything THAT IS OPEN"
     - add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
  + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones THAT ARE small"
- + "take foo WITH bar and baz from quux"
- + "IN <object>"
- + "put everything from rucksack [in bag]" (the end clauses)
- + "ON <object>"
-    - given blue vase on blue table and red vase on red table: "take the vase on table" => "which table do you mean, the red table or the blue blue table?"
-    - given blue vase on blue table and red vase on red table: "take the red vase on table" => takes red vase
-    - given blue vase on blue table and red vase on red table: "take the vases on table" => "which table do you mean, the red table or the blue blue table?"
-    - given blue vase on blue table and red vase on red table: "take the vases on the tables" => ?
- + "FROM WITHIN <object>"
+ + "FROM WITHIN <object>", "FROM INSIDE", "FROM ATOP", etc
  + "look at arch TO the north"
  + "take two copper coins and three gold coins BUT NOT big ones OR blue ones from table"
  + "take all bottles from tables, chairs, floor BUT NOT blue bottles"
@@ -35,7 +30,9 @@ THING SEEKER IMPROVEMENTS
     - this basically means reworking how the "scope" mechanism works so that it implicitly filters each overall clause, if they all would still match something
     - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one
     - maybe we should move the "expecting only one" logic completely out of the thingseeker in fact
- + "take EVERYTHING THAT IS AN arch" fails
+ + "take everything THAT IS FROM an arch"
+ + "take fruit in bucket in hole"
+ + "take fruit in container that is bucket in hole"
 
 PLOT
  + give the archways reasons they can't be moved that are archway-specific - right now they are "part of the ground".
