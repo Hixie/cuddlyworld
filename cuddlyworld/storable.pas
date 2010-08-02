@@ -84,6 +84,7 @@ type
    end;
 
 procedure RegisterStorableClass(AClass: StorableClass; ID: Cardinal);
+{$IFDEF ALLOW_SYNONYMS} procedure RegisterStorableClassAsSynonym(AClass: StorableClass; RestoreClass: StorableClass); {$ENDIF}
 
 procedure StoreObjectToFile(FileName: AnsiString; Value: TStorable; Version: Cardinal);
 function ReadObjectFromFile(FileName: AnsiString): TStorable;
@@ -126,6 +127,14 @@ begin
    ClassKeyToClassHash.Add(ID, AClass);
    ClassToClassKeyHash.Add(AClass, ID);
 end;
+
+{$IFDEF ALLOW_SYNONYMS}
+procedure RegisterStorableClassAsSynonym(AClass: StorableClass; RestoreClass: StorableClass);
+begin
+   Assert(ClassToClassKeyHash.Get(RestoreClass) <> 0, 'Class ' + RestoreClass.ClassName() + ' not yet registered.');
+   ClassToClassKeyHash.Add(AClass, ClassToClassKeyHash.Get(RestoreClass));
+end;
+{$ENDIF}
 
 
 procedure StoreObjectToFile(FileName: AnsiString; Value: TStorable; Version: Cardinal);
@@ -447,7 +456,7 @@ var
 begin
    {$IFOPT C+} FDebugCalledInherited := True; {$ENDIF}
    Stream.VerifyFieldType(btObjectData);
-   s := Stream.ReadAnsiString();
+   S := Stream.ReadAnsiString();
    Assert(S = ClassName);
 end;
 
@@ -455,7 +464,11 @@ procedure TStorable.Write(Stream: TWriteStream);
 begin
    {$IFOPT C+} FDebugCalledInherited := True; {$ENDIF}
    Stream.WriteFieldType(btObjectData);
-   Stream.WriteAnsiString(ClassName);
+   {$IFDEF ALLOW_SYNONYMS}
+      Stream.WriteAnsiString(ClassKeyToClassHash.Get(ClassToClassKeyHash.Get(StorableClass(ClassType))).ClassName);
+   {$ELSE}
+      Stream.WriteAnsiString(ClassName);
+   {$ENDIF}
 end;
 
 

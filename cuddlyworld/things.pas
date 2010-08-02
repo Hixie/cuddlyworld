@@ -114,6 +114,14 @@ type
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
 
+   TContainer = class(TStaticThing)
+     public
+      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function IsOpen(): Boolean; override;
+      function GetProperties(): TThingProperties; override;
+   end;
+
    TSpade = class(TStaticThing)
     public
       constructor Create();
@@ -683,6 +691,28 @@ end;
 function TDistantScenery.FarAway(Perspective: TAvatar): AnsiString;
 begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + CardinalDirectionToDirectionString(FDirection) + '.';
+end;
+
+
+function TContainer.GetInside(var PositionOverride: TThingPosition): TAtom;
+begin
+   Result := Self;
+end;
+
+function TContainer.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+begin
+   Result := (GetInsideSizeManifest() + Manifest) < FSize;
+end;
+
+function TContainer.IsOpen(): Boolean;
+begin
+   Result := True;
+end;
+
+function TContainer.GetProperties(): TThingProperties;
+begin
+   Result := inherited;
+   Result := Result + [tpCanHaveThingsPushedIn];
 end;
 
 
@@ -1263,9 +1293,10 @@ initialization
    RegisterStorableClass(TLocationProxy,          1003);
    RegisterStorableClass(TSurface,                1004);
    RegisterStorableClass(TDistantScenery,         1005);
-   RegisterStorableClass(TSpade,                  1006);
-   RegisterStorableClass(TBag,                    1007);
-   RegisterStorableClass(THole,                   1008);
-   RegisterStorableClass(TPile,                   1009);
-   RegisterStorableClass(TEarthPile,              1010);
+   RegisterStorableClass(TContainer,              1006);
+   RegisterStorableClass(TSpade,                  1010);
+   RegisterStorableClass(TBag,                    1011);
+   RegisterStorableClass(THole,                   1012);
+   RegisterStorableClass(TPile,                   1013);
+   RegisterStorableClass(TEarthPile,              1014);
 end.

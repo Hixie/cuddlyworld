@@ -70,7 +70,7 @@ type
       function GetName(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetSummaryName(Perspective: TAvatar): AnsiString; virtual;
       function GetLongName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
-      function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual;
+      function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual;
       function GetSubjectPronoun(Perspective: TAvatar): AnsiString; virtual; // I
@@ -136,6 +136,7 @@ type
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom; override;
       function GetSummaryName(Perspective: TAvatar): AnsiString; override;
+      function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
       function IsPlural(Perspective: TAvatar): Boolean; virtual;
@@ -687,7 +688,7 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
-      if (Child^.Value.Position in [tpOn, tpCarried]) then
+      if (Child^.Value.Position in tpOutside) then
          Result := Result + Child^.Value.GetOutsideSizeManifest();
       Child := Child^.Next;
    end;
@@ -701,7 +702,7 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
-      if (Child^.Value.Position in (tpContained - tpScenery)) then
+      if (Child^.Value.Position in tpContained) then
          Result := Result + Child^.Value.GetOutsideSizeManifest();
       Child := Child^.Next;
    end;
@@ -715,7 +716,7 @@ begin
    Child := FChildren;
    while (Assigned(Child)) do
    begin
-      if (Child^.Value.Position in (tpEverything - (tpContained + tpScenery + [tpCarried]))) then { i.e. tpOn }
+      if (Child^.Value.Position in tpSurface) then
          Result := Result + Child^.Value.GetIntrinsicSize();
       Child := Child^.Next;
    end;
@@ -758,12 +759,6 @@ end;
 function TAtom.GetLongName(Perspective: TAvatar): AnsiString;
 begin
    Result := GetName(Perspective);
-end;
-
-function TAtom.GetIndefiniteName(Perspective: TAvatar): AnsiString;
-begin
-   Result := GetName(Perspective);
-   Result := IndefiniteArticle(Result) + ' ' + Result;
 end;
 
 function TAtom.GetDefiniteName(Perspective: TAvatar): AnsiString;
@@ -1166,6 +1161,13 @@ begin
       case FPosition of
        tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetSummaryName(Perspective);
       end;
+end;
+
+function TThing.GetIndefiniteName(Perspective: TAvatar): AnsiString;
+begin
+   Result := GetName(Perspective);
+   if (not IsPlural(Perspective)) then
+      Result := IndefiniteArticle(Result) + ' ' + Result;
 end;
 
 function TThing.GetDefiniteName(Perspective: TAvatar): AnsiString;
@@ -1839,7 +1841,7 @@ begin
          begin
             if (Length(Result) > 0) then
                Result := Result + ' ';
-            Result := Result + (Atom as TLocation).GetDescriptionRemoteBrief(Perspective, Direction);
+            Result := Result + (Atom as TLocation).GetDescriptionRemoteBrief(Perspective, Direction); // should make this optional
          end;
       end;
       Inc(Direction);
@@ -2080,4 +2082,6 @@ begin
    FDirty := False;
 end;
 
+initialization
+   RegisterStorableClass(TWorld, 1);
 end.
