@@ -1,36 +1,34 @@
 DONE
- + "put everything from rucksack [in bag]" (the end clauses)
- + given blue vase on blue table and red vase on red table: "take the vase on table" => "which table do you mean, the red table or the blue blue table?"
- + given blue vase on blue table and red vase on red table: "take the vases on table" => "which table do you mean, the red table or the blue blue table?"
- + given blue vase on blue table and red vase on red table: "take the red vase on table" => takes red vase
+ + "that are", "and that are", "that is not", etc.
+ + disambiguation fixes
+ + "shake all from one of the tables THAT IS NOT the kitchen table"
+ + "take blue from red THAT IS NOT vase"
+ + "take all from any of the tables THAT ARE NOT the red ones"
+ + "take apples and all oranges THAT ARE NOT green from plate on table"
+ + "take orange PLUS apple PLUS" => thing list should fail with "plus what?"
 
 THING SEEKER IMPROVEMENTS
- + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
- + "take arches THAT ARE thick OR THAT ARE wood"
-    - "that are" only binds to the previous clause, and only if it was plural
- + "take all from one of the tables THAT IS NOT the head table"
- + "take blue from red THAT IS NOT big"
- + "take all from any of the tables THAT ARE NOT the burning ones"
- + "take apples and all oranges THAT ARE NOT rotten from table"
- + "take apples and all oranges from table but rotten and bananas and berries THAT ARE NOT strawberries from box and pineapple and kiwi from crate"
- + "take all bottles THAT ARE NOT on the table"
+ + "all knives and all steel but fork from desk" becomes "all of the knives but fork from desk and all of the steel but fork" - which is not the same!
+ + "take everything THAT IS FROM an arch"
+ + "shake all fruit THAT ARE NOT ON the plate"
  + "take everything THAT IS OPEN"
     - add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
  + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones THAT ARE small"
  + "FROM WITHIN <object>", "FROM INSIDE", "FROM ATOP", etc
  + "look at arch TO the north"
- + "take two copper coins and three gold coins BUT NOT big ones OR blue ones from table"
  + "take all bottles from tables, chairs, floor BUT NOT blue bottles"
  + "take all bottles EXCEPT bottles from table"
- + "take blue from red BUT NOT big"
- + "take orange PLUS apple PLUS drop pear PLUS banana"
- + "take orange PLUS apple PLUS" => thing list should fail with "plus what?"
+ + "take blue from red BUT NOT big" - BUT NOT, AND NOT are equivalents of ThatIs for exclusion
  + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
+ + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
  + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
     - this basically means reworking how the "scope" mechanism works so that it implicitly filters each overall clause, if they all would still match something
     - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one
     - maybe we should move the "expecting only one" logic completely out of the thingseeker in fact
- + "take everything THAT IS FROM an arch"
+    - other examples: "drop coins" when there's some on the ground, picks them up then drops them
+    - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
+    - "drop all that is a coin" shouldn't drop those on the ground
+    - worse: given red and blue tables, "take red then drop table" asks which table to drop
  + "take fruit in bucket in hole"
  + "take fruit in container that is bucket in hole"
 

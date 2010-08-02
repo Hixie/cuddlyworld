@@ -45,7 +45,9 @@ const
    tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
    tpStacked = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { affects how things are removed }
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
-   tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed }
+   tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
+   tpOutside = [tpOn, tpCarried]; { things that count towards OutsideSizeManifest }
+   tpSurface = [tpOn]; { things that count towards SurfaceSizeManifest }
    tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
 
 function Tokenise(const S: AnsiString): TTokens;
@@ -348,7 +350,7 @@ function IndefiniteArticle(Noun: AnsiString): AnsiString;
 begin
    Assert(Length(Noun) > 0);
    case Noun[1] of
-    'a', 'e', 'i', 'o', 'u', 'y': Result := 'an';
+    'a', 'e', 'i', 'o', 'u': Result := 'an';
     else Result := 'a';
    end;
 end;

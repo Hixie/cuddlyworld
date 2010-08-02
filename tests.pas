@@ -1,6 +1,7 @@
 {$MODE OBJFPC} { -*- text -*- }
 
 //{$DEFINE VERBOSE}
+{$DEFINE PLAY_IN_TEST_EDEN}
 
 {$INCLUDE settings.inc}
 program tests;
@@ -326,10 +327,10 @@ procedure TestMechanics();
    function InitTestEden: TWorld;
    var
       World: TTestWorld;
-      Camp, Cliff, Cave1, Cave2, Cave3, Cave4, FlowerRoom: TLocation;
+      Camp, Cliff, Cave1, Cave2, Cave3, Cave4, FlowerRoom, Kitchen: TLocation;
       CampMountain, CampForest: TThing;
       CliffMountain, CliffForest, CliffCamp, CliffCliff: TThing;
-      Thing: TThing;
+      Thing, Thing2: TThing;
    begin
       World := TTestWorld.Create();
 
@@ -340,8 +341,8 @@ procedure TestMechanics();
       Cave2 := TFeaturelessOutdoorLocation.Create('Cave two', 'the second cave', 'a cave', 'The cave is somewhat well-lit from the south.');
       Cave3 := TFeaturelessOutdoorLocation.Create('Cave three', 'the third cave', 'a cave', 'The cave is lit from the south.');
       Cave4 := TFeaturelessOutdoorLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south.');
-      FlowerRoom := TFeaturelessOutdoorLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave.');
-      World.FStartLocation := Camp;
+      FlowerRoom := TFeaturelessOutdoorLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave. Another exit leads south.');
+      Kitchen := TFeaturelessOutdoorLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.');
 
       { Camp }
       CampMountain := TDistantScenery.Create('mountain', cdNorth);
@@ -351,9 +352,6 @@ procedure TestMechanics();
       Camp.GetSurface().Add(TStaticThing.Create('penny', 'penny/pennies', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
       Camp.GetSurface().Add(TStaticThing.Create('MacGuffin', 'MacGuffin/MacGuffins', 'The MacGuffin displays outward signs of being avian in nature.', tmHeavy, tsBig), tpOn);
       Camp.GetSurface().Add(TPile.Create(['leaf'], ['leaves'], 'It appears someone has collected fallen leaves from the forest. Possibly the entire forest, given how big the pile is.', tmLight, tsGigantic), tpOn);
-      Camp.ConnectCardinals(Cliff, CampForest, CampForest, CampForest);
-      Camp.ConnectDiagonals(CampForest, CampForest, CampForest, CampForest);
-      World.AddLocation(Camp);
 
       { Cliff }
       CliffMountain := TScenery.Create('mountain', 'From here you cannot get a good sense of the size of the mountain. Its cliff face dominates your view.');
@@ -376,9 +374,6 @@ procedure TestMechanics();
       Cliff.GetSurface().Add(TStaticThing.Create('large black balloon', '((large huge massive)@ black balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
       Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
       Cliff.GetSurface().Add(TStaticThing.Create('large pink balloon', '((large huge massive)@ pink balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
-      Cliff.ConnectCardinals(Cave1, CliffForest, Camp, CliffForest);
-      Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
-      World.AddLocation(Cliff);
 
       { Cave 1 }
       Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
@@ -405,8 +400,6 @@ procedure TestMechanics();
       Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
       Cave1.GetSurface().Add(Thing, tpOn);
       Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
-      Cave1.ConnectCardinals(Cave2, nil, Cliff, nil);
-      World.AddLocation(Cave1);
 
       { Cave 2 }
       Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
@@ -433,8 +426,6 @@ procedure TestMechanics();
       Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
       Cave2.GetSurface().Add(Thing, tpOn);
       Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
-      Cave2.ConnectCardinals(Cave3, nil, Cave1, nil);
-      World.AddLocation(Cave2);
 
       { Cave 3 }
       Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
@@ -461,8 +452,6 @@ procedure TestMechanics();
       Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
       Cave3.GetSurface().Add(Thing, tpOn);
       Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
-      Cave3.ConnectCardinals(Cave4, nil, Cave2, nil);
-      World.AddLocation(Cave3);
 
       { Cave 4 }
       Thing := TStaticThing.Create('silver table', '(silver table/tables)&', 'The table is made of silver.', tmPonderous, tsMassive);
@@ -482,8 +471,6 @@ procedure TestMechanics();
       Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
       Cave4.GetSurface().Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpOn);
       Cave4.Add(TScenery.Create('cave paintings', 'cave? painting/paintings', 'The cave paintings are non-descript.'), tpAt);
-      Cave4.ConnectCardinals(nil, nil, Cave3, FlowerRoom);
-      World.AddLocation(Cave4);
 
       Thing := TStaticThing.Create('red table', '(red table/tables)&', 'The table is red.', tmHeavy, tsBig);
       FlowerRoom.GetSurface().Add(Thing, tpOn);
@@ -491,8 +478,56 @@ procedure TestMechanics();
       Thing := TStaticThing.Create('blue table', '(blue table/tables)&', 'The table is blue.', tmHeavy, tsBig);
       FlowerRoom.GetSurface().Add(Thing, tpOn);
       Thing.Add(TStaticThing.Create('blue vase', '(blue vase/vases)&', 'The vase is blue.', tmLight, tsSmall), tpOn);
-      FlowerRoom.ConnectCardinals(nil, Cave4, nil, nil);
+
+      Thing := TStaticThing.Create('wooden table', '(brown wooden table/tables)&', 'The table is made of brown wood.', tmHeavy, tsBig);
+      Kitchen.GetSurface().Add(Thing, tpOn);
+      Thing2 := TStaticThing.Create('fruit plate', '(fruit plate/plates)&', 'The plate is intended to hold fruit.', tmLight, tsSmall);
+      Thing.Add(Thing2, tpOn);
+      Thing2.Add(TStaticThing.Create('red grapes', '(red (grape/grapes fruit)@)&', 'The grapes are red.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('green grapes', '(green (grape/grapes fruit)@)&', 'The grapes are green.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('red apple', '(red (apple/apples fruit)@)&', 'The apple is red.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('green apple', '(green (apple/apples fruit)@)&', 'The apple is green.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('yellow apple', '(yellow (apple/apples fruit)@)&', 'The apple is yellow.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('red pepper', '(red (pepper/peppers fruit)@)&', 'The pepper is red.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('green pepper', '(green (pepper/peppers fruit)@)&', 'The pepper is green.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('yellow pepper', '(yellow (pepper/peppers fruit)@)&', 'The pepper is yellow.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('orange', '(orange (orange/oranges fruit)@)&', 'The orange is orange.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('apricot', '(orange (apricot/apricots fruit)@)&', 'The apricot is orange.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('banana', '(yellow (banana/bananas fruit)@)&', 'The banana is yellow.', tmLight, tsSmall), tpOn);
+      Thing2 := TContainer.Create('box', '((berry fruit)@ (box/boxes container/containers)@)&', 'The box is intended to hold berries.', tmLight, tsSmall);
+      Thing.Add(Thing2, tpOn);
+      Thing2.Add(TStaticThing.Create('strawberries', '(red (strawberry/strawberries berry/berries fruit)@)&', 'The strawberries are red.', tmLight, tsSmall), tpIn);
+      Thing2.Add(TStaticThing.Create('blueberries', '(blue (blueberry/blueberries berry/berries fruit)@)&', 'The blueberries are blue.', tmLight, tsSmall), tpIn);
+      Thing2 := TContainer.Create('crate', '(fruit (crate/crates container/containers)@)&', 'The crate is intended to hold fruit.', tmLight, tsSmall);
+      Thing.Add(Thing2, tpOn);
+      Thing2.Add(TStaticThing.Create('pineapple', '((prickly brown)# (pineapple/pineapples fruit)@)&', 'The pineapple is brown and prickly.', tmLight, tsSmall), tpIn);
+      Thing2.Add(TStaticThing.Create('kiwi', '((furry brown)# (kiwi/kiwis fruit)@)&', 'The kiwi is brown and furry.', tmLight, tsSmall), tpIn);
+      Thing := TBag.Create('garbage bag', '(black ((garbage bag)& (trash bag) trashbag)@)&', 'The garbage bag is black.', tsBig);
+      Kitchen.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('rotten pineapple', '((rotten prickly brown)# (pineapple/pineapples fruit)@)&', 'The pineapple is rotten.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('rotten kiwi', '((rotten furry brown)# (kiwi/kiwis fruit)@)&', 'The kiwi is rotten.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('rotten grapes', '((rotten red)# (grape/grapes fruit)@)&', 'The grapes is rotten.', tmLight, tsSmall), tpIn);
+
+      Camp.ConnectCardinals(Cliff, CampForest, CampForest, CampForest);
+      Camp.ConnectDiagonals(CampForest, CampForest, CampForest, CampForest);
+      Cliff.ConnectCardinals(Cave1, CliffForest, Camp, CliffForest);
+      Cliff.ConnectDiagonals(nil, CliffForest, CliffForest, nil);
+      Cave1.ConnectCardinals(Cave2, nil, Cliff, nil);
+      Cave2.ConnectCardinals(Cave3, nil, Cave1, nil);
+      Cave3.ConnectCardinals(Cave4, nil, Cave2, nil);
+      Cave4.ConnectCardinals(nil, nil, Cave3, FlowerRoom);
+      FlowerRoom.ConnectCardinals(nil, Cave4, Kitchen, nil);
+      Kitchen.ConnectCardinals(FlowerRoom, nil, nil, nil);
+
+      World.AddLocation(Camp);
+      World.AddLocation(Cliff);
+      World.AddLocation(Cave1);
+      World.AddLocation(Cave2);
+      World.AddLocation(Cave3);
+      World.AddLocation(Cave4);
       World.AddLocation(FlowerRoom);
+      World.AddLocation(Kitchen);
+      World.FStartLocation := Camp;
 
       Result := World;
    end;
@@ -506,6 +541,13 @@ begin
    Writeln('MECHANICS');
    Proxy := TTestProxy.Create();
    TestWorld := InitTestEden();
+   {$IFDEF PLAY_IN_TEST_EDEN}
+      RegisterStorableClassAsSynonym(TTestWorld, TWorld);
+      TestWorld.AddPlayer(TPlayer.Create('Flathead', 'zorkmid', gMale));
+      StoreObjectToFile(kWorldFileName, TestWorld, kSaveDataVersion);
+      TestWorld.Free();
+      TestWorld := InitTestEden();
+   {$ENDIF}
    Failed := False;
    try
       try
@@ -555,6 +597,18 @@ begin
          Proxy.ExpectString('You used the term "and that is" in a way I don''t understand.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take bag and that is bag');
+
+         Proxy.ExpectString('I was with you until you said "that are xyzzy".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all that are xyzzy');
+
+         Proxy.ExpectString('I was with you until you said "that are xyzzy".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take bag that are xyzzy');
+
+         Proxy.ExpectString('You used the term "and that are" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take bag and that are bag');
 
          Proxy.ExpectString('You used the term "and on" in a way I don''t understand.');
          Proxy.ExpectString('');
@@ -616,6 +670,31 @@ begin
          Proxy.ExpectString('The pile of leaves slips through your fingers.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take pile that is the leaf one');
+
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take piles that is the leaf ones');
+
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take piles that is the leaf one');
+
+         Proxy.ExpectString('You used the term "that are" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take piles that are the leaf one');
+
+         Proxy.ExpectString('(the pile of leaves)');
+         Proxy.ExpectString('The pile of leaves slips through your fingers.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take piles that are the leaf ones');
+
+         Proxy.ExpectString('You used the term "that are" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take pile that are the leaf one');
+
+         Proxy.ExpectString('You used the term "that are" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take pile that are the leaf ones');
          Proxy.ExpectDone();
 
          // Dig and cover test
@@ -648,6 +727,7 @@ begin
          Proxy.ExpectString('Moved onto the hole.');
          Proxy.ExpectString('The MacGuffin falls into the hole.');
          Proxy.ExpectString('');
+         Proxy.ExpectString('(the pile of leaves)');
          Proxy.ExpectString('Moved onto the hole.');
          Proxy.ExpectString('');
          Proxy.SkipLine();
@@ -725,6 +805,18 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('examine all that is pink');
          Proxy.ExpectDone();
+
+         Proxy.Test('"that is" and "and that is" and so on');
+         Proxy.ExpectString('(the large pink balloon)');
+         Proxy.ExpectString('You shake the large pink balloon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake balloons that are large and that are pink and that are not blue');
+
+         Proxy.Test('"that is" and "and that is" and so on');
+         Proxy.ExpectString('Large black balloon: You shake the large black balloon.');
+         Proxy.ExpectString('Large grey balloon: You shake the large grey balloon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake balloons that are not purple and that are not red and that are not green and that are not blue and that are not pink and that are not orange and that are not yellow and that are not white');
 
          // counting and parsing with numbers
          Proxy.Test('Counting');
@@ -822,6 +914,7 @@ begin
 
          // overfill test
          Proxy.Test('Overfilling');
+         Proxy.ExpectString('(the pile of leaves)');
          Proxy.ExpectString('Moved onto the ground.');
          Proxy.ExpectString('');
          Proxy.ExpectNoSubstring('overflowing');
@@ -940,11 +1033,21 @@ begin
          TestPlayer.Perform('take bag, spade, ');
          Proxy.ExpectDone();
 
-         // More parsing tests
+         // more parsing tests
          Proxy.Test('More thingseeker tests');
          Proxy.SkipEverything();
          TestPlayer.Perform('north');
          Proxy.StopSkipping();
+
+         Proxy.ExpectString('Which utensil that is not a fork from a table that is not plastic and that is not a desk do you mean, the silver spoon or the silver knife?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake the utensil that is not a fork from a table that is not plastic and that is not a desk');
+
+         Proxy.ExpectString('(the silver spoon and the silver knife)');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all utensils that are not forks from a table that is not plastic and that is not a desk');
 
          Proxy.ExpectString('Silver knife: You shake the silver knife.');
          Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
@@ -952,28 +1055,67 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all utensils but some spoons and some forks');
 
+         Proxy.ExpectString('(the silver spoon, the silver fork, and the silver knife)');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Silver fork: You shake the silver fork.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from one of the tables THAT IS NOT the kitchen table');
+
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Silver fork: You shake the silver fork.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from all of the tables THAT ARE NOT the kitchen table');
+
          Proxy.ExpectString('Silver fork: Taken.');
          Proxy.ExpectString('Plastic fork: Taken.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take forks from the table that is kitchen and from the table that is dining');
 
-         Proxy.ExpectString('Stainless steel spoon: Taken.');
-         Proxy.ExpectString('Stainless steel fork: Taken.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('take spoons and all forks from desk');
+         TestPlayer.Perform('shake spoons and all forks from desk');
+
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all spoons and all forks from desk');
 
          Proxy.SkipEverything();
          TestPlayer.Perform('drop all then look then north');
          Proxy.StopSkipping();
 
-         Proxy.ExpectString('You used the term "but" in a way I don''t understand.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('take knives and all steel from desk but fork');
+         TestPlayer.Perform('shake knives and all steel from desk but fork');
+
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake knives and all steel but fork from desk');
+
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all knives but wooden plus all steel but fork from desk');
 
          Proxy.ExpectString('Stainless steel knife: Taken.');
          Proxy.ExpectString('Stainless steel spoon: Taken.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('take knives and all steel but fork from desk');
+         TestPlayer.Perform('take all knives and all steel but fork from desk');
 
          Proxy.ExpectString('(the silver spoon, the silver fork, and the silver knife)');
          Proxy.ExpectString('Silver spoon: Taken.');
@@ -1160,7 +1302,8 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon on ground in pile');
 
-         Proxy.ExpectString('It''s not clear to what you are referring.'); // maybe this should change?
+         Proxy.ExpectString('(the stainless steel spoon)');
+         Proxy.ExpectString('You shake the stainless steel spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon in pile on ground');
 
@@ -1309,6 +1452,79 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake red vase on tables');
 
+         Proxy.ExpectString('(the red vase)');
+         Proxy.ExpectString('You shake the red vase.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake vases that are red');
+
+         Proxy.ExpectString('(the red vase)');
+         Proxy.ExpectString('You shake the red vase.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all that are red and that are vases');
+
+         Proxy.ExpectString('(the blue vase)');
+         Proxy.ExpectString('You shake the blue vase.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from any of the tables THAT ARE NOT the red ones');
+
+         Proxy.ExpectString('(first taking the blue vase)');
+         Proxy.ExpectString('Taken.');
+         Proxy.ExpectString('Placed on the red table.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('put blue vase on red table');
+
+         Proxy.ExpectString('You shake the blue vase.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake blue from red THAT IS NOT vase');
+
+         Proxy.SkipEverything();
+         TestPlayer.Perform('south');
+         Proxy.StopSkipping();
+
+         Proxy.ExpectString('Red grapes: You shake the red grapes.');
+         Proxy.ExpectString('Green grapes: You shake the green grapes.');
+         Proxy.ExpectString('Rotten grapes: You shake the rotten grapes.');
+         Proxy.ExpectString('Red apple: You shake the red apple.');
+         Proxy.ExpectString('Yellow apple: You shake the yellow apple.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake grapes and all apples THAT ARE NOT green from plate on table');
+
+         Proxy.ExpectString('Red grapes: You shake the red grapes.');
+         Proxy.ExpectString('Green grapes: You shake the green grapes.');
+         Proxy.ExpectString('Red apple: You shake the red apple.');
+         Proxy.ExpectString('Yellow apple: You shake the yellow apple.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake grapes and apples THAT ARE NOT green from plate on table');
+
+         Proxy.ExpectString('Kitchen');
+         Proxy.WaitUntilSubstring('On the fruit plate are green grapes.');
+         Proxy.WaitUntilString('');
+         TestPlayer.Perform('look');
+
+         Proxy.ExpectString('Red grapes: You shake the red grapes.');
+         Proxy.ExpectString('Green grapes: You shake the green grapes.');
+         Proxy.ExpectString('Rotten grapes: You shake the rotten grapes.');
+         Proxy.ExpectString('Red apple: You shake the red apple.');
+         Proxy.ExpectString('Yellow apple: You shake the yellow apple.');
+         Proxy.ExpectString('Banana: You shake the banana.');
+         Proxy.ExpectString('Blueberries: You shake the blueberries.');
+         Proxy.ExpectString('Pineapple: You shake the pineapple.');
+         Proxy.ExpectString('Kiwi: You shake the kiwi.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake grapes and all apples from plate but green plus bananas and all berries THAT ARE NOT strawberries from box and pineapple and kiwi from crate');
+
+         Proxy.ExpectString('Red grapes: You shake the red grapes.');
+         Proxy.ExpectString('Green grapes: You shake the green grapes.');
+         Proxy.ExpectString('Rotten grapes: You shake the rotten grapes.');
+         Proxy.ExpectString('Red apple: You shake the red apple.');
+         Proxy.ExpectString('Yellow apple: You shake the yellow apple.');
+         Proxy.ExpectString('Banana: You shake the banana.');
+         Proxy.ExpectString('Blueberries: You shake the blueberries.');
+         Proxy.ExpectString('Pineapple: You shake the pineapple.');
+         Proxy.ExpectString('Kiwi: You shake the kiwi.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake grapes, and all of the apples from plate but green, plus bananas, and all of the berries that are not strawberries from box, and pineapple from crate, and kiwi from crate');
+
          Proxy.ExpectDone();
 
       except
@@ -1418,6 +1634,30 @@ begin
          Proxy.ExpectSubstring('Which arch do you mean, ');
          Proxy.ExpectString('');
          TestPlayer.Perform('take diamonds from the arch');
+
+         Proxy.ExpectString('(the gold inlay and the diamonds)');
+         Proxy.ExpectSubstring('Gold inlay: ');
+         Proxy.ExpectSubstring('Diamonds: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from one of the arches that is not the north arch');
+
+         Proxy.ExpectSubstring('Small white geometric shapes: ');
+         Proxy.ExpectSubstring('Wood: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from one of the arches that is the north arch');
+
+         Proxy.ExpectSubstring('Small white geometric shapes: ');
+         Proxy.ExpectSubstring('Wood: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from one of the arches that is the north arch and is wood');
+
+         Proxy.ExpectString('You used the term "and that are" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all from one of the arches that is an arch and are pink');
+
+         Proxy.ExpectString('Which diamond from one of the arches that is an arch and that is pink do you mean, the diamond-studded gold inlay of the south archway or the circle-and-cross diamonds of the south archway?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake the one diamond from one of the arches that is an arch and is pink');
 
          // test round-tripping
          Proxy.Test('Round-tripping');
