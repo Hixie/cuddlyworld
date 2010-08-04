@@ -979,15 +979,20 @@ end;
 function TAbstractFilteringClause.GetPreviousOpenClause(): TAbstractClause;
 begin
    Assert(Length(FVictims) > 0);
-   Result := FVictims[High(FVictims)];
+   Result := FVictims[Low(FVictims)];
 end;
 
 procedure TAbstractFilteringClause.Process();
 var
    Index: Cardinal;
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Process() on a ', ClassName, ' -- ', Length(FVictims), ' victims follow') {$ENDIF};
    for Index := Low(FVictims) to High(FVictims) do
+   begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Process() on a ', ClassName, ' -- victim ', Index, ':') {$ENDIF};
       Filter(FVictims[Index]);
+   end;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Process() on a ', ClassName, ' -- end of victim list') {$ENDIF};
 end;
 
 class function TAbstractFilteringClause.GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber;
@@ -1425,7 +1430,7 @@ end;
 
 function TAbstractButClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
 begin
-   Result := Peer is TAndClause;
+   Result := (Peer is TAndClause) and ((cfAllowExceptions in FFlags) or (not (cfAllowExceptions in Peer.FFlags)));
 end;
 
 

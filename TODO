@@ -1,14 +1,6 @@
-DONE
- + "that are", "and that are", "that is not", etc.
- + disambiguation fixes
- + "shake all from one of the tables THAT IS NOT the kitchen table"
- + "take blue from red THAT IS NOT vase"
- + "take all from any of the tables THAT ARE NOT the red ones"
- + "take apples and all oranges THAT ARE NOT green from plate on table"
- + "take orange PLUS apple PLUS" => thing list should fail with "plus what?"
-
 THING SEEKER IMPROVEMENTS
- + "all knives and all steel but fork from desk" becomes "all of the knives but fork from desk and all of the steel but fork" - which is not the same!
+ + "take fruit in bucket in hole"
+ + "take fruit in container that is bucket in hole"
  + "take everything THAT IS FROM an arch"
  + "shake all fruit THAT ARE NOT ON the plate"
  + "take everything THAT IS OPEN"
@@ -16,8 +8,8 @@ THING SEEKER IMPROVEMENTS
  + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones THAT ARE small"
  + "FROM WITHIN <object>", "FROM INSIDE", "FROM ATOP", etc
  + "look at arch TO the north"
- + "take all bottles from tables, chairs, floor BUT NOT blue bottles"
  + "take all bottles EXCEPT bottles from table"
+ + "take all bottles from tables, chairs, floor BUT NOT blue bottles"
  + "take blue from red BUT NOT big" - BUT NOT, AND NOT are equivalents of ThatIs for exclusion
  + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
@@ -29,8 +21,6 @@ THING SEEKER IMPROVEMENTS
     - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
     - "drop all that is a coin" shouldn't drop those on the ground
     - worse: given red and blue tables, "take red then drop table" asks which table to drop
- + "take fruit in bucket in hole"
- + "take fruit in container that is bucket in hole"
 
 PLOT
  + give the archways reasons they can't be moved that are archway-specific - right now they are "part of the ground".
