@@ -50,7 +50,7 @@ type
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
       function Referenceable(Subject: TAtom): Boolean;
-      function GetImpliedThing(Scope: TAllImpliedScope; PropertyFilter: TThingProperties): TThing;
+      function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
       procedure SetContext(Context: AnsiString);
       procedure ResetContext();
     public
@@ -332,11 +332,15 @@ end;
 procedure TPlayer.DoDebugThings(Things: PThingItem);
 var
    LastThing: PThingItem;
+   ListEnd: PPThingItem;
    Collect, FromOutside: Boolean;
 begin
    Collect := not Assigned(Things);
    if (Collect) then
-      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedDescendantThings(Self, FromOutside, True, tpEverything, [], Things);
+   begin
+      ListEnd := @Things;
+      GetSurroundingsRoot(FromOutside).FindMatchingThings(Self, FromOutside, True, tpEverything, [], ListEnd);
+   end;
    try
       while (Assigned(Things)) do
       begin
@@ -848,14 +852,14 @@ procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThi
       repeat
          Ancestor := (Ancestor as TThing).Parent;
          if ((Ancestor = Surface) or
-             ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tpCanHaveThingsPushedOn in (Surface as TThing).GetProperties()))) then
+             ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tfCanHaveThingsPushedOn in (Surface as TThing).GetFeatures()))) then
          begin
             Result := True;
             Exit;
          end;
       until ((not (Ancestor is TThing)) or
              (((Ancestor as TThing).Position in tpSeparate) and { tpIn is ok in the case where things can be pushed in/out from/to parent }
-              (not (((Ancestor as TThing).Position in tpContained) and (tpCanHaveThingsPushedIn in (Ancestor as TThing).GetProperties())))));
+              (not (((Ancestor as TThing).Position in tpContained) and (tfCanHaveThingsPushedIn in (Ancestor as TThing).GetFeatures())))));
       Result := False;
    end;
 
@@ -882,14 +886,14 @@ procedure TPlayer.DoMove(Subject: PThingItem; Target: TAtom; ThingPosition: TThi
       repeat
          Ancestor := (Ancestor as TThing).Parent;
          if ((Ancestor = Surface) or
-             ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tpCanHaveThingsPushedIn in (Surface as TThing).GetProperties()))) then
+             ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tfCanHaveThingsPushedIn in (Surface as TThing).GetFeatures()))) then
          begin
             Result := True;
             Exit;
          end;
       until ((not (Ancestor is TThing)) or
              (((Ancestor as TThing).Position in tpSeparate) and { tpIn is ok in the case where things can be pushed in/out from/to parent }
-              (not (((Ancestor as TThing).Position in tpContained) and (tpCanHaveThingsPushedIn in (Thing as TThing).GetProperties())))));
+              (not (((Ancestor as TThing).Position in tpContained) and (tfCanHaveThingsPushedIn in (Thing as TThing).GetFeatures())))));
       Result := False;
    end;
 
@@ -1558,18 +1562,20 @@ begin
       raise Exception.Create('TPlayer.Referencable() does not know how to handle objects of class ' + Subject.ClassName());
 end;
 
-function TPlayer.GetImpliedThing(Scope: TAllImpliedScope; PropertyFilter: TThingProperties): TThing;
+function TPlayer.GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
 var
    List: PThingItem;
+   ListEnd: PPThingItem;
    FromOutside: Boolean;
 begin
    Assert(Assigned(FParent));
    Assert((aisSelf in Scope) or (aisSurroundings in Scope));
    List := nil;
+   ListEnd := @List;
    if (aisSurroundings in Scope) then
-      GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedDescendantThings(Self, FromOutside, aisSelf in Scope, tpEverything, PropertyFilter, List)
+      GetSurroundingsRoot(FromOutside).FindMatchingThings(Self, FromOutside, aisSelf in Scope, tpEverything, FeatureFilter, ListEnd)
    else
-      AddImplicitlyReferencedDescendantThings(Self, True, aisSelf in Scope, tpEverything, PropertyFilter, List);
+      FindMatchingThings(Self, True, aisSelf in Scope, tpEverything, FeatureFilter, ListEnd);
    if (Assigned(List)) then
    begin
       // should implement some kind of prioritisation scheme

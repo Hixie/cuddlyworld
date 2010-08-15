@@ -89,7 +89,7 @@ type
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetDefaultAtom(): TAtom; override;
-      function GetProperties(): TThingProperties; override;
+      function GetFeatures(): TThingFeatures; override;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
@@ -119,13 +119,13 @@ type
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
-      function GetProperties(): TThingProperties; override;
+      function GetFeatures(): TThingFeatures; override;
    end;
 
    TSpade = class(TStaticThing)
     public
       constructor Create();
-      function GetProperties(): TThingProperties; override;
+      function GetFeatures(): TThingFeatures; override;
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
 
@@ -145,7 +145,7 @@ type
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
-      function GetProperties(): TThingProperties; override;
+      function GetFeatures(): TThingFeatures; override;
    end;
 
    TPileClass = class of TPile;
@@ -176,7 +176,7 @@ type
       function IsOpen(): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetBiggestCoverer: TThing;
-      function GetProperties(): TThingProperties; override;
+      function GetFeatures(): TThingFeatures; override;
    end;
 
    TPile = class(TNamedThing)
@@ -553,10 +553,10 @@ begin
       Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
 end;
 
-function TSurface.GetProperties(): TThingProperties;
+function TSurface.GetFeatures(): TThingFeatures;
 begin
    Result := inherited;
-   Result := Result + [tpDiggable];
+   Result := Result + [tfDiggable];
 end;
 
 function TSurface.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -709,10 +709,10 @@ begin
    Result := True;
 end;
 
-function TContainer.GetProperties(): TThingProperties;
+function TContainer.GetFeatures(): TThingFeatures;
 begin
    Result := inherited;
-   Result := Result + [tpCanHaveThingsPushedIn];
+   Result := Result + [tfCanHaveThingsPushedIn];
 end;
 
 
@@ -721,9 +721,9 @@ begin
    inherited Create('spade', '(metal (spade/spades shovel/shovels)@)&', 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
 end;
 
-function TSpade.GetProperties(): TThingProperties;
+function TSpade.GetFeatures(): TThingFeatures;
 begin
-   Result := inherited GetProperties() + [tpCanDig];
+   Result := inherited GetFeatures() + [tfCanDig];
 end;
 
 function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -794,10 +794,10 @@ begin
    Result := True;
 end;
 
-function TBag.GetProperties(): TThingProperties;
+function TBag.GetFeatures(): TThingFeatures;
 begin
    Result := inherited;
-   Result := Result + [tpCanHaveThingsPushedIn];
+   Result := Result + [tfCanHaveThingsPushedIn];
 end;
 
 
@@ -1151,10 +1151,10 @@ begin
    Assert(Assigned(Result));
 end;
 
-function THole.GetProperties(): TThingProperties;
+function THole.GetFeatures(): TThingFeatures;
 begin
    Result := inherited;
-   Result := Result + [tpCanHaveThingsPushedOn, tpCanHaveThingsPushedIn];
+   Result := Result + [tfCanHaveThingsPushedOn, tfCanHaveThingsPushedIn];
 end;
 
 

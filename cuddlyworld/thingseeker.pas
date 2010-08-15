@@ -24,7 +24,7 @@ type
       FCurrentPreferredGrammaticalNumber: TGrammaticalNumber;
       FCurrentBestLength: Cardinal;
       FCurrentBestGrammaticalNumber: TGrammaticalNumber;
-      FCurrentBestThingList: PThingItem;
+      FCurrentBestThingList, FCurrentBestThingListTail: PThingItem;
       procedure ReferencedCallback(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
     public
       constructor Create();
@@ -397,7 +397,7 @@ begin
    else
    if ((Peer is TThatIsClause) or (Peer is TThatIsNotClause)) then
    begin
-      Result := cfSingular in FFlags;
+      Result := (cfSingular in FFlags) and not (cfAllowExceptions in Peer.FFlags);
       CanContinue := False;
    end
    else
@@ -1280,7 +1280,7 @@ begin
    Assert(Assigned(Candidate));
    Assert(Assigned(Candidate.Parent));
    Assert(Assigned(Condition));
-   Result := (Candidate.Parent = Condition) and (Candidate.Position in tpContained);
+   Result := (Candidate.Parent = Condition) and (Candidate.Position in tpArguablyInside);
 end;
 
 function TInClause.GetClausePrefix(): AnsiString;
@@ -1577,6 +1577,7 @@ begin
    Assert(FTokenCount = 0);
    Assert(not Assigned(FThingList));
    Assert(not Assigned(FCurrentBestThingList));
+   Assert(not Assigned(FCurrentBestThingListTail));
    inherited;
 end;
 
@@ -1592,6 +1593,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('     new record length!'); {$ENDIF}
       FreeThingList(FCurrentBestThingList);
       FCurrentBestThingList := nil;
+      FCurrentBestThingListTail := nil;
       FCurrentBestLength := Count;
       FCurrentBestGrammaticalNumber := [];
    end;
@@ -1605,6 +1607,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('     assuming new one is better'); {$ENDIF}
          FCurrentBestGrammaticalNumber := GrammaticalNumber;
          Assert(not Assigned(FCurrentBestThingList));
+         Assert(not Assigned(FCurrentBestThingListTail));
       end
       else
       if (GrammaticalNumber >< FCurrentPreferredGrammaticalNumber = []) then
@@ -1621,14 +1624,19 @@ begin
          Assert(GrammaticalNumber = FCurrentPreferredGrammaticalNumber);
          FreeThingList(FCurrentBestThingList);
          FCurrentBestThingList := nil;
+         FCurrentBestThingListTail := nil;
          FCurrentBestLength := Count;
          FCurrentBestGrammaticalNumber := FCurrentPreferredGrammaticalNumber;
       end;
    end;
    New(ThingItem);
    ThingItem^.Value := Thing;
-   ThingItem^.Next := FCurrentBestThingList;
-   FCurrentBestThingList := ThingItem;
+   ThingItem^.Next := nil;
+   if (Assigned(FCurrentBestThingListTail)) then
+      FCurrentBestThingListTail^.Next := ThingItem
+   else
+      FCurrentBestThingList := ThingItem;
+   FCurrentBestThingListTail := ThingItem;
 {$IFDEF DEBUG_SEEKER} Writeln('     current grammatical number: ', GrammaticalNumberToString(FCurrentBestGrammaticalNumber)); {$ENDIF}
 end;
 
@@ -1642,6 +1650,7 @@ var
       FromOutside, GotWhitelist: Boolean;
       Root: TAtom;
       WhiteList: PThingItem;
+      ListEnd: PPThingItem;
    begin
 {$IFDEF DEBUG_SEEKER} Writeln('Collapsing clauses...'); {$ENDIF}
       Assert(FirstClause is TStartClause);
@@ -1675,7 +1684,8 @@ var
                         Root := Perspective
                      else
                         raise EAssertionFailed.Create('unexpected TAllImpliedScope value');
-                     Root.AddImplicitlyReferencedDescendantThings(Perspective, FromOutside, aisSelf in Scope, tpCountsForAll, [], WhiteList);
+                     ListEnd := @Whitelist;
+                     Root.FindMatchingThings(Perspective, FromOutside, aisSelf in Scope, tpCountsForAll, [], ListEnd);
                      GotWhitelist := True;
                   end;
 {$IFDEF DEBUG_SEEKER} Writeln('      Self Censoring... (Whitelist: ', ThingListToLongDefiniteString(Whitelist, Perspective, 'and'), ')'); {$ENDIF}
@@ -1729,6 +1739,7 @@ var
 {$IFDEF DEBUG_SEEKER} Writeln('       CanFail=', CanFail); {$ENDIF}
          Assert((ExplicitGrammaticalNumber <> []));
          Assert(not Assigned(FCurrentBestThingList));
+         Assert(not Assigned(FCurrentBestThingListTail));
          Start := CurrentToken;
          if (CurrentToken < Length(Tokens)) then
          begin
@@ -1737,11 +1748,13 @@ var
             FCurrentBestLength := 0;
             FCurrentBestGrammaticalNumber := [];
             FCurrentBestThingList := nil;
+            FCurrentBestThingListTail := nil;
             try
                Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @ReferencedCallback);
             except
                FreeThingList(FCurrentBestThingList);
                FCurrentBestThingList := nil;
+               FCurrentBestThingListTail := nil;
                raise;
             end;
             if (Assigned(FCurrentBestThingList)) then
@@ -1768,6 +1781,7 @@ var
                if (gnPlural in FCurrentBestGrammaticalNumber) then { take apples }
                begin
                   Assert(Assigned(FCurrentBestThingList));
+                  Assert(Assigned(FCurrentBestThingListTail));
                   Include(Flags, cfPlural);
                   if (gnSingular in FCurrentBestGrammaticalNumber) then
                      Include(Flags, cfSingular)
@@ -1785,6 +1799,7 @@ var
                   Result := True;
                end;
                FCurrentBestThingList := nil;
+               FCurrentBestThingListTail := nil;
             end
             else
             begin
@@ -1817,12 +1832,16 @@ var
       function CollectImplicitThings(Flags: TClauseFlags): Boolean;
       var
          FromOutside: Boolean;
+         ListEnd: PPThingItem;
       begin
          Assert(not Assigned(FCurrentBestThingList));
+         Assert(not Assigned(FCurrentBestThingListTail));
          Assert(not (cfHadArticle in Flags));
-         Perspective.GetSurroundingsRoot(FromOutside).AddImplicitlyReferencedDescendantThings(Perspective, FromOutside, True, tpEverything, [], FCurrentBestThingList);
+         ListEnd := @FCurrentBestThingList;
+         Perspective.GetSurroundingsRoot(FromOutside).FindMatchingThings(Perspective, FromOutside, True, tpEverything, tfEverything, ListEnd);
          AppendClause(ClauseClass.Create(0, tsmPickAll, Flags, FCurrentBestThingList, OriginalTokens[CurrentToken - 1]));
          FCurrentBestThingList := nil;
+         FCurrentBestThingListTail := nil;
          Result := True;
       end;
 
@@ -1844,6 +1863,7 @@ var
    begin
 {$IFDEF DEBUG_SEEKER} Writeln('CollectArticleAndThings() called'); {$ENDIF}
       Assert(not Assigned(FCurrentBestThingList));
+      Assert(not Assigned(FCurrentBestThingListTail));
       Assert(Assigned(ClauseClass));
       ClauseStart := CurrentToken;
       Inc(CurrentToken, ClauseLength);
@@ -1918,6 +1938,7 @@ var
       if (not Result) then
          Dec(CurrentToken, ClauseLength);
       Assert(not Assigned(FCurrentBestThingList));
+      Assert(not Assigned(FCurrentBestThingListTail));
 {$IFDEF DEBUG_SEEKER} Writeln(' = CollectArticleAndThings() returned ', Result); {$ENDIF}
    end;
 
