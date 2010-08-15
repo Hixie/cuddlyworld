@@ -1,6 +1,12 @@
+DONE
+
 THING SEEKER IMPROVEMENTS
+ + move the way we refuse "that is all" to "that is"' CheckContext()
+ + n;n;take sack;n;n;n;w;s;put sack in garbage bag;take garbage bag;shake bag => assertion error
+ + "drop all but spade and sword" should work
  + "take fruit in bucket in hole"
  + "take fruit in container that is bucket in hole"
+ + "that is all" shouldn't apply to a singular clause, it just makes things weird (e.g. "the spoon that is all but a spoon" can still be something if there are two spoons)
  + "take everything THAT IS FROM an arch"
  + "shake all fruit THAT ARE NOT ON the plate"
  + "take everything THAT IS OPEN"
@@ -21,6 +27,13 @@ THING SEEKER IMPROVEMENTS
     - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
     - "drop all that is a coin" shouldn't drop those on the ground
     - worse: given red and blue tables, "take red then drop table" asks which table to drop
+ + find a solution to:
+    - "There is an orange here. There is an orange mug here." "Take orange." "Which orange do you mean, the orange or the orange mug?"
+ + make the thing seeker disambiguate on features too. For example:
+    - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
+    - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
+    - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
+ + every time we mention something, Thing.UpdatePronouns(Perspective)
 
 PLOT
  + give the archways reasons they can't be moved that are archway-specific - right now they are "part of the ground".
@@ -73,6 +86,7 @@ PLAYER INTERACTION
  + "hide in leaves": I don't understand how to "hide". (should probably just be equivalent to getting into the leaves)
  + implement dancing, kissing, emoting in general
  + bounce balloon
+ + if you disconnect, you should (after a timeout) get encased in a ludicrously heavy transparent bubble.
 
 THINGS
  + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it's heavy
@@ -100,7 +114,6 @@ THINGS
  + "Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers
  + "look at X Y" where Y is "to the north", "to n", "to north", "in the north", "in n", "in north"
- + "drop all but spade and sword" should work
  + "move all but inventory" should work
  + "move leaves through door", "push pile through door"
  + 'look under' should move things if they are bigger than what they are on
@@ -117,7 +130,10 @@ THINGS
     |   A bag of holding.   The bag of holding contains:
     |     A spade.
  + Things claim to be "part of the ground" when they are partOf the ground and you try to take them, which looks weird.
-
+ + "empty bag"
+ + "empty bag on table"
+ + if a container is closed and you try to put something inside it, it should implicitly try to open it
+ + dropping something should put it at the end of the list, not the start
 
 NETWORK
  + password command
@@ -129,6 +145,9 @@ WORLD
  + Players should have PartOfs: eyes, hands, etc
  + Players should have Implicits: "you", "time" ("take time"), etc
  + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
+   - basically backdrops, that can be seen from many rooms
+   - maybe have a list of things that are in another room that can be seen from this room, which the room visits when doing the FindMatchingThings stuff?
+ + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
  + make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
  + well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
  + "harvest forest": I don't understand how to "harvest".
@@ -145,8 +164,17 @@ FOOD
  + "go eat": I don't understand how to go "eat".
  + "feed MacGuffin": I don't understand how to "feed".
 
+UI
+ + It would be good to merge disambiguation messages, so that "put brown in bag" "(the brown bug) (the black bag) (first taking the brown mug)" became just one statement
+ + Disambiguation of things that fail should say "try to", e.g. "(first trying to take the mountain)"
+ + Handle multiples of things, so that you can have "take three coins" and it doesn't say "Coin: Taken" "Coin: Taken" "Coin: Taken" but "You take three coins" or some such.
+
 CODE
  + move build.sh options to a configuration file
  + log exceptions other than parse errors - abstract out the logging code
  + see if it makes sense to change TThing.Navigate() and TThing.GetLookDirection() to instead use a GetAtomForDirection()-like approach
 
+MORE NOTES
+ http://www.brasslantern.org/writers/iftheory/tads3andi7.html
+ http://www.brasslantern.org/writers/iftheory/i7observations.html
+ http://www.brasslantern.org/writers/iftheory/autonomousnpcs.html

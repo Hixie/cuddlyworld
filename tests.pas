@@ -1,6 +1,6 @@
 {$MODE OBJFPC} { -*- text -*- }
 
-//{$DEFINE VERBOSE}
+{$DEFINE VERBOSE}
 {$DEFINE PLAY_IN_TEST_EDEN}
 
 {$INCLUDE settings.inc}
@@ -98,7 +98,7 @@ begin
            if (FExpectations[FPosition].Target = Message) then
               Found := True
            else
-              Error := 'expected "' + FExpectations[FPosition].Target + '" but got "' + Message + '"';
+              Error := 'expected "' + FExpectations[FPosition].Target + '"' + #10 + ' but got "' + Message + '"';
         end;
         ekSubstring: begin
            if (Pos(FExpectations[FPosition].Target, Message) > 0) then
@@ -124,7 +124,7 @@ begin
 {$IFDEF VERBOSE}            Writeln('not testing the validity of: ' + Message); {$ENDIF}
             Exit;
          end;
-         raise ETestError.Create('Failed in test ' + FTest + ': ' + Error + '.');
+         raise ETestError.Create('Failed in test ' + FTest + ':' + #10 + Error + '.');
       end;
       Done := not FExpectations[FPosition].AlsoCheckNext;
       Next();
@@ -630,9 +630,9 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('TAKE THE,');
 
-         Proxy.ExpectString('Penny: Taken.');
-         Proxy.ExpectString('MacGuffin: Taken.');
          Proxy.ExpectSubstring('Pile of leaves: ');
+         Proxy.ExpectString('MacGuffin: Taken.');
+         Proxy.ExpectString('Penny: Taken.');
          Proxy.ExpectSubstring('Bag of holding: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all, and bag');
@@ -813,8 +813,8 @@ begin
          TestPlayer.Perform('shake balloons that are large and that are pink and that are not blue');
 
          Proxy.Test('"that is" and "and that is" and so on');
-         Proxy.ExpectString('Large black balloon: You shake the large black balloon.');
          Proxy.ExpectString('Large grey balloon: You shake the large grey balloon.');
+         Proxy.ExpectString('Large black balloon: You shake the large black balloon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake balloons that are not purple and that are not red and that are not green and that are not blue and that are not pink and that are not orange and that are not yellow and that are not white');
 
@@ -828,12 +828,8 @@ begin
          TestPlayer.Perform('take three balloons');
 
          Proxy.ExpectSubstring('(');
-         Proxy.ExpectSubstring('balloon: (first');
-         Proxy.ExpectSubstring('balloon: Taken.');
-         Proxy.ExpectSubstring('balloon: Dropped.');
-         Proxy.ExpectSubstring('balloon: (first');
-         Proxy.ExpectSubstring('balloon: Taken.');
-         Proxy.ExpectSubstring('balloon: Dropped.');
+         Proxy.ExpectSubstring('black balloon: Dropped.');
+         Proxy.ExpectSubstring('grey balloon: Dropped.');
          Proxy.ExpectString('');
          TestPlayer.Perform('drop any two balloons');
 
@@ -846,8 +842,8 @@ begin
          Proxy.StopSkipping();
 
          Proxy.Test('"But"');
-         Proxy.ExpectSubstring('Pile of earth:');
          Proxy.ExpectSubstring('Pile of leaves:');
+         Proxy.ExpectSubstring('Pile of earth:');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but balloons');
 
@@ -862,15 +858,15 @@ begin
          TestPlayer.Perform('take all but piles and red and orange and yellow and balloon that is pink and violet and purple and white and black and gray');
 
          Proxy.SkipEverything();
-         TestPlayer.Perform('drop all balloons');
+         TestPlayer.Perform('drop all balloons; look');
          Proxy.StopSkipping();
 
-         Proxy.ExpectSubstring('violet');
-         Proxy.ExpectSubstring('white');
          Proxy.ExpectSubstring('black');
-         Proxy.ExpectSubstring('red');
-         Proxy.ExpectSubstring('orange');
+         Proxy.ExpectSubstring('white');
+         Proxy.ExpectSubstring('violet');
          Proxy.ExpectSubstring('yellow');
+         Proxy.ExpectSubstring('orange');
+         Proxy.ExpectSubstring('red');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all balloons but pink ones, blue ones, the green one that is large, and the gray one');
 
@@ -884,8 +880,8 @@ begin
          Proxy.StopSkipping();
 
          Proxy.Test('"From"');
-         Proxy.ExpectSubstring('Pile of earth: ');
          Proxy.ExpectSubstring('Hole: ');
+         Proxy.ExpectSubstring('Pile of earth: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all from ground but balloons');
 
@@ -894,8 +890,8 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all from hole but balloons');
 
-         Proxy.ExpectSubstring('Pile of earth: ');
          Proxy.ExpectSubstring('Hole: ');
+         Proxy.ExpectSubstring('Pile of earth: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but balloons from ground');
 
@@ -904,8 +900,8 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but balloons from hole');
 
-         Proxy.ExpectSubstring('Pile of earth:');
          Proxy.ExpectSubstring('Hole: ');
+         Proxy.ExpectSubstring('Pile of earth:');
          Proxy.ExpectSubstring('Pile of leaves:');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but balloons from ground and all but earth from hole');
@@ -1002,13 +998,17 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('say a and say b and');
 
-         Proxy.WaitUntilSubstring('Taken');
-         Proxy.WaitUntilString('');
-         Proxy.WaitUntilSubstring('dig');
-         Proxy.WaitUntilString('');
-         Proxy.WaitUntilSubstring('Dropped');
-         Proxy.WaitUntilString('');
-         TestPlayer.Perform('take all and dig and drop all in hole');
+         Proxy.ExpectString('Large pink balloon: Taken.');
+         Proxy.ExpectString('Pile of leaves: The pile of leaves slips through your fingers.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('(the ground with the spade)');
+         Proxy.ExpectString('With much effort, you dig a huge hole.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Large pink balloon: Dropped in the hole.');
+         Proxy.ExpectString('Spade: Dropped in the hole.');
+         Proxy.ExpectString('Bag of holding: Dropped in the hole.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take all and dig and drop all in hole in ground');
 
          Proxy.ExpectString('And what?');
          Proxy.ExpectString('');
@@ -1039,13 +1039,13 @@ begin
          TestPlayer.Perform('north');
          Proxy.StopSkipping();
 
-         Proxy.ExpectString('Which utensil that is not a fork from a table that is not plastic and that is not a desk do you mean, the silver spoon or the silver knife?');
+         Proxy.ExpectString('Which utensil that is not a fork from a table that is not plastic and that is not a desk do you mean, the plastic knife or the plastic spoon?');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is not a fork from a table that is not plastic and that is not a desk');
 
-         Proxy.ExpectString('(the silver spoon and the silver knife)');
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('(the plastic knife and the plastic spoon)');
+         Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all utensils that are not forks from a table that is not plastic and that is not a desk');
 
@@ -1069,37 +1069,37 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all of the knives and all of the steel but fork from desk');
 
-         Proxy.ExpectString('Silver knife: You shake the silver knife.');
-         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
          Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all utensils but some spoons and some forks');
 
-         Proxy.ExpectString('(the silver spoon, the silver fork, and the silver knife)');
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Silver fork: You shake the silver fork.');
-         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('(the stainless steel knife, the stainless steel fork, and the stainless steel spoon)');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all from one of the tables THAT IS NOT the kitchen table');
 
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Silver fork: You shake the silver fork.');
-         Proxy.ExpectString('Silver knife: You shake the silver knife.');
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
-         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
          Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('Silver fork: You shake the silver fork.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all from all of the tables THAT ARE NOT the kitchen table');
 
-         Proxy.ExpectString('Silver fork: Taken.');
          Proxy.ExpectString('Plastic fork: Taken.');
+         Proxy.ExpectString('Silver fork: Taken.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take forks from the table that is kitchen and from the table that is dining');
 
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
-         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
          Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake spoons and all forks from desk');
@@ -1108,6 +1108,63 @@ begin
          Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all spoons and all forks from desk');
+
+         Proxy.ExpectString('Foot of Cliff Face');
+         Proxy.WaitUntilString('');
+         Proxy.ExpectString('Taken.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Cave one');
+         Proxy.WaitUntilString('');
+         Proxy.ExpectString('You say "bring it on!".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('south; take bag; north; say "bring it on!"');
+         Proxy.ExpectDone();
+
+         Proxy.ExpectString('Placed in the brown sack.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Placed in the bag of holding.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('(first taking the brown sack)');
+         Proxy.ExpectString('Taken.');
+         Proxy.ExpectString('Placed on the desk.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('put plastic fork in sack and put silver fork in bag of holding; then put sack on desk');
+
+         Proxy.ExpectString('Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take fork from sack from table');
+
+         Proxy.ExpectString('Placed in the brown sack.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('put plastic fork in sack on table');
+
+         Proxy.ExpectString('You shake the plastic fork.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake fork from bag from table');
+
+         Proxy.ExpectString('You shake the plastic fork.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake fork from bag on table');
+
+         Proxy.ExpectString('You shake the plastic fork.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake fork in bag from table');
+
+         Proxy.ExpectString('You shake the plastic fork.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake fork in bag on table');
+
+         Proxy.ExpectString('The stainless steel fork is on the desk.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('find steel fork');
+
+         Proxy.ExpectString('The silver fork is in the bag of holding.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('find silver fork');
+
+         Proxy.ExpectString('The plastic fork is in the brown sack.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('find plastic fork');
 
          Proxy.SkipEverything();
          TestPlayer.Perform('drop all then look then north');
@@ -1128,23 +1185,23 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all knives but all silver and all stainless steel');
 
-         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
          Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
          Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all knives but silver and all stainless steel');
 
-         Proxy.ExpectString('Silver knife: You shake the silver knife.');
-         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
          Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
          Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake knives and all steel from desk but fork');
 
-         Proxy.ExpectString('Silver knife: You shake the silver knife.');
-         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
          Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
          Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake knives and all steel but fork from desk');
@@ -1159,10 +1216,10 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all knives and all steel but fork from desk');
 
-         Proxy.ExpectString('(the silver spoon, the silver fork, and the silver knife)');
-         Proxy.ExpectString('Silver spoon: Taken.');
-         Proxy.ExpectString('Silver fork: Taken.');
-         Proxy.ExpectString('Silver knife: Taken.');
+         Proxy.ExpectString('(the plastic knife, the plastic fork, and the plastic spoon)');
+         Proxy.ExpectString('Plastic knife: Taken.');
+         Proxy.ExpectString('Plastic fork: Taken.');
+         Proxy.ExpectString('Plastic spoon: Taken.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all from one of the tables');
 
@@ -1170,33 +1227,63 @@ begin
          TestPlayer.Perform('drop all then look then north');
          Proxy.StopSkipping();
 
-         Proxy.ExpectString('Which utensil that is all but fork and knife do you mean, the silver spoon, the stainless steel spoon, the plastic spoon, or the wooden spoon?');
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is all but fork and knife');
 
-         Proxy.ExpectString('Which utensil that is all but a fork and a knife do you mean, the silver spoon, the stainless steel spoon, the stainless steel fork, the stainless steel knife, the plastic spoon, the plastic fork, the plastic knife, or the wooden spoon?');
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is all but some fork and a knife');
 
-         Proxy.ExpectString('Which utensil that is all but a fork and two knives do you mean, the silver spoon, the stainless steel spoon, the stainless steel fork, the plastic spoon, the plastic fork, the plastic knife, or the wooden spoon?');
+         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is all but some fork and two knives');
 
-         Proxy.ExpectString('(the silver spoon, the silver fork, the silver knife, and the stainless steel spoon)');
-         Proxy.ExpectString('Silver spoon: Taken.');
-         Proxy.ExpectString('Silver fork: Taken.');
-         Proxy.ExpectString('Silver knife: Taken.');
-         Proxy.ExpectString('Stainless steel spoon: Taken.');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake the utensils that are all but fork and knife');
+
+         Proxy.ExpectString('(the wooden spoon, the plastic spoon, the stainless steel knife, the stainless steel fork, the stainless steel spoon, the silver knife, the silver fork, and the silver spoon)');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel knife: You shake the stainless steel knife.');
+         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('Silver fork: You shake the silver fork.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake the utensils that are all but some fork and a knife');
+
+         Proxy.ExpectString('(the wooden spoon, the plastic spoon, the stainless steel fork, the stainless steel spoon, the silver knife, the silver fork, and the silver spoon)');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel fork: You shake the stainless steel fork.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver knife: You shake the silver knife.');
+         Proxy.ExpectString('Silver fork: You shake the silver fork.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake the utensils that are all but some fork and two knives');
+
+         Proxy.ExpectString('(the plastic knife, the plastic fork, the plastic spoon, and the stainless steel knife)');
+         Proxy.ExpectString('Plastic knife: Taken.');
+         Proxy.ExpectString('Plastic fork: Taken.');
+         Proxy.ExpectString('Plastic spoon: Taken.');
+         Proxy.ExpectString('Stainless steel knife: Taken.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take four utensils from two of the tables');
 
-         Proxy.ExpectString('About the four forks from two tables... I can only find two: the stainless steel fork and the plastic fork.');
+         Proxy.ExpectString('About the four forks from two tables... I can only find two: the stainless steel fork and the silver fork.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take four forks from two of the tables');
 
-         Proxy.ExpectSubstring('Wooden spoon: ');
-         Proxy.ExpectSubstring('Lunch: ');
          Proxy.ExpectSubstring('Clove of garlic: ');
+         Proxy.ExpectSubstring('Lunch: ');
+         Proxy.ExpectSubstring('Wooden spoon: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all from all but table');
 
@@ -1207,23 +1294,23 @@ begin
          Proxy.ExpectString('Taken.');
          Proxy.ExpectString('');
          Proxy.ExpectSubstring('You are carrying:');
-         Proxy.ExpectString('  A plastic spoon.');
+         Proxy.ExpectString('  A silver spoon.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('take the spoon from the table that is kitchen then inventory');
+         TestPlayer.Perform('take the spoon from the table that is dining then inventory');
 
-         Proxy.ExpectSubstring('(the plastic fork and the stainless steel fork)');
+         Proxy.ExpectSubstring('(the silver knife and the stainless steel fork)');
          Proxy.ExpectSubstring('shake');
          Proxy.ExpectSubstring('shake');
          Proxy.ExpectString('');
-         TestPlayer.Perform('shake some utensil from the kitchen table and some utensil from the desk');
-
+         TestPlayer.Perform('shake some utensil from the dining room table and some utensil from the desk');
+ 
          Proxy.SkipEverything();
          TestPlayer.Perform('drop all then look then north');
          Proxy.StopSkipping();
 
          Proxy.ExpectSubstring('Silver table: ');
-         Proxy.ExpectSubstring('Silver spoon: ');
          Proxy.ExpectSubstring('Silver knife: ');
+         Proxy.ExpectSubstring('Silver spoon: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all that is silver but fork');
 
@@ -1233,18 +1320,18 @@ begin
          TestPlayer.Perform('put steel fork on silver table');
          Proxy.StopSkipping();
 
-         Proxy.ExpectSubstring('Plastic fork: ');
          Proxy.ExpectSubstring('Silver fork: ');
+         Proxy.ExpectSubstring('Plastic fork: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all forks from all tables but silver');
 
-         Proxy.ExpectSubstring('Stainless steel fork: ');
          Proxy.ExpectSubstring('Plastic fork: ');
+         Proxy.ExpectSubstring('Stainless steel fork: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all forks from tables but silver');
 
-         Proxy.ExpectSubstring('Plastic fork: ');
          Proxy.ExpectSubstring('Silver fork: ');
+         Proxy.ExpectSubstring('Plastic fork: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake forks from all tables but silver');
 
@@ -1256,10 +1343,10 @@ begin
          TestPlayer.Perform('put spoons on plastic table');
          Proxy.StopSkipping();
 
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
-         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
          Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake spoons from silver table and from plastic table');
 
@@ -1271,10 +1358,10 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('dig the ground with the spade that is metal');
 
-         Proxy.ExpectString('Silver spoon: Moved into the hole.');
-         Proxy.ExpectString('Stainless steel spoon: Moved into the hole.');
-         Proxy.ExpectString('Plastic spoon: Moved into the hole.');
          Proxy.ExpectString('Wooden spoon: Moved into the hole.');
+         Proxy.ExpectString('Plastic spoon: Moved into the hole.');
+         Proxy.ExpectString('Stainless steel spoon: Moved into the hole.');
+         Proxy.ExpectString('Silver spoon: Moved into the hole.');
          Proxy.ExpectString('');
          Proxy.ExpectString('Moved into the hole.');
          Proxy.ExpectString('You fill the hole with the pile of earth.');
@@ -1289,24 +1376,24 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but pile');
 
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
-         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
          Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all spoons');
 
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
-         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
          Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all from pile');
 
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
-         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
          Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all from all that is earth');
 
@@ -1314,16 +1401,16 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all from all that is earth but pile');
 
-         Proxy.ExpectString('(the silver spoon)');
+         Proxy.ExpectString('(the wooden spoon)');
          Proxy.ExpectString('(on the ground)');
-         Proxy.ExpectString('(first taking the silver spoon)');
+         Proxy.ExpectString('(first taking the wooden spoon)');
          Proxy.ExpectString('Taken.');
          Proxy.ExpectString('Placed.');
          Proxy.ExpectString('');
          TestPlayer.Perform('put a spoon from pile of earth');
 
-         Proxy.ExpectString('(the silver spoon)');
-         Proxy.ExpectString('You shake the silver spoon.');
+         Proxy.ExpectString('(the wooden spoon)');
+         Proxy.ExpectString('You shake the wooden spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon on ground');
 
@@ -1331,8 +1418,8 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon in ground');
 
-         Proxy.ExpectString('(the stainless steel spoon)');
-         Proxy.ExpectString('You shake the stainless steel spoon.');
+         Proxy.ExpectString('(the plastic spoon)');
+         Proxy.ExpectString('You shake the plastic spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon in pile');
 
@@ -1344,15 +1431,15 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon on ground in pile');
 
-         Proxy.ExpectString('(the stainless steel spoon)');
-         Proxy.ExpectString('You shake the stainless steel spoon.');
+         Proxy.ExpectString('(the plastic spoon)');
+         Proxy.ExpectString('You shake the plastic spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon in pile on ground');
 
-         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
-         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
          Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake spoons in pile and on ground');
 
@@ -1542,6 +1629,7 @@ begin
          Proxy.WaitUntilSubstring('On the fruit plate are green grapes.');
          Proxy.WaitUntilString('');
          TestPlayer.Perform('look');
+         Proxy.ExpectDone();
 
          Proxy.ExpectString('Red grapes: You shake the red grapes.');
          Proxy.ExpectString('Green grapes: You shake the green grapes.');
@@ -1566,6 +1654,32 @@ begin
          Proxy.ExpectString('Kiwi: You shake the kiwi.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake grapes, and all of the apples from plate but green, plus bananas, and all of the berries that are not strawberries from box, and pineapple from crate, and kiwi from crate');
+
+         Proxy.WaitUntilString('Taken.');
+         Proxy.WaitUntilString('Kitchen');
+         Proxy.WaitUntilString('');
+         TestPlayer.Perform('north and east and south and take sack and south and south and take bag of holding and north and north and north and west and south');
+         Proxy.ExpectDone();
+
+         Proxy.ExpectString('Which bag do you mean, the black garbage bag, the elongated brown sack, or the embroidered bag of holding labeled Tester?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine bag');
+
+         Proxy.ExpectString('Placed in the garbage bag.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('put brown sack in black bag');
+
+         Proxy.ExpectString('Which bag do you mean, the black garbage bag, the elongated brown sack, or the embroidered bag of holding labeled Tester?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine bag');
+
+         Proxy.ExpectString('Taken.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take garbage bag');
+
+         Proxy.ExpectString('Which bag do you mean, the elongated brown sack, the black garbage bag, or the embroidered bag of holding labeled Tester?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine bag');
 
          Proxy.ExpectDone();
 

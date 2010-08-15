@@ -1004,7 +1004,7 @@
          Message := '';
          if ((Action.Verb = avDig) and (not Assigned(Action.DigTarget))) then
          begin
-            Action.DigTarget := GetImpliedThing([aisSurroundings, aisSelf], [tpDiggable]);
+            Action.DigTarget := GetImpliedThing([aisSurroundings, aisSelf], [tfDiggable]);
             if (Assigned(Action.DigTarget)) then
                Message := Action.DigTarget.GetDefiniteName(Self)
             else
@@ -1012,7 +1012,7 @@
          end;
          if (not Assigned(Action.DigSpade)) then
          begin
-            Action.DigSpade := GetImpliedThing([aisSurroundings, aisSelf], [tpCanDig]);
+            Action.DigSpade := GetImpliedThing([aisSurroundings, aisSelf], [tfCanDig]);
             if (Assigned(Action.DigSpade)) then
             begin
                if (Length(Message) > 0) then

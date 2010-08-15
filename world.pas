@@ -8,7 +8,6 @@ uses
    storable, grammarian, thingdim;
 
 type
-
    TAtom = class;
    PPAtomItem = ^PAtomItem;
    PAtomItem = ^TAtomItem;
@@ -33,17 +32,23 @@ type
       Value: TAvatar;
    end;
 
-   TThingProperty = (tpDiggable, tpCanDig,
-                     tpCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- e.g. holes can have things pushed onto them }
-                     tpCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
-   TThingProperties = set of TThingProperty;
+type
+   TThingFeature = (tfDiggable, tfCanDig,
+                    tfCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- e.g. holes can have things pushed onto them }
+                    tfCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
+   TThingFeatures = set of TThingFeature;
 
+const
+   tfEverything = []; { an empty TThingFeatures set }
+
+type
    TGetDescriptionOnOptions = set of (optDeepOn, optPrecise);
    TGetDescriptionChildrenOptions = set of (optDeepChildren, optFar, optThorough, optOmitPerspective); { deep = bag and inside bag; far = door and inside door }
    TGetPresenceStatementMode = (psThereIsAThingHere { look }, psOnThatThingIsAThing { nested look }, psTheThingIsOnThatThing { find });
 
    TReferencedCallback = procedure (Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber) of object;
 
+type
    PAtom = ^TAtom;
    TAtom = class(TStorable)
     private
@@ -96,8 +101,7 @@ type
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
-      procedure AddImplicitlyReferencedDescendantThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem); virtual;
-      procedure AddImplicitlyReferencedChildThings(Perspective: TAvatar; FromOutside: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem); virtual;
+      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem); virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); virtual;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function GetDefaultAtom(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
@@ -117,7 +121,7 @@ type
       FParent: TAtom;
       FPosition: TThingPosition;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
-      function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean; virtual;
+      function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean; virtual;
       function IsExplicitlyReferenceable(Perspective: TAvatar): Boolean; virtual;
     public
       constructor Create();
@@ -160,14 +164,14 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      procedure AddImplicitlyReferencedDescendantThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem); override;
+      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem); override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); override;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
       procedure Shake(Perspective: TAvatar); virtual;
       procedure Press(Perspective: TAvatar); virtual;
-      function GetProperties(): TThingProperties; virtual;
+      function GetFeatures(): TThingFeatures; virtual;
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       procedure Dug(Target: TThing; Perspective: TAvatar; var Message: AnsiString); virtual;
@@ -180,7 +184,7 @@ type
    { Thing that can move of its own volition }
    TAvatar = class(TThing)
     protected
-      function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean; override;
+      function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean; override;
     public
       procedure GetAvatars(var List: PAvatarItem; FromOutside: Boolean); override;
       procedure DoLook(); virtual; abstract;
@@ -931,7 +935,7 @@ begin
    Result := True;
 end;
 
-procedure TAtom.AddImplicitlyReferencedDescendantThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem);
+procedure TAtom.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem);
 var
    Child: PThingItem;
 begin
@@ -939,27 +943,7 @@ begin
    while (Assigned(Child)) do
    begin
       if (((IncludePerspectiveChildren) or (Child^.Value <> Perspective)) and (IsChildTraversable(Child^.Value, Perspective, FromOutside))) then
-         Child^.Value.AddImplicitlyReferencedDescendantThings(Perspective, True, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
-      Child := Child^.Next;
-   end;
-end;
-
-procedure TAtom.AddImplicitlyReferencedChildThings(Perspective: TAvatar; FromOutside: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem);
-var
-   Child, Item: PThingItem;
-begin
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if ((IsChildTraversable(Child^.Value, Perspective, FromOutside)) and
-          (Child^.Value.Position in PositionFilter) and
-          (Child^.Value.IsImplicitlyReferenceable(Perspective, PropertyFilter))) then
-      begin
-         New(Item);
-         Item^.Value := Child^.Value;
-         Item^.Next := List;
-         List := Item;
-      end;
+         Child^.Value.FindMatchingThings(Perspective, True, IncludePerspectiveChildren, PositionFilter, PropertyFilter, ListEnd);
       Child := Child^.Next;
    end;
 end;
@@ -1549,9 +1533,9 @@ begin
    Result := ((not (Child.Position in tpContained)) or (not FromOutside) or (IsOpen()));
 end;
 
-function TThing.IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean;
+function TThing.IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean;
 begin
-   Result := PropertyFilter <= GetProperties();
+   Result := PropertyFilter <= GetFeatures();
 end;
 
 function TThing.IsExplicitlyReferenceable(Perspective: TAvatar): Boolean;
@@ -1559,19 +1543,20 @@ begin
    Result := True;
 end;
 
-procedure TThing.AddImplicitlyReferencedDescendantThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingProperties; var List: PThingItem);
+procedure TThing.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem);
 var
    Item: PThingItem;
 begin
-   inherited;
    Assert(Assigned(FParent));
    if ((FPosition in PositionFilter) and IsImplicitlyReferenceable(Perspective, PropertyFilter)) then
    begin
       New(Item);
       Item^.Value := Self;
-      Item^.Next := List;
-      List := Item;
+      Item^.Next := nil;
+      ListEnd^ := Item;
+      ListEnd := @Item^.Next;
    end;
+   inherited;
 end;
 
 function TThing.StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
@@ -1607,7 +1592,7 @@ begin
    Perspective.AvatarMessage('Nothing happens.');
 end;
 
-function TThing.GetProperties(): TThingProperties;
+function TThing.GetFeatures(): TThingFeatures;
 begin
    Result := [];
 end;
@@ -1646,7 +1631,7 @@ end;
 {$ENDIF}
 
 
-function TAvatar.IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingProperties): Boolean;
+function TAvatar.IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean;
 begin
    if (Perspective = Self) then
       Result := False
