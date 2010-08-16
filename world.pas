@@ -5,7 +5,7 @@ unit world;
 interface
 
 uses
-   storable, grammarian, thingdim;
+   storable, lists, grammarian, thingdim;
 
 type
    TAtom = class;

@@ -7,7 +7,7 @@
 program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
-   sysutils, storable, matcher, world, player, locations, things, thingdim, grammarian, cuddlycamp;
+   sysutils, storable, matcher, lists, world, player, locations, things, thingdim, grammarian, cuddlycamp;
 
 type
    TExpectationKind = (ekString, ekSubstring, ekNoSubstring, ekSkip, ekDisconnected, ekRecordingStart);
@@ -1854,6 +1854,7 @@ end;
 procedure TestMatcher();
 var
    TestID: Cardinal;
+   Failed: Boolean;
 
    procedure RunMatcherTest(TestMatcher: TMatcher; Candidate: TTokens; Start: Cardinal; Pass: Cardinal);
    var
@@ -1862,7 +1863,10 @@ var
       Inc(TestID);
       Result := TestMatcher.Matches(Candidate, Start);
       if (Result <> Pass) then
+      begin
          Writeln('FAILED matcher test ', TestID, '; expected to match ', Pass, ' tokens but matched ', Result);
+         Failed := True;
+      end;
    end;
 
    procedure RunCanonicalMatchTest(TestMatcher: TMatcher; Pass: AnsiString);
@@ -1872,7 +1876,10 @@ var
       Inc(TestID);
       Result := TestMatcher.GetCanonicalMatch(' ');
       if (Result <> Pass) then
+      begin
          Writeln('FAILED matcher test ', TestID, '; expected to find longest match "', Pass, '" but got "', Result, '"');
+         Failed := True;
+      end;
    end;
 
 var
@@ -1880,6 +1887,8 @@ var
    Strings: TTokens;
 begin
    Writeln('PATTERN COMPILER');
+
+   Failed := False;
 
    SetLength(Strings, 4);
    Strings[0] := 'the';
@@ -2021,12 +2030,185 @@ begin
    RunCanonicalMatchTest(OtherMatcher, 'navy blue wooden archways to the north');
    TestMatcher.Free();
    OtherMatcher.Free();
+
+   if (Failed) then Halt(1);
+end;
+
+type
+   TMolecule = class(TSpade)
+   end;
+
+type
+   TMoleculeEnumerator = specialize TGenericLinkedListEnumerator<TMolecule>;
+   TMoleculeList = specialize TLinkedList<TMolecule, TMoleculeEnumerator>;
+
+procedure TestLists();
+var
+   List1, List2: TMoleculeList;
+   Mol1, Mol2, Mol3: TMolecule;
+   Enum1, Enum2: TMoleculeEnumerator;
+   Failed: Boolean;
+   TestCount: Cardinal;
+
+   procedure Check(Success: Boolean; S: AnsiString);
+   begin
+      Inc(TestCount);
+      if (not Success) then
+      begin
+         Writeln('Test #', TestCount, ': ', S);
+         Failed := True;
+      end;
+   end;
+
+begin
+   Writeln('LISTS');
+   Failed := False;
+   TestCount := 0;
+   Mol1 := TMolecule.Create();
+   Mol2 := TMolecule.Create();
+   Mol3 := TMolecule.Create();
+   List1 := TMoleculeList.Create();
+   List1.AppendItem(Mol1);
+   Enum1 := List1.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+
+   List2 := TMoleculeList.Create();
+   Enum1 := List2.GetEnumerator();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+   Enum1 := List1.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
+   List2.AdoptItem(Enum1);
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+   Enum1 := List1.GetEnumerator();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+   Enum1 := List2.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+
+   List1.AppendItem(Mol2);   
+   List2.AdoptList(List1);
+   Enum1 := List1.GetEnumerator();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+   Enum1 := List2.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol2, 'Test failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+
+   List2.AppendItem(Mol3);
+   Enum1 := List2.GetEnumerator(tdForward);
+   Check(Enum1.HasCurrent(), 'Test after adding Mol3 failed');
+   Check(Enum1.GetCurrent() = Mol1, 'Test after adding Mol3 failed');
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Test after adding Mol3 failed');
+   Check(Enum1.GetCurrent() = Mol2, 'Test after adding Mol3 failed');
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Test after adding Mol3 failed');
+   Check(Enum1.GetCurrent() = Mol3, 'Test after adding Mol3 failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test after adding Mol3 failed');
+   Enum1.Free();
+   Enum1 := List2.GetEnumerator(tdForward);
+   Check(Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.GetCurrent() = Mol1, 'Test for adopting Mol2 from the middle failed');
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.GetCurrent() = Mol2, 'Test for adopting Mol2 from the middle failed');
+   List1.AdoptItem(Enum1);
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.GetCurrent() = Mol3, 'Test for adopting Mol2 from the middle failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
+   Enum1.Free();
+   Enum1 := List1.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'Test checking Mol2 got adopted failed');
+   Check(Enum1.GetCurrent() = Mol2, 'Test checking Mol2 got adopted failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test checking Mol2 got adopted failed');
+   Enum1.Free();
+   
+   Enum1 := List1.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'List adoption test failed - setup');
+   Check(Enum1.GetCurrent() = Mol2, 'List adoption test failed - setup');
+   Enum2 := List2.GetEnumerator();
+   Check(Enum2.HasCurrent(), 'List adoption test failed - setup');
+   Check(Enum2.GetCurrent() = Mol1, 'List adoption test failed - setup');
+   List2.AdoptList(List1);
+   Enum1.Free(); { Enum1 no longer valid after adoption }
+   Enum2.Advance();
+   Check(Enum2.HasCurrent(), 'List adoption test failed - post adoption, pre traversal');
+   Check(Enum2.GetCurrent() = Mol3, 'List adoption test failed - post adoption, pre traversal: Mol3 missing');
+   Enum2.Advance();
+   Check(Enum2.HasCurrent(), 'List adoption test failed - post adoption, failed to traverse');
+   Check(Enum2.GetCurrent() = Mol2, 'List adoption test failed - post adoption: Mol2 missing');
+   List1.AdoptItem(Enum2);
+   Enum1 := List1.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol2, 'Test failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+   Enum2.Advance();
+   Check(not Enum2.HasCurrent(), 'Test failed');
+   Enum2.Free();
+   Enum2 := List2.GetEnumerator();
+   Check(Enum2.HasCurrent(), 'Test failed');
+   Check(Enum2.GetCurrent() = Mol1, 'Test failed');
+   List1.AdoptItem(Enum2);
+   Enum2.Free();
+   Enum1 := List1.GetEnumerator();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol2, 'Test failed');
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+
+   List2.AdoptList(List1);
+   Enum1 := List2.GetEnumerator(tdReverse);
+   Check(Enum1.HasCurrent(), 'Reverse test failed - List2 empty');
+   Check(Enum1.GetCurrent() = Mol1, 'Reverse test failed - Mol1 not at end');
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Reverse test failed');
+   Check(Enum1.GetCurrent() = Mol2, 'Reverse test failed - Mol2 not in middle');
+   Enum1.Advance();
+   Check(Enum1.HasCurrent(), 'Reverse test failed');
+   Check(Enum1.GetCurrent() = Mol3, 'Reverse test failed - Mol3 not at start');
+   Enum1.Advance();
+   Check(not Enum1.HasCurrent(), 'Test failed');
+   Enum1.Free();
+
+   List1.Free();
+   List2.FreeItems();
+   List2.Free();
+   if (Failed) then Halt(1);
 end;
 
 begin
    Writeln('CuddlyWorld Tests initializing...');
    {$IFDEF DEBUG} Writeln('CuddlyWorld debugging enabled.'); {$ENDIF}
    TestMatcher();
+   TestLists();
    TestMechanics();
    TestPlot();
    Writeln('CuddlyWorld Tests complete.');
