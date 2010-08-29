@@ -34,7 +34,6 @@ type
    TGenderArchway = class(TLocationProxy)
       FGender: TGender;
     public
-      constructor Create(Name: AnsiString; Description: AnsiString; Gender: TGender; Destination: TLocation);
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Gender: TGender; Destination: TLocation);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -93,12 +92,6 @@ begin
    inherited;
 end;
 
-
-constructor TGenderArchway.Create(Name: AnsiString; Description: AnsiString; Gender: TGender; Destination: TLocation);
-begin
-   inherited Create(Name, Description, Destination);
-   FGender := Gender;
-end;
 
 constructor TGenderArchway.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Gender: TGender; Destination: TLocation);
 begin
@@ -159,13 +152,13 @@ begin
    FemalePath := TFeaturelessOutdoorLocation.Create('Female Path', 'the female path', 'a female path', 'The female path meanders from the north to the east.');
 
    { ArrivalsCircle }
-   ArrivalsCircle.Add(TDistantScenery.Create('mountain', cdEast), tpAroundImplicit);
+   ArrivalsCircle.Add(TDistantScenery.Create('mountain', 'mountain/mountains', cdEast), tpAroundImplicit);
    Forest := TScenery.Create('forest', '((forest/forests (of trees)?) (tree forest/forests)& tree/trees)@', 'The forest is dense and impassable.');
    ArrivalsCircle.Add(Forest, tpAroundImplicit);
 
    MaleArchway := TGenderArchway.Create('north archway', '(((((navy dark)@ blue)& painted Lancet (wooden wood)@)# ((archway/archways arch/arches)@ (to the (north n)@)?))& ((((navy dark)@ blue)& painted Lancet (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', 'The north archway is a Lancet arch made of painted wood. It is a predominantly dark blue affair, with small white geometric shapes (primarily circles and arrows, all pointing diagonally upwards and to the right) painted on its tall columns.', gMale, MalePath);
    MaleArchway.Add(TScenery.Create('small white geometric shapes', '((small white geometric)# shape/shapes)&', 'The geometric shapes are small white circles painted against the blue wooden arch. Each circle has an arrow pointing out of the circle at the top left. Each arrow is the same length as the diameter of the circle from which it extends.'), tpPartOfImplicit);
-   MaleArchway.Add(TScenery.Create('wood', '((stiff painted blue)# wood)&', 'The northern archway''s wood is painted blue with small white geometric shapes. The wood is stiff.'), tpPartOfImplicit);
+   MaleArchway.Add(TScenery.Create('wood', '((stiff painted blue)# wood/wood)&', 'The northern archway''s wood is painted blue with small white geometric shapes. The wood is stiff.'), tpPartOfImplicit);
    ArrivalsCircle.GetSurface().Add(MaleArchway, tpPartOfImplicit);
 
    FemaleArchway := TGenderArchway.Create('south archway', '(((((light pink)& light-pink)@ thick (semicircular semi-circular)@ crystal)# (archway/archways arch/arches)@ (to the (south s)@))& '+

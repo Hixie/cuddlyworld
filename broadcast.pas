@@ -29,15 +29,15 @@ type
        mkPerspectivePluralCheck: (DataPerspectivePluralSingularPart: PMessagePart; DataPerspectivePluralPluralPart: PMessagePart);
    end;
 
-function SP(): PMessagePart; inline;
-function C(const M: PMessagePart): PMessagePart; inline;
-function M(const V: AnsiString): PMessagePart; inline;
-function M(const V: TMessageCallback): PMessagePart; inline;
-function M(const V: TMessageCallbackPerspective): PMessagePart; inline;
-function M(const V: TMessageCallbackMethod): PMessagePart; inline;
-function M(const V: TMessageCallbackPerspectiveMethod): PMessagePart; inline;
-function MP(const T: TThing; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline;
-function MPP(const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline;
+function SP(): PMessagePart; inline; { SPace }
+function C(const M: PMessagePart): PMessagePart; inline; { Capitalise }
+function M(const V: AnsiString): PMessagePart; inline; { Message part }
+function M(const V: TMessageCallback): PMessagePart; inline; { Message part }
+function M(const V: TMessageCallbackPerspective): PMessagePart; inline; { Message part }
+function M(const V: TMessageCallbackMethod): PMessagePart; inline; { Message part }
+function M(const V: TMessageCallbackPerspectiveMethod): PMessagePart; inline; { Message part }
+function MP(const T: TThing; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline; { Message part - thing is Plural check }
+function MPP(const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline; { Message part - Perspective is Plural check }
 
 procedure ClearMessagePart(MessagePart: PMessagePart);
 
@@ -47,7 +47,7 @@ procedure DoBroadcast(Perspective: TAvatar; MessageParts: array of PMessagePart)
 implementation
 
 uses
-   sysutils;
+   sysutils, lists;
 
 function SP(): PMessagePart; inline;
 begin
@@ -115,7 +115,6 @@ begin
    Result^.DataPerspectivePluralPluralPart := M2;
 end;
 
-
 procedure ClearMessagePart(MessagePart: PMessagePart);
 begin
    case MessagePart^.Kind of
@@ -162,27 +161,26 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar;
    end;
 
 var
-   Avatars, NextAvatarItem, LastAvatarItem: PAvatarItem;
+   CurrentAvatar: TAvatar;
+   Avatars: TAvatarList;
    Index: Cardinal;
    FromOutside: Boolean;
 begin
-   Avatars := nil;
-   for Index := Low(NotificationTargets) to High(NotificationTargets) do
-   begin
-      NextAvatarItem := nil;
-      NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetAvatars(NextAvatarItem, FromOutside);
-      Avatars := MergeAvatarLists(Avatars, NextAvatarItem);
+   try
+      Avatars := TAvatarList.Create([slDropDuplicates]);
+      try
+         for Index := Low(NotificationTargets) to High(NotificationTargets) do
+            NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetAvatars(Avatars, FromOutside);
+         for CurrentAvatar in Avatars do
+            if (CurrentAvatar <> Perspective) then
+               CurrentAvatar.AvatarBroadcast(Assemble(MessageParts, CurrentAvatar));
+      finally
+         Avatars.Free();
+      end;
+   finally
+      for Index := Low(MessageParts) to High(MessageParts) do
+         ClearMessagePart(MessageParts[Index]);
    end;
-   while (Assigned(Avatars)) do
-   begin
-      if (Avatars^.Value <> Perspective) then
-         Avatars^.Value.AvatarBroadcast(Assemble(MessageParts, Avatars^.Value));
-      LastAvatarItem := Avatars;
-      Avatars := Avatars^.Next;
-      Dispose(LastAvatarItem);
-   end;
-   for Index := Low(MessageParts) to High(MessageParts) do
-      ClearMessagePart(MessageParts[Index]);
 end;
 
 end.

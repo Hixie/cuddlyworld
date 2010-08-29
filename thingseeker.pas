@@ -19,12 +19,12 @@ type
     protected
       FTokenCount: Cardinal;
       FDisambiguate: Boolean;
-      FThingList: PThingItem;
+      FThingList: TThingList;
       {$IFOPT C+} FCurrentlyCollecting, FCollected: Boolean; {$ENDIF}
       FCurrentPreferredGrammaticalNumber: TGrammaticalNumber;
       FCurrentBestLength: Cardinal;
       FCurrentBestGrammaticalNumber: TGrammaticalNumber;
-      FCurrentBestThingList, FCurrentBestThingListTail: PThingItem;
+      FCurrentBestThingList: TThingList;
       procedure ReferencedCallback(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
     public
       constructor Create();
@@ -32,7 +32,7 @@ type
       function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
       function GetTokenCount(): Cardinal;
       function GetDisambiguate(): Boolean;
-      function GetThingList(): PThingItem; { must be called exactly once after Collect() returns true }
+      function GetThingList(): TThingList; { must be called exactly once after Collect() returns true }
    end;
 
 implementation
@@ -54,7 +54,7 @@ type
       FFlags: TClauseFlags;
       FNumber: Cardinal;
       FSelectionMechanism: TThingSelectionMechanism;
-      FThings: PThingItem;
+      FThings: TThingList;
       FInputFragment, FFilterFragments: AnsiString;
       FNext: TAbstractClause;
       FPrevious: TAbstractClause;
@@ -64,13 +64,13 @@ type
       function GetArticle(): String; virtual;
       procedure AddFilterFragment(Fragment: AnsiString);
      public
-      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: PThingItem; InputFragment: AnsiString); virtual;
+      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: TThingList; InputFragment: AnsiString); virtual;
       destructor Destroy(); override;
       procedure CheckContext(); virtual;
       function AcceptsJoins(Peer: TAbstractClause): Boolean; virtual; abstract;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); virtual; abstract;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; virtual;
-      procedure SelfCensor(Whitelist: PThingItem); virtual;
+      procedure SelfCensor(Whitelist: TThingList); virtual;
       function Select(): Boolean; virtual;
       procedure Process(); virtual; abstract;
       procedure Add(Next: TAbstractClause);
@@ -303,7 +303,7 @@ type
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
       procedure Process(); override;
-      procedure Bank(Perspective: TAvatar; var Things: PThingItem; var Disambiguate: Boolean);
+      procedure Bank(Perspective: TAvatar; var Things: TThingList; var Disambiguate: Boolean);
       {$IFDEF DEBUG_SEEKER} function GetCompleteFragment(): AnsiString; {$ENDIF}
       class function CanFail(): Boolean; override;
       class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString); override;
@@ -343,14 +343,14 @@ begin
    Assert(Length(Input) > 0);
    Assert(FGot > 0);
    Assert(FWanted > FGot);
-   Result := 'About the ' + NumberToEnglish(FWanted) + ' ' + Input + '... I can only find ' + NumberToEnglish(FGot) + ': ' + ThingListToLongDefiniteString(FClause.FThings, Perspective, 'and') + '.';
+   Result := 'About the ' + NumberToEnglish(FWanted) + ' ' + Input + '... I can only find ' + NumberToEnglish(FGot) + ': ' + FClause.FThings.GetLongDefiniteString(Perspective, 'and') + '.';
 end;
 
 function ESelectTooMany.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
 begin
    Assert(Length(Input) > 0);
    if (FWanted = 1) then
-      Result := 'Which ' + Input + ' do you mean, ' + ThingListToLongDefiniteString(FClause.FThings, Perspective, 'or') + '?'
+      Result := 'Which ' + Input + ' do you mean, ' + FClause.FThings.GetLongDefiniteString(Perspective, 'or') + '?'
    else
    if (FWanted = 1) then
       Result := 'About the ' + Input + '... I count ' + NumberToEnglish(FGot) + ', not ' + NumberToEnglish(FWanted) + '.'
@@ -359,21 +359,23 @@ begin
 end;
 
 
-constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: PThingItem; InputFragment: AnsiString);
+constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: TThingList; InputFragment: AnsiString);
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Create() constructing a ', ClassName, ' with Number=', Number, '; SelectionMechanism=', SelectionMechanism, '; Things=', Things.GetDefiniteString(nil, 'and'), '; InputFragment="', InputFragment, '"'); {$ENDIF}
    Assert((cfSingular in Flags) or (cfPlural in Flags));
+   Assert(Assigned(Things));
    inherited Create();
    FNumber := Number;
    FSelectionMechanism := SelectionMechanism;
    FFlags := Flags;
    FThings := Things;
    FInputFragment := InputFragment;
-{$IFDEF DEBUG_SEEKER} Writeln(' - TAbstractClause.Create(', Number, ', ', SelectionMechanism, ', ..., ', ThingListToLongDefiniteString(Things, nil, 'and'), ', "', InputFragment, '") for ', ClassName); {$ENDIF}
 end;
 
 destructor TAbstractClause.Destroy();
 begin
-   FreeThingList(FThings);
+   if (Assigned(FThings)) then
+      FThings.Free(); { TStartClause.Bank() hands it off to someone else }
    FNext.Free();
    inherited;
 end;
@@ -518,38 +520,31 @@ end;
 function TAbstractClause.Select(): Boolean;
 var
    Count: Cardinal;
-   Handle: PThingItem;
 
    procedure SelectN(N: Cardinal);
+   var
+      E: TThingEnumerator;
    begin
       Assert(N <= Count);
-      Handle := FThings;
-      while (N > 1) do
-      begin
-         Assert(Assigned(Handle));
-         Handle := Handle^.Next;
-         Dec(N);
+      E := FThings.GetEnumerator();
+      try
+         repeat
+            {$IFOPT C+} Assert( {$ENDIF} E.MoveNext() {$IFOPT C+} ) {$ENDIF} ;
+            Dec(N);
+         until N = 0;
+         if (E.MoveNext()) then
+            E.RemoveRemainder();
+      finally
+         E.Free();
       end;
-      Assert(Assigned(Handle));
-      if (Assigned(Handle^.Next)) then
-      begin
-         FreeThingList(Handle^.Next);
-         Handle^.Next := nil;
-      end;
-   end;
+  end;
 
 var
    SelectionMechanism: TThingSelectionMechanism;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('Select() called for ', ClassName(), ': ', FSelectionMechanism, '; number=', FNumber); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and')); {$ENDIF}
    Assert((FSelectionMechanism <> tsmPickOnlyRelevantNumber) or (FNumber = 1));
-   Count := 0;
-   Handle := FThings;
-   while (Assigned(Handle)) do
-   begin
-      Handle := Handle^.Next;
-      Inc(Count);
-   end;
+   Count := FThings.Length;
    if (Count < FNumber) then
    begin
       Assert((Count > 0) or (FSelectionMechanism = tsmPickAll), 'Count=' + IntToStr(Count) + '; FSelectionMechanism=' + IntToStr(Cardinal(FSelectionMechanism)));
@@ -594,42 +589,30 @@ begin
     else
        raise EAssertionFailed.Create('unknown thing selection mechanism');
    end;
-{$IFDEF DEBUG_SEEKER} Writeln('Select() resulted in the following list: ', ThingListToLongDefiniteString(FThings, nil, 'and')); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' ended with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Result=', Result); {$ENDIF}
 end;
 
-procedure TAbstractClause.SelfCensor(Whitelist: PThingItem);
+procedure TAbstractClause.SelfCensor(Whitelist: TThingList);
 var
-   CurrentThing, CondemnedThing, FilterThing: PThingItem;
-   LastNext: PPThingItem;
+   E: TThingEnumerator;
 begin
-   CurrentThing := FThings;
-   FThings := nil;
-   LastNext := @FThings;
-   while (Assigned(CurrentThing)) do
-   begin
-      FilterThing := Whitelist;
-      while (Assigned(FilterThing) and (CurrentThing^.Value <> FilterThing^.Value)) do
-         FilterThing := FilterThing^.Next;
-      if (Assigned(FilterThing)) then
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.SelfCensor() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Whitelist=', Whitelist.GetDefiniteString(nil, 'and')); {$ENDIF}
+   E := FThings.GetEnumerator();
+   try
+      while (E.MoveNext()) do
       begin
-         { found it, keep it }
-         LastNext^ := CurrentThing;
-         LastNext := @CurrentThing^.Next;
-         CurrentThing := CurrentThing^.Next;
-         LastNext^ := nil;
-      end
-      else
-      begin
-         { get rid of this thing's entry }
-         CondemnedThing := CurrentThing;
-         CurrentThing := CurrentThing^.Next;
-         Dispose(CondemnedThing);
+         if (not Whitelist.Contains(E.Current)) then
+            E.Remove();
       end;
+   finally
+      E.Free();
    end;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.SelfCensor() for a ', ClassName, ' ending with FThings=', FThings.GetDefiniteString(nil, 'and')); {$ENDIF}
 end;
 
 procedure TAbstractClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism); {$ENDIF}
 end;
 
 procedure TAbstractClause.Add(Next: TAbstractClause);
@@ -691,6 +674,7 @@ end;
 
 procedure TAbstractJoiningClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractJoiningClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism, ' -- deferring to ', FJoinedTo.ClassName); {$ENDIF}
    Assert(Assigned(FJoinedTo));
    Assert(Target is TAbstractJoiningClause);
    FJoinedTo.Preselect(Target, Count, SelectionMechanism);
@@ -886,68 +870,68 @@ end;
 
 procedure TAbstractFilteringClause.Filter(Victim: TAbstractClause);
 var
-   VictimThing, CondemnedThing, FilterThing: PThingItem;
-   LastNext: PPThingItem;
+   VictimEnumerator: TThingEnumerator;
+   FilterEnumerator, OldFilterEnumerator: TThingEnumerator;
+   Done, Found: Boolean;
    NextRegisteredJoin: Cardinal;
    CurrentIsMatch: TIsMatchFunction;
    NewFilterFragment: AnsiString;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() called on a ', ClassName, ' for a victim that is a ', Victim.ClassName); {$ENDIF}
-   VictimThing := Victim.FThings;
-   Victim.FThings := nil;
-   LastNext := @Victim.FThings;
-   while (Assigned(VictimThing)) do
-   begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() considering ', VictimThing^.Value.GetDefiniteName(nil)); {$ENDIF}
-      FilterThing := FThings;
-      NextRegisteredJoin := Low(FRegisteredJoins);
-      CurrentIsMatch := @IsMatch;
-{$IFDEF DEBUG_SEEKER} if (Assigned(FilterThing)) then Writeln('TAbstractFilteringClause.Filter()             against ', FilterThing^.Value.GetDefiniteName(nil)); {$ENDIF}
-      while (Assigned(FilterThing) and (not CurrentIsMatch(VictimThing^.Value, FilterThing^.Value))) do
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Victim=', Victim.ClassName, '; Victim.FThings=', Victim.FThings.GetDefiniteString(nil, 'and')); {$ENDIF}
+   VictimEnumerator := Victim.FThings.GetEnumerator();
+   try
+      while (VictimEnumerator.MoveNext()) do
       begin
-         FilterThing := FilterThing^.Next;
-         if ((not Assigned(FilterThing)) and (NextRegisteredJoin <= High(FRegisteredJoins))) then
-         begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter()               moving onto registered join #', NextRegisteredJoin); {$ENDIF}
-            FilterThing := FRegisteredJoins[NextRegisteredJoin].FThings;
-            CurrentIsMatch := GetIsMatch(FRegisteredJoins[NextRegisteredJoin]);
-            Inc(NextRegisteredJoin);
+{$IFDEF DEBUG_SEEKER} Writeln('TInclusionFilterClause.Filter() for a ', ClassName, ': examining ', VictimEnumerator.Current.GetDefiniteName(nil)); {$ENDIF}
+         FilterEnumerator := FThings.GetEnumerator();
+         try
+            NextRegisteredJoin := Low(FRegisteredJoins);
+            CurrentIsMatch := @IsMatch;
+            Done := False;
+            Found := False;
+            while (not Done) do
+            begin
+               Done := not FilterEnumerator.MoveNext();
+               while ((Done) and (NextRegisteredJoin <= High(FRegisteredJoins))) do
+               begin
+                  { perform a little dance here to make sure the 'finally' block below can never try to free freed memory }
+                  OldFilterEnumerator := FilterEnumerator;
+                  FilterEnumerator := nil;
+                  OldFilterEnumerator.Free();
+                  FilterEnumerator := FRegisteredJoins[NextRegisteredJoin].FThings.GetEnumerator();
+                  CurrentIsMatch := GetIsMatch(FRegisteredJoins[NextRegisteredJoin]);
+                  Inc(NextRegisteredJoin);
+                  Done := not FilterEnumerator.MoveNext();
+               end;
+               if ((not Done) and (CurrentIsMatch(VictimEnumerator.Current, FilterEnumerator.Current))) then
+               begin
+                  Found := True;
+                  Done := True;
+               end;
+            end;
+            if (Found <> KeepMatches()) then { i.e. if found and not keep matches, or if not found and keep matches }
+            begin
+{$IFDEF DEBUG_SEEKER} Writeln('TInclusionFilterClause.Filter() for a ', ClassName, ': decided to remove ', VictimEnumerator.Current.GetDefiniteName(nil)); {$ENDIF}
+               VictimEnumerator.Remove();
+            end
+            else
+            begin
+{$IFDEF DEBUG_SEEKER} Writeln('TInclusionFilterClause.Filter() for a ', ClassName, ': decided to keep ', VictimEnumerator.Current.GetDefiniteName(nil)); {$ENDIF}
+            end;
+         finally
+            FilterEnumerator.Free();
          end;
-{$IFDEF DEBUG_SEEKER} if (Assigned(FilterThing)) then Writeln('TAbstractFilteringClause.Filter()             against ', FilterThing^.Value.GetDefiniteName(nil)); {$ENDIF}
       end;
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() Assigned(FilterThing) = ', Assigned(FilterThing), '; KeepMatches() = ', KeepMatches()); {$ENDIF}
-      if (Assigned(FilterThing) = KeepMatches()) then
-      begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() keeping ', VictimThing^.Value.GetDefiniteName(nil)); {$ENDIF}
-         { put the victim's thing back in its list }
-         LastNext^ := VictimThing;
-         LastNext := @VictimThing^.Next;
-         VictimThing := VictimThing^.Next;
-         LastNext^ := nil;
-      end
-      else
-      begin
-         { get rid of this thing's entry }
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() dumping ', VictimThing^.Value.GetDefiniteName(nil)); {$ENDIF}
-         CondemnedThing := VictimThing;
-         VictimThing := VictimThing^.Next;
-         Dispose(CondemnedThing);
-      end;
+   finally
+      VictimEnumerator.Free();
    end;
-   if (not Assigned(Victim.FThings)) then
+   if (Victim.FThings.Length = 0) then
       ReportNothingLeft();
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() on a ', ClassName, ' updating input fragment for a ', Victim.ClassName); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} Writeln('    started as: ', Victim.GetFragment()); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} Writeln('    first adding: ', GetFragmentAnnotation()); {$ENDIF}
    NewFilterFragment := GetFragmentAnnotation();
    if (Length(FRegisteredJoins) > 0) then
       for NextRegisteredJoin := High(FRegisteredJoins) downto Low(FRegisteredJoins) do
-      begin
-{$IFDEF DEBUG_SEEKER} Writeln('    then for ', FRegisteredJoins[NextRegisteredJoin].ClassName, ' adding: ', FRegisteredJoins[NextRegisteredJoin].GetFragmentAnnotation()); {$ENDIF}
          NewFilterFragment := NewFilterFragment + ' ' + FRegisteredJoins[NextRegisteredJoin].GetFragmentAnnotation();
-      end;
    Victim.AddFilterFragment(NewFilterFragment);
-{$IFDEF DEBUG_SEEKER} Writeln('    finished as: ', Victim.GetFragment()); {$ENDIF}
 end;
 
 function TAbstractFilteringClause.GetIsMatch(Target: TAbstractClause): TIsMatchFunction;
@@ -1025,6 +1009,7 @@ end;
 
 procedure TInclusionFilterClause.Filter(Victim: TAbstractClause);
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TInclusionFilterClause.Filter() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Victim=', Victim.ClassName); {$ENDIF}
    inherited;
    if (not (cfRemoveHiddenThings in FFlags)) then
       Exclude(Victim.FFlags, cfRemoveHiddenThings);
@@ -1060,6 +1045,7 @@ end;
 
 procedure TAbstractThatIsAreClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism, ' -- setting SelectionMechanism to tsmPickAll'); {$ENDIF}
    SelectionMechanism := tsmPickAll;
 end;
 
@@ -1140,16 +1126,15 @@ begin
    Result := 'and that are';
 end;
 
-
 procedure TAbstractPreconditionFilterClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 var
    NeedMatching, HaveMatching, VictimIndex: Cardinal;
-   VictimThing, FilterThing, BadThings: PThingItem;
-   LastNextGood, LastNextBad: PPThingItem;
+   FilterEnumerator, VictimEnumerator, OldVictimEnumerator: TThingEnumerator;
+   Trash: TThingList;
    TargetIsMatch: TIsMatchFunction;
+   Done, Found: Boolean;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() called on a ', ClassName, ' for a target that is a ', Target.ClassName); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() Count = ', Count, '; SelectionMechanism = ', SelectionMechanism); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism); {$ENDIF}
    Assert((Target is TAbstractJoiningPreconditionFilterClause) or (Target = Self));
    if (Target = Self) then
       TargetIsMatch := @IsMatch
@@ -1166,73 +1151,89 @@ begin
    if ((NeedMatching > 0) and (NeedMatching < Count)) then
    begin
       HaveMatching := 0;
-      FilterThing := Target.FThings;
-      Target.FThings := nil;
-      LastNextGood := @Target.FThings;
-      BadThings := nil;
-      LastNextBad := @BadThings;
-      while (Assigned(FilterThing)) do
-      begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() checking usefulness of ', FilterThing^.Value.GetDefiniteName(nil)); {$ENDIF}
-         Assert(Length(FVictims) > 0);
-         VictimIndex := Low(FVictims);
-         VictimThing := FVictims[VictimIndex].FThings;
-         while (Assigned(VictimThing) and (not TargetIsMatch(VictimThing^.Value, FilterThing^.Value))) do
-         begin
-            VictimThing := VictimThing^.Next;
-            if (not Assigned(VictimThing)) then
+      Trash := TThingList.Create();
+      try
+         FilterEnumerator := Target.FThings.GetEnumerator();
+         try
+            while (FilterEnumerator.MoveNext()) do
             begin
-               Inc(VictimIndex);
-               if (VictimIndex <= High(FVictims)) then
-                  VictimThing := FVictims[VictimIndex].FThings;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() checking usefulness of ', FilterEnumerator.Current.GetDefiniteName(nil)); {$ENDIF}
+               Assert(Length(FVictims) > 0);
+               VictimIndex := Low(FVictims);
+               VictimEnumerator := FVictims[VictimIndex].FThings.GetEnumerator();
+               try
+                  Done := False;
+                  Found := False;
+                  while (not Done) do
+                  begin
+                     Done := not VictimEnumerator.MoveNext();
+                     while ((Done) and (VictimIndex < High(FVictims))) do
+                     begin
+                        Inc(VictimIndex);
+                        OldVictimEnumerator := VictimEnumerator;
+                        VictimEnumerator := nil;
+                        OldVictimEnumerator.Free();
+                        VictimEnumerator := FVictims[VictimIndex].FThings.GetEnumerator();
+                        Done := not VictimEnumerator.MoveNext();
+                     end;
+                     if ((not Done) and (TargetIsMatch(VictimEnumerator.Current, FilterEnumerator.Current))) then
+                     begin
+                        Done := True;
+                        Found := True;
+                     end;
+                  end;
+                  if (Found) then
+                  begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() keeping ', FilterEnumerator.Current.GetName(nil)); {$ENDIF}
+                     Inc(HaveMatching) { FilterEnumerator.Current is ok, keep it }
+                  end
+                  else
+                  begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() trashing ', FilterEnumerator.Current.GetName(nil)); {$ENDIF}
+                     Trash.AdoptItem(FilterEnumerator); { FilterEnumerator.Current is useless, put it aside for now }
+                  end;
+               finally
+                  VictimEnumerator.Free();
+               end;
             end;
+         finally
+            FilterEnumerator.Free();
          end;
-         if (Assigned(VictimThing)) then
+         if (Target.FThings.Length = 0) then
          begin
-{$IFDEF DEBUG_SEEKER} Writeln('   ...good'); {$ENDIF}
-            { this FilterThing is ok, keep it }
-            LastNextGood^ := FilterThing;
-            LastNextGood := @FilterThing^.Next;
-            FilterThing := FilterThing^.Next;
-            LastNextGood^ := nil;
-            Inc(HaveMatching);
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() failed to find anything useful; readopting trash'); {$ENDIF}
+            { we failed to find anything useful }
+            Assert(HaveMatching = 0);
+            Target.FThings.Free();
+            Target.FThings := Trash;
+            Trash := nil;
+         end
+         else
+         if (HaveMatching < NeedMatching) then
+         begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() found some stuff but not enough; appending trash'); {$ENDIF}
+            { we found some but not enough }
+            Assert(NeedMatching > 1); { if it was 1, then we must have 0; if we have 0, FThings.Length would be nil }
+            Assert(Trash.Length > 0); { we must have thrown something away to end up with fewer than we needed }
+            { reorder the list so that the good ones are first and the bad ones last } // (for no good reason)
+            Target.FThings.AdoptList(Trash);
          end
          else
          begin
-{$IFDEF DEBUG_SEEKER} Writeln('   ...bad'); {$ENDIF}
-            { this FilterThing is useless, put it aside for now }
-            LastNextBad^ := FilterThing;
-            LastNextBad := @FilterThing^.Next;
-            FilterThing := FilterThing^.Next;
-            LastNextBad^ := nil;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() found a suitable number (', Count, ')'); {$ENDIF}
+            {$IFOPT C+}
+               if (HaveMatching < Count) then
+                  Assert(Trash.Length > 0)
+               else
+                  Assert(Trash.Length = 0);
+            {$ENDIF}
+            Count := HaveMatching;
          end;
-      end;
-      if (not Assigned(Target.FThings)) then
-      begin
-         Target.FThings := BadThings;
-         BadThings := nil;
-      end
-      else
-      if (HaveMatching < NeedMatching) then
-      begin
-         Assert(NeedMatching > 1); { if it was 1, then we must have 0; if we have 0, FThings would be nil }
-         Assert(Assigned(BadThings)); { we must have thrown something away to end up with fewer than we needed }
-         LastNextGood^ := BadThings;
-      end
-      else
-      begin
-         if (HaveMatching < Count) then
-         begin
-            Assert(Assigned(BadThings));
-            FreeThingList(BadThings);
-         end
-         else
-         begin
-            Assert(not Assigned(BadThings));
-         end;
-         Count := HaveMatching;
+      finally
+         Trash.Free();
       end;
    end;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPreconditionFilterClause.Preselect() for a ', ClassName, ' ending with FThings=', FThings.GetDefiniteString(nil, 'and'), ', Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism); {$ENDIF}
 end;
 
 function TAbstractPreconditionFilterClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
@@ -1305,6 +1306,7 @@ end;
 
 procedure TExclusionFilteringClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TExclusionFilteringClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism, ' -- considering changing SelectionMechanism'); {$ENDIF}
    if (((SelectionMechanism <> tsmPickNumber) and (SelectionMechanism <> tsmPickOnlyNumber)) or
        ((SelectionMechanism <> tsmPickNumber) and (FNumber = 1))) then
      SelectionMechanism := tsmPickAll;
@@ -1342,6 +1344,7 @@ end;
 
 procedure TAbstractThatIsAreNotClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreNotClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism, ' -- SelectionMechanism := tsmPickAll'); {$ENDIF}
    SelectionMechanism := tsmPickAll;
 end;
 
@@ -1461,68 +1464,22 @@ end;
 procedure TStartClause.Process();
 var
    Index: Cardinal;
-   CurrentThing: PThingItem;
 begin
    if (Length(FRegisteredJoins) > 0) then
    begin
       Include(FFlags, cfDisambiguateAnyLoneResult);
-      CurrentThing := FThings;
       for Index := High(FRegisteredJoins) downto Low(FRegisteredJoins) do
-      begin
-         if (Assigned(FRegisteredJoins[Index].FThings)) then
-         begin
-            if (Assigned(CurrentThing)) then
-            begin
-               while (Assigned(CurrentThing^.Next)) do
-                  CurrentThing := CurrentThing^.Next;
-               CurrentThing^.Next := FRegisteredJoins[Index].FThings;
-            end;
-            CurrentThing := FRegisteredJoins[Index].FThings;
-            if (not Assigned(FThings)) then
-               FThings := CurrentThing;
-         end;
-         FRegisteredJoins[Index].FThings := nil;
-      end;
+         FThings.AdoptList(FRegisteredJoins[Index].FThings);
    end;
 end;
 
-procedure TStartClause.Bank(Perspective: TAvatar; var Things: PThingItem; var Disambiguate: Boolean);
-
-   procedure Deduplicate(var Things: PThingItem);
-   var
-      CurrentThing, CompareThing, PreviousThing: PThingItem;
-   begin
-      { if this ends up being a bottleneck, it can probably be sped up using a hash table instead of rewalking the list each time }
-      if (Assigned(Things)) then
-      begin
-         PreviousThing := Things;
-         CurrentThing := Things^.Next;
-         while (Assigned(CurrentThing)) do
-         begin
-            CompareThing := Things;
-            while (CompareThing <> CurrentThing) do
-            begin
-               if (CompareThing^.Value = CurrentThing^.Value) then
-               begin
-                  PreviousThing^.Next := CurrentThing^.Next;
-                  Dispose(CurrentThing);
-                  CurrentThing := PreviousThing;
-                  Break;
-               end;
-               CompareThing := CompareThing^.Next;
-            end;
-            PreviousThing := CurrentThing;
-            CurrentThing := CurrentThing^.Next;
-         end;
-      end;
-   end;
-
+procedure TStartClause.Bank(Perspective: TAvatar; var Things: TThingList; var Disambiguate: Boolean);
 begin
-   Deduplicate(FThings);
+   FThings.Deduplicate();
    Things := FThings;
-   if (((Assigned(FThings)) and (not Assigned(FThings^.Next))) and
+   if ((FThings.Length = 1) and
        (((cfDisambiguateAnyLoneResult in FFlags) or
-         ((cfDisambiguateSingularLoneResult in FFlags) and (not FThings^.Value.IsPlural(Perspective)))))) then
+         ((cfDisambiguateSingularLoneResult in FFlags) and (not FThings.First.IsPlural(Perspective)))))) then
       Disambiguate := True;
    FThings := nil;
 end;
@@ -1576,107 +1533,87 @@ begin
    {$IFOPT C+} Assert(not FCollected); {$ENDIF}
    Assert(FTokenCount = 0);
    Assert(not Assigned(FThingList));
-   Assert(not Assigned(FCurrentBestThingList));
-   Assert(not Assigned(FCurrentBestThingListTail));
+   if (Assigned(FCurrentBestThingList)) then
+   begin
+      Assert(FCurrentBestThingList.Length = 0);
+      FCurrentBestThingList.Free();
+   end;
    inherited;
 end;
 
 procedure TThingCollector.ReferencedCallback(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
-var
-   ThingItem: PThingItem;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln(' - ReferencedCallback(', Thing.GetDefiniteName(nil), ', ', Count, ', ', GrammaticalNumberToString(GrammaticalNumber), ')'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() called with Thing=', Thing.GetDefiniteName(nil), ', Count=', Count); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnSingular in GrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() GrammaticalNumber contains gnSingular'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnPlural in GrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() GrammaticalNumber contains gnPlural'); {$ENDIF}
+   Assert(Assigned(FCurrentBestThingList));
    if (Count < FCurrentBestLength) then
       Exit;
    if (Count > FCurrentBestLength) then
    begin
-{$IFDEF DEBUG_SEEKER} Writeln('     new record length!'); {$ENDIF}
-      FreeThingList(FCurrentBestThingList);
-      FCurrentBestThingList := nil;
-      FCurrentBestThingListTail := nil;
+{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() nuking list so far, this is longer'); {$ENDIF}
+      FCurrentBestThingList.Empty();
       FCurrentBestLength := Count;
       FCurrentBestGrammaticalNumber := [];
    end;
-{$IFDEF DEBUG_SEEKER} Writeln('     FCurrentBestGrammaticalNumber=', GrammaticalNumberToString(FCurrentBestGrammaticalNumber)); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} Writeln('     GrammaticalNumber=', GrammaticalNumberToString(GrammaticalNumber)); {$ENDIF}
    if (FCurrentBestGrammaticalNumber <> GrammaticalNumber) then
    begin
-{$IFDEF DEBUG_SEEKER} Writeln('     examining grammatical number'); {$ENDIF}
       if (FCurrentBestGrammaticalNumber = []) then
       begin
-{$IFDEF DEBUG_SEEKER} Writeln('     assuming new one is better'); {$ENDIF}
          FCurrentBestGrammaticalNumber := GrammaticalNumber;
-         Assert(not Assigned(FCurrentBestThingList));
-         Assert(not Assigned(FCurrentBestThingListTail));
+         Assert(FCurrentBestThingList.Length = 0, 'FCurrentBestThingList still contains ' + FCurrentBestThingList.GetDefiniteString(nil, 'and') + ' (length=' + IntToStr(FCurrentBestThingList.Length) + ')');
       end
       else
       if (GrammaticalNumber >< FCurrentPreferredGrammaticalNumber = []) then
       begin
-{$IFDEF DEBUG_SEEKER} Writeln('     new one is useless, we have better already'); {$ENDIF}
          { Either we're looking for plural and this is singular, or vice versa. Either way, not a match. }
+{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() skipping; not a match for GrammaticalNumber'); {$ENDIF}
          Exit;
       end
       else
       if (GrammaticalNumber <> gnAmbiguous) then
       begin
-{$IFDEF DEBUG_SEEKER} Writeln('     new record grammatical number!'); {$ENDIF}
          Assert(FCurrentBestGrammaticalNumber >< gnAmbiguous = FCurrentPreferredGrammaticalNumber);
          Assert(GrammaticalNumber = FCurrentPreferredGrammaticalNumber);
-         FreeThingList(FCurrentBestThingList);
-         FCurrentBestThingList := nil;
-         FCurrentBestThingListTail := nil;
+{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() nuking list so far, this is a better match for GrammaticalNumber'); {$ENDIF}
+         FCurrentBestThingList.Empty();
          FCurrentBestLength := Count;
          FCurrentBestGrammaticalNumber := FCurrentPreferredGrammaticalNumber;
       end;
    end;
-   New(ThingItem);
-   ThingItem^.Value := Thing;
-   ThingItem^.Next := nil;
-   if (Assigned(FCurrentBestThingListTail)) then
-      FCurrentBestThingListTail^.Next := ThingItem
-   else
-      FCurrentBestThingList := ThingItem;
-   FCurrentBestThingListTail := ThingItem;
-{$IFDEF DEBUG_SEEKER} Writeln('     current grammatical number: ', GrammaticalNumberToString(FCurrentBestGrammaticalNumber)); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() adding ', Thing.GetDefiniteName(nil)); {$ENDIF}
+   FCurrentBestThingList.AppendItem(Thing);
 end;
 
 function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
 var
    CurrentToken: Cardinal;
 
-   procedure Collapse(FirstClause: TAbstractClause; out Things: PThingItem; out Disambiguate: Boolean);
+   procedure Collapse(FirstClause: TAbstractClause; out Things: TThingList; out Disambiguate: Boolean);
    var
       CurrentClause, LastClause: TAbstractClause;
       FromOutside, GotWhitelist: Boolean;
       Root: TAtom;
-      WhiteList: PThingItem;
-      ListEnd: PPThingItem;
+      WhiteList: TThingList;
    begin
-{$IFDEF DEBUG_SEEKER} Writeln('Collapsing clauses...'); {$ENDIF}
       Assert(FirstClause is TStartClause);
       CurrentClause := FirstClause;
       Things := nil;
       Disambiguate := False;
-{$IFDEF DEBUG_SEEKER} Writeln(' Forwards:'); {$ENDIF}
       repeat
-{$IFDEF DEBUG_SEEKER} Writeln('   ', CurrentClause.ClassName, '; currently: ', CurrentClause.GetFragment()); {$ENDIF}
          CurrentClause.CheckContext();
-{$IFDEF DEBUG_SEEKER} Writeln('   became ===> ', CurrentClause.GetFragment(), '; IsPlain=', CurrentClause.IsPlainClause()); {$ENDIF}
          LastClause := CurrentClause;
          CurrentClause := CurrentClause.FNext;
       until not Assigned(CurrentClause);
       CurrentClause := LastClause;
-{$IFDEF DEBUG_SEEKER} Writeln(' In reverse:'); {$ENDIF}
       GotWhitelist := False;
       try
          repeat
-{$IFDEF DEBUG_SEEKER} Writeln('   ', CurrentClause.ClassName, '; currently: ', CurrentClause.GetFragment(), ' Plain=', CurrentClause.IsPlainClause()); {$ENDIF}
             try
                if ((cfRemoveHiddenThings in CurrentClause.FFlags) and (Scope <> [])) then
                begin
                   if (not GotWhitelist) then
                   begin
-                     Whitelist := nil;
                      if (aisSurroundings in Scope) then
                         Root := Perspective.GetSurroundingsRoot(FromOutside)
                      else
@@ -1684,11 +1621,10 @@ var
                         Root := Perspective
                      else
                         raise EAssertionFailed.Create('unexpected TAllImpliedScope value');
-                     ListEnd := @Whitelist;
-                     Root.FindMatchingThings(Perspective, FromOutside, aisSelf in Scope, tpCountsForAll, [], ListEnd);
+                     Whitelist := TThingList.Create();
                      GotWhitelist := True;
+                     Root.FindMatchingThings(Perspective, FromOutside, aisSelf in Scope, tpCountsForAll, [], Whitelist);
                   end;
-{$IFDEF DEBUG_SEEKER} Writeln('      Self Censoring... (Whitelist: ', ThingListToLongDefiniteString(Whitelist, Perspective, 'and'), ')'); {$ENDIF}
                   CurrentClause.SelfCensor(Whitelist);
                end;
                if (CurrentClause.Select()) then
@@ -1698,18 +1634,13 @@ var
                on E: EMatcherException do { raised by Select() }
                   Fail(E.Message(Perspective, CurrentClause.GetFragment()));
             end;
-{$IFDEF DEBUG_SEEKER} Writeln('   became ===> ', CurrentClause.GetFragment()); {$ENDIF}
             CurrentClause := CurrentClause.FPrevious;
          until not Assigned(CurrentClause);
       finally
          if (GotWhitelist) then
-            FreeThingList(Whitelist);
+            Whitelist.Free();
       end;
       (FirstClause as TStartClause).Bank(Perspective, Things, Disambiguate);
-{$IFDEF DEBUG_SEEKER} Writeln('...Clauses collapsed from: ', Serialise(OriginalTokens, Start, CurrentToken - Start)); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} Writeln('...Clauses collapsed to:   ', (FirstClause as TStartClause).GetCompleteFragment()); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} if (Serialise(OriginalTokens, Start, CurrentToken - Start) <> (FirstClause as TStartClause).GetCompleteFragment()) then
-                         Writeln('...Clauses collapsed to something different than input!'); {$ENDIF}
    end;
 
 var
@@ -1717,7 +1648,6 @@ var
 
    procedure AppendClause(Clause: TAbstractClause);
    begin
-{$IFDEF DEBUG_SEEKER} Writeln('AppendClause(', Clause.ClassName, ') called'); {$ENDIF}
       if (not Assigned(FirstClause)) then
          FirstClause := Clause
       else
@@ -1735,29 +1665,23 @@ var
          Start, Index: Cardinal;
          Message: AnsiString;
       begin
-{$IFDEF DEBUG_SEEKER} Writeln('    CollectExplicitThings():'); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} Writeln('       CanFail=', CanFail); {$ENDIF}
          Assert((ExplicitGrammaticalNumber <> []));
-         Assert(not Assigned(FCurrentBestThingList));
-         Assert(not Assigned(FCurrentBestThingListTail));
          Start := CurrentToken;
          if (CurrentToken < Length(Tokens)) then
          begin
-{$IFDEF DEBUG_SEEKER} Writeln('      examining some tokens... starting with "', Tokens[CurrentToken] , '"'); {$ENDIF}
+            if (not Assigned(FCurrentBestThingList)) then
+               FCurrentBestThingList := TThingList.Create();
+            Assert(FCurrentBestThingList.Length = 0);
             FCurrentPreferredGrammaticalNumber := ExplicitGrammaticalNumber;
             FCurrentBestLength := 0;
             FCurrentBestGrammaticalNumber := [];
-            FCurrentBestThingList := nil;
-            FCurrentBestThingListTail := nil;
             try
                Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @ReferencedCallback);
             except
-               FreeThingList(FCurrentBestThingList);
-               FCurrentBestThingList := nil;
-               FCurrentBestThingListTail := nil;
+               FCurrentBestThingList.Empty();
                raise;
             end;
-            if (Assigned(FCurrentBestThingList)) then
+            if (FCurrentBestThingList.Length > 0) then
             begin
                Inc(CurrentToken, FCurrentBestLength);
                Assert(CurrentToken > Start);
@@ -1780,8 +1704,7 @@ var
                end;
                if (gnPlural in FCurrentBestGrammaticalNumber) then { take apples }
                begin
-                  Assert(Assigned(FCurrentBestThingList));
-                  Assert(Assigned(FCurrentBestThingListTail));
+                  Assert(FCurrentBestThingList.Length > 0);
                   Include(Flags, cfPlural);
                   if (gnSingular in FCurrentBestGrammaticalNumber) then
                      Include(Flags, cfSingular)
@@ -1799,7 +1722,6 @@ var
                   Result := True;
                end;
                FCurrentBestThingList := nil;
-               FCurrentBestThingListTail := nil;
             end
             else
             begin
@@ -1826,22 +1748,19 @@ var
             Fail(Message);
          end;
          Assert(CanFail or Result);
-{$IFDEF DEBUG_SEEKER} Writeln('    CollectExplicitThings() finished, Result=', Result); {$ENDIF}
       end;
 
       function CollectImplicitThings(Flags: TClauseFlags): Boolean;
       var
          FromOutside: Boolean;
-         ListEnd: PPThingItem;
       begin
-         Assert(not Assigned(FCurrentBestThingList));
-         Assert(not Assigned(FCurrentBestThingListTail));
          Assert(not (cfHadArticle in Flags));
-         ListEnd := @FCurrentBestThingList;
-         Perspective.GetSurroundingsRoot(FromOutside).FindMatchingThings(Perspective, FromOutside, True, tpEverything, tfEverything, ListEnd);
+         if (not Assigned(FCurrentBestThingList)) then
+            FCurrentBestThingList := TThingList.Create();
+         Assert(FCurrentBestThingList.Length = 0);
+         Perspective.GetSurroundingsRoot(FromOutside).FindMatchingThings(Perspective, FromOutside, True, tpEverything, tfEverything, FCurrentBestThingList);
          AppendClause(ClauseClass.Create(0, tsmPickAll, Flags, FCurrentBestThingList, OriginalTokens[CurrentToken - 1]));
          FCurrentBestThingList := nil;
-         FCurrentBestThingListTail := nil;
          Result := True;
       end;
 
@@ -1861,9 +1780,6 @@ var
    var
       Number: Cardinal;
    begin
-{$IFDEF DEBUG_SEEKER} Writeln('CollectArticleAndThings() called'); {$ENDIF}
-      Assert(not Assigned(FCurrentBestThingList));
-      Assert(not Assigned(FCurrentBestThingListTail));
       Assert(Assigned(ClauseClass));
       ClauseStart := CurrentToken;
       Inc(CurrentToken, ClauseLength);
@@ -1937,9 +1853,7 @@ var
          Result := CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickOnlyRelevantNumber, tsmPickAll, [], ClauseClass.CanFail());
       if (not Result) then
          Dec(CurrentToken, ClauseLength);
-      Assert(not Assigned(FCurrentBestThingList));
-      Assert(not Assigned(FCurrentBestThingListTail));
-{$IFDEF DEBUG_SEEKER} Writeln(' = CollectArticleAndThings() returned ', Result); {$ENDIF}
+      Assert((not Assigned(FCurrentBestThingList)) or (FCurrentBestThingList.Length = 0));
    end;
 
    function TryClauses(out NextClauseClass: TAbstractClauseClass; out NextClauseLength: Cardinal): Boolean;
@@ -2098,7 +2012,7 @@ begin
             except
                FTokenCount := 0;
                FDisambiguate := False;
-               FreeThingList(FThingList);
+               FThingList.Free();
                FThingList := nil;
                raise;
             end;
@@ -2154,7 +2068,7 @@ begin
    Result := FDisambiguate;
 end;
 
-function TThingCollector.GetThingList(): PThingItem;
+function TThingCollector.GetThingList(): TThingList;
 begin
    {$IFOPT C+} Assert(not FCurrentlyCollecting); {$ENDIF}
    {$IFOPT C+} Assert(FCollected); {$ENDIF}

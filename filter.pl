@@ -5,8 +5,8 @@ my $error = 0;
 while (<>) {
     chomp;
     next if m!^Hint: (?:Start|End) of reading config file /home/$ENV{USER}/\.fpc\.cfg$!os;
-    next if m!^Free Pascal Compiler version 2\.4\.0 \[2009/12/18] for x86_64$!os;
-    next if m!^Copyright \(c\) 1993-2009 by Florian Klaempfl$!os;
+    next if m!^Free Pascal Compiler version 2\.5\.1 \[2010/08/22] for x86_64$!os;
+    next if m!^Copyright \(c\) 1993-2010 by Florian Klaempfl$!os;
     next if m!^Target OS: Linux for x86-64$!os;
     next if m!^Compiling .+$!os;
     next if m!^.+\([0-9]+,[0-9]+\) Hint: Parameter ".+" not used$!os;

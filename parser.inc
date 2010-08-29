@@ -1,3 +1,4 @@
+//{$DEFINE DEBUG_PARSER}
 
    function CanEnd(): Boolean;
    begin
@@ -213,9 +214,9 @@
 
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
-   function GetThing(out Thing: TAtom; EndingClauses: TEndingClauseKinds; VerbString: AnsiString): Boolean;
+   function GetThing(out Thing: TThing; EndingClauses: TEndingClauseKinds; VerbString: AnsiString): Boolean;
    var
-      Things: PThingItem;
+      Things: TThingList;
       Disambiguate: Boolean;
       Count: Cardinal;
    begin
@@ -230,21 +231,31 @@
          try
             if (not CanEnd()) then
                EnsureNoPunctuation();
-            if ((not Assigned(Things)) or (Assigned(Things^.Next))) then
+            if (Things.Length <> 1) then
                Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
-            Thing := Things^.Value;
+            Thing := Things.First;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
                AutoDisambiguated(Thing.GetDefiniteName(Self)); // should really let the caller do that
          finally
-            FreeThingList(Things);
+            Things.Free();
          end;
       end;
    end;
 
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
-   function GetThings(out Things: PThingItem; AllImpliedScope: TAllImpliedScope; EndingClauses: TEndingClauseKinds; VerbString: AnsiString; NothingFail: AnsiString = ''): Boolean;
+   function GetThing(out Thing: TAtom; EndingClauses: TEndingClauseKinds; VerbString: AnsiString): Boolean;
+   var
+      ActualThing: TThing;
+   begin
+      Result := GetThing(ActualThing, EndingClauses, VerbString);
+      Thing := ActualThing;
+   end;
+
+   { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
+   { Do not call if CanEnd(). }
+   function GetThings(out Things: TThingList; AllImpliedScope: TAllImpliedScope; EndingClauses: TEndingClauseKinds; VerbString: AnsiString; NothingFail: AnsiString = ''): Boolean;
    var
       Disambiguate: Boolean;
       Count: Cardinal;
@@ -261,7 +272,7 @@
          try
             if (not CanEnd()) then
                EnsureNoPunctuation();
-            if (not Assigned(Things)) then
+            if (Things.Length = 0) then
             begin
                if (NothingFail <> '') then
                   Fail(NothingFail)
@@ -270,10 +281,10 @@
             end;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(ThingListToDefiniteString(Things, Self, 'and')); // should really let the caller do that
+               AutoDisambiguated(Things.GetDefiniteString(Self, 'and')); // should really let the caller do that
          except
             { in case we fail }
-            FreeThingList(Things);
+            Things.Free();
             Things := nil;
             raise;
          end;
@@ -281,7 +292,7 @@
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetCompoundPrepositionThing(Prepositions: array of AnsiString; EndingClauses: TEndingClauseKinds; VerbString, PrepositionString: AnsiString; out Thing: TAtom): Boolean;
+   function GetCompoundPrepositionThing(Prepositions: array of AnsiString; EndingClauses: TEndingClauseKinds; VerbString, PrepositionString: AnsiString; out Thing: TThing): Boolean;
    var
       Direction: TCardinalDirection;
       Index: Cardinal;
@@ -290,12 +301,15 @@
       begin
          for Index := 0 to Length(Prepositions)-1 do
          begin
+{$IFDEF DEBUG_PARSER} Writeln('GetCompoundPrepositionThing() comparing "', Tokens[CurrentToken+Index], '" to "', Prepositions[Index], '"'); {$ENDIF}
             if (Tokens[CurrentToken+Index] <> Prepositions[Index]) then
             begin
                Result := False;
+{$IFDEF DEBUG_PARSER} Writeln('GetCompoundPrepositionThing() failed'); {$ENDIF}
                Exit;
             end;
          end;
+{$IFDEF DEBUG_PARSER} Writeln('GetCompoundPrepositionThing() invoking the thingseeker'); {$ENDIF}
          Inc(CurrentToken, Length(Prepositions));
          Result := True;
          if (CanEnd()) then
@@ -313,7 +327,22 @@
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
+   function GetCompoundPrepositionThing(Prepositions: array of AnsiString; EndingClauses: TEndingClauseKinds; VerbString, PrepositionString: AnsiString; out Thing: TAtom): Boolean;
+   var
+      ActualThing: TThing;
+   begin
+      Result := GetCompoundPrepositionThing(Prepositions, EndingClauses, VerbString, PrepositionString, ActualThing);
+      Thing := ActualThing;
+   end;
+
+   { You can assume EnsureNoPunctuation() has been called just before this returns }
    function GetPrepositionThing(Preposition: AnsiString; EndingClauses: TEndingClauseKinds; VerbString: AnsiString; out Thing: TAtom): Boolean;
+   begin
+      Result := GetCompoundPrepositionThing([Preposition], EndingClauses, VerbString, Preposition, Thing);
+   end;
+
+   { You can assume EnsureNoPunctuation() has been called just before this returns }
+   function GetPrepositionThing(Preposition: AnsiString; EndingClauses: TEndingClauseKinds; VerbString: AnsiString; out Thing: TThing): Boolean;
    begin
       Result := GetCompoundPrepositionThing([Preposition], EndingClauses, VerbString, Preposition, Thing);
    end;
@@ -1135,7 +1164,7 @@
                   if (not GetThings(Action.DebugThings, [aisSelf, aisSurroundings], [], 'debug', 'There''s nothing implicitly accessible here. Use "debug things" to get a list of explicitly accessible things.')) then
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                   if (not CanEnd()) then
-                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + ThingListToLongDefiniteString(Action.DebugThings, Self, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThings.GetLongDefiniteString(Self, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
                end;
             end
             else
