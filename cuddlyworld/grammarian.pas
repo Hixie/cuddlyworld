@@ -563,9 +563,9 @@ begin
       J := R;
       P := List[(L + R) div 2];
       repeat
-         while P > List[I] do
+         while (P > List[I]) do
             I := I + 1;
-         while P < List[J] do
+         while (P < List[J]) do
             J := J - 1;
          if (I <= J) then
          begin

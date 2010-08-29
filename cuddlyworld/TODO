@@ -27,13 +27,13 @@ THING SEEKER IMPROVEMENTS
     - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
     - "drop all that is a coin" shouldn't drop those on the ground
     - worse: given red and blue tables, "take red then drop table" asks which table to drop
- + find a solution to:
-    - "There is an orange here. There is an orange mug here." "Take orange." "Which orange do you mean, the orange or the orange mug?"
  + make the thing seeker disambiguate on features too. For example:
     - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
     - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
     - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
- + every time we mention something, Thing.UpdatePronouns(Perspective)
+ + find a solution to:
+    - "There is an orange here. There is an orange mug here." "Take orange." "Which orange do you mean, the orange or the orange mug?"
+ + every time we mention something, Thing.UpdatePronouns(Perspective) (Perspective has the pronoun state)
 
 PLOT
  + give the archways reasons they can't be moved that are archway-specific - right now they are "part of the ground".

@@ -9,27 +9,23 @@ uses
 
 type
    TAtom = class;
-   PPAtomItem = ^PAtomItem;
-   PAtomItem = ^TAtomItem;
-   TAtomItem = record
-      Next: PAtomItem;
-      Value: TAtom;
-   end;
-
+   TAtomEnumerator = specialize TGenericStorableListEnumerator<TAtom>;
+   TAtomList = specialize TStorableList<TAtom, TAtomEnumerator>;
    TThing = class;
-   PPThingItem = ^PThingItem;
-   PThingItem = ^TThingItem;
-   TThingItem = record
-      Next: PThingItem;
-      Value: TThing;
-   end;
-
+   TThingEnumerator = Specialize TGenericStorableListEnumerator<TThing>;
+   TInternalThingList = Specialize TStorableList<TThing, TThingEnumerator>;
    TAvatar = class;
-   PPAvatarItem = ^PAvatarItem;
-   PAvatarItem = ^TAvatarItem;
-   TAvatarItem = record
-      Next: PAvatarItem;
-      Value: TAvatar;
+   TAvatarEnumerator = Specialize TGenericStorableListEnumerator<TAvatar>;
+   TAvatarList = Specialize TStorableList<TAvatar, TAvatarEnumerator>;
+   TLocation = class;
+   TLocationEnumerator = Specialize TGenericStorableListEnumerator<TLocation>;
+   TLocationList = Specialize TStorableList<TLocation, TLocationEnumerator>;
+
+type
+   TThingList = class(TInternalThingList)
+      function GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+      function GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+      function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
    end;
 
 type
@@ -51,10 +47,8 @@ type
 type
    PAtom = ^TAtom;
    TAtom = class(TStorable)
-    private
-      procedure Empty();
     protected
-      FChildren: PThingItem; { Ordered - most recently added first }
+      FChildren: TThingList;
       procedure Removed(Thing: TThing); virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
     public
@@ -62,15 +56,17 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure Add(Thing: TThing; APosition: TThingPosition);
-      procedure Add(Thing: TThing; APosition: TThingPosition; Carefully: Boolean; Perspective: TAvatar); // really should call this something else -- it's more than an overloaded Add()
+      procedure Add(Thing: TThing; Position: TThingPosition);
+      procedure Add(Thing: TThingEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
+      procedure Remove(Thing: TThingEnumerator);
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
+      procedure Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { self and children that are tpOn, tpCarried; add tpContained children if container is flexible }
       function GetInsideSizeManifest(): TThingSizeManifest; virtual; { only children that are tpContained }
       function GetSurfaceSizeManifest(): TThingSizeManifest; virtual; { children that are tpOn }
-      procedure GetAvatars(var List: PAvatarItem; FromOutside: Boolean); virtual;
+      procedure GetAvatars(List: TAvatarList; FromOutside: Boolean); virtual;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
       function GetName(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetSummaryName(Perspective: TAvatar): AnsiString; virtual;
@@ -101,7 +97,7 @@ type
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
-      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem); virtual;
+      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); virtual;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function GetDefaultAtom(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
@@ -109,7 +105,7 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
       function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetDefaultAtom) }
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom; virtual; abstract;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
       {$IFDEF DEBUG} function Debug(): AnsiString; virtual; {$ENDIF}
@@ -124,11 +120,9 @@ type
       function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean; virtual;
       function IsExplicitlyReferenceable(Perspective: TAvatar): Boolean; virtual;
     public
-      constructor Create();
-      destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure GetAvatars(var List: PAvatarItem; FromOutside: Boolean); override;
+      procedure GetAvatars(List: TAvatarList; FromOutside: Boolean); override;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
@@ -138,7 +132,7 @@ type
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom; override;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function GetSummaryName(Perspective: TAvatar): AnsiString; override;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
@@ -164,7 +158,7 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem); override;
+      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback); override;
       function StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
@@ -186,7 +180,7 @@ type
     protected
       function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean; override;
     public
-      procedure GetAvatars(var List: PAvatarItem; FromOutside: Boolean); override;
+      procedure GetAvatars(List: TAvatarList; FromOutside: Boolean); override;
       procedure DoLook(); virtual; abstract;
       procedure AvatarMessage(Message: AnsiString); virtual; abstract;
       procedure AvatarBroadcast(Message: AnsiString); virtual; abstract;
@@ -223,21 +217,15 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom; override;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
-   end;
-
-   PLocationItem = ^TLocationItem;
-   TLocationItem = record
-      Next: PLocationItem;
-      Value: TLocation;
    end;
 
    TWorld = class(TStorable)
     protected
-      FLocations: PLocationItem;
-      FGlobalThings: PThingItem;
-      FPlayers: PAvatarItem;
+      FLocations: TLocationList;
+      FGlobalThings: TThingList;
+      FPlayers: TAvatarList;
       FDirty: Boolean;
     public
       constructor Create();
@@ -256,14 +244,8 @@ type
       property Dirty: Boolean read FDirty;
    end;
 
-procedure FreeThingList(ThingItem: PThingItem); inline;
-procedure FreeAvatarList(AAvatarItem: PAvatarItem); inline;
-function MergeAvatarLists(List1, List2: PAvatarItem): PAvatarItem; inline;
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);
-
-function ThingListToDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
-function ThingListToLongDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
 
 procedure QueueForDisposal(Atom: TAtom);
 
@@ -272,83 +254,27 @@ implementation
 uses
    sysutils, broadcast;
 
-procedure FreeThingList(ThingItem: PThingItem);
-var
-   ThisThingItem: PThingItem;
-begin
-   while (Assigned(ThingItem)) do
-   begin
-      ThisThingItem := ThingItem;
-      ThingItem := ThingItem^.Next;
-      Dispose(ThisThingItem);
-   end;
-end;
-
-procedure FreeAvatarList(AAvatarItem: PAvatarItem);
-var
-   ThisAvatarItem: PAvatarItem;
-begin
-   while (Assigned(AAvatarItem)) do
-   begin
-      ThisAvatarItem := AAvatarItem;
-      AAvatarItem := AAvatarItem^.Next;
-      Dispose(ThisAvatarItem);
-   end;
-end;
-
-function MergeAvatarLists(List1, List2: PAvatarItem): PAvatarItem;
-var
-   Search, Next: PAvatarItem;
-begin
-   Result := List1;
-   while (Assigned(List2)) do
-   begin
-      Next := List2^.Next;
-      Search := List1;
-      while (Assigned(Search) and (Search^.Value <> List2^.Value)) do
-         Search := Search^.Next;
-      if (Assigned(Search)) then
-      begin
-         { found duplicate }
-         Dispose(List2);
-      end
-      else
-      begin
-         { not duplicate; add it on the front (note that only items that were in List1 originally are searched) }
-         List2^.Next := Result;
-         Result := List2;
-      end;
-      List2 := Next;
-   end;
-end;
-
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 var
    Destination: TAtom;
    Message: AnsiString;
    Position: TThingPosition;
-   NotificationList, LastNotificationList: PAtomItem;
-   NotificationListEnd: PPAtomItem;
+   NotificationList: TAtomList;
+   NotificationTarget: TAtom;
 begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
    Assert(Assigned(Perspective));
    Position := tpOn;
    Message := '';
-   NotificationList := nil;
-   NotificationListEnd := @NotificationList;
+   NotificationList := TAtomList.Create();
    try
-      Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message, NotificationListEnd);
+      Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message, NotificationList);
       if (Assigned(Destination)) then
       begin
          Perspective.AnnounceDeparture(ATo, Direction);
-         while (Assigned(NotificationList)) do
-         begin
-            NotificationList^.Value.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
-            LastNotificationList := NotificationList;
-            NotificationList := NotificationList^.Next;
-            Dispose(LastNotificationList);
-         end;
+         for NotificationTarget in NotificationList do
+            NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
          Destination.Add(Perspective, Position);
          Perspective.AnnounceArrival(AFrom.GetDefaultAtom(), ReverseCardinalDirection(Direction));
          Perspective.DoLook();
@@ -358,12 +284,7 @@ begin
          Perspective.AvatarMessage('You cannot go ' + CardinalDirectionToString(Direction) + '. ' + Message);
       end;
    finally
-      while (Assigned(NotificationList)) do
-      begin
-         LastNotificationList := NotificationList;
-         NotificationList := NotificationList^.Next;
-         Dispose(LastNotificationList);
-      end;
+      NotificationList.Free();
    end;
 end;
 
@@ -373,8 +294,8 @@ var
    Message: AnsiString;
    Success: Boolean;
    Ancestor: TAtom;
-   NotificationList, LastNotificationList: PAtomItem;
-   NotificationListEnd: PPAtomItem;
+   NotificationList: TAtomList;
+   NotificationTarget: TAtom;
 begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
@@ -410,20 +331,14 @@ begin
    if (Position = tpIn) then
    begin
       Assert(ATo is TThing);
-      NotificationList := nil;
-      NotificationListEnd := @NotificationList;
+      NotificationList := TAtomList.Create();
       try
-         Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message, NotificationListEnd);
+         Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message, NotificationList);
          if (Assigned(Destination)) then
          begin
             Perspective.AnnounceDeparture(ATo);
-            while (Assigned(NotificationList)) do
-            begin
-               NotificationList^.Value.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
-               LastNotificationList := NotificationList;
-               NotificationList := NotificationList^.Next;
-               Dispose(LastNotificationList);
-            end;
+            for NotificationTarget in NotificationList do
+               NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
             Destination.Add(Perspective, Position);
             Perspective.AnnounceArrival(AFrom.GetDefaultAtom());
             Perspective.DoLook();
@@ -433,217 +348,208 @@ begin
             Perspective.AvatarMessage('You cannot enter ' + ATo.GetDefiniteName(Perspective) + '. ' + Message);
          end;
       finally
-         while (Assigned(NotificationList)) do
-         begin
-            LastNotificationList := NotificationList;
-            NotificationList := NotificationList^.Next;
-            Dispose(LastNotificationList);
-         end;
+         NotificationList.Free();
       end;
    end
    else
       raise EAssertionFailed.Create('unexpected position for navigation: ' + IntToStr(Cardinal(Position)));
 end;
 
-function ThingListToDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
+
+// would be nice to find a way to have the next three methods be implemented somehow using a common body
+
+function TThingList.GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
+   E: TThingEnumerator;
 begin
    Result := '';
    Count := 0;
-   while (Assigned(Things)) do
-   begin
-      if (Count > 0) then
+   E := GetEnumerator();
+   try
+      while (E.MoveNext()) do
       begin
-         if (Assigned(Things^.Next)) then
-            Result := Result + ', '
-         else
-         if (Count > 1) then
-            Result := Result + ', ' + Conjunction + ' '
-         else
-            Result := Result + ' ' + Conjunction + ' ';
+         if (Count > 0) then
+         begin
+            if (E.HasMore()) then
+               Result := Result + ', '
+            else
+            if (Count > 1) then
+               Result := Result + ', ' + Conjunction + ' '
+            else
+               Result := Result + ' ' + Conjunction + ' ';
+         end;
+         Result := Result + E.Current.GetIndefiniteName(Perspective);
+         Inc(Count);
       end;
-      Result := Result + Things^.Value.GetDefiniteName(Perspective);
-      Things := Things^.Next;
-      Inc(Count);
+   finally
+      E.Free();
    end;
 end;
 
-function ThingListToLongDefiniteString(Things: PThingItem; Perspective: TAvatar; Conjunction: AnsiString): AnsiString;
+function TThingList.GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
+   E: TThingEnumerator;
 begin
    Result := '';
    Count := 0;
-   while (Assigned(Things)) do
-   begin
-      if (Count > 0) then
+   E := GetEnumerator();
+   try
+      while (E.MoveNext()) do
       begin
-         if (Assigned(Things^.Next)) then
-            Result := Result + ', '
-         else
-         if (Count > 1) then
-            Result := Result + ', ' + Conjunction + ' '
-         else
-            Result := Result + ' ' + Conjunction + ' ';
+         if (Count > 0) then
+         begin
+            if (E.HasMore()) then
+               Result := Result + ', '
+            else
+            if (Count > 1) then
+               Result := Result + ', ' + Conjunction + ' '
+            else
+               Result := Result + ' ' + Conjunction + ' ';
+         end;
+         Result := Result + E.Current.GetDefiniteName(Perspective);
+         Inc(Count);
       end;
-      Result := Result + Things^.Value.GetLongDefiniteName(Perspective);
-      Things := Things^.Next;
-      Inc(Count);
+   finally
+      E.Free();
+   end;
+end;
+
+function TThingList.GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+var
+   Count: Cardinal;
+   E: TThingEnumerator;
+begin
+   Result := '';
+   Count := 0;
+   E := GetEnumerator();
+   try
+      while (E.MoveNext()) do
+      begin
+         if (Count > 0) then
+         begin
+            if (E.HasMore()) then
+               Result := Result + ', '
+            else
+            if (Count > 1) then
+               Result := Result + ', ' + Conjunction + ' '
+            else
+               Result := Result + ' ' + Conjunction + ' ';
+         end;
+         Result := Result + E.Current.GetLongDefiniteName(Perspective);
+         Inc(Count);
+      end;
+   finally
+      E.Free();
    end;
 end;
 
 var
-   DisposalQueue: PAtomItem = nil;
+   DisposalQueue: TAtomList;
+
+procedure InitDisposalQueue();
+begin
+   if (not Assigned(DisposalQueue)) then
+      DisposalQueue := TAtomList.Create([slOwner]); 
+end;
 
 procedure QueueForDisposal(Atom: TAtom);
-var
-   AtomItem: PAtomItem;
 begin
-   New(AtomItem);
-   AtomItem^.Value := Atom;
-   AtomItem^.Next := DisposalQueue;
-   DisposalQueue := AtomItem;
+   Assert(Assigned(DisposalQueue));
+   DisposalQueue.AppendItem(Atom);
 end;
 
 procedure EmptyDisposalQueue();
-var
-   ThisAtomItem: PAtomItem;
 begin
-   while (Assigned(DisposalQueue)) do
-   begin
-      ThisAtomItem := DisposalQueue;
-      DisposalQueue := DisposalQueue^.Next;
-      ThisAtomItem^.Value.Destroy();
-      Dispose(ThisAtomItem);
-   end;
+   Assert(Assigned(DisposalQueue));
+   DisposalQueue.FreeItems();
 end;
 
 
 constructor TAtom.Create();
 begin
    inherited;
+   FChildren := TThingList.Create([slOwner]);
 end;
 
 destructor TAtom.Destroy();
 begin
-   Empty();
+   FChildren.Free();
    inherited;
 end;
 
 constructor TAtom.Read(Stream: TReadStream);
-var
-   Child: TThing;
-   Last: PPThingItem;
-   Current: PThingItem;
 begin
    inherited;
-   Last := @FChildren;
-   Child := Stream.ReadObject() as TThing;
-   while (Assigned(Child)) do
-   begin
-      New(Current);
-      Current^.Value := Child;
-      Current^.Next := nil;
-      Last^ := Current;
-      Last := @Current^.Next;
-      Child := Stream.ReadObject() as TThing;
-   end;
+   FChildren := Stream.ReadObject() as TThingList;
 end;
 
 procedure TAtom.Write(Stream: TWriteStream);
-var
-   Item: PThingItem;
 begin
    inherited;
-   Item := FChildren;
-   while (Assigned(Item)) do
-   begin
-      Stream.WriteObject(Item^.Value);
-      Item := Item^.Next;
-   end;
-   Stream.WriteObject(nil);
+   Stream.WriteObject(FChildren);
 end;
 
-procedure TAtom.Add(Thing: TThing; APosition: TThingPosition);
+procedure TAtom.Add(Thing: TThing; Position: TThingPosition);
+{$IFOPT C+}
 var
-   Item: PThingItem;
-   {$IFOPT C+} Position: TThingPosition; {$ENDIF}
+   TempPosition: TThingPosition;
+{$ENDIF}
 begin
    {$IFOPT C+}
-     Position := tpIn;
-     Assert((APosition <> tpIn) or (GetInside(Position) = Self), 'tried to put something inside something without an inside');
+     TempPosition := tpIn;
+     Assert((Position <> tpIn) or (GetInside(TempPosition) = Self), 'tried to put something inside something without an inside');
    {$ENDIF}
    if (Assigned(Thing.FParent)) then
       Thing.FParent.Remove(Thing);
    Assert(not Assigned(Thing.FParent));
-   New(Item);
-   Item^.Next := FChildren;
-   Item^.Value := Thing;
-   FChildren := Item;
+   FChildren.AppendItem(Thing);
    Thing.FParent := Self;
-   Thing.FPosition := APosition;
+   Thing.FPosition := Position;
 end;
 
-procedure TAtom.Add(Thing: TThing; APosition: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
+procedure TAtom.Add(Thing: TThingEnumerator; Position: TThingPosition);
 var
    OldParent: TAtom;
-   {$IFOPT C+} ParentSearch: TAtom; {$ENDIF}
+   ActualThing: TThing;
+   {$IFOPT C+} TempPosition: TThingPosition; {$ENDIF}
 begin
-   OldParent := Thing.FParent;
-   Add(Thing, APosition);
+   Assert(Thing.FList <> FChildren);
    {$IFOPT C+}
-   ParentSearch := Thing;
-   repeat
-      ParentSearch := (ParentSearch as TThing).Parent;
-      Assert(ParentSearch <> Thing);
-   until (not (ParentSearch is TThing));
+     TempPosition := tpIn;
+     Assert((Position <> tpIn) or (GetInside(TempPosition) = Self), 'tried to put something inside something without an inside');
    {$ENDIF}
-   Thing.Moved(OldParent, Carefully, Perspective);
-   HandleAdd(Thing, Perspective);
+   ActualThing := Thing.Current;
+   Assert(Assigned(ActualThing));
+   OldParent := ActualThing.FParent;
+   FChildren.AdoptItem(Thing);
+   ActualThing.FParent := Self;
+   ActualThing.FPosition := Position;
+   if (Assigned(OldParent)) then
+      OldParent.Removed(ActualThing);
 end;
 
 procedure TAtom.Remove(Thing: TThing);
-var
-   Item: PThingItem;
-   Last: ^PThingItem;
 begin
-   Last := @FChildren;
-   Item := FChildren;
-   while (Assigned(Item)) do
-   begin
-      if (Item^.Value = Thing) then
-      begin
-         Thing.FParent := nil;
-         Last^ := Item^.Next;
-         Dispose(Item);
-         Item := nil;
-      end
-      else
-      begin
-         Last := @Item^.Next;
-         Item := Item^.Next;
-      end;
-   end;
+   FChildren.RemoveItem(Thing);
+   Thing.FParent := nil;
    Removed(Thing);
+end;
+
+procedure TAtom.Remove(Thing: TThingEnumerator);
+var
+   OldThing: TThing;
+begin
+   Assert(Thing.FList = FChildren);
+   OldThing := Thing.Current;
+   Thing.Remove();
+   OldThing.FParent := nil;
+   Removed(OldThing);
 end;
 
 procedure TAtom.Removed(Thing: TThing);
 begin
-end;
-
-procedure TAtom.Empty();
-var
-   Item: PThingItem;
-begin
-   while (Assigned(FChildren)) do
-   begin
-      Item := FChildren;
-      FChildren := FChildren^.Next;
-      {$IFOPT C+} Item^.Value.FParent := nil; {$ENDIF} { The ThingItem.Destroy destructor checks this }
-      Item^.Value.Destroy();
-      Dispose(Item);
-   end;
 end;
 
 function TAtom.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -670,60 +576,62 @@ begin
       raise EAssertionFailed.Create('Unexpected position ' + IntToStr(Cardinal(ThingPosition)));
 end;
 
+procedure TAtom.Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
+var
+   OldParent: TAtom;
+   {$IFOPT C+} ParentSearch: TAtom; {$ENDIF}
+begin
+   OldParent := Thing.FParent;
+   Add(Thing, Position);
+   {$IFOPT C+}
+   ParentSearch := Thing;
+   repeat
+      ParentSearch := (ParentSearch as TThing).Parent;
+      Assert(ParentSearch <> Thing);
+   until (not (ParentSearch is TThing));
+   {$ENDIF}
+   Thing.Moved(OldParent, Carefully, Perspective);
+   HandleAdd(Thing, Perspective);
+end;
+
 function TAtom.GetMassManifest(): TThingMassManifest;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    Zero(Result);
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if (not (Child^.Value.Position in tpScenery)) then
-         Result := Result + Child^.Value.GetMassManifest();
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if (not (Child.Position in tpScenery)) then
+         Result := Result + Child.GetMassManifest();
 end;
 
 function TAtom.GetOutsideSizeManifest(): TThingSizeManifest;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    Zero(Result);
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if (Child^.Value.Position in tpOutside) then
-         Result := Result + Child^.Value.GetOutsideSizeManifest();
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if (Child.Position in tpOutside) then
+         Result := Result + Child.GetOutsideSizeManifest();
 end;
 
 function TAtom.GetInsideSizeManifest(): TThingSizeManifest;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    Zero(Result);
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if (Child^.Value.Position in tpContained) then
-         Result := Result + Child^.Value.GetOutsideSizeManifest();
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if (Child.Position in tpContained) then
+         Result := Result + Child.GetOutsideSizeManifest();
 end;
 
 function TAtom.GetSurfaceSizeManifest(): TThingSizeManifest;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    Zero(Result);
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if (Child^.Value.Position in tpSurface) then
-         Result := Result + Child^.Value.GetIntrinsicSize();
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if (Child.Position in tpSurface) then
+         Result := Result + Child.GetIntrinsicSize();
 end;
 
 procedure TAtom.HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar);
@@ -736,17 +644,13 @@ end;
 
 { this is used when notifying players of something, e.g. shouting }
 { it should propagate to all of the things that should get the message }
-procedure TAtom.GetAvatars(var List: PAvatarItem; FromOutside: Boolean);
+procedure TAtom.GetAvatars(List: TAvatarList; FromOutside: Boolean);
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if (FromOutside or (Child^.Value.Position in tpContained)) then { assumes that we are closed (TThing.GetAvatars solves that) }
-         Child^.Value.GetAvatars(List, True);
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if (FromOutside or (Child.Position in tpContained)) then { assumes that we are closed (TThing.GetAvatars solves that) }
+         Child.GetAvatars(List, True);
 end;
 
 function TAtom.GetSurroundingsRoot(out FromOutside: Boolean): TAtom;
@@ -886,13 +790,14 @@ end;
 
 function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: AnsiString): AnsiString;
 
-   procedure ProcessBatch(Child: PThingItem);
+   procedure ProcessBatch(Children: TThingList);
    var
       Mode: TGetPresenceStatementMode;
+      Child: TThing;
    begin
-      while (Assigned(Child)) do
+      for Child in Children do
       begin
-         if ((Child^.Value.Position = tpOn) and ((optPrecise in Options) or (Child^.Value <> Perspective))) then
+         if ((Child.Position = tpOn) and ((optPrecise in Options) or (Child <> Perspective))) then
          begin
             if (Length(Result) > 0) then
                Result := Result + #10;
@@ -900,16 +805,15 @@ function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOn
                Mode := psOnThatThingIsAThing
             else
                Mode := psThereIsAThingHere;
-            Result := Result + Prefix + Child^.Value.GetPresenceStatement(Perspective, Mode) + WithSpaceIfNotEmpty(Child^.Value.GetDescriptionState(Perspective));
+            Result := Result + Prefix + Child.GetPresenceStatement(Perspective, Mode) + WithSpaceIfNotEmpty(Child.GetDescriptionState(Perspective));
             if (optDeepOn in Options) then
             begin
                if (Length(Prefix) = 0) then
-                  Result := Result + WithNewlineIfNotEmpty(Child^.Value.GetDescriptionOn(Perspective, Options + [optPrecise], Prefix))
+                  Result := Result + WithNewlineIfNotEmpty(Child.GetDescriptionOn(Perspective, Options + [optPrecise], Prefix))
                else
-                  Result := Result + WithNewlineIfNotEmpty(Child^.Value.GetDescriptionOn(Perspective, Options + [optPrecise], Prefix + '  '));
+                  Result := Result + WithNewlineIfNotEmpty(Child.GetDescriptionOn(Perspective, Options + [optPrecise], Prefix + '  '));
             end
          end;
-         Child := Child^.Next;
       end;
    end;
 
@@ -935,45 +839,35 @@ begin
    Result := True;
 end;
 
-procedure TAtom.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem);
+procedure TAtom.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if (((IncludePerspectiveChildren) or (Child^.Value <> Perspective)) and (IsChildTraversable(Child^.Value, Perspective, FromOutside))) then
-         Child^.Value.FindMatchingThings(Perspective, True, IncludePerspectiveChildren, PositionFilter, PropertyFilter, ListEnd);
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if (((IncludePerspectiveChildren) or (Child <> Perspective)) and (IsChildTraversable(Child, Perspective, FromOutside))) then
+         Child.FindMatchingThings(Perspective, True, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
 end;
 
 procedure TAtom.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Callback: TReferencedCallback);
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if (IsChildTraversable(Child^.Value, Perspective, FromOutside)) then
-         Child^.Value.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Callback);
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if (IsChildTraversable(Child, Perspective, FromOutside)) then
+         Child.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Callback);
 end;
 
 function TAtom.StillReferenceable(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
-   Child := FChildren;
-   while (Assigned(Child)) do
+   for Child in FChildren do
    begin
-      if (IsChildTraversable(Child^.Value, Perspective, FromOutside) and Child^.Value.StillReferenceable(Thing, Perspective, True)) then
+      if (IsChildTraversable(Child, Perspective, FromOutside) and Child.StillReferenceable(Thing, Perspective, True)) then
       begin
          Result := True;
          Exit;
       end;
-      Child := Child^.Next;
    end;
    Result := False;
 end;
@@ -1026,17 +920,6 @@ end;
 {$ENDIF}
 
 
-constructor TThing.Create();
-begin
-   inherited;
-end;
-
-destructor TThing.Destroy();
-begin
-   Assert(not Assigned(FParent));
-   inherited;
-end;
-
 constructor TThing.Read(Stream: TReadStream);
 begin
    inherited;
@@ -1051,19 +934,15 @@ begin
    Stream.WriteCardinal(Cardinal(FPosition));
 end;
 
-procedure TThing.GetAvatars(var List: PAvatarItem; FromOutside: Boolean);
+procedure TThing.GetAvatars(List: TAvatarList; FromOutside: Boolean);
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    if (FromOutside and (not IsOpen())) then
    begin
-      Child := FChildren;
-      while (Assigned(Child)) do
-      begin
-         if (not (Child^.Value.Position in tpContained)) then
-            Child^.Value.GetAvatars(List, True);
-         Child := Child^.Next;
-      end;
+      for Child in FChildren do
+         if (not (Child.Position in tpContained)) then
+            Child.GetAvatars(List, True);
    end
    else
       inherited;
@@ -1102,7 +981,7 @@ begin
       Result := (GetSurfaceSizeManifest() + Manifest) <= (GetIntrinsicSize());
 end;
 
-function TThing.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom;
+function TThing.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
    PositionOverride := tpIn;
    Result := GetInside(PositionOverride);
@@ -1115,10 +994,7 @@ begin
       end
       else
       begin
-         New(NotificationListEnd^);
-         NotificationListEnd^^.Value := Self;
-         NotificationListEnd^^.Next := nil;
-         NotificationListEnd := @NotificationListEnd^^.Next;
+         NotificationList.AppendItem(Self);
       end;
    end
    else
@@ -1320,20 +1196,18 @@ end;
 
 function TThing.GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    Result := '';
-   Child := FChildren;
-   while (Assigned(Child)) do
+   for Child in FChildren do
    begin
       { we exclude context so that, e.g., we don't say "there's a pedestal here!" when you're on it }
-      if ((Child^.Value <> Context) and (Child^.Value.Position in tpAutoDescribe)) then
+      if ((Child <> Context) and (Child.Position in tpAutoDescribe)) then
       begin
          if (Length(Result) > 0) then
             Result := Result + ' ';
-         Result := Result + Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere) + WithSpaceIfNotEmpty(Child^.Value.GetDescriptionState(Perspective));
+         Result := Result + Child.GetPresenceStatement(Perspective, psThereIsAThingHere) + WithSpaceIfNotEmpty(Child.GetDescriptionState(Perspective));
       end;
-      Child := Child^.Next;
    end;
 end;
 
@@ -1358,19 +1232,20 @@ end;
 
 function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString;
 
-   procedure ProcessBatch(Child: PThingItem; ExpectedPositionFilter: TThingPositionFilter);
+   procedure ProcessBatch(Children: TThingList; ExpectedPositionFilter: TThingPositionFilter);
+   var
+      Child: TThing;
    begin
-      while (Assigned(Child)) do
+      for Child in Children do
       begin
-         if (((Child^.Value <> Perspective) or (not (optOmitPerspective in Options))) and (Child^.Value.Position in ExpectedPositionFilter)) then
+         if (((Child <> Perspective) or (not (optOmitPerspective in Options))) and (Child.Position in ExpectedPositionFilter)) then
          begin
             if (Length(Result) > 0) then
                Result := Result + #10;
-            Result := Result + Prefix + '  ' + Capitalise(Child^.Value.GetIndefiniteName(Perspective)) + '.';
+            Result := Result + Prefix + '  ' + Capitalise(Child.GetIndefiniteName(Perspective)) + '.';
             if (optDeepChildren in Options) then
-               Result := Result + WithSpaceIfNotEmpty(Child^.Value.GetDescriptionIn(Perspective, Options - [optFar, optThorough], Prefix + '  '));
+               Result := Result + WithSpaceIfNotEmpty(Child.GetDescriptionIn(Perspective, Options - [optFar, optThorough], Prefix + '  '));
          end;
-         Child := Child^.Next;
       end;
    end;
 
@@ -1411,20 +1286,21 @@ end;
 
 function TThing.GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: AnsiString): AnsiString;
 
-   procedure ProcessBatch(Child: PThingItem);
+   procedure ProcessBatch(Children: TThingList);
+   var
+      Child: TThing;
    begin
-      while (Assigned(Child)) do
+      for Child in Children do
       begin
-         if (Child^.Value.Position = tpCarried) then
+         if (Child.Position = tpCarried) then
          begin
             if (Length(Result) > 0) then
                Result := Result + #10;
-            Result := Result + Prefix + '  ' + Capitalise(Child^.Value.GetIndefiniteName(Perspective)) + '.';
+            Result := Result + Prefix + '  ' + Capitalise(Child.GetIndefiniteName(Perspective)) + '.';
             if (DeepCarried) then
-               Result := Result + WithNewlineIfNotEmpty(Child^.Value.GetDescriptionOn(Perspective, [optDeepOn, optPrecise], Prefix + '  ')) +
-                                  WithNewlineIfNotEmpty(Child^.Value.GetDescriptionChildren(Perspective, [optDeepChildren], Prefix + '  '));
+               Result := Result + WithNewlineIfNotEmpty(Child.GetDescriptionOn(Perspective, [optDeepOn, optPrecise], Prefix + '  ')) +
+                                  WithNewlineIfNotEmpty(Child.GetDescriptionChildren(Perspective, [optDeepChildren], Prefix + '  '));
          end;
-         Child := Child^.Next;
       end;
    end;
 
@@ -1543,19 +1419,11 @@ begin
    Result := True;
 end;
 
-procedure TThing.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; var ListEnd: PPThingItem);
-var
-   Item: PThingItem;
+procedure TThing.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 begin
    Assert(Assigned(FParent));
    if ((FPosition in PositionFilter) and IsImplicitlyReferenceable(Perspective, PropertyFilter)) then
-   begin
-      New(Item);
-      Item^.Value := Self;
-      Item^.Next := nil;
-      ListEnd^ := Item;
-      ListEnd := @Item^.Next;
-   end;
+      List.AppendItem(Self);
    inherited;
 end;
 
@@ -1639,14 +1507,9 @@ begin
       Result := inherited;
 end;
 
-procedure TAvatar.GetAvatars(var List: PAvatarItem; FromOutside: Boolean);
-var
-   Item: PAvatarItem;
+procedure TAvatar.GetAvatars(List: TAvatarList; FromOutside: Boolean);
 begin
-   New(Item);
-   Item^.Value := Self;
-   Item^.Next := List;
-   List := Item;
+   List.AppendItem(Self);
    inherited;
 end;
 
@@ -1781,25 +1644,26 @@ function TLocation.GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil
       Result := Result + PresenceStatement + WithSpaceIfNotEmpty(Thing.GetDescriptionState(Perspective));
    end;
 
-   procedure ProcessBatch(Child: PThingItem);
+   procedure ProcessBatch(Children: TThingList);
+   var
+      Child: TThing;
    begin
-      while (Assigned(Child)) do
+      for Child in Children do
       begin
-         if ((Child^.Value.Position in tpAutoDescribe) and
-             (Child^.Value <> Perspective) and
-             (Child^.Value <> FNorth) and
-             (Child^.Value <> FNorthEast) and
-             (Child^.Value <> FEast) and
-             (Child^.Value <> FSouthEast) and
-             (Child^.Value <> FSouth) and
-             (Child^.Value <> FSouthWest) and
-             (Child^.Value <> FWest) and
-             (Child^.Value <> FNorthWest) and
-             (Child^.Value <> FUp) and
-             (Child^.Value <> FDown) and
-             (Child^.Value <> Context)) then
-            ProcessThing(Child^.Value, Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere));
-         Child := Child^.Next;
+         if ((Child.Position in tpAutoDescribe) and
+             (Child <> Perspective) and
+             (Child <> FNorth) and
+             (Child <> FNorthEast) and
+             (Child <> FEast) and
+             (Child <> FSouthEast) and
+             (Child <> FSouth) and
+             (Child <> FSouthWest) and
+             (Child <> FWest) and
+             (Child <> FNorthWest) and
+             (Child <> FUp) and
+             (Child <> FDown) and
+             (Child <> Context)) then
+            ProcessThing(Child, Child.GetPresenceStatement(Perspective, psThereIsAThingHere));
       end;
    end;
 
@@ -1865,7 +1729,7 @@ begin
    Perspective.AvatarMessage('You can''t go ' + CardinalDirectionToString(Direction) + ' from here.');
 end;
 
-function TLocation.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; var NotificationListEnd: PPAtomItem): TAtom;
+function TLocation.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
    Result := GetSurface();
 end;
@@ -1885,170 +1749,92 @@ end;
 constructor TWorld.Create();
 begin
    inherited;
+   InitDisposalQueue();
+   FLocations := TLocationList.Create([slOwner]);
+   FGlobalThings := TThingList.Create([slOwner]);
+   FPlayers := TAvatarList.Create();
 end;
 
 destructor TWorld.Destroy();
-var
-   Item: PLocationItem;
 begin
-   while (Assigned(FLocations)) do
-   begin
-      Item := FLocations;
-      FLocations := FLocations^.Next;
-      Item^.Value.Destroy();
-      Dispose(Item);
-   end;
-   FreeAvatarList(FPlayers);
+   FLocations.Free();
+   FGlobalThings.Free();
+   FPlayers.Free();
    inherited;
 end;
 
 constructor TWorld.Read(Stream: TReadStream);
-var
-   Location: TLocation;
-   LocationItem: PLocationItem;
-   Thing: TThing;
-   ThingItem: PThingItem;
-   AvatarItem: PAvatarItem;
 begin
    inherited;
-   Location := Stream.ReadObject() as TLocation;
-   while (Assigned(Location)) do
-   begin
-      New(LocationItem);
-      LocationItem^.Value := Location;
-      LocationItem^.Next := FLocations;
-      FLocations := LocationItem;
-      Location := Stream.ReadObject() as TLocation;
-   end;
-   Thing := Stream.ReadObject() as TThing;
-   while (Assigned(Thing)) do
-   begin
-      New(ThingItem);
-      ThingItem^.Value := Thing;
-      ThingItem^.Next := FGlobalThings;
-      FGlobalThings := ThingItem;
-      Thing := Stream.ReadObject() as TThing;
-   end;
-   repeat
-      New(AvatarItem);
-      AvatarItem^.Next := FPlayers;
-      FPlayers := AvatarItem;
-   until not Stream.ReadReference(@AvatarItem^.Value);
-   FPlayers := AvatarItem^.Next;
-   Dispose(AvatarItem);
+   InitDisposalQueue();
+   FLocations := Stream.ReadObject() as TLocationList;
+   FGlobalThings := Stream.ReadObject() as TThingList;
+   FPlayers := Stream.ReadObject() as TAvatarList;
 end;
 
 procedure TWorld.Write(Stream: TWriteStream);
-var
-   LocationItem: PLocationItem;
-   ThingItem: PThingItem;
-   AvatarItem: PAvatarItem;
 begin
    inherited;
-   { Locations }
-   LocationItem := FLocations;
-   while (Assigned(LocationItem)) do
-   begin
-      Stream.WriteObject(LocationItem^.Value);
-      LocationItem := LocationItem^.Next;
-   end;
-   Stream.WriteObject(nil);
-   { Things }
-   ThingItem := FGlobalThings;
-   while (Assigned(ThingItem)) do
-   begin
-      Stream.WriteObject(ThingItem^.Value);
-      ThingItem := ThingItem^.Next;
-   end;
-   Stream.WriteObject(nil);
-   { Players }
-   AvatarItem := FPlayers;
-   while (Assigned(AvatarItem)) do
-   begin
-      Stream.WriteReference(AvatarItem^.Value);
-      AvatarItem := AvatarItem^.Next;
-   end;
-   Stream.WriteReference(nil);
+   Stream.WriteObject(FLocations);
+   Stream.WriteObject(FGlobalThings);
+   Stream.WriteObject(FPlayers);
 end;
 
 procedure TWorld.AddLocation(Location: TLocation);
-var
-   Item: PLocationItem;
 begin
-   New(Item);
-   Item^.Next := FLocations;
-   Item^.Value := Location;
-   FLocations := Item;
+   FLocations.AppendItem(Location);
 end;
 
 procedure TWorld.AddGlobalThing(GlobalThing: TThing);
-var
-   Item: PThingItem;
 begin
-   New(Item);
-   Item^.Next := FGlobalThings;
-   Item^.Value := GlobalThing;
-   FGlobalThings := Item;
+   FGlobalThings.AppendItem(GlobalThing);
 end;
 
 procedure TWorld.AddPlayer(Avatar: TAvatar);
-var
-   Item: PAvatarItem;
 begin
-   Assert(Assigned(Avatar.Parent));
-   New(Item);
-   Item^.Next := FPlayers;
-   Item^.Value := Avatar;
-   FPlayers := Item;
+   FPlayers.AppendItem(Avatar);
 end;
 
 function TWorld.GetPlayer(Name: AnsiString): TAvatar;
 var
-   Item: PAvatarItem;
+   Item: TAvatar;
 begin
-   Item := FPlayers;
    Name := LowerCase(Name);
-   while ((Assigned(Item)) and (LowerCase(Item^.Value.GetUsername()) <> Name)) do
-      Item := Item^.Next;
-   if (Assigned(Item)) then
-      Result := Item^.Value
-   else
-      Result := nil;
+   for Item in FPlayers do
+   begin
+      if (LowerCase(Item.GetUsername()) <> Name) then
+      begin
+         Result := Item;
+         Exit;
+      end;
+   end;
+   Result := nil;
 end;
 
 function TWorld.GetPlayerCount(): Cardinal;
-var
-   Item: PAvatarItem;
 begin
-   Result := 0;
-   Item := FPlayers;
-   while (Assigned(Item)) do
-   begin
-      Inc(Result);
-      Item := Item^.Next;
-   end;
+   Result := FPlayers.Length;
 end;
 
 procedure TWorld.CheckForDisconnectedPlayers();
 var
-   Item: PAvatarItem;
-   Last: PPAvatarItem;
+   E: TAvatarEnumerator;
+   Item: TAvatar;
 begin
-   Item := FPlayers;
-   Last := @FPlayers;
-   while (Assigned(Item)) do
-   begin
-      Assert(Assigned(Item^.Value));
-      if ((not Item^.Value.HasConnectedPlayer()) and (Item^.Value.IsReadyForRemoval())) then
+   E := FPlayers.GetEnumerator();
+   try
+      while (E.MoveNext()) do
       begin
-         Last^ := Item^.Next;
-         Item^.Value.RemoveFromWorld();
-         Item^.Value.Destroy();
-         Dispose(Item);
-         Item := Last^;
-      end
-      else
-         Item := Item^.Next;
+         Item := E.Current;
+         if ((not Item.HasConnectedPlayer()) and (Item.IsReadyForRemoval())) then
+         begin
+            E.Remove();
+            Item.RemoveFromWorld();
+            Item.Free();
+         end;
+      end;
+   finally
+      E.Free();
    end;
 end;
 
@@ -2068,5 +1854,13 @@ begin
 end;
 
 initialization
+   DisposalQueue := nil;
    RegisterStorableClass(TWorld, 1);
+   RegisterStorableClass(TAtomList, 2);
+   RegisterStorableClass(TThingList, 3);
+   RegisterStorableClass(TAvatarList, 4);
+   RegisterStorableClass(TLocationList, 5);
+finalization
+   if (Assigned(DisposalQueue)) then
+      DisposalQueue.Free();
 end.

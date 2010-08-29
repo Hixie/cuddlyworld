@@ -14,7 +14,6 @@ type
       FSingularPattern, FPluralPattern: TMatcher;
       FPlural: Boolean;
     public
-      constructor Create(Name: AnsiString);
       constructor Create(Name: AnsiString; Pattern: AnsiString);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
@@ -35,7 +34,6 @@ type
       FMass: TThingMass;
       FSize: TThingSize;
     public
-      constructor Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -50,7 +48,6 @@ type
       FFindDescription: AnsiString;
       FCannotMoveExcuse: AnsiString;
     public
-      constructor Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -66,7 +63,6 @@ type
     protected
       FDestination: TLocation;
     public
-      constructor Create(Name: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -79,7 +75,6 @@ type
     protected
       FHole: THole;
     public
-      constructor Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -102,7 +97,6 @@ type
       FDirection: TCardinalDirection;
       function FarAway(Perspective: TAvatar): AnsiString; virtual;
     public
-      constructor Create(Name: AnsiString; Direction: TCardinalDirection);
       constructor Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -134,7 +128,6 @@ type
       FDescription: AnsiString;
       FMaxSize: TThingSize;
     public
-      constructor Create(Name: AnsiString; Description: AnsiString; MaxSize: TThingSize);
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; MaxSize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -175,7 +168,7 @@ type
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function IsOpen(): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      function GetBiggestCoverer: TThing;
+      function GetBiggestCoverer: TThing; { only call if IsOpen() is false meaning there is a coverer in the first place }
       function GetFeatures(): TThingFeatures; override;
    end;
 
@@ -186,8 +179,6 @@ type
       FMass: TThingMass;
       FSize: TThingSize;
     public
-      constructor Create(Ingredient: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
-      constructor Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
       constructor Create(SingularIngredients: array of AnsiString; PluralIngredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize); { ingredient must be canonical plural form }
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -215,12 +206,6 @@ implementation
 uses
    sysutils, broadcast;
 
-constructor TNamedThing.Create(Name: AnsiString);
-begin
-   {$IFDEF DEBUG} Assert(not HasPatternChars(Name)); {$ENDIF}
-   Create(Name, Name);
-end;
-
 constructor TNamedThing.Create(Name: AnsiString; Pattern: AnsiString);
 var
    TokenisedName: TTokens;
@@ -229,6 +214,7 @@ var
 begin
    inherited Create();
    FName := Name;
+   Assert(HasSingularVsPluralAnnotation(Pattern), 'The ' + Name + ' needs explicit singular and plural patterns (no slashes found in "' + Pattern + '").');
    CompilePattern(Pattern, FSingularPattern, FPluralPattern);
    TokenisedName := TokeniseCanonically(Name);
    NameIsSingular := FSingularPattern.Matches(TokenisedName, 0) = Length(TokenisedName);
@@ -333,12 +319,6 @@ end;
 {$ENDIF}
 
 
-constructor TStaticThing.Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
-begin
-   {$IFDEF DEBUG} Assert(not HasPatternChars(Name)); {$ENDIF}
-   Create(Name, Name, Description, Mass, Size);
-end;
-
 constructor TStaticThing.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
 begin
    inherited Create(Name, Pattern);
@@ -378,12 +358,6 @@ begin
    Result := FDescription;
 end;
 
-
-constructor TScenery.Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
-begin
-   { needed for default values }
-   inherited;
-end;
 
 constructor TScenery.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
@@ -444,12 +418,6 @@ begin
 end;
 
 
-constructor TLocationProxy.Create(Name: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
-begin
-   inherited Create(Name, Description, tmLudicrous, tsLudicrous);
-   FDestination := Destination;
-end;
-
 constructor TLocationProxy.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
@@ -478,12 +446,6 @@ begin
    end;
 end;
 
-
-constructor TSurface.Create(Name: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
-begin
-   { needed for default values }
-   inherited;
-end;
 
 constructor TSurface.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
@@ -564,8 +526,7 @@ const
    Size = tsGigantic;
 var
    Pile: TPile;
-   Child: PThingItem;
-   LastThing: TThing;
+   E: TThingEnumerator;
 begin
    if (Assigned(FHole)) then
    begin
@@ -582,21 +543,22 @@ begin
    else
    begin
       Pile := TEarthPile.Create(Size);
-      Child := FChildren;
-      while (Assigned(Child)) do
-      begin
-         { This is a little hairy, because we're walking the FChildren list just ahead of where we are mutating it }
-         LastThing := Child^.Value;
-         Child := Child^.Next;
-         if (LastThing.Position in tpContained) then
+      E := FChildren.GetEnumerator();
+      try
+         while (E.MoveNext()) do
          begin
-            Assert(not (LastThing is TEarthPile));
-            Pile.Add(LastThing, tpEmbedded);
+            if (E.Current.Position in tpContained) then
+            begin
+               Assert(not (E.Current is TEarthPile));
+               Pile.Add(E, tpEmbedded);
+            end;
          end;
+      finally
+         E.Free();
       end;
-      Add(Pile, tpOn);
       FHole := THole.Create('The hole is quite dirty.', Size, TEarthPile);
       Add(FHole, tpOpening);
+      Add(Pile, tpOn);
       Result := True;
       Message := 'With much effort, you dig a huge hole.';
    end;
@@ -629,12 +591,6 @@ begin
       FHole := nil;
 end;
 
-
-constructor TDistantScenery.Create(Name: AnsiString; Direction: TCardinalDirection);
-begin
-   inherited Create(Name);
-   FDirection := Direction;
-end;
 
 constructor TDistantScenery.Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
 begin
@@ -731,12 +687,6 @@ begin
    Result := True;
 end;
 
-
-constructor TBag.Create(Name: AnsiString; Description: AnsiString; MaxSize: TThingSize);
-begin
-   {$IFDEF DEBUG} Assert(not HasPatternChars(Name)); {$ENDIF}
-   Create(Name, Name, Description, MaxSize);
-end;
 
 constructor TBag.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; MaxSize: TThingSize);
 begin
@@ -837,27 +787,25 @@ end;
 
 function THole.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    Result := '';
-   Child := FChildren;
-   while (Assigned(Child)) do
+   for Child in FChildren do
    begin
-      if (Child^.Value.Position = tpOn) then
+      if (Child.Position = tpOn) then
       begin
          if (Mode = psTheThingIsOnThatThing) then
          begin
-            Result := Result + 'There ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child^.Value.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
+            Result := Result + 'There ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
             Exit;
          end
          else
          begin
             if (Length(Result) > 0) then
                Result := Result + ' ';
-            Result := Result + Child^.Value.GetPresenceStatement(Perspective, psThereIsAThingHere);
+            Result := Result + Child.GetPresenceStatement(Perspective, psThereIsAThingHere);
          end;
       end;
-      Child := Child^.Next;
    end;
    if (Length(Result) = 0) then
       Result := inherited;
@@ -870,77 +818,39 @@ end;
 
 function THole.GetDescriptionState(Perspective: TAvatar): AnsiString;
 var
-   Child, Previous, Next: PThingItem;
+   Child: TThing;
    ContentsSize: TThingSizeManifest;
-   Count: Cardinal;
-   HaveMultipleOverflowing: Boolean;
-   Result1, Result2, Result3: AnsiString;
+   OverflowedChildren: TThingList;
 begin
    Result := '';
    if (IsOpen()) then
    begin
-      { Reverse the child list so that the next algorithm can skip the earliest-added things (which are usually at the end of the list) }
-      Next := FChildren;
-      FChildren := nil;
-      while (Assigned(Next)) do
-      begin
-         Previous := FChildren;
-         FChildren := Next;
-         Next := FChildren^.Next;
-         FChildren^.Next := Previous;
-      end;
+      Zero(ContentsSize);
+      OverflowedChildren := nil;
       try
-         Count := 0;
-         Result1 := '';
-         Result2 := '';
-         Result3 := '';
-         HaveMultipleOverflowing := False;
-         Zero(ContentsSize);
-         Child := FChildren;
-         while (Assigned(Child)) do
+         for Child in FChildren do
          begin
-            if (Child^.Value.Position = tpIn) then
+            if (Child.Position = tpIn) then
             begin
-               ContentsSize := ContentsSize + Child^.Value.GetOutsideSizeManifest();
+               ContentsSize := ContentsSize + Child.GetOutsideSizeManifest();
                if (ContentsSize > FSize) then
                begin
-                  Count := Count + 1;
-                  case Count of
-                    1: Result1 := Child^.Value.GetIndefiniteName(Perspective);
-                    2: Result2 := Child^.Value.GetIndefiniteName(Perspective);
-                    3: Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ';
-                   else
-                      Result3 := Child^.Value.GetIndefiniteName(Perspective) + ', ' + Result3;
-                  end;
-                  HaveMultipleOverflowing := (Count > 1) or Child^.Value.IsPlural(Perspective);
+                  if (not Assigned(OverflowedChildren)) then
+                     OverflowedChildren := TThingList.Create();
+                  OverflowedChildren.AppendItem(Child);
                end;
             end;
-            Child := Child^.Next;
          end;
-         if (Count > 0) then
+         if (Assigned(OverflowedChildren)) then
          begin
-            Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; at the top of it ' + TernaryConditional('is', 'are', HaveMultipleOverflowing) + ' ';
-            case Count of
-              1: Result := Result + Result1;
-              2: Result := Result + Result2 + ' and ' + Result1;
-             else
-                Result := Result + Result3 + Result2 + ', and ' + Result1;
-            end;
-            Result := Result + '.';
+            Assert(OverflowedChildren.Length > 0);
+            Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; ' +
+                      'at the top of it ' + TernaryConditional('is', 'are', (OverflowedChildren.Length > 1) or (OverflowedChildren.First.IsPlural(Perspective))) + ' ' +
+                      OverflowedChildren.GetIndefiniteString(Perspective, 'and') + '.';
          end;
       finally
-         { Put the list back in the original order }
-         { We don't do this at the same time as the above algorithm so that exceptions don't leave the list in an unstable order }
-         { (the reversal itself is exception-safe) }
-         Next := FChildren;
-         FChildren := nil;
-         while (Assigned(Next)) do
-         begin
-            Previous := FChildren;
-            FChildren := Next;
-            Next := FChildren^.Next;
-            FChildren^.Next := Previous;
-         end;
+         if (Assigned(OverflowedChildren)) then // not strictly necessary
+            OverflowedChildren.Free();
       end;
    end;
 end;
@@ -1030,7 +940,8 @@ end;
 
 procedure THole.HandleAdd(Thing: TThing; Blame: TAvatar);
 var
-   Child: PThingItem;
+   Child: TThing;
+   E: TThingEnumerator;
    PileSize: TThingSizeManifest;
    OldParent: TAtom;
    OldThing: TThing;
@@ -1048,49 +959,57 @@ begin
       if (Thing.Position = tpIn) then
       begin
          Zero(PileSize);
-         Child := FChildren;
-         while (Assigned(Child)) do
-         begin
-            if ((Child^.Value is FPileClass) and (Child^.Value.Position = tpIn)) then
-               PileSize := PileSize + Child^.Value.GetOutsideSizeManifest();
-            Child := Child^.Next;
-         end;
+         for Child in FChildren do
+            if ((Child is FPileClass) and (Child.Position = tpIn)) then
+               PileSize := PileSize + Child.GetOutsideSizeManifest();
          if (PileSize >= FSize) then
          begin
-            // { Check all descendants for TAvatars, to avoid burying them }
-            // DoNavigation(Self, FParent.GetDefaultAtom(), cdOut, Avatar);
+            // { Check all descendants for TAvatars, to avoid burying them alive }
+            // for Child in Descendants do
+            //    if Child is TAvatar do
+            //       DoNavigation(Avatar.FParent, FParent.GetDefaultAtom(), cdOut, Avatar);
             { Fill hole and bury treasure }
             DoBroadcast([FParent], nil, [C(M(@Blame.GetDefiniteName)), SP, MP(Blame, M('fills'), M('fill')), SP, M(@GetDefiniteName), M(' with '), M(@Thing.GetDefiniteName), M('.')]);
             OldParent := FParent;
             FParent.Remove(Self); { have to do this first so that the Surface switches to using itself as an inside }
             Zero(PileSize);
-            while (Assigned(FChildren)) do
-            begin
-               OldThing := FChildren^.Value;
-               Assert(not (OldThing is TAvatar));
-               if (OldThing is FPileClass) then
+            E := FChildren.GetEnumerator();
+            try
+               while (E.MoveNext()) do
                begin
-                  { the earth disappears }
-                  OldThing.Position := tpAt
-               end
-               else
-               if (OldThing.Position = tpIn) then
-               begin
-                  { make sure we're not burrying too much (currently this won't trigger, since you can't fill an overfilled hole) }
-                  PileSize := PileSize + OldThing.GetOutsideSizeManifest();
-                  if (PileSize > FSize) then
-                     OldThing.Position := tpOn;
+                  OldThing := E.Current;
+                  Assert(not (OldThing is TAvatar));
+                  { first check a few edge cases }
+                  if (OldThing is FPileClass) then
+                  begin
+                     { set it up to be removed below }
+                     OldThing.Position := tpAt;
+                  end
+                  else
+                  if (OldThing.Position = tpIn) then
+                  begin
+                     { make sure we're not burrying too much (currently this won't trigger, since you can't fill an overfilled hole) }
+                     PileSize := PileSize + OldThing.GetOutsideSizeManifest();
+                     Assert(PileSize <= FSize);
+                     if (PileSize > FSize) then
+                        OldThing.Position := tpOn;
+                  end;
+                  { now move or remove the items in question }
+                  if (OldThing.Position in [tpIn, tpOn]) then
+                  begin
+                     { keep these in play }
+                     OldParent.Add(E, OldThing.Position);
+                  end
+                  else
+                  begin
+                     { dump these }
+                     Remove(E);
+                     OldThing.Free(); // strictly speaking should be Destroy
+                  end;
                end;
-               if (OldThing.Position in [tpIn, tpOn]) then
-               begin
-                  OldParent.Add(OldThing, OldThing.Position);
-               end
-               else
-               begin
-                  Remove(OldThing);
-                  OldThing.Destroy();
-               end;
-               Assert((not Assigned(FChildren)) or (FChildren^.Value <> OldThing));
+               Assert(FChildren.Length = 0);
+            finally
+               E.Free();
             end;
             // announce the hole is filled
             QueueForDisposal(Self);
@@ -1110,17 +1029,15 @@ end;
 
 function THole.IsOpen(): Boolean;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
-   Child := FChildren;
-   while (Assigned(Child)) do
+   for Child in FChildren do
    begin
-      if (Child^.Value.Position = tpOn) then
+      if (Child.Position = tpOn) then
       begin
          Result := False;
          Exit;
       end;
-      Child := Child^.Next;
    end;
    Result := True;
 end;
@@ -1137,17 +1054,13 @@ end;
 
 function THole.GetBiggestCoverer: TThing;
 var
-   Child: PThingItem;
+   Child: TThing;
 begin
    Assert(not IsOpen());
    Result := nil;
-   Child := FChildren;
-   while (Assigned(Child)) do
-   begin
-      if ((Child^.Value.Position = tpOn) and ((not (Assigned(Result))) or (Result.GetOutsideSizeManifest() < Child^.Value.GetOutsideSizeManifest()))) then
-         Result := Child^.Value;
-      Child := Child^.Next;
-   end;
+   for Child in FChildren do
+      if ((Child.Position = tpOn) and ((not (Assigned(Result))) or (Result.GetOutsideSizeManifest() < Child.GetOutsideSizeManifest()))) then
+         Result := Child;
    Assert(Assigned(Result));
 end;
 
@@ -1157,16 +1070,6 @@ begin
    Result := Result + [tfCanHaveThingsPushedOn, tfCanHaveThingsPushedIn];
 end;
 
-
-constructor TPile.Create(Ingredient: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
-begin
-   Create([Ingredient], [Ingredient], Description, Mass, Size);
-end;
-
-constructor TPile.Create(Ingredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
-begin
-   Create(Ingredients, Ingredients, Description, Mass, Size);
-end;
 
 constructor TPile.Create(SingularIngredients: array of AnsiString; PluralIngredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
 var
@@ -1282,7 +1185,7 @@ end;
 
 constructor TEarthPile.Create(Size: TThingSize);
 begin
-   inherited Create(['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, Size], Size);
+   inherited Create(['earth', 'dirt', 'soil'], ['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, Size], Size);
 end;
 
 

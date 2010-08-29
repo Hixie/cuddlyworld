@@ -9,10 +9,11 @@ uses
 
 { reserved ranges of keys:
    1..99999: libraries
-        10s: player
-        20s: matcher
-      1000s: things
-      2000s: locations
+   |  1..10: world (TWorld, TThingList, etc)
+   |    10s: player
+   |    20s: matcher
+   |  1000s: things
+   |  2000s: locations
     100000+: game-specific }
 
 type

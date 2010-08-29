@@ -65,6 +65,7 @@ procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMat
 
 {$IFDEF DEBUG}
 function HasPatternChars(S: AnsiString): Boolean;
+function HasSingularVsPluralAnnotation(S: AnsiString): Boolean;
 {$ENDIF}
 
 implementation
@@ -264,9 +265,9 @@ begin
       J := R;
       P := MasterList[(L + R) div 2];
       repeat
-         while P > MasterList[I] do
+         while (P > MasterList[I]) do
             I := I + 1;
-         while P < MasterList[J] do
+         while (P < MasterList[J]) do
             J := J - 1;
          if (I <= J) then
          begin
@@ -1627,17 +1628,22 @@ end;
 {$IFDEF DEBUG}
 function HasPatternChars(S: AnsiString): Boolean;
 begin
-   Result := (Pos(S, '+') > 0) or
-             (Pos(S, '?') > 0) or
-             (Pos(S, '/') > 0) or
-             (Pos(S, '(') > 0) or
-             (Pos(S, ')') > 0) or
-             (Pos(S, '\') > 0) or
-             (Pos(S, '@') > 0) or
-             (Pos(S, '*') > 0) or
-             (Pos(S, '#') > 0) or
-             (Pos(S, '%') > 0) or
-             (Pos(S, '&') > 0);
+   Result := (Pos('+', S) > 0) or
+             (Pos('?', S) > 0) or
+             (Pos('/', S) > 0) or
+             (Pos('(', S) > 0) or
+             (Pos(')', S) > 0) or
+             (Pos('\', S) > 0) or
+             (Pos('@', S) > 0) or
+             (Pos('*', S) > 0) or
+             (Pos('#', S) > 0) or
+             (Pos('%', S) > 0) or
+             (Pos('&', S) > 0);
+end;
+
+function HasSingularVsPluralAnnotation(S: AnsiString): Boolean;
+begin
+   Result := (Pos('/', S) > 0);
 end;
 {$ENDIF}
 

@@ -121,7 +121,7 @@ begin
       begin
          if (FExpectations[FPosition].SkipUntilFound) then
          begin
-{$IFDEF VERBOSE}            Writeln('not testing the validity of: ' + Message); {$ENDIF}
+//{$IFDEF VERBOSE}            Writeln('not testing the validity of: ' + Message); {$ENDIF}
             Exit;
          end;
          raise ETestError.Create('Failed in test ' + FTest + ':' + #10 + Error + '.');
@@ -345,142 +345,177 @@ procedure TestMechanics();
       Kitchen := TFeaturelessOutdoorLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.');
 
       { Camp }
-      CampMountain := TDistantScenery.Create('mountain', cdNorth);
+      CampMountain := TDistantScenery.Create('mountain', 'mountain/mountains', cdNorth);
       Camp.Add(CampMountain, tpAroundImplicit);
       CampForest := TScenery.Create('forest', '((forest/forests (of trees)?) tree/trees)@', 'The forest is dense and impassable.');
       Camp.Add(CampForest, tpAroundImplicit);
-      Camp.GetSurface().Add(TStaticThing.Create('penny', 'penny/pennies', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
-      Camp.GetSurface().Add(TStaticThing.Create('MacGuffin', 'MacGuffin/MacGuffins', 'The MacGuffin displays outward signs of being avian in nature.', tmHeavy, tsBig), tpOn);
       Camp.GetSurface().Add(TPile.Create(['leaf'], ['leaves'], 'It appears someone has collected fallen leaves from the forest. Possibly the entire forest, given how big the pile is.', tmLight, tsGigantic), tpOn);
+      Camp.GetSurface().Add(TStaticThing.Create('MacGuffin', 'MacGuffin/MacGuffins', 'The MacGuffin displays outward signs of being avian in nature.', tmHeavy, tsBig), tpOn);
+      Camp.GetSurface().Add(TStaticThing.Create('penny', 'penny/pennies', 'The penny is a copper coin of little value.', tmLight, tsSmall), tpOn);
 
       { Cliff }
-      CliffMountain := TScenery.Create('mountain', 'From here you cannot get a good sense of the size of the mountain. Its cliff face dominates your view.');
+      CliffMountain := TScenery.Create('mountain', 'mountain/mountains', 'From here you cannot get a good sense of the size of the mountain. Its cliff face dominates your view.');
       (CliffMountain as TScenery).FindDescription := 'The mountain towers high above you.';
       Cliff.Add(CliffMountain, tpAtImplicit);
-      CliffCliff := TScenery.Create('cliff', 'The cliff consists of a sheer rock face with a cave entrace in it.');
+      CliffCliff := TScenery.Create('cliff', '((sheer rock cliff/cliffs)& (rock face/faces))@', 'The cliff consists of a sheer rock face with a cave entrace in it.');
       CliffMountain.Add(CliffCliff, tpPartOfImplicit);
       CliffForest := TScenery.Create('forest', '((forest/forests (of trees)?) tree/trees)@', 'The forest is dense and impassable.');
       Cliff.Add(CliffForest, tpAroundImplicit);
-      CliffCamp := TDistantScenery.Create('camp', cdSouth);
+      CliffCamp := TDistantScenery.Create('camp', 'camp/camps', cdSouth);
       Cliff.Add(CliffCamp, tpAroundImplicit);
-      Cliff.GetSurface().Add(TSpade.Create(), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large red balloon', '((large huge massive)@ red balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large orange balloon', '((large huge massive)@ orange balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large yellow balloon', '((large huge massive)@ yellow balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large green balloon', '((large huge massive)@ green balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large blue balloon', '((large huge massive)@ blue balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large violet balloon', '((large huge massive)@ (violet purple)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large white balloon', '((large huge massive)@ white balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large black balloon', '((large huge massive)@ black balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
-      Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
       Cliff.GetSurface().Add(TStaticThing.Create('large pink balloon', '((large huge massive)@ pink balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large black balloon', '((large huge massive)@ black balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured black.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large white balloon', '((large huge massive)@ white balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured white.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large violet balloon', '((large huge massive)@ (violet purple)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured violet.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large blue balloon', '((large huge massive)@ blue balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured blue.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large green balloon', '((large huge massive)@ green balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured green.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large yellow balloon', '((large huge massive)@ yellow balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured yellow.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large orange balloon', '((large huge massive)@ orange balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured orange.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TStaticThing.Create('large red balloon', '((large huge massive)@ red balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured red.', tmLight, tsMassive), tpOn);
+      Cliff.GetSurface().Add(TSpade.Create(), tpOn);
+
 
       { Cave 1 }
-      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
-      Cave1.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
-      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
-      Cave1.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
-      Cave1.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
-      Cave1.GetSurface().Add(TSpade.Create(), tpOn);
+
       Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
       Cave1.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
-      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
       Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
-      Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
+
+      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
       Cave1.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
+      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+
+      Cave1.GetSurface().Add(TSpade.Create(), tpOn);
+
+      Thing := TPile.Create(['rock'], ['rocks'], 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Cave1.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TPile.Create(['diamond'], ['diamonds'], 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
+
 
       { Cave 2 }
-      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
-      Cave2.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
-      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
-      Cave2.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
-      Cave2.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
-      Cave2.GetSurface().Add(TSpade.Create(), tpOn);
+
       Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
       Cave2.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
-      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
       Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
-      Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
+
+      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
       Cave2.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
+      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+
+      Cave2.GetSurface().Add(TSpade.Create(), tpOn);
+
+      Thing := TPile.Create(['rock'], ['rocks'], 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Cave2.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TPile.Create(['diamond'], ['diamonds'], 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
+
 
       { Cave 3 }
-      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
-      Cave3.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
-      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
-      Cave3.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
-      Cave3.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
-      Cave3.GetSurface().Add(TSpade.Create(), tpOn);
+
       Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
       Cave3.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
-      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
       Thing.Add(TStaticThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
-      Thing := TPile.Create('rocks', 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Thing.Add(TStaticThing.Create('lunch', 'lunch/lunches', 'There''s nothing special about the lunch.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpIn);
+
+      Cave3.GetSurface().Add(TSpade.Create(), tpOn);
+
+      Thing := TStaticThing.Create('kitchen table', '(non-descript kitchen table/tables)&', 'The kitchen table is non-descript.', tmPonderous, tsMassive);
       Cave3.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TPile.Create('diamonds', 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
+      Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('desk', '(non-descript (desk/desks table/tables)@)&', 'The desk is non-descript.', tmPonderous, tsMassive);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('dining room table', '(non-descript dining room table/tables)&', 'The dining room table is non-descript.', tmPonderous, tsMassive);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+
+      Thing := TPile.Create(['rock'], ['rocks'], 'The pile of rocks is boring and uninteresting.', tmHeavy, tsBig);
+      Cave3.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TPile.Create(['diamond'], ['diamonds'], 'The pile of diamonds is the tiniest pile of diamonds you have ever seen.', tmLight, tsSmall), tpEmbedded);
+
 
       { Cave 4 }
-      Thing := TStaticThing.Create('silver table', '(silver table/tables)&', 'The table is made of silver.', tmPonderous, tsMassive);
-      Cave4.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
-      Thing := TStaticThing.Create('stainless steel table', '(stainless steel table/tables)&', 'The table is made of stainless steel.', tmPonderous, tsMassive);
-      Cave4.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+
+      Cave4.GetSurface().Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpOn);
+
       Thing := TStaticThing.Create('plastic table', '(plastic table/tables)&', 'The table is made of plastic.', tmPonderous, tsMassive);
       Cave4.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
-      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
       Thing.Add(TStaticThing.Create('plastic knife', '(plastic (knife/knives utensil/utensils)@)&', 'The knife is made of plastic.', tmLight, tsSmall), tpOn);
-      Cave4.GetSurface().Add(TStaticThing.Create('wooden spoon', '((wooden wood)@ (spoon/spoons utensil/utensils)@)&', 'The spoon is made of wood.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic fork', '(plastic (fork/forks utensil/utensils)@)&', 'The fork is made of plastic.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('plastic spoon', '(plastic (spoon/spoons utensil/utensils)@)&', 'The spoon is made of plastic.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('stainless steel table', '(stainless steel table/tables)&', 'The table is made of stainless steel.', tmPonderous, tsMassive);
+      Cave4.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel knife', '(stainless steel (knife/knives utensil/utensils)@)&', 'The knife is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel fork', '(stainless steel (fork/forks utensil/utensils)@)&', 'The fork is made of stainless steel.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('stainless steel spoon', '(stainless steel (spoon/spoons utensil/utensils)@)&', 'The spoon is made of stainless steel.', tmLight, tsSmall), tpOn);
+
+      Thing := TStaticThing.Create('silver table', '(silver table/tables)&', 'The table is made of silver.', tmPonderous, tsMassive);
+      Cave4.GetSurface().Add(Thing, tpOn);
+      Thing.Add(TStaticThing.Create('silver knife', '(silver (knife/knives utensil/utensils)@)&', 'The knife is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver fork', '(silver (fork/forks utensil/utensils)@)&', 'The fork is made of silver.', tmLight, tsSmall), tpOn);
+      Thing.Add(TStaticThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
+
       Cave4.Add(TScenery.Create('cave paintings', 'cave? painting/paintings', 'The cave paintings are non-descript.'), tpAt);
+
+
+      { Flower Room}
 
       Thing := TStaticThing.Create('red table', '(red table/tables)&', 'The table is red.', tmHeavy, tsBig);
       FlowerRoom.GetSurface().Add(Thing, tpOn);
       Thing.Add(TStaticThing.Create('red vase', '(red vase/vases)&', 'The vase is red.', tmLight, tsSmall), tpOn);
+
       Thing := TStaticThing.Create('blue table', '(blue table/tables)&', 'The table is blue.', tmHeavy, tsBig);
       FlowerRoom.GetSurface().Add(Thing, tpOn);
       Thing.Add(TStaticThing.Create('blue vase', '(blue vase/vases)&', 'The vase is blue.', tmLight, tsSmall), tpOn);
 
+
+      { Kitchen }
+
       Thing := TStaticThing.Create('wooden table', '(brown wooden table/tables)&', 'The table is made of brown wood.', tmHeavy, tsBig);
       Kitchen.GetSurface().Add(Thing, tpOn);
+
       Thing2 := TStaticThing.Create('fruit plate', '(fruit plate/plates)&', 'The plate is intended to hold fruit.', tmLight, tsSmall);
       Thing.Add(Thing2, tpOn);
       Thing2.Add(TStaticThing.Create('red grapes', '(red (grape/grapes fruit)@)&', 'The grapes are red.', tmLight, tsSmall), tpOn);
@@ -494,19 +529,25 @@ procedure TestMechanics();
       Thing2.Add(TStaticThing.Create('orange', '(orange (orange/oranges fruit)@)&', 'The orange is orange.', tmLight, tsSmall), tpOn);
       Thing2.Add(TStaticThing.Create('apricot', '(orange (apricot/apricots fruit)@)&', 'The apricot is orange.', tmLight, tsSmall), tpOn);
       Thing2.Add(TStaticThing.Create('banana', '(yellow (banana/bananas fruit)@)&', 'The banana is yellow.', tmLight, tsSmall), tpOn);
+
       Thing2 := TContainer.Create('box', '((berry fruit)@ (box/boxes container/containers)@)&', 'The box is intended to hold berries.', tmLight, tsSmall);
       Thing.Add(Thing2, tpOn);
       Thing2.Add(TStaticThing.Create('strawberries', '(red (strawberry/strawberries berry/berries fruit)@)&', 'The strawberries are red.', tmLight, tsSmall), tpIn);
       Thing2.Add(TStaticThing.Create('blueberries', '(blue (blueberry/blueberries berry/berries fruit)@)&', 'The blueberries are blue.', tmLight, tsSmall), tpIn);
+
       Thing2 := TContainer.Create('crate', '(fruit (crate/crates container/containers)@)&', 'The crate is intended to hold fruit.', tmLight, tsSmall);
       Thing.Add(Thing2, tpOn);
       Thing2.Add(TStaticThing.Create('pineapple', '((prickly brown)# (pineapple/pineapples fruit)@)&', 'The pineapple is brown and prickly.', tmLight, tsSmall), tpIn);
       Thing2.Add(TStaticThing.Create('kiwi', '((furry brown)# (kiwi/kiwis fruit)@)&', 'The kiwi is brown and furry.', tmLight, tsSmall), tpIn);
-      Thing := TBag.Create('garbage bag', '(black ((garbage bag)& (trash bag) trashbag)@)&', 'The garbage bag is black.', tsBig);
+
+      Thing := TBag.Create('garbage bag', '(black ((garbage bag/bags)& (trash bag/bags) trashbag/trashbags)@)&', 'The garbage bag is black.', tsBig);
       Kitchen.GetSurface().Add(Thing, tpOn);
-      Thing.Add(TStaticThing.Create('rotten pineapple', '((rotten prickly brown)# (pineapple/pineapples fruit)@)&', 'The pineapple is rotten.', tmLight, tsSmall), tpIn);
-      Thing.Add(TStaticThing.Create('rotten kiwi', '((rotten furry brown)# (kiwi/kiwis fruit)@)&', 'The kiwi is rotten.', tmLight, tsSmall), tpIn);
       Thing.Add(TStaticThing.Create('rotten grapes', '((rotten red)# (grape/grapes fruit)@)&', 'The grapes is rotten.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('rotten kiwi', '((rotten furry brown)# (kiwi/kiwis fruit)@)&', 'The kiwi is rotten.', tmLight, tsSmall), tpIn);
+      Thing.Add(TStaticThing.Create('rotten pineapple', '((rotten prickly brown)# (pineapple/pineapples fruit)@)&', 'The pineapple is rotten.', tmLight, tsSmall), tpIn);
+
+
+      { Connections }
 
       Camp.ConnectCardinals(Cliff, CampForest, CampForest, CampForest);
       Camp.ConnectDiagonals(CampForest, CampForest, CampForest, CampForest);
@@ -637,8 +678,8 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all, and bag');
 
-         Proxy.ExpectString('Penny: Dropped.');
          Proxy.ExpectString('MacGuffin: Dropped.');
+         Proxy.ExpectString('Penny: Dropped.');
          Proxy.ExpectString('');
          TestPlayer.Perform('drop all but bag');
 
@@ -827,18 +868,18 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take three balloons');
 
-         Proxy.ExpectSubstring('(');
-         Proxy.ExpectSubstring('black balloon: Dropped.');
-         Proxy.ExpectSubstring('grey balloon: Dropped.');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('drop any two balloons');
+//         Proxy.ExpectSubstring('(');
+//         Proxy.ExpectSubstring('pink balloon: Dropped.');
+//         Proxy.ExpectSubstring('grey balloon: Dropped.');
+//         Proxy.ExpectString('');
+//         TestPlayer.Perform('drop any two balloons');
 
          Proxy.ExpectString('About the two balloons... I count 10, not two.');
          Proxy.ExpectString('');
          TestPlayer.Perform('drop the two balloons');
 
          Proxy.SkipEverything();
-         TestPlayer.Perform('drop all balloons');
+         TestPlayer.Perform('drop all balloons; look');
          Proxy.StopSkipping();
 
          Proxy.Test('"But"');
@@ -852,8 +893,8 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('i');
 
-         Proxy.ExpectSubstring('green');
          Proxy.ExpectSubstring('blue');
+         Proxy.ExpectSubstring('green');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all but piles and red and orange and yellow and balloon that is pink and violet and purple and white and black and gray');
 
@@ -861,12 +902,12 @@ begin
          TestPlayer.Perform('drop all balloons; look');
          Proxy.StopSkipping();
 
-         Proxy.ExpectSubstring('black');
          Proxy.ExpectSubstring('white');
          Proxy.ExpectSubstring('violet');
          Proxy.ExpectSubstring('yellow');
          Proxy.ExpectSubstring('orange');
          Proxy.ExpectSubstring('red');
+         Proxy.ExpectSubstring('black');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all balloons but pink ones, blue ones, the green one that is large, and the gray one');
 
@@ -998,15 +1039,19 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('say a and say b and');
 
-         Proxy.ExpectString('Large pink balloon: Taken.');
+         Proxy.SkipEverything();
+         TestPlayer.Perform('inventory; look');
+         Proxy.StopSkipping();
+
          Proxy.ExpectString('Pile of leaves: The pile of leaves slips through your fingers.');
+         Proxy.ExpectString('Large pink balloon: Taken.');
          Proxy.ExpectString('');
          Proxy.ExpectString('(the ground with the spade)');
          Proxy.ExpectString('With much effort, you dig a huge hole.');
          Proxy.ExpectString('');
-         Proxy.ExpectString('Large pink balloon: Dropped in the hole.');
-         Proxy.ExpectString('Spade: Dropped in the hole.');
          Proxy.ExpectString('Bag of holding: Dropped in the hole.');
+         Proxy.ExpectString('Spade: Dropped in the hole.');
+         Proxy.ExpectString('Large pink balloon: Dropped in the hole.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all and dig and drop all in hole in ground');
 
@@ -1436,9 +1481,13 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon in pile on ground');
 
+         Proxy.SkipEverything();
+         TestPlayer.Perform('inventory; look; look in hole; look in pile');
+         Proxy.StopSkipping();
+
          Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
-         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake spoons in pile and on ground');
@@ -1455,16 +1504,16 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon in ground and on pile and from the cave paintings');
 
-         Proxy.ExpectString('(the stainless steel spoon)');
-         Proxy.ExpectString('You shake the stainless steel spoon.');
+         Proxy.ExpectString('(the plastic spoon)');
+         Proxy.ExpectString('You shake the plastic spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon on ground and in pile and from the cave paintings');
 
-         Proxy.ExpectString('Which spoon on ground and in pile and from the cave paintings do you mean, the stainless steel spoon, the plastic spoon, the wooden spoon, or the silver spoon?');
+         Proxy.ExpectString('Which spoon on ground and in pile and from the cave paintings do you mean, the plastic spoon, the stainless steel spoon, the silver spoon, or the wooden spoon?');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the spoon on ground and in pile and from the cave paintings');
 
-         Proxy.ExpectString('Which spoon in pile and on ground and from the cave paintings do you mean, the stainless steel spoon, the plastic spoon, the wooden spoon, or the silver spoon?');
+         Proxy.ExpectString('Which spoon in pile and on ground and from the cave paintings do you mean, the plastic spoon, the stainless steel spoon, the silver spoon, or the wooden spoon?');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the spoon in pile and on ground and from the cave paintings');
 
@@ -1472,10 +1521,10 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all two spoons but the stainless steel spoon');
 
-         Proxy.ExpectString('(the wooden spoon)');
-         Proxy.ExpectString('You shake the wooden spoon.');
+         Proxy.ExpectString('(the plastic spoon)');
+         Proxy.ExpectString('You shake the plastic spoon.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('shake wooden spoon in pile and from a spoon');
+         TestPlayer.Perform('shake plastic spoon in pile and from a spoon');
 
          Proxy.SkipEverything();
          TestPlayer.Perform('drop all then look then west');
@@ -1661,6 +1710,10 @@ begin
          TestPlayer.Perform('north and east and south and take sack and south and south and take bag of holding and north and north and north and west and south');
          Proxy.ExpectDone();
 
+         Proxy.SkipEverything();
+         TestPlayer.Perform('inventory; look');
+         Proxy.StopSkipping();
+
          Proxy.ExpectString('Which bag do you mean, the black garbage bag, the elongated brown sack, or the embroidered bag of holding labeled Tester?');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine bag');
@@ -1677,7 +1730,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take garbage bag');
 
-         Proxy.ExpectString('Which bag do you mean, the elongated brown sack, the black garbage bag, or the embroidered bag of holding labeled Tester?');
+         Proxy.ExpectString('Which bag do you mean, the embroidered bag of holding labeled Tester, the black garbage bag, or the elongated brown sack?');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine bag');
 
@@ -2039,8 +2092,8 @@ type
    end;
 
 type
-   TMoleculeEnumerator = specialize TGenericLinkedListEnumerator<TMolecule>;
-   TMoleculeList = specialize TLinkedList<TMolecule, TMoleculeEnumerator>;
+   TMoleculeEnumerator = specialize TGenericStorableListEnumerator<TMolecule>;
+   TMoleculeList = specialize TStorableList<TMolecule, TMoleculeEnumerator>;
 
 procedure TestLists();
 var
@@ -2067,139 +2120,118 @@ begin
    Mol1 := TMolecule.Create();
    Mol2 := TMolecule.Create();
    Mol3 := TMolecule.Create();
-   List1 := TMoleculeList.Create();
+   List1 := TMoleculeList.Create([slOwner]);
    List1.AppendItem(Mol1);
    Enum1 := List1.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol1, 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
 
-   List2 := TMoleculeList.Create();
+   List2 := TMoleculeList.Create([slOwner]);
    Enum1 := List2.GetEnumerator();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
    Enum1 := List1.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol1, 'Test failed');
    List2.AdoptItem(Enum1);
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
    Enum1 := List1.GetEnumerator();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
    Enum1 := List2.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol1, 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
 
    List1.AppendItem(Mol2);   
    List2.AdoptList(List1);
    Enum1 := List1.GetEnumerator();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
    Enum1 := List2.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol2, 'Test failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol1, 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol2, 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
 
    List2.AppendItem(Mol3);
    Enum1 := List2.GetEnumerator(tdForward);
-   Check(Enum1.HasCurrent(), 'Test after adding Mol3 failed');
-   Check(Enum1.GetCurrent() = Mol1, 'Test after adding Mol3 failed');
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Test after adding Mol3 failed');
-   Check(Enum1.GetCurrent() = Mol2, 'Test after adding Mol3 failed');
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Test after adding Mol3 failed');
-   Check(Enum1.GetCurrent() = Mol3, 'Test after adding Mol3 failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test after adding Mol3 failed');
+   Check(Enum1.MoveNext(), 'Test after adding Mol3 failed');
+   Check(Enum1.Current = Mol1, 'Test after adding Mol3 failed');
+   Check(Enum1.MoveNext(), 'Test after adding Mol3 failed');
+   Check(Enum1.Current = Mol2, 'Test after adding Mol3 failed');
+   Check(Enum1.MoveNext(), 'Test after adding Mol3 failed');
+   Check(Enum1.Current = Mol3, 'Test after adding Mol3 failed');
+   Check(not Enum1.MoveNext(), 'Test after adding Mol3 failed');
    Enum1.Free();
    Enum1 := List2.GetEnumerator(tdForward);
-   Check(Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
-   Check(Enum1.GetCurrent() = Mol1, 'Test for adopting Mol2 from the middle failed');
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
-   Check(Enum1.GetCurrent() = Mol2, 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.MoveNext(), 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.Current = Mol1, 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.MoveNext(), 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.Current = Mol2, 'Test for adopting Mol2 from the middle failed');
    List1.AdoptItem(Enum1);
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
-   Check(Enum1.GetCurrent() = Mol3, 'Test for adopting Mol2 from the middle failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.MoveNext(), 'Test for adopting Mol2 from the middle failed');
+   Check(Enum1.Current = Mol3, 'Test for adopting Mol2 from the middle failed');
+   Check(not Enum1.MoveNext(), 'Test for adopting Mol2 from the middle failed');
    Enum1.Free();
    Enum1 := List1.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'Test checking Mol2 got adopted failed');
-   Check(Enum1.GetCurrent() = Mol2, 'Test checking Mol2 got adopted failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test checking Mol2 got adopted failed');
+   Check(Enum1.MoveNext(), 'Test checking Mol2 got adopted failed');
+   Check(Enum1.Current = Mol2, 'Test checking Mol2 got adopted failed');
+   Check(not Enum1.MoveNext(), 'Test checking Mol2 got adopted failed');
    Enum1.Free();
-   
+
    Enum1 := List1.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'List adoption test failed - setup');
-   Check(Enum1.GetCurrent() = Mol2, 'List adoption test failed - setup');
+   Check(Enum1.MoveNext(), 'List adoption test failed - setup');
+   Check(Enum1.Current = Mol2, 'List adoption test failed - setup');
    Enum2 := List2.GetEnumerator();
-   Check(Enum2.HasCurrent(), 'List adoption test failed - setup');
-   Check(Enum2.GetCurrent() = Mol1, 'List adoption test failed - setup');
+   Check(Enum2.MoveNext(), 'List adoption test failed - setup');
+   Check(Enum2.Current = Mol1, 'List adoption test failed - setup');
+   Enum1.Free(); { can't have any live enumerators during adoption }
    List2.AdoptList(List1);
-   Enum1.Free(); { Enum1 no longer valid after adoption }
-   Enum2.Advance();
-   Check(Enum2.HasCurrent(), 'List adoption test failed - post adoption, pre traversal');
-   Check(Enum2.GetCurrent() = Mol3, 'List adoption test failed - post adoption, pre traversal: Mol3 missing');
-   Enum2.Advance();
-   Check(Enum2.HasCurrent(), 'List adoption test failed - post adoption, failed to traverse');
-   Check(Enum2.GetCurrent() = Mol2, 'List adoption test failed - post adoption: Mol2 missing');
+   Check(Enum2.MoveNext(), 'List adoption test failed - post adoption, pre traversal');
+   Check(Enum2.Current = Mol3, 'List adoption test failed - post adoption, pre traversal: Mol3 missing');
+   Check(Enum2.MoveNext(), 'List adoption test failed - post adoption, failed to traverse');
+   Check(Enum2.Current = Mol2, 'List adoption test failed - post adoption: Mol2 missing');
    List1.AdoptItem(Enum2);
    Enum1 := List1.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol2, 'Test failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol2, 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
-   Enum2.Advance();
-   Check(not Enum2.HasCurrent(), 'Test failed');
+   Check(not Enum2.MoveNext(), 'Test failed');
    Enum2.Free();
    Enum2 := List2.GetEnumerator();
-   Check(Enum2.HasCurrent(), 'Test failed');
-   Check(Enum2.GetCurrent() = Mol1, 'Test failed');
+   Check(Enum2.MoveNext(), 'Test failed');
+   Check(Enum2.Current = Mol1, 'Test failed');
    List1.AdoptItem(Enum2);
    Enum2.Free();
    Enum1 := List1.GetEnumerator();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol2, 'Test failed');
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Test failed');
-   Check(Enum1.GetCurrent() = Mol1, 'Test failed');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol2, 'Test failed');
+   Check(Enum1.MoveNext(), 'Test failed');
+   Check(Enum1.Current = Mol1, 'Test failed');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
 
    List2.AdoptList(List1);
    Enum1 := List2.GetEnumerator(tdReverse);
-   Check(Enum1.HasCurrent(), 'Reverse test failed - List2 empty');
-   Check(Enum1.GetCurrent() = Mol1, 'Reverse test failed - Mol1 not at end');
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Reverse test failed');
-   Check(Enum1.GetCurrent() = Mol2, 'Reverse test failed - Mol2 not in middle');
-   Enum1.Advance();
-   Check(Enum1.HasCurrent(), 'Reverse test failed');
-   Check(Enum1.GetCurrent() = Mol3, 'Reverse test failed - Mol3 not at start');
-   Enum1.Advance();
-   Check(not Enum1.HasCurrent(), 'Test failed');
+   Check(Enum1.MoveNext(), 'Reverse test failed - List2 empty');
+   Check(Enum1.Current = Mol1, 'Reverse test failed - Mol1 not at end');
+   Check(Enum1.MoveNext(), 'Reverse test failed');
+   Check(Enum1.Current = Mol2, 'Reverse test failed - Mol2 not in middle');
+   Check(Enum1.MoveNext(), 'Reverse test failed');
+   Check(Enum1.Current = Mol3, 'Reverse test failed - Mol3 not at start');
+   Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
 
+   { molecules get freed by lists }
    List1.Free();
-   List2.FreeItems();
    List2.Free();
    if (Failed) then Halt(1);
 end;
