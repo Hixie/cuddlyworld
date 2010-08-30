@@ -649,7 +649,7 @@ var
    Child: TThing;
 begin
    for Child in FChildren do
-      if (FromOutside or (Child.Position in tpContained)) then { assumes that we are closed (TThing.GetAvatars solves that) }
+      if (FromOutside <> (Child.Position in tpContained)) then { assumes that we are closed (TThing.GetAvatars solves that) }
          Child.GetAvatars(List, True);
 end;
 
@@ -938,10 +938,10 @@ procedure TThing.GetAvatars(List: TAvatarList; FromOutside: Boolean);
 var
    Child: TThing;
 begin
-   if (FromOutside and (not IsOpen())) then
+   if (FromOutside and IsOpen()) then
    begin
       for Child in FChildren do
-         if (not (Child.Position in tpContained)) then
+         if (Child.Position in tpContained) then
             Child.GetAvatars(List, True);
    end
    else
@@ -1792,6 +1792,7 @@ end;
 
 procedure TWorld.AddPlayer(Avatar: TAvatar);
 begin
+   Assert(Assigned(Avatar.FParent));
    FPlayers.AppendItem(Avatar);
 end;
 
@@ -1802,7 +1803,8 @@ begin
    Name := LowerCase(Name);
    for Item in FPlayers do
    begin
-      if (LowerCase(Item.GetUsername()) <> Name) then
+      Assert(Assigned(Item.FParent));
+      if (LowerCase(Item.GetUsername()) = Name) then
       begin
          Result := Item;
          Exit;

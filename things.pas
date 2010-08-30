@@ -42,6 +42,12 @@ type
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
    end;
 
+   TFeature = class(TStaticThing)
+    public
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
+      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+   end;
+
    TScenery = class(TStaticThing)
     protected
       FUnderDescription: AnsiString;
@@ -356,6 +362,18 @@ end;
 function TStaticThing.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
 begin
    Result := FDescription;
+end;
+
+
+constructor TFeature.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
+begin
+   inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
+end;
+
+function TFeature.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
 end;
 
 
@@ -1192,11 +1210,12 @@ end;
 initialization
    RegisterStorableClass(TNamedThing,             1000);
    RegisterStorableClass(TStaticThing,            1001);
-   RegisterStorableClass(TScenery,                1002);
-   RegisterStorableClass(TLocationProxy,          1003);
-   RegisterStorableClass(TSurface,                1004);
-   RegisterStorableClass(TDistantScenery,         1005);
-   RegisterStorableClass(TContainer,              1006);
+   RegisterStorableClass(TFeature,                1002);
+   RegisterStorableClass(TScenery,                1003);
+   RegisterStorableClass(TLocationProxy,          1004);
+   RegisterStorableClass(TSurface,                1005);
+   RegisterStorableClass(TDistantScenery,         1006);
+   RegisterStorableClass(TContainer,              1007);
    RegisterStorableClass(TSpade,                  1010);
    RegisterStorableClass(TBag,                    1011);
    RegisterStorableClass(THole,                   1012);

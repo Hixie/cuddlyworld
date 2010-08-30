@@ -1,6 +1,6 @@
 {$MODE OBJFPC} { -*- text -*- }
 
-{$DEFINE VERBOSE}
+//{$DEFINE VERBOSE}
 {$DEFINE PLAY_IN_TEST_EDEN}
 
 {$INCLUDE settings.inc}
@@ -327,7 +327,7 @@ procedure TestMechanics();
    function InitTestEden: TWorld;
    var
       World: TTestWorld;
-      Camp, Cliff, Cave1, Cave2, Cave3, Cave4, FlowerRoom, Kitchen: TLocation;
+      Camp, Cliff, Cave1, Cave2, Cave3, Cave4, FlowerRoom, Kitchen, Olympus: TLocation;
       CampMountain, CampForest: TThing;
       CliffMountain, CliffForest, CliffCamp, CliffCliff: TThing;
       Thing, Thing2: TThing;
@@ -341,8 +341,9 @@ procedure TestMechanics();
       Cave2 := TFeaturelessOutdoorLocation.Create('Cave two', 'the second cave', 'a cave', 'The cave is somewhat well-lit from the south.');
       Cave3 := TFeaturelessOutdoorLocation.Create('Cave three', 'the third cave', 'a cave', 'The cave is lit from the south.');
       Cave4 := TFeaturelessOutdoorLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south.');
-      FlowerRoom := TFeaturelessOutdoorLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave. Another exit leads south.');
+      FlowerRoom := TFeaturelessOutdoorLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave, while another exit leads south. A third goes up, ascending towards the heavens.');
       Kitchen := TFeaturelessOutdoorLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.');
+      Olympus := TFeaturelessOutdoorLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor. An exit leads down.');
 
       { Camp }
       CampMountain := TDistantScenery.Create('mountain', 'mountain/mountains', cdNorth);
@@ -500,7 +501,7 @@ procedure TestMechanics();
       Cave4.Add(TScenery.Create('cave paintings', 'cave? painting/paintings', 'The cave paintings are non-descript.'), tpAt);
 
 
-      { Flower Room}
+      { Flower Room }
 
       Thing := TStaticThing.Create('red table', '(red table/tables)&', 'The table is red.', tmHeavy, tsBig);
       FlowerRoom.GetSurface().Add(Thing, tpOn);
@@ -546,6 +547,31 @@ procedure TestMechanics();
       Thing.Add(TStaticThing.Create('rotten kiwi', '((rotten furry brown)# (kiwi/kiwis fruit)@)&', 'The kiwi is rotten.', tmLight, tsSmall), tpIn);
       Thing.Add(TStaticThing.Create('rotten pineapple', '((rotten prickly brown)# (pineapple/pineapples fruit)@)&', 'The pineapple is rotten.', tmLight, tsSmall), tpIn);
 
+      Thing := TStaticThing.Create('round table', '(round table/tables)&', 'The table, perfectly circular and so wide that you can''t reach from one side to the other, is made of a very dense, black glossy material. Etched in the table top are three large geometric shapes: a square, a triangle, and an oval.', tmLudicrous, tsMassive);
+      Thing2 := TFeature.Create('square', '(((large (etched carved)@)# (square/squares (geometric shape/shapes)&)@)& (square (etching/etchings carving/carvings)@)&)@', 'The square is etched into the table.');
+      Thing2.Add(TStaticThing.Create('Astorian people', '(Astorian people/peoples)&', 'The Astorian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('Dagian people', '(Dagian people/peoples)&', 'The Dagian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('Linian people', '(Linian people/peoples)&', 'The linian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
+      Thing.Add(Thing2, tpPartOfImplicit);
+      Thing2 := TFeature.Create('triangle', '(((large (etched carved)@)# (triangle/triangles (geometric shape/shapes)&)@)& (triangle (etching/etchings carving/carvings)@)&)@', 'The triangle is etched into the table.');
+      Thing.Add(Thing2, tpPartOfImplicit);
+      Thing2 := TFeature.Create('oval', '(((large (etched carved)@ round)# (oval/ovals (geometric shape/shapes)&)@)& (oval (etching/etchings carving/carvings)@)&)@', 'The oval is etched into the table.');
+      Thing2.Add(TStaticThing.Create('Vatejian people', '(Vatejian people/peoples)&', 'The Vategian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
+      Thing.Add(Thing2, tpPartOfImplicit);
+      Thing2 := TStaticThing.Create('Striped person', '(striped person/people)&', 'The person has a stripe as their only identifying feature.', tmLight, tsSmall);
+      Thing2.Add(TFeature.Create('stripe', 'stripe/stripes', 'The stripe is an integral part of the person.'), tpPartOfImplicit);
+      Thing.Add(Thing2, tpOn);
+      Thing2 := TStaticThing.Create('Cloudy person', '(cloudy person/people)&', 'The person has a cloud as their only identifying feature.', tmLight, tsSmall);
+      Thing2.Add(TFeature.Create('cloud', 'cloud/clouds', 'The cloud is an integral part of the person.'), tpPartOfImplicit);
+      Thing.Add(Thing2, tpOn);
+      Thing2 := TStaticThing.Create('Gloved person', '(gloved person/people)&', 'The person has a glove as their only identifying feature.', tmLight, tsSmall);
+      Thing2.Add(TFeature.Create('glove', 'glove/gloves', 'The glove is an integral part of the person.'), tpPartOfImplicit);
+      Thing.Add(Thing2, tpOn);
+      Thing2 := TStaticThing.Create('Rich person', '(rich person/people)&', 'The person has riches as their only identifying feature.', tmLight, tsSmall);
+      Thing2.Add(TFeature.Create('riches', 'richness/riches', 'The riches are an integral part of the person.'), tpPartOfImplicit);
+      Thing.Add(Thing2, tpOn);
+      Olympus.GetSurface().Add(Thing, tpOn);
+
 
       { Connections }
 
@@ -558,7 +584,9 @@ procedure TestMechanics();
       Cave3.ConnectCardinals(Cave4, nil, Cave2, nil);
       Cave4.ConnectCardinals(nil, nil, Cave3, FlowerRoom);
       FlowerRoom.ConnectCardinals(nil, Cave4, Kitchen, nil);
+      FlowerRoom.ConnectVerticals(Olympus, nil);
       Kitchen.ConnectCardinals(FlowerRoom, nil, nil, nil);
+      Olympus.ConnectVerticals(nil, FlowerRoom);
 
       World.AddLocation(Camp);
       World.AddLocation(Cliff);
@@ -568,6 +596,7 @@ procedure TestMechanics();
       World.AddLocation(Cave4);
       World.AddLocation(FlowerRoom);
       World.AddLocation(Kitchen);
+      World.AddLocation(Olympus);
       World.FStartLocation := Camp;
 
       Result := World;
@@ -597,7 +626,7 @@ begin
          TestWorld.AddPlayer(TestPlayer);
          TestPlayer.AnnounceAppearance();
 
-         // Basic look test
+         { Basic look test }
          Proxy.Test('Login');
          Proxy.ExpectString('Camp Cuddlyfort');
          Proxy.SkipEverything();
@@ -609,7 +638,7 @@ begin
          TestPlayer.Perform('look');
          Proxy.ExpectDone();
 
-         // Basic parsing of things
+         { Basic parsing of things }
          Proxy.Test('Parsing of things');
          Proxy.ExpectString('I can''t see any "xyzzy" here to examine.');
          Proxy.ExpectString('');
@@ -738,7 +767,7 @@ begin
          TestPlayer.Perform('take pile that are the leaf ones');
          Proxy.ExpectDone();
 
-         // Dig and cover test
+         { Dig and cover test }
          Proxy.Test('Digging');
          Proxy.ExpectNoSubstring('I can''t see anything to move.');
          Proxy.WaitUntilString('');
@@ -772,11 +801,11 @@ begin
          Proxy.ExpectString('Moved onto the hole.');
          Proxy.ExpectString('');
          Proxy.SkipLine();
-         Proxy.ExpectSubstring('On the hole is a pile of leaves'); // examine hole
+         Proxy.ExpectSubstring('On the hole is a pile of leaves'); { examine hole }
          Proxy.ExpectString('');
-         Proxy.ExpectString('The hole is covered by a pile of leaves.'); // look in hole
+         Proxy.ExpectString('The hole is covered by a pile of leaves.'); { look in hole }
          Proxy.ExpectString('');
-         Proxy.ExpectString('To look in the ground, you first need to dig a hole in it.'); // look in ground
+         Proxy.ExpectString('To look in the ground, you first need to dig a hole in it.'); { look in ground }
          Proxy.ExpectString('');
          Proxy.ExpectString('Foot of Cliff Face');
          Proxy.ExpectNoSubstring('hole');
@@ -786,7 +815,7 @@ begin
          TestPlayer.Perform('move all n; n; dig; l; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l in hole; look in ground; l');
          Proxy.ExpectDone();
 
-         // complex parsing
+         { complex parsing }
          Proxy.Test('Thing Seeker');
          Proxy.ExpectSubstring('It is coloured pink.');
          Proxy.ExpectString('');
@@ -859,7 +888,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake balloons that are not purple and that are not red and that are not green and that are not blue and that are not pink and that are not orange and that are not yellow and that are not white');
 
-         // counting and parsing with numbers
+         { counting and parsing with numbers }
          Proxy.Test('Counting');
          Proxy.ExpectSubstring('(');
          Proxy.ExpectSubstring('balloon: Taken.');
@@ -868,6 +897,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take three balloons');
 
+// disabled because there's a bug: 'drop any x' picks at all xes, not just those being held if there some being held
 //         Proxy.ExpectSubstring('(');
 //         Proxy.ExpectSubstring('pink balloon: Dropped.');
 //         Proxy.ExpectSubstring('grey balloon: Dropped.');
@@ -949,7 +979,7 @@ begin
 
          Proxy.ExpectDone();
 
-         // overfill test
+         { overfill test }
          Proxy.Test('Overfilling');
          Proxy.ExpectString('(the pile of leaves)');
          Proxy.ExpectString('Moved onto the ground.');
@@ -991,7 +1021,7 @@ begin
          TestPlayer.Perform('move leaves onto ground; x hole; find hole; push balloons on hole; x hole; move earth on hole; find hole; move earth off; move pink out; get spade; move earth onto hole; find hole');
          Proxy.ExpectDone();
 
-         // and/then/etc tests
+         { and/then/etc tests }
          Proxy.Test('Continuation and Joins');
          Proxy.ExpectString('You say hello.');
          Proxy.ExpectString('');
@@ -1078,7 +1108,7 @@ begin
          TestPlayer.Perform('take bag, spade, ');
          Proxy.ExpectDone();
 
-         // more parsing tests
+         { more parsing tests }
          Proxy.Test('More thingseeker tests');
          Proxy.SkipEverything();
          TestPlayer.Perform('north');
@@ -1819,7 +1849,7 @@ begin
          TestWorld.AddPlayer(TestPlayer);
          TestPlayer.AnnounceAppearance();
 
-         // Starting room test
+         { Starting room test }
          Proxy.Test('Starting location');
          Proxy.ExpectString('On the stone pedestal (at the arrivals circle)');
          Proxy.WaitUntilString('');
@@ -1868,7 +1898,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the one diamond from one of the arches that is an arch and is pink');
 
-         // test round-tripping
+         { test round-tripping }
          Proxy.Test('Round-tripping');
          RegisterStorableClass(TTestPlayer, 19);
          StoreObjectToFile('/tmp/world.dat.$$$', TestWorld, kSaveDataVersion);
