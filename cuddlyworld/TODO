@@ -2,7 +2,6 @@ DONE
 
 THING SEEKER IMPROVEMENTS
  + move the way we refuse "that is all" to "that is"' CheckContext()
- + n;n;take sack;n;n;n;w;s;put sack in garbage bag;take garbage bag;shake bag => assertion error
  + "drop all but spade and sword" should work
  + "take fruit in bucket in hole"
  + "take fruit in container that is bucket in hole"
@@ -19,6 +18,7 @@ THING SEEKER IMPROVEMENTS
  + "take blue from red BUT NOT big" - BUT NOT, AND NOT are equivalents of ThatIs for exclusion
  + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
+ + "drop all" when holding something that contains something drops the contained things separately (first taking them)
  + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
     - this basically means reworking how the "scope" mechanism works so that it implicitly filters each overall clause, if they all would still match something
     - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one
@@ -97,6 +97,7 @@ THINGS
  + When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
  + taking something with things on it should make the things fall off
  + throwing - "throw MacGuffin north": I don't understand how to "throw".
+ + "push things off table" doesn't work (pushing things off)
  + see whether "put x in ground" does things differently when the ground has a hole that is covered (see "// xxx" in things.pas TSurface.GetInside)
  + TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
  + digging a pile of earth should reveal all the things in the pile and put them on the ground next to the pile
@@ -134,6 +135,7 @@ THINGS
  + "empty bag on table"
  + if a container is closed and you try to put something inside it, it should implicitly try to open it
  + dropping something should put it at the end of the list, not the start
+ + "drop things down" when there's a down exit
 
 NETWORK
  + password command
@@ -142,6 +144,9 @@ NETWORK
  + Sometimes the server just dies silently (killed by the kernel?).
 
 WORLD
+ + we should still describe non-implicit things that are on implicit things
+ + descriptions of locations should not list exits that are listed in the description
+    - basically, exits should be able to be labeled as implicit
  + Players should have PartOfs: eyes, hands, etc
  + Players should have Implicits: "you", "time" ("take time"), etc
  + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
@@ -178,3 +183,4 @@ MORE NOTES
  http://www.brasslantern.org/writers/iftheory/tads3andi7.html
  http://www.brasslantern.org/writers/iftheory/i7observations.html
  http://www.brasslantern.org/writers/iftheory/autonomousnpcs.html
+ http://www.mud.co.uk/richard/imucg2.htm

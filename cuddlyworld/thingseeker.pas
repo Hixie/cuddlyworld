@@ -1546,42 +1546,150 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() called with Thing=', Thing.GetDefiniteName(nil), ', Count=', Count); {$ENDIF}
 {$IFDEF DEBUG_SEEKER} if (gnSingular in GrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() GrammaticalNumber contains gnSingular'); {$ENDIF}
 {$IFDEF DEBUG_SEEKER} if (gnPlural in GrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() GrammaticalNumber contains gnPlural'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnSingular in FCurrentBestGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentBestGrammaticalNumber contains gnSingular'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnPlural in FCurrentBestGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentBestGrammaticalNumber contains gnPlural'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnSingular in FCurrentPreferredGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentPreferredGrammaticalNumber contains gnSingular'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnPlural in FCurrentPreferredGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentPreferredGrammaticalNumber contains gnPlural'); {$ENDIF}
    Assert(Assigned(FCurrentBestThingList));
    if (Count < FCurrentBestLength) then
       Exit;
    if (Count > FCurrentBestLength) then
    begin
-{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() nuking list so far, this is longer'); {$ENDIF}
       FCurrentBestThingList.Empty();
       FCurrentBestLength := Count;
       FCurrentBestGrammaticalNumber := [];
    end;
    if (FCurrentBestGrammaticalNumber <> GrammaticalNumber) then
    begin
+      { We need to fine tune the FCurrentBestGrammaticalNumber to match the
+        GrammaticalNumber of this thing, to make sure we're not adding
+        something that is a subset of the FCurrentBestGrammaticalNumber }
+
+//   preferred    this      best
+
       if (FCurrentBestGrammaticalNumber = []) then
       begin
-         FCurrentBestGrammaticalNumber := GrammaticalNumber;
-         Assert(FCurrentBestThingList.Length = 0, 'FCurrentBestThingList still contains ' + FCurrentBestThingList.GetDefiniteString(nil, 'and') + ' (length=' + IntToStr(FCurrentBestThingList.Length) + ')');
+
+//      s          s          -  use it, we have nothing else
+//      p          p          -
+//      b          b          -
+//      b          s          -
+//      b          p          -
+
+//      s          p          -  use it, reluctantly
+//      p          s          -
+
+//      s          b          -  use it, but claim to be the preferred value
+//      p          b          -
+
+         { We don't have anything good so far. }
+         Assert(FCurrentBestThingList.Length = 0);
+         FCurrentBestGrammaticalNumber := GrammaticalNumber * FCurrentPreferredGrammaticalNumber; { forget we're gnAmbiguous if we want specifically singular or plural }
+         if (FCurrentBestGrammaticalNumber = []) then
+            FCurrentBestGrammaticalNumber := GrammaticalNumber; { hopefully we'll find a better match later }
       end
       else
-      if (GrammaticalNumber >< FCurrentPreferredGrammaticalNumber = []) then
+      if (GrammaticalNumber * FCurrentPreferredGrammaticalNumber = []) then { intersection of this thing and what we're looking for is empty set }
       begin
-         { Either we're looking for plural and this is singular, or vice versa. Either way, not a match. }
-{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() skipping; not a match for GrammaticalNumber'); {$ENDIF}
+
+//      s          p          s  drop it, intersection of preferred and this is null
+//      p          s          p
+//      s          p          b  can't happen
+//      p          s          b  can't happen
+
+         { Either we're looking for plural and this is singular, or vice versa. Either way, not a match, and since we already have something that _is_ a match, drop it. }
+         { (we know we have something that is a match because there's only one value that isn't, and we're it, and the current best value doesn't equal our value) }
+         Assert(FCurrentPreferredGrammaticalNumber <> gnEither); { can't be, since otherwise we'd have intersected with it (we can't be []) }
+         Assert(FCurrentBestGrammaticalNumber <> gnAmbiguous); { shouldn't ever happen since we get set to the intersection when this would otherwise happen; see above }
          Exit;
       end
       else
-      if (GrammaticalNumber <> gnAmbiguous) then
+      if (FCurrentPreferredGrammaticalNumber * FCurrentBestGrammaticalNumber = []) then
       begin
-         Assert(FCurrentBestGrammaticalNumber >< gnAmbiguous = FCurrentPreferredGrammaticalNumber);
-         Assert(GrammaticalNumber = FCurrentPreferredGrammaticalNumber);
-{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() nuking list so far, this is a better match for GrammaticalNumber'); {$ENDIF}
+
+//      s          s          p  throw away current, start over
+//      p          p          s
+//      s          b          p
+//      p          b          s
+
+         { What we have matches what we want (we know because we didn't match the previous if statement),
+           and what we'd previously collected does not (we know because that's what this if statement checks). }
+         { Throw away what we have and start over, claiming to be the FCurrentPreferredGrammaticalNumber. }
          FCurrentBestThingList.Empty();
-         FCurrentBestLength := Count;
+         Assert(FCurrentBestLength = Count);
          FCurrentBestGrammaticalNumber := FCurrentPreferredGrammaticalNumber;
+      end
+      else
+      if ((GrammaticalNumber = FCurrentPreferredGrammaticalNumber) and (FCurrentBestGrammaticalNumber = gnAmbiguous)) then
+      begin
+
+//      p          p          b  narrow it down
+//      s          s          b
+
+         { What we have is consistent with what we had, but we can narrow down our parameters. }
+         { We know that our value is not ambiguous, because if it was, we'd be equal to the
+           FCurrentBestGrammaticalNumber and so would skip this whole exercise. }
+         { We know that the FCurrentPreferredGrammaticalNumber isn't ambiguous because we aren't. }
+         Assert(FCurrentPreferredGrammaticalNumber <> gnAmbiguous);
+         Assert(GrammaticalNumber <> gnAmbiguous);
+         FCurrentBestGrammaticalNumber := GrammaticalNumber;
+      end
+      else
+      if ((FCurrentBestGrammaticalNumber = FCurrentPreferredGrammaticalNumber) and (GrammaticalNumber = gnAmbiguous)) then
+      begin
+
+//      s          b          s -- do nothing
+//      p          b          p
+
+         { We're good as is. No need to do anything. }
+
+         Assert(FCurrentPreferredGrammaticalNumber <> gnAmbiguous);
+         Assert(FCurrentBestGrammaticalNumber <> gnAmbiguous);
+         FCurrentBestGrammaticalNumber := GrammaticalNumber;
+      end
+      else
+      begin
+         Assert(FCurrentPreferredGrammaticalNumber = gnEither); { all other cases are already taken care of }
+         { "take people" should prefer taking the many persons (person/people), not one of the one societies (people/peoples). }
+         { Therefore, we prefer plural. }
+         if (GrammaticalNumber = [gnSingular]) then
+         begin
+            Assert((FCurrentBestGrammaticalNumber = [gnPlural]) or (FCurrentBestGrammaticalNumber = gnBoth));
+//      b          s          b
+//      b          s          p
+            Exit;
+         end
+         else
+         if (FCurrentBestGrammaticalNumber = [gnSingular]) then
+         begin
+            Assert((GrammaticalNumber = [gnPlural]) or (GrammaticalNumber = gnBoth));
+//      b          b          s
+//      b          p          s
+            FCurrentBestThingList.Empty();
+            Assert(FCurrentBestLength = Count);
+            FCurrentBestGrammaticalNumber := [gnPlural];
+         end
+         else
+         begin
+//      b          p          b
+//      b          b          p
+            Assert(GrammaticalNumber * FCurrentBestGrammaticalNumber = [gnPlural]);
+            Assert((GrammaticalNumber = [gnPlural]) xor (FCurrentBestGrammaticalNumber = [gnPlural]));
+            Assert((GrammaticalNumber = gnBoth) xor (FCurrentBestGrammaticalNumber = gnBoth));
+            GrammaticalNumber := [gnPlural];
+         end;
       end;
    end;
-{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() adding ', Thing.GetDefiniteName(nil)); {$ENDIF}
+// else:
+//      s          s          s  leave it, this is no different
+//      p          s          s
+//      b          s          s
+//      s          p          p
+//      p          p          p
+//      b          p          p
+//      s          b          b    "sheep" matching first "sheep skin" then "sheep"
+//      p          b          b
+//      b          b          b
    FCurrentBestThingList.AppendItem(Thing);
 end;
 
