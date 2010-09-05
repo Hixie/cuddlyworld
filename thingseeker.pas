@@ -61,7 +61,7 @@ type
       procedure Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); virtual;
       function IsPlainClause(): Boolean; virtual;
       function GetPreviousOpenClause(): TAbstractClause; virtual;
-      function GetArticle(): String; virtual;
+      function GetArticle(NounPhrase: AnsiString = ''): String; virtual;
       procedure AddFilterFragment(Fragment: AnsiString);
      public
       constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: TThingList; InputFragment: AnsiString); virtual;
@@ -174,17 +174,16 @@ type
    TAbstractThatIsAreClause = class(TInclusionFilterClause)
      protected
       procedure Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); override;
-      procedure Victimise(Clause: TAbstractClause); override;
-      function WantSingular(): Boolean; virtual; abstract;
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
-     public
-      procedure CheckContext(); override;
-      procedure ReportNotRightGrammaticalNumber(); virtual;
-      procedure ReportExplicitNumber(); virtual;
    end;
    TAbstractThatIsClause = class(TAbstractThatIsAreClause)
      protected
-      function WantSingular(): Boolean; override;
+      procedure Victimise(Clause: TAbstractClause); override;
+     public
+      procedure CheckContext(); override;
+      procedure ReportNotRightGrammaticalNumber(); virtual;
+      procedure ReportThatIsAll(); virtual;
+      procedure ReportExplicitNumber(); virtual;
    end;
    TThatIsClause = class(TAbstractThatIsClause)
      protected
@@ -198,7 +197,11 @@ type
    end;
    TAbstractThatAreClause = class(TAbstractThatIsAreClause)
      protected
-      function WantSingular(): Boolean; override;
+      procedure Victimise(Clause: TAbstractClause); override;
+     public
+      procedure CheckContext(); override;
+      procedure ReportInappropriateArticle(); virtual;
+      procedure ReportExplicitNumber(); virtual;
    end;
    TThatAreClause = class(TAbstractThatAreClause)
      protected
@@ -247,17 +250,16 @@ type
    TAbstractThatIsAreNotClause = class(TExclusionFilteringClause)
      protected
       procedure Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); override;
-      procedure Victimise(Clause: TAbstractClause); override;
-      function WantSingular(): Boolean; virtual; abstract;
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
      public
-      procedure CheckContext(); override;
       procedure ReportNotRightGrammaticalNumber(); virtual;
-      procedure ReportExplicitNumber(); virtual;
    end;
    TAbstractThatIsNotClause = class(TAbstractThatIsAreNotClause)
      protected
-      function WantSingular(): Boolean; override;
+      procedure Victimise(Clause: TAbstractClause); override;
+     public
+      procedure CheckContext(); override;
+      procedure ReportThatIsAll(); virtual;
    end;
    TThatIsNotClause = class(TAbstractThatIsNotClause)
      protected
@@ -271,7 +273,10 @@ type
    end;
    TAbstractThatAreNotClause = class(TAbstractThatIsAreNotClause)
      protected
-      function WantSingular(): Boolean; override;
+      procedure Victimise(Clause: TAbstractClause); override;
+     public
+      procedure CheckContext(); override;
+      procedure ReportInappropriateArticle(); virtual;
    end;
    TThatAreNotClause = class(TAbstractThatAreNotClause)
      protected
@@ -349,6 +354,7 @@ end;
 function ESelectTooMany.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
 begin
    Assert(Length(Input) > 0);
+   Assert(FGot > FWanted);
    if (FWanted = 1) then
       Result := 'Which ' + Input + ' do you mean, ' + FClause.FThings.GetLongDefiniteString(Perspective, 'or') + '?'
    else
@@ -383,6 +389,7 @@ end;
 procedure TAbstractClause.CheckContext();
 begin
    Assert(Assigned(FPrevious) xor (Self is TStartClause));
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.CheckContext() called on a ', ClassName, ' with cfAllowExceptions=', cfAllowExceptions in FFlags, ', cfSingular=', cfSingular in FFlags, ', cfPlural=', cfPlural in FFlags, ', cfDisambiguateAnyLoneResult=', cfDisambiguateAnyLoneResult in FFlags, ', cfDisambiguateSingularLoneResult=', cfDisambiguateSingularLoneResult in FFlags, ', cfHaveThatIsClause=', cfHaveThatIsClause in FFlags, ', cfHaveThatAreClause=', cfHaveThatAreClause in FFlags, ', cfRemoveHiddenThings=', cfRemoveHiddenThings in FFlags, ', cfHadArticle=', cfHadArticle in FFlags, '; FSelectionMechanism=', FSelectionMechanism, '; FNumber=', FNumber, '; FThings=', FThings.GetDefiniteString(nil, 'and')); {$ENDIF}
 end;
 
 function TAbstractClause.AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean;
@@ -399,7 +406,7 @@ begin
    else
    if ((Peer is TThatIsClause) or (Peer is TThatIsNotClause)) then
    begin
-      Result := (cfSingular in FFlags) and not (cfAllowExceptions in Peer.FFlags);
+      Result := (cfSingular in FFlags);
       CanContinue := False;
    end
    else
@@ -435,8 +442,10 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
-function TAbstractClause.GetArticle(): AnsiString;
+function TAbstractClause.GetArticle(NounPhrase: AnsiString = ''): AnsiString;
 begin
+   if (NounPhrase = '') then
+      NounPhrase := GetFragment();
    if (cfHadArticle in FFlags) then
    begin
       case FSelectionMechanism of
@@ -470,7 +479,7 @@ begin
                  if (cfAllowExceptions in FFlags) then
                     Result := 'any'
                  else
-                    Result := IndefiniteArticle(GetFragment());
+                    Result := IndefiniteArticle(NounPhrase);
               end;
            end
            else
@@ -542,17 +551,20 @@ var
 var
    SelectionMechanism: TThingSelectionMechanism;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and')); {$ENDIF}
-   Assert((FSelectionMechanism <> tsmPickOnlyRelevantNumber) or (FNumber = 1));
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; SelectionMechanism=', FSelectionMechanism); {$ENDIF}
+   { TThingSelectionMechanism = (tsmPickAll, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber, tsmPickOnlyRelevantNumber); }
+   Assert(((FSelectionMechanism in [tsmPickAll, tsmPickSome, tsmPickOnlyRelevantNumber]) and (FNumber = 1)) or
+          ((FSelectionMechanism in [tsmPickNumber, tsmPickOnlyNumber]) and (FNumber >= 1)),
+          'FSelectionMechanism=' + IntToStr(Cardinal(FSelectionMechanism)) + '; FNumber=' + IntToStr(FNumber));
    Count := FThings.Length;
-   if (Count < FNumber) then
-   begin
-      Assert((Count > 0) or (FSelectionMechanism = tsmPickAll), 'Count=' + IntToStr(Count) + '; FSelectionMechanism=' + IntToStr(Cardinal(FSelectionMechanism)));
-      if (Count > 0) then
-         raise ESelectNotEnough.Create(Self, FNumber, Count);
-   end;
+   Assert((Count > 0) or (FSelectionMechanism = tsmPickAll), 'Count=' + IntToStr(Count) + '; FSelectionMechanism=' + IntToStr(Cardinal(FSelectionMechanism)));
    SelectionMechanism := FSelectionMechanism;
    Preselect(Self, Count, SelectionMechanism);
+   if ((Count < FNumber) and (SelectionMechanism in [tsmPickNumber, tsmPickOnlyNumber])) then
+   begin
+      Assert(Count > 0);
+      raise ESelectNotEnough.Create(Self, FNumber, Count);
+   end;
    case SelectionMechanism of
     tsmPickAll: Result := False;
     tsmPickNumber:
@@ -569,10 +581,10 @@ begin
           end
           else
           begin
-             if (Count > 7) then
+             if (Count > 8) then
                 SelectN(7)
              else
-                SelectN(Count div 2);
+                SelectN((Count div 2) + 1);
              Result := True;
           end;
        end;
@@ -720,6 +732,7 @@ var
    EarlierClause: TAbstractClause;
 begin
    inherited;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractPlainJoiningClause.CheckContext() on a ', ClassName); {$ENDIF}
    EarlierClause := FPrevious;
    while (not EarlierClause.AcceptsJoins(Self)) do
    begin
@@ -750,8 +763,8 @@ procedure TAbstractJoiningPreconditionFilterClause.CheckContext();
 var
    EarlierClause: TAbstractClause;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractJoiningPreconditionFilterClause.CheckContext() begin'); {$ENDIF}
    inherited;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractJoiningPreconditionFilterClause.CheckContext() begin'); {$ENDIF}
    EarlierClause := FPrevious;
 {$IFDEF DEBUG_SEEKER} Writeln('asking a ' + EarlierClause.ClassName); {$ENDIF}
    while ((Assigned(EarlierClause)) and (not EarlierClause.AcceptsJoins(Self))) do
@@ -839,8 +852,8 @@ var
    CurrentClause, SkipUntilClause: TAbstractClause;
    Continue: Boolean;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.CheckContext() for a ', ClassName); {$ENDIF}
    inherited;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.CheckContext() for a ', ClassName); {$ENDIF}
    CurrentClause := FPrevious;
    SkipUntilClause := CurrentClause;
    Continue := True;
@@ -1021,44 +1034,10 @@ begin
 end;
 
 
-procedure TAbstractThatIsAreClause.CheckContext();
-var
-   WantedSingular: Boolean;
-begin
-   inherited;
-   WantedSingular := WantSingular();
-   if (((WantedSingular) and (not (cfSingular in FFlags))) or
-       ((not WantedSingular) and (not (cfPlural in FFlags)))) then
-      ReportNotRightGrammaticalNumber();
-   if ((FSelectionMechanism = tsmPickOnlyNumber) and (FNumber <> 1)) then
-      ReportExplicitNumber();
-end;
-
-procedure TAbstractThatIsAreClause.Victimise(Clause: TAbstractClause);
-begin
-   inherited;
-   if (WantSingular()) then
-      Include(Clause.FFlags, cfHaveThatIsClause)
-   else
-      Include(Clause.FFlags, cfHaveThatAreClause);
-end;
-
 procedure TAbstractThatIsAreClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism, ' -- setting SelectionMechanism to tsmPickAll'); {$ENDIF}
    SelectionMechanism := tsmPickAll;
-end;
-
-procedure TAbstractThatIsAreClause.ReportNotRightGrammaticalNumber();
-begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreClause.ReportNotRightGrammaticalNumber() for a ' + ClassName); {$ENDIF}
-   Fail('You used the term "' + GetClausePrefix() + '" in a way I don''t understand.');
-end;
-
-procedure TAbstractThatIsAreClause.ReportExplicitNumber();
-begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreClause.ReportExplicitNumber() for a ' + ClassName); {$ENDIF}
-   Fail('You used the term "' + GetClausePrefix() + '" in a way I don''t understand.');
 end;
 
 class function TAbstractThatIsAreClause.IsMatch(Candidate, Condition: TThing): Boolean;
@@ -1067,9 +1046,37 @@ begin
 end;
 
 
-function TAbstractThatIsClause.WantSingular(): Boolean;
+procedure TAbstractThatIsClause.CheckContext();
 begin
-   Result := True;
+   inherited;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsClause.CheckContext() for a ', ClassName); {$ENDIF}
+   if (not (cfSingular in FFlags)) then { "everything that is the kitchen tables" }
+      ReportNotRightGrammaticalNumber();
+   if (cfAllowExceptions in FFlags) then
+      ReportThatIsAll();
+   if ((FSelectionMechanism = tsmPickOnlyNumber) and (FNumber <> 1)) then
+      ReportExplicitNumber();
+end;
+
+procedure TAbstractThatIsClause.Victimise(Clause: TAbstractClause);
+begin
+   inherited;
+   Include(Clause.FFlags, cfHaveThatIsClause)
+end;
+
+procedure TAbstractThatIsClause.ReportNotRightGrammaticalNumber();
+begin
+   Fail('What do you mean, "' + GetFragmentAnnotation() + '"?');
+end;
+
+procedure TAbstractThatIsClause.ReportThatIsAll();
+begin
+   Fail('I was with you until you said "' + GetFragmentAnnotation() + '", but then I got confused.');
+end;
+
+procedure TAbstractThatIsClause.ReportExplicitNumber();
+begin
+   Fail('How can something be ' + NumberToEnglish(FNumber) + ' things?');
 end;
 
 
@@ -1097,9 +1104,39 @@ begin
 end;
 
 
-function TAbstractThatAreClause.WantSingular(): Boolean;
+procedure TAbstractThatAreClause.CheckContext();
 begin
-   Result := False;
+   inherited;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatAreClause.CheckContext() for a ', ClassName, '; FSelectionMechanism=', FSelectionMechanism, '; cfPlural=', cfPlural in FFlags); {$ENDIF}
+   if (FNumber > 1) then
+   begin
+      Assert((FSelectionMechanism = tsmPickOnlyNumber) or (FSelectionMechanism = tsmPickNumber));
+      ReportExplicitNumber();
+   end
+   else
+   if (FSelectionMechanism in [tsmPickNumber, tsmPickOnlyNumber]) then
+   begin
+      ReportInappropriateArticle();
+   end;
+end;
+
+procedure TAbstractThatAreClause.Victimise(Clause: TAbstractClause);
+begin
+   inherited;
+   Include(Clause.FFlags, cfHaveThatAreClause);
+end;
+
+procedure TAbstractThatAreClause.ReportExplicitNumber();
+begin
+   Assert(FNumber > 1);
+   Fail('You used the term "' + GetClausePrefix() + '" and the number ' + NumberToEnglish(FNumber) + ' in ways I really couldn''t make sense of.');
+end;
+
+procedure TAbstractThatAreClause.ReportInappropriateArticle();
+begin
+   Assert(FSelectionMechanism <> tsmPickOnlyRelevantNumber);
+   Assert(GetArticle('particular') <> '');
+   Fail('I don''t understand how to choose the things that are all ' + GetArticle('particular') + ' particular "' + FInputFragment + '".');
 end;
 
 
@@ -1318,46 +1355,17 @@ begin
 end;
 
 
-procedure TAbstractThatIsAreNotClause.CheckContext();
-var
-   WantedSingular: Boolean;
-begin
-   inherited;
-   WantedSingular := WantSingular();
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreNotClause.CheckContext() for a ' + ClassName, '; WantSingular() returned ', WantedSingular); {$ENDIF}
-   if ((WantedSingular) and (not (cfSingular in FFlags))) then
-      ReportNotRightGrammaticalNumber();
-      { "that are not the kitchen table" is fine, it's only the other combinations that are bad:
-           "everything that is the kitchen tables", "all things that are the kitchen table", "everything that is not the kitchen tables" }
-   if ((FSelectionMechanism = tsmPickOnlyNumber) and (FNumber <> 1)) then
-      ReportExplicitNumber();
-end;
-
-procedure TAbstractThatIsAreNotClause.Victimise(Clause: TAbstractClause);
-begin
-   inherited;
-   if (WantSingular()) then
-      Include(Clause.FFlags, cfHaveThatIsClause)
-   else
-      Include(Clause.FFlags, cfHaveThatAreClause);
-end;
-
 procedure TAbstractThatIsAreNotClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreNotClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism, ' -- SelectionMechanism := tsmPickAll'); {$ENDIF}
-   SelectionMechanism := tsmPickAll;
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreNotClause.Preselect() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Target=', Target.ClassName, ', Count=', Count, ', SelectionMechanism=', SelectionMechanism); {$ENDIF}
+   if (SelectionMechanism <> tsmPickOnlyNumber) then
+      SelectionMechanism := tsmPickAll;
 end;
 
 procedure TAbstractThatIsAreNotClause.ReportNotRightGrammaticalNumber();
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreNotClause.ReportNotRightGrammaticalNumber() for a ' + ClassName); {$ENDIF}
-   Fail('You used the term "' + GetClausePrefix() + '" in a way I don''t understand.');
-end;
-
-procedure TAbstractThatIsAreNotClause.ReportExplicitNumber();
-begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractThatIsAreNotClause.ReportExplicitNumber() for a ' + ClassName); {$ENDIF}
-   Fail('You used the term "' + GetClausePrefix() + '" in a way I don''t understand.');
+   Fail('What do you mean, "' + GetFragmentAnnotation() + '"?');
 end;
 
 class function TAbstractThatIsAreNotClause.IsMatch(Candidate, Condition: TThing): Boolean;
@@ -1366,9 +1374,23 @@ begin
 end;
 
 
-function TAbstractThatIsNotClause.WantSingular(): Boolean;
+
+procedure TAbstractThatIsNotClause.CheckContext();
 begin
-   Result := True;
+   inherited;
+   if (not (cfSingular in FFlags)) then { "everything that is not the kitchen tables" }
+      ReportNotRightGrammaticalNumber();
+end;
+
+procedure TAbstractThatIsNotClause.Victimise(Clause: TAbstractClause);
+begin
+   inherited;
+   Include(Clause.FFlags, cfHaveThatIsClause)
+end;
+
+procedure TAbstractThatIsNotClause.ReportThatIsAll();
+begin
+   Fail('I was with you up to "' + GetFragmentAnnotation() + '".');
 end;
 
 
@@ -1396,9 +1418,25 @@ begin
 end;
 
 
-function TAbstractThatAreNotClause.WantSingular(): Boolean;
+procedure TAbstractThatAreNotClause.CheckContext();
 begin
-   Result := False;
+   inherited;
+   if (FSelectionMechanism = tsmPickNumber) then
+      ReportInappropriateArticle();
+end;
+
+procedure TAbstractThatAreNotClause.Victimise(Clause: TAbstractClause);
+begin
+   inherited;
+   Include(Clause.FFlags, cfHaveThatAreClause);
+end;
+
+procedure TAbstractThatAreNotClause.ReportInappropriateArticle();
+begin
+   if (FNumber > 1) then
+      Fail('I was with you up to "' + NumberToEnglish(FNumber) + ' ' + FInputFragment + '".')
+   else
+      Fail('I was with you up to "' + FInputFragment + '".');
 end;
 
 
@@ -1867,7 +1905,7 @@ var
             FCurrentBestThingList := TThingList.Create();
          Assert(FCurrentBestThingList.Length = 0);
          Perspective.GetSurroundingsRoot(FromOutside).FindMatchingThings(Perspective, FromOutside, True, tpEverything, tfEverything, FCurrentBestThingList);
-         AppendClause(ClauseClass.Create(0, tsmPickAll, Flags, FCurrentBestThingList, OriginalTokens[CurrentToken - 1]));
+         AppendClause(ClauseClass.Create(1, tsmPickAll, Flags, FCurrentBestThingList, OriginalTokens[CurrentToken - 1]));
          FCurrentBestThingList := nil;
          Result := True;
       end;

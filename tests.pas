@@ -733,7 +733,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the pile, some leaves, and a macguffin');
 
-         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('What do you mean, "that is the leaf ones"?');
          Proxy.ExpectString('');
          TestPlayer.Perform('take pile that is the leaf ones');
 
@@ -749,7 +749,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take piles that is the leaf one');
 
-         Proxy.ExpectString('You used the term "that are" in a way I don''t understand.');
+         Proxy.ExpectString('I don''t understand how to choose the things that are all the particular "leaf one".');
          Proxy.ExpectString('');
          TestPlayer.Perform('take piles that are the leaf one');
 
@@ -911,6 +911,18 @@ begin
          Proxy.SkipEverything();
          TestPlayer.Perform('drop all balloons; look');
          Proxy.StopSkipping();
+
+         Proxy.ExpectString('I don''t understand how to choose the things that are all the particular "leaf one".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take piles that are the leaf one and the earth one');
+
+         Proxy.ExpectString('I don''t understand how to choose the things that are all the particular "earth one".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take piles that are leaf and that are the earth one');
+
+         Proxy.ExpectString('I don''t understand how to choose the things that are all a particular "earth one".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('take piles that are an earth one');
 
          Proxy.Test('"But"');
          Proxy.ExpectSubstring('Pile of leaves:');
@@ -1118,6 +1130,101 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is not a fork from a table that is not plastic and that is not a desk');
 
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
+         Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake utensils that are some spoons');
+
+         Proxy.ExpectString('I don''t understand how to choose the things that are all a particular "spoon".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake utensils that are some spoon');
+
+         Proxy.ExpectString('You used the term "that are" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake utensil that are some spoon');
+
+         Proxy.ExpectString('You used the term "that are" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake utensil that are some spoons');
+
+         Proxy.ExpectString('I was with you up to "spoon".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake utensils that are not some spoon');
+
+         Proxy.ExpectString('I was with you up to "spoon".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake utensils that are not a spoon');
+
+         Proxy.ExpectString('(the wooden spoon and the plastic spoon)');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not the three silver utensils');
+
+         Proxy.ExpectString('I was with you up to "three silver utensils".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not three silver utensils');
+
+         Proxy.ExpectString('(the wooden spoon and the plastic spoon)');
+         Proxy.ExpectString('Wooden spoon: You shake the wooden spoon.');
+         Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not all three silver utensils');
+
+         Proxy.ExpectString('About the three wooden utensils... I can only find one: the wooden spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not the three wooden utensils');
+
+         Proxy.ExpectString('About the three wooden utensils... I can only find one: the wooden spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not all three wooden utensils');
+
+         Proxy.ExpectString('I was with you up to "three wooden utensils".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not three wooden utensils');
+
+         Proxy.ExpectString('I was with you up to "eight wooden utensils".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all spoons that are not 8 wooden utensils');
+
+         Proxy.ExpectString('You used the term "that are not" in a way I don''t understand.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoon that are not the three silver utensils');
+
+         Proxy.ExpectString('You used the term "that are" and the number three in ways I really couldn''t make sense of.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are the three silver utensils');
+
+         Proxy.ExpectString('You used the term "that are" and the number two in ways I really couldn''t make sense of.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake the spoons and forks that are the two silver utensils and the two wooden utensils');
+
+         Proxy.ExpectString('About the two silver utensils... I count three, not two.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not the two silver utensils');
+
+         Proxy.ExpectString('You used the term "that are" and the number three in ways I really couldn''t make sense of.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake spoons that are three silver utensils');
+
+         Proxy.ExpectString('You used the term "that are" and the number two in ways I really couldn''t make sense of.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake spoons that are two silver utensils');
+
+         Proxy.ExpectString('I was with you up to "two silver utensils".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not two silver utensils');
+
+         Proxy.ExpectString('I was with you up to "two silver utensils".');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all spoons that are not two silver utensils');
+
+         Proxy.ExpectString('About the two silver utensils... I count three, not two.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake some spoons that are not all two silver utensils');
+
          Proxy.ExpectString('(the plastic knife and the plastic spoon)');
          Proxy.ExpectString('Plastic knife: You shake the plastic knife.');
          Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
@@ -1302,15 +1409,15 @@ begin
          TestPlayer.Perform('drop all then look then north');
          Proxy.StopSkipping();
 
-         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('I was with you until you said "that is all", but then I got confused.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is all but fork and knife');
 
-         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('I was with you until you said "that is all", but then I got confused.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is all but some fork and a knife');
 
-         Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
+         Proxy.ExpectString('I was with you until you said "that is all", but then I got confused.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the utensil that is all but some fork and two knives');
 
@@ -1388,6 +1495,16 @@ begin
          Proxy.ExpectSubstring('Silver spoon: ');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all that is silver but fork');
+
+         Proxy.ExpectSubstring('Wooden spoon: ');
+         Proxy.ExpectSubstring('Plastic knife: ');
+         Proxy.ExpectSubstring('Plastic spoon: ');
+         Proxy.ExpectSubstring('Stainless steel knife: ');
+         Proxy.ExpectSubstring('Stainless steel spoon: ');
+         Proxy.ExpectSubstring('Silver knife: ');
+         Proxy.ExpectSubstring('Silver spoon: ');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('shake all the utensils that are not the three forks');
 
          Proxy.SkipEverything();
          TestPlayer.Perform('put silver fork on plastic table');

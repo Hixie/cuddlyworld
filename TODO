@@ -1,7 +1,4 @@
-DONE
-
 THING SEEKER IMPROVEMENTS
- + move the way we refuse "that is all" to "that is"' CheckContext()
  + "drop all but spade and sword" should work
  + "take fruit in bucket in hole"
  + "take fruit in container that is bucket in hole"
