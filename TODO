@@ -1,39 +1,5 @@
-THING SEEKER IMPROVEMENTS
- + "drop all but spade and sword" should work
- + "take fruit in bucket in hole"
- + "take fruit in container that is bucket in hole"
- + "that is all" shouldn't apply to a singular clause, it just makes things weird (e.g. "the spoon that is all but a spoon" can still be something if there are two spoons)
- + "take everything THAT IS FROM an arch"
- + "shake all fruit THAT ARE NOT ON the plate"
- + "take everything THAT IS OPEN"
-    - add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
- + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones THAT ARE small"
- + "FROM WITHIN <object>", "FROM INSIDE", "FROM ATOP", etc
- + "look at arch TO the north"
- + "take all bottles EXCEPT bottles from table"
- + "take all bottles from tables, chairs, floor BUT NOT blue bottles"
- + "take blue from red BUT NOT big" - BUT NOT, AND NOT are equivalents of ThatIs for exclusion
- + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
- + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
- + "drop all" when holding something that contains something drops the contained things separately (first taking them)
- + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
-    - this basically means reworking how the "scope" mechanism works so that it implicitly filters each overall clause, if they all would still match something
-    - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one
-    - maybe we should move the "expecting only one" logic completely out of the thingseeker in fact
-    - other examples: "drop coins" when there's some on the ground, picks them up then drops them
-    - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
-    - "drop all that is a coin" shouldn't drop those on the ground
-    - worse: given red and blue tables, "take red then drop table" asks which table to drop
- + make the thing seeker disambiguate on features too. For example:
-    - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
-    - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
-    - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
- + find a solution to:
-    - "There is an orange here. There is an orange mug here." "Take orange." "Which orange do you mean, the orange or the orange mug?"
- + every time we mention something, Thing.UpdatePronouns(Perspective) (Perspective has the pronoun state)
-
 PLOT
- + give the archways reasons they can't be moved that are archway-specific - right now they are "part of the ground".
+ + signs should be immovable
  + plot
 
 WIZARDING
@@ -149,7 +115,11 @@ WORLD
  + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
    - basically backdrops, that can be seen from many rooms
    - maybe have a list of things that are in another room that can be seen from this room, which the room visits when doing the FindMatchingThings stuff?
+   - also use this to make "look west" and "examine mountain" show the (same) mountain from multiple rooms
  + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
+   - have a global "door" object (with no parent) and two "door side" objects
+   - have the sides forward to the door
+   - have the sides be partOf the door when the door is taken off its hinges
  + make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
  + well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
  + "harvest forest": I don't understand how to "harvest".
@@ -165,6 +135,38 @@ ILLUMINATION
 FOOD
  + "go eat": I don't understand how to go "eat".
  + "feed MacGuffin": I don't understand how to "feed".
+
+THING SEEKER IMPROVEMENTS: LOGIC
+ + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
+ + "drop all" when holding something that contains something drops the contained things separately (first taking them)
+ + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
+    - this basically means reworking how the "scope" mechanism works so that it implicitly filters each overall clause, if they all would still match something
+    - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one
+    - maybe we should move the "expecting only one" logic completely out of the thingseeker in fact
+    - other examples: "drop coins" when there's some on the ground, picks them up then drops them
+    - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
+    - "drop all that is a coin" shouldn't drop those on the ground
+    - worse: given red and blue tables, "take red then drop table" asks which table to drop
+ + make the thing seeker disambiguate on features too. For example:
+    - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
+    - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
+    - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
+ + find a solution to:
+    - "There is an orange here. There is an orange mug here." "Take orange." "Which orange do you mean, the orange or the orange mug?"
+ + every time we mention something, Thing.UpdatePronouns(Perspective) (Perspective has the pronoun state)
+
+THING SEEKER IMPROVEMENTS: VOCABULARY
+ + "take everything THAT IS FROM an arch"
+ + "shake all fruit THAT ARE NOT ON the plate"
+ + "take everything THAT IS OPEN"
+    - add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
+ + "FROM WITHIN <object>", "FROM INSIDE", "FROM ATOP", etc
+ + "look at arch TO the north"
+ + "take all bottles EXCEPT bottles from table"
+ + "take all bottles from tables, chairs, floor BUT NOT blue bottles"
+ + "take blue from red BUT NOT big" - BUT NOT, AND NOT are equivalents of ThatIs for exclusion
+ + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones that are small"
+ + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
 
 UI
  + It would be good to merge disambiguation messages, so that "put brown in bag" "(the brown bug) (the black bag) (first taking the brown mug)" became just one statement

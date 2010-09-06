@@ -1596,7 +1596,7 @@ function CompilePatternVersion(S: AnsiString; Version: Cardinal): TMatcher;
       Result := Parse(Index);
       {$IFOPT C+}
       if (Index <= Length(S)) then
-         raise EAssertionFailed.Create('Trailing garbage at index ' + IntToStr(Index) + ' of ' + IntToStr(Length(S)) + ' character pattern "' + S + '"');
+         Assert(False, 'Trailing garbage at index ' + IntToStr(Index) + ' of ' + IntToStr(Length(S)) + ' character pattern "' + S + '"');
       Assert(Index = Length(S)+1, 'Parsed to position ' + IntToStr(Index) + ', beyond end of ' + IntToStr(Length(S)) + ' character string "' + S + '"');
       {$ENDIF}
    end;

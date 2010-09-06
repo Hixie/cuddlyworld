@@ -29,7 +29,7 @@ type
    end;
 
 type
-   TThingFeature = (tfDiggable, tfCanDig,
+   TThingFeature = (tfDiggable, tfCanDig, tfExaminingReads,
                     tfCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- e.g. holes can have things pushed onto them }
                     tfCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
    TThingFeatures = set of TThingFeature;
@@ -83,7 +83,6 @@ type
       function GetContext(Perspective: TAvatar): AnsiString; virtual;
       function GetLook(Perspective: TAvatar): AnsiString; virtual;
       function GetLookAt(Perspective: TAvatar): AnsiString; virtual;
-      function GetExamine(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
       function GetBasicDescription(Perspective: TAvatar; Context: TAtom = nil): AnsiString; virtual;
       function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString; virtual;
@@ -93,8 +92,7 @@ type
       function GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString; virtual; abstract;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): AnsiString;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: AnsiString): AnsiString; virtual;
-      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
-      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; virtual;
+      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
       procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
@@ -141,22 +139,22 @@ type
       function GetTitle(Perspective: TAvatar): AnsiString; override;
       function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString; override;
       function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString; override;
+      function GetExamine(Perspective: TAvatar): AnsiString; virtual;
       function GetLookUnder(Perspective: TAvatar): AnsiString; virtual;
       function GetLookIn(Perspective: TAvatar): AnsiString; virtual;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetInventory(Perspective: TAvatar): AnsiString; virtual;
       function GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString; override;
-      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; override;
-      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
-      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; virtual;
+      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString; override;
+      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString; virtual;
       function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString; virtual;
       function GetDescriptionEmpty(Perspective: TAvatar): AnsiString; virtual; { only called for optThorough searches }
       function GetDescriptionClosed(Perspective: TAvatar): AnsiString; virtual; { used both from inside and outside }
-      function GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean): AnsiString;
-      function GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: AnsiString): AnsiString; virtual;
+      function GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: AnsiString = ''): AnsiString; virtual;
       function GetDescriptionCarriedTitle(Perspective: TAvatar; DeepCarried: Boolean): AnsiString; virtual;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
+      function GetDescriptionWriting(Perspective: TAvatar): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract;
@@ -754,13 +752,6 @@ begin
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren]));
 end;
 
-function TAtom.GetExamine(Perspective: TAvatar): AnsiString;
-begin
-   Result := GetBasicDescription(Perspective) +
-             WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn, optPrecise])) +
-             WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren, optThorough]));
-end;
-
 function TAtom.GetBasicDescription(Perspective: TAvatar; Context: TAtom = nil): AnsiString;
 begin
    Result := GetDescriptionSelf(Perspective) +
@@ -824,12 +815,7 @@ begin
       ProcessBatch(GetSurface().FChildren);
 end;
 
-function TAtom.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
-begin
-   Result := GetDescriptionChildren(Perspective, Options, '');
-end;
-
-function TAtom.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString;
+function TAtom.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString;
 begin
    Result := '';
 end;
@@ -1097,6 +1083,20 @@ begin
       Result := Part1 + Part2;
 end;
 
+function TThing.GetExamine(Perspective: TAvatar): AnsiString;
+var
+   Writing: AnsiString;
+begin
+   if (tfExaminingReads in GetFeatures()) then
+      Writing := GetDescriptionWriting(Perspective)
+   else
+      Writing := '';
+   Result := GetBasicDescription(Perspective) +
+             WithNewlineIfNotEmpty(Writing) +
+             WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn, optPrecise])) +
+             WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren, optThorough]));
+end;
+
 function TThing.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
     Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
@@ -1225,12 +1225,7 @@ begin
    Result := Result + Additional;
 end;
 
-function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
-begin
-   Result := GetDescriptionIn(Perspective, Options, '');
-end;
-
-function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString;
+function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString;
 
    procedure ProcessBatch(Children: TThingList; ExpectedPositionFilter: TThingPositionFilter);
    var
@@ -1279,12 +1274,7 @@ begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('contains', 'contain', IsPlural(Perspective)) + ':';
 end;
 
-function TThing.GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean): AnsiString;
-begin
-   Result := GetDescriptionCarried(Perspective, DeepCarried, '');
-end;
-
-function TThing.GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: AnsiString): AnsiString;
+function TThing.GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: AnsiString = ''): AnsiString;
 
    procedure ProcessBatch(Children: TThingList);
    var
@@ -1335,6 +1325,11 @@ begin
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
    else
       raise EAssertionFailed.Create('unknown mode');
+end;
+
+function TThing.GetDescriptionWriting(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'There is no discernible writing on ' + GetDefiniteName(Perspective) + '.';
 end;
 
 function TThing.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;

@@ -1,7 +1,7 @@
 {$MODE OBJFPC} { -*- text -*- }
 
 //{$DEFINE VERBOSE}
-{$DEFINE PLAY_IN_TEST_EDEN}
+//{$DEFINE PLAY_IN_TEST_EDEN}
 
 {$INCLUDE settings.inc}
 program tests;
@@ -2230,6 +2230,21 @@ begin
    RunCanonicalMatchTest(OtherMatcher, 'navy blue wooden archways to the north');
    TestMatcher.Free();
    OtherMatcher.Free();
+
+   {$IFOPT C+}
+{
+   try
+      CompilePattern('((((southwest-pointing south-west-pointing sw-pointing (southwest (south west) sw)@ pointing?) southwestern (south western))@ shining (silicon metalloid)&)# sign/signs)& '+'(((shining (silicon metalloid)&)# sign/signs)& (to the (southwest (south west) sw)@)?))@', TestMatcher, OtherMatcher);
+      raise ETestError.Create('Matcher didn''t raise an exception when expected.');
+   except
+      on E: EAssertionFailed do;
+      on E: Exception do
+         raise ETestError.Create('Matcher raised wrong exception (' + E.ClassName + ': ' + E.Message + ')');
+      else
+         raise ETestError.Create('Matcher raised wrong exception');
+   end;
+}
+   {$ENDIF}
 
    if (Failed) then Halt(1);
 end;

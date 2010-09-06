@@ -10,8 +10,8 @@ echo &&
 ../bin/tests &&
 echo &&
 echo &&
-#rm -f world.dat &&
-#../bin/genesis &&
+rm -f world.dat &&
+../bin/genesis &&
 echo &&
 echo &&
 ../bin/cuddlyworld

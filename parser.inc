@@ -370,7 +370,7 @@
                Fail('I don''t understand how to look ' + CardinalDirectionToString(Action.LookDirection) + ' "' + OriginalTokens[CurrentToken] + '".');
          end
          else
-         if (GetPrepositionThing('at', [], 'look', Action.LookAt)) then
+         if (GetPrepositionThing('at', [], 'look', Action.LookAtSubject)) then
          begin
             Action.Verb := avLookAt;
             if (not CanEnd()) then
@@ -455,6 +455,31 @@
          Result := False;
    end;
 
+   function GetRead(var Action: TAction): Boolean;
+   var
+      Direction: TCardinalDirection;
+   begin
+      if (Tokens[CurrentToken] = 'read') then
+      begin
+         Inc(CurrentToken);
+         Result := True;
+         Action.Verb := avRead;
+         if (CanEnd()) then
+            Fail('A fine notion, but what do you want to read?');
+         if (not GetThing(Action.ReadSubject, [], 'read')) then
+         begin
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
+               Fail('That''s a direction, I don''t know how to read it.')
+            else
+               Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here to read.');
+         end;
+         if (not CanEnd()) then
+            Fail('I don''t understand how to read things "' + OriginalTokens[CurrentToken] + '".');
+      end
+      else
+         Result := False;
+   end;
+
    function GetInventory(var Action: TAction): Boolean;
    begin
       if (Tokens[CurrentToken] = 'inventory') or (Tokens[CurrentToken] = 'i') then
@@ -482,7 +507,7 @@
          Result := True;
          Action.Verb := avFind;
          if (CanEnd()) then
-            Fail('What do you want to examine?');
+            Fail('What do you want to find?');
          if (not GetThing(Action.FindSubject, [], 'find')) then
          begin
             if (TryDirection(Direction, [optAllowDefiniteArticle])) then
@@ -1232,7 +1257,7 @@
 
    function ParseAction(var Action: TAction): Boolean; { returns true if there's another action to parse }
    begin
-      if (GetLook(Action) or GetExamine(Action) or GetInventory(Action) or GetFind(Action) or
+      if (GetLook(Action) or GetExamine(Action) or GetRead(Action) or GetInventory(Action) or GetFind(Action) or
           GetGo(Action) or GetEnter(Action) or GetLeave(Action) or
           GetTake(Action) or GetPut(Action) or GetMove(Action) or GetPush(Action) or GetShake(Action) or GetDig(Action) or
           GetTalk(Action) or GetDance(Action) or
