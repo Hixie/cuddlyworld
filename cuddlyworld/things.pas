@@ -207,6 +207,17 @@ type
       constructor Create(Size: TThingSize);
    end;
 
+   TSign = class(TStaticThing)
+    protected
+      FWriting: AnsiString;
+    public
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; Mass: TThingMass; Size: TThingSize);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetFeatures(): TThingFeatures; override;
+      function GetDescriptionWriting(Perspective: TAvatar): AnsiString; override;
+   end;
+
 implementation
 
 uses
@@ -1207,6 +1218,36 @@ begin
 end;
 
 
+constructor TSign.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; Mass: TThingMass; Size: TThingSize);
+begin
+   inherited Create(Name, Pattern, Description, Mass, Size);
+   FWriting := Writing;
+end;
+
+constructor TSign.Read(Stream: TReadStream);
+begin
+   inherited;
+   FWriting := Stream.ReadAnsiString();
+end;
+
+procedure TSign.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteAnsiString(FWriting);
+end;
+
+function TSign.GetFeatures(): TThingFeatures;
+begin
+   Result := inherited;
+   Result := Result + [tfExaminingReads];
+end;
+
+function TSign.GetDescriptionWriting(Perspective: TAvatar): AnsiString;
+begin
+   Result := 'On ' + GetDefiniteName(Perspective) + ' is written "' + FWriting + '".';
+end;
+
+
 initialization
    RegisterStorableClass(TNamedThing,             1000);
    RegisterStorableClass(TStaticThing,            1001);
@@ -1221,4 +1262,5 @@ initialization
    RegisterStorableClass(THole,                   1012);
    RegisterStorableClass(TPile,                   1013);
    RegisterStorableClass(TEarthPile,              1014);
+   RegisterStorableClass(TSign,                   1015);
 end.

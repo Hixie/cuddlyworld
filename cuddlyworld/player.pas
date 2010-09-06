@@ -111,7 +111,7 @@ uses
 
 type
    TActionVerb = (avNone,
-                  avLook, avLookDirectional, avLookAt, avExamine, avLookUnder, avLookIn, avInventory, avFind,
+                  avLook, avLookDirectional, avLookAt, avExamine, avRead, avLookUnder, avLookIn, avInventory, avFind,
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection,
                   avTalk, avDance,
@@ -128,8 +128,9 @@ type
       avNone: ();
       avLook: ();
       avLookDirectional: (LookDirection: TCardinalDirection);
-      avLookAt: (LookAt: TThing);
+      avLookAt: (LookAtSubject: TThing);
       avExamine: (ExamineSubject: TThing);
+      avRead: (ReadSubject: TThing);
       avLookUnder: (LookUnder: TThing);
       avLookIn: (LookIn: TThing);
       avInventory: ();
@@ -208,8 +209,9 @@ var
       case Action.Verb of
        avLook: DoLook();
        avLookDirectional: AvatarMessage(FParent.GetDefaultAtom().GetLookDirection(Self, Action.LookDirection));
-       avLookAt: AvatarMessage(Action.LookAt.GetLookAt(Self));
-       avExamine: AvatarMessage(Action.LookAt.GetExamine(Self));
+       avLookAt: AvatarMessage(Action.LookAtSubject.GetLookAt(Self));
+       avExamine: AvatarMessage(Action.ExamineSubject.GetExamine(Self));
+       avRead: AvatarMessage(Action.ReadSubject.GetDescriptionWriting(Self));
        avLookUnder: AvatarMessage(Action.LookUnder.GetLookUnder(Self));
        avLookIn: AvatarMessage(Action.LookIn.GetLookIn(Self));
        avInventory: DoInventory();

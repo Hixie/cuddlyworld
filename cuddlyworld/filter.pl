@@ -11,6 +11,7 @@ while (<>) {
     next if m!^Compiling .+$!os;
     next if m!^.+\([0-9]+,[0-9]+\) Hint: Parameter ".+" not used$!os;
     next if m!^.+\([0-9]+,[0-9]+\) Hint: Value parameter ".+" is assigned but never used$!os;
+    next if m!^.+\([0-9]+,[0-9]+\) Hint: Local const "magic[A-Z]" is not used$!os;
     next if m!^.+\([0-9]+,[0-9]+\) Hint: Conversion between ordinals and pointers is not portable$!os;
 #    next if m!^.+\([0-9]+,[0-9]+\) Warning: Mixing signed expressions and longwords gives a 64bit result$!os;
 #    next if m!^.+\([0-9]+,[0-9]+\) Hint: Converting the operands to "Int64" before doing the add could prevent overflow errors\.$!os;
