@@ -46,6 +46,7 @@ type
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
    end;
 
    TScenery = class(TStaticThing)
@@ -207,7 +208,7 @@ type
       constructor Create(Size: TThingSize);
    end;
 
-   TSign = class(TStaticThing)
+   TSign = class(TScenery)
     protected
       FWriting: AnsiString;
     public
@@ -387,6 +388,11 @@ begin
    Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
 end;
 
+function TFeature.GetLookUnder(Perspective: TAvatar): AnsiString;
+begin
+   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
+end;
+
 
 constructor TScenery.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
@@ -449,6 +455,7 @@ end;
 
 constructor TLocationProxy.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
+   Assert(Assigned(Destination));
    inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
    FDestination := Destination;
 end;
@@ -467,6 +474,7 @@ end;
 
 function TLocationProxy.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
+   Assert(Assigned(FDestination));
    Result := FDestination.GetInside(PositionOverride);
    if (not Assigned(Result)) then
    begin
