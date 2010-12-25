@@ -1,6 +1,7 @@
 PLOT
- + signs should be immovable
+ + find paving, find e arch give silly inappropriate text
  + plot
+ + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
 
 WIZARDING
  + tools to shape the world - magic digging wand that doesn't make piles appear
@@ -137,6 +138,7 @@ FOOD
  + "feed MacGuffin": I don't understand how to "feed".
 
 THING SEEKER IMPROVEMENTS: LOGIC
+ + examine stone, examine eastern: "I don't know how to examine multiple things at once." should instead say "when you say 'stone' do you mean..."
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
  + "drop all" when holding something that contains something drops the contained things separately (first taking them)
  + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
