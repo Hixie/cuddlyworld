@@ -222,17 +222,16 @@
    begin
       Assert(not CanEnd());
       EnsureNoPunctuation();
-      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [gnSingular], [], EndingClauses, VerbString);
+      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [], [], EndingClauses, VerbString);
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
          Disambiguate := GlobalThingCollector.GetDisambiguate();
          Things := GlobalThingCollector.GetThingList(); { resets the thing collector }
+         Assert(Things.Length = 1);
          try
             if (not CanEnd()) then
                EnsureNoPunctuation();
-            if (Things.Length <> 1) then
-               Fail('I don''t know how to ' + VerbString + ' multiple things at once.');
             Thing := Things.First;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
@@ -263,7 +262,7 @@
       Things := nil;
       Assert(not CanEnd());
       EnsureNoPunctuation();
-      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, gnEither, AllImpliedScope, EndingClauses, VerbString);
+      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [optAllowMultiples], AllImpliedScope, EndingClauses, VerbString);
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
@@ -508,6 +507,9 @@
          Action.Verb := avFind;
          if (CanEnd()) then
             Fail('What do you want to find?');
+         if (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompasDirection])) then
+            Fail(Capitalise(CardinalDirectionToDefiniteString(Direction)) + ' is ' + CardinalDirectionToDirectionString(Direction) + '.')
+         else
          if (not GetThing(Action.FindSubject, [], 'find')) then
          begin
             if (TryDirection(Direction, [optAllowDefiniteArticle])) then

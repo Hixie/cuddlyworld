@@ -45,8 +45,12 @@ type
    TReferencedCallback = procedure (Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber) of object;
 
 type
-   PAtom = ^TAtom;
+   PAtom = ^TAtom; { used for pointers to fields that point to TAtoms }
    TAtom = class(TStorable)
+    {$IFDEF DEBUG}
+    private
+      FIntegritySelf: TAtom;
+    {$ENDIF}
     protected
       FChildren: TThingList;
       procedure Removed(Thing: TThing); virtual;
@@ -467,18 +471,29 @@ end;
 
 constructor TAtom.Create();
 begin
+   {$IFDEF DEBUG}
+    FIntegritySelf := Self;
+   {$ENDIF}
    inherited;
    FChildren := TThingList.Create([slOwner]);
 end;
 
 destructor TAtom.Destroy();
 begin
+   {$IFDEF DEBUG}
+    Assert(Assigned(FIntegritySelf), 'Tried to free an already-freed TAtom');
+    Assert(FIntegritySelf = Self);
+    FIntegritySelf := nil;
+   {$ENDIF}
    FChildren.Free();
    inherited;
 end;
 
 constructor TAtom.Read(Stream: TReadStream);
 begin
+   {$IFDEF DEBUG}
+    FIntegritySelf := Self;
+   {$ENDIF}
    inherited;
    FChildren := Stream.ReadObject() as TThingList;
 end;

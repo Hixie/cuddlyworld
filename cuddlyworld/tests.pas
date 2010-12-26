@@ -817,6 +817,18 @@ begin
 
          { complex parsing }
          Proxy.Test('Thing Seeker');
+         Proxy.ExpectString('Which balloon do you mean, the large pink balloon, the large grey balloon, the large black balloon, the large white balloon, the large violet balloon, the large blue balloon, the large green balloon, the large yellow balloon, the large orange balloon, or the large red balloon?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine balloon');
+
+         Proxy.ExpectString('Which of the balloons do you want to examine first, the large pink balloon, the large grey balloon, the large black balloon, the large white balloon, the large violet balloon, the large blue balloon, the large green balloon, the large yellow balloon, the large orange balloon, or the large red balloon?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine balloons');
+
+         Proxy.ExpectString('Which balloon do you mean, the large pink balloon, the large grey balloon, the large black balloon, the large white balloon, the large violet balloon, the large blue balloon, the large green balloon, the large yellow balloon, the large orange balloon, or the large red balloon?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine the balloon');
+
          Proxy.ExpectSubstring('It is coloured pink.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine the balloon that is pink');
@@ -836,15 +848,6 @@ begin
          Proxy.ExpectString('You used the term "that is" in a way I don''t understand.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine balloons that is pink');
-
-         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('examine all that is balloon');
-
-         Proxy.ExpectString('(the large pink balloon)');
-         Proxy.ExpectSubstring('It is coloured pink.');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('examine all that is pink');
 
          Proxy.ExpectSubstring(' balloon)');
          Proxy.ExpectSubstring('It is coloured');
@@ -870,10 +873,21 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('examine some balloons');
 
-         Proxy.ExpectString('(the large pink balloon)');
-         Proxy.ExpectSubstring('It is coloured pink.');
+         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine all that is pink');
+
+         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine all that is balloon');
+
+         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine all that is pink');
+
+         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('examine pink and blue');
          Proxy.ExpectDone();
 
          Proxy.Test('"that is" and "and that is" and so on');
@@ -1883,6 +1897,8 @@ begin
 
          Proxy.ExpectDone();
 
+         Proxy.Test('End');
+
       except
          on E: ETestError do
          begin
@@ -1978,8 +1994,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('take all, and bag');
 
-         Proxy.ExpectString('(the south archway)');
-         Proxy.ExpectSubstring('pink');
+         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine all that is pink and that is arch');
 
@@ -2021,6 +2036,8 @@ begin
          StoreObjectToFile('/tmp/world.dat.$$$', TestWorld, kSaveDataVersion);
          TestWorld2 := ReadObjectFromFile('/tmp/world.dat.$$$') as TWorld;
          TestWorld2.Free();
+
+         Proxy.Test('End');
 
       except
          on E: ETestError do
@@ -2230,21 +2247,6 @@ begin
    RunCanonicalMatchTest(OtherMatcher, 'navy blue wooden archways to the north');
    TestMatcher.Free();
    OtherMatcher.Free();
-
-   {$IFOPT C+}
-{
-   try
-      CompilePattern('((((southwest-pointing south-west-pointing sw-pointing (southwest (south west) sw)@ pointing?) southwestern (south western))@ shining (silicon metalloid)&)# sign/signs)& '+'(((shining (silicon metalloid)&)# sign/signs)& (to the (southwest (south west) sw)@)?))@', TestMatcher, OtherMatcher);
-      raise ETestError.Create('Matcher didn''t raise an exception when expected.');
-   except
-      on E: EAssertionFailed do;
-      on E: Exception do
-         raise ETestError.Create('Matcher raised wrong exception (' + E.ClassName + ': ' + E.Message + ')');
-      else
-         raise ETestError.Create('Matcher raised wrong exception');
-   end;
-}
-   {$ENDIF}
 
    if (Failed) then Halt(1);
 end;
