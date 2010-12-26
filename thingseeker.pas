@@ -11,9 +11,12 @@ uses
    world, grammarian;
 
 type
-   TAllImpliedScope = set of (aisSurroundings, aisSelf);
    TEndingClauseKind = (eckNormal, eckIn, eckOn);
    TEndingClauseKinds = set of TEndingClauseKind;
+
+   TAllImpliedScope = set of (aisSurroundings, aisSelf);
+
+   TThingCollectionOptions = set of (optAllowMultiples);
 
    TThingCollector = class
     protected
@@ -29,7 +32,7 @@ type
     public
       constructor Create();
       destructor Destroy(); override;
-      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
+      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; Options: TThingCollectionOptions; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
       function GetTokenCount(): Cardinal;
       function GetDisambiguate(): Boolean;
       function GetThingList(): TThingList; { must be called exactly once after Collect() returns true }
@@ -42,7 +45,7 @@ uses
    sysutils;
 
 type
-   TThingSelectionMechanism = (tsmPickAll, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber, tsmPickOnlyRelevantNumber);
+   TThingSelectionMechanism = (tsmPickAll, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber, tsmPickWithoutArticle);
    TClauseFlags = set of (cfAllowExceptions, cfSingular, cfPlural, cfDisambiguateAnyLoneResult, cfDisambiguateSingularLoneResult,
                           cfHaveThatIsClause, cfHaveThatAreClause, cfRemoveHiddenThings, cfHadArticle);
 
@@ -305,6 +308,8 @@ type
       function IsPlainClause(): Boolean; override;
      public
       procedure CheckContext(); override;
+      procedure PreCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
+      procedure PostCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
       procedure Process(); override;
@@ -317,17 +322,17 @@ type
    EMatcherException = class
       FClause: TAbstractClause;
       constructor Create(Clause: TAbstractClause);
-      function Message(Perspective: TAvatar; Input: AnsiString): AnsiString; virtual; abstract;
+      function Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString; virtual; abstract;
    end;
    ECountWrong = class(EMatcherException)
       FWanted, FGot: Cardinal;
       constructor Create(Clause: TAbstractClause; Wanted, Got: Cardinal);
    end;
    ESelectNotEnough = class(ECountWrong)
-      function Message(Perspective: TAvatar; Input: AnsiString): AnsiString; override;
+      function Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString; override;
    end;
    ESelectTooMany = class(ECountWrong)
-      function Message(Perspective: TAvatar; Input: AnsiString): AnsiString; override;
+      function Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString; override;
    end;
 
 constructor EMatcherException.Create(Clause: TAbstractClause);
@@ -343,7 +348,7 @@ begin
    FGot := Got;
 end;
 
-function ESelectNotEnough.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
+function ESelectNotEnough.Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString;
 begin
    Assert(Length(Input) > 0);
    Assert(FGot > 0);
@@ -351,7 +356,7 @@ begin
    Result := 'About the ' + NumberToEnglish(FWanted) + ' ' + Input + '... I can only find ' + NumberToEnglish(FGot) + ': ' + FClause.FThings.GetLongDefiniteString(Perspective, 'and') + '.';
 end;
 
-function ESelectTooMany.Message(Perspective: TAvatar; Input: AnsiString): AnsiString;
+function ESelectTooMany.Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString;
 begin
    Assert(Length(Input) > 0);
    Assert(FGot > FWanted);
@@ -444,10 +449,10 @@ end;
 
 function TAbstractClause.GetArticle(NounPhrase: AnsiString = ''): AnsiString;
 begin
-   if (NounPhrase = '') then
-      NounPhrase := GetFragment();
    if (cfHadArticle in FFlags) then
    begin
+      if (NounPhrase = '') then
+         NounPhrase := GetFragment();
       case FSelectionMechanism of
         tsmPickAll:
            if (cfPlural in FFlags) then
@@ -511,7 +516,7 @@ begin
               else
                  Result := 'the ' + NumberToEnglish(FNumber);
            end;
-        tsmPickOnlyRelevantNumber:
+        tsmPickWithoutArticle:
            begin
               Assert(cfSingular in FFlags);
               Assert(not (cfPlural in FFlags));
@@ -519,7 +524,7 @@ begin
               Result := '';
            end;
        else
-        raise EAssertionFailed.Create('unknown TSelectionMechanism');
+        raise EAssertionFailed.Create('unknown TThingSelectionMechanism');
       end;
    end
    else
@@ -552,8 +557,8 @@ var
    SelectionMechanism: TThingSelectionMechanism;
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; SelectionMechanism=', FSelectionMechanism); {$ENDIF}
-   { TThingSelectionMechanism = (tsmPickAll, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber, tsmPickOnlyRelevantNumber); }
-   Assert(((FSelectionMechanism in [tsmPickAll, tsmPickSome, tsmPickOnlyRelevantNumber]) and (FNumber = 1)) or
+   { TThingSelectionMechanism = (tsmPickAll, tsmPickNumber, tsmPickSome, tsmPickOnlyNumber, tsmPickWithoutArticle); }
+   Assert(((FSelectionMechanism in [tsmPickAll, tsmPickSome, tsmPickWithoutArticle]) and (FNumber = 1)) or
           ((FSelectionMechanism in [tsmPickNumber, tsmPickOnlyNumber]) and (FNumber >= 1)),
           'FSelectionMechanism=' + IntToStr(Cardinal(FSelectionMechanism)) + '; FNumber=' + IntToStr(FNumber));
    Count := FThings.Length;
@@ -588,9 +593,9 @@ begin
              Result := True;
           end;
        end;
-    tsmPickOnlyNumber, tsmPickOnlyRelevantNumber:
+    tsmPickOnlyNumber, tsmPickWithoutArticle:
        begin
-          Assert((SelectionMechanism <> tsmPickOnlyRelevantNumber) or (FNumber = 1));
+          Assert((SelectionMechanism <> tsmPickWithoutArticle) or (FNumber = 1));
           if (Count <> FNumber) then
           begin
              Assert(Count > FNumber);
@@ -1134,7 +1139,7 @@ end;
 
 procedure TAbstractThatAreClause.ReportInappropriateArticle();
 begin
-   Assert(FSelectionMechanism <> tsmPickOnlyRelevantNumber);
+   Assert(FSelectionMechanism <> tsmPickWithoutArticle);
    Assert(GetArticle('particular') <> '');
    Fail('I don''t understand how to choose the things that are all ' + GetArticle('particular') + ' particular "' + FInputFragment + '".');
 end;
@@ -1177,9 +1182,10 @@ begin
       TargetIsMatch := @IsMatch
    else
       TargetIsMatch := GetIsMatch(Target);
+   Assert((SelectionMechanism <> tsmPickWithoutArticle) or (FNumber = 1));
    case SelectionMechanism of
     tsmPickSome: NeedMatching := 1;
-    tsmPickNumber, tsmPickOnlyRelevantNumber: NeedMatching := FNumber;
+    tsmPickNumber, tsmPickWithoutArticle: NeedMatching := FNumber;
    else
      NeedMatching := 0;
    end;
@@ -1487,6 +1493,38 @@ begin
    Assert(not Assigned(FPrevious));
 end;
 
+procedure TStartClause.PreCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
+begin
+   if ((FSelectionMechanism = tsmPickAll) and (cfAllowExceptions in FFlags)) then
+      Fail('I don''t know how to ' + Verb + ' multiple things at once.'); { "all of the..." }
+   if (FSelectionMechanism = tsmPickSome) then
+      Fail('I don''t know how to ' + Verb + ' multiple things at once.'); { "some of the..." }
+   if ((FSelectionMechanism in [tsmPickNumber, tsmPickOnlyNumber]) and (FNumber <> 1)) then
+      Fail('I don''t know how to ' + Verb + ' ' + NumberToEnglish(FNumber) + ' things at once.'); { "the two..." }
+end;
+
+procedure TStartClause.PostCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
+begin
+   if (Length(FRegisteredJoins) > 0) then
+      Fail('I don''t know how to ' + Verb + ' multiple things at once.');
+   if (FThings.Length > 1) then
+   begin
+      if ((FSelectionMechanism = tsmPickWithoutArticle) or (not (cfHadArticle in FFlags))) then
+      begin
+         if (cfSingular in FFlags) then
+            Fail('Which ' + GetFragment() + ' do you want to ' + Verb + ' first, ' + FThings.GetLongDefiniteString(Perspective, 'or') + '?')
+         else
+            Fail('Which of the ' + GetFragment() + ' do you want to ' + Verb + ' first, ' + FThings.GetLongDefiniteString(Perspective, 'or') + '?');
+      end
+      else
+      begin
+         Assert(cfHadArticle in FFlags);
+         Assert(GetArticle() <> '');
+         Fail('Which of ' + GetArticle() + ' ' + GetFragment() + ' do you want to ' + Verb + ' first, ' + FThings.GetLongDefiniteString(Perspective, 'or') + '?');
+      end;
+   end
+end;
+
 function TStartClause.AcceptsJoins(Peer: TAbstractClause): Boolean;
 begin
    Result := Peer is TAbstractPlainJoiningClause;
@@ -1731,9 +1769,10 @@ begin
    FCurrentBestThingList.AppendItem(Thing);
 end;
 
-function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; PreferredGrammaticalNumber: TGrammaticalNumber; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
+function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; Options: TThingCollectionOptions; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
 var
    CurrentToken: Cardinal;
+   PreferredGrammaticalNumber: TGrammaticalNumber;
 
    procedure Collapse(FirstClause: TAbstractClause; out Things: TThingList; out Disambiguate: Boolean);
    var
@@ -1751,6 +1790,8 @@ var
          LastClause := CurrentClause;
          CurrentClause := CurrentClause.FNext;
       until not Assigned(CurrentClause);
+      if (not (optAllowMultiples in Options)) then
+         (FirstClause as TStartClause).PreCheckNoMultiples(Perspective, Verb);
       CurrentClause := LastClause;
       GotWhitelist := False;
       try
@@ -1766,7 +1807,7 @@ var
                      if (aisSelf in Scope) then
                         Root := Perspective
                      else
-                        raise EAssertionFailed.Create('unexpected TAllImpliedScope value');
+                        Assert(False, 'unexpected TAllImpliedScope value');
                      Whitelist := TThingList.Create();
                      GotWhitelist := True;
                      Root.FindMatchingThings(Perspective, FromOutside, aisSelf in Scope, tpCountsForAll, [], Whitelist);
@@ -1778,7 +1819,7 @@ var
                CurrentClause.Process();
             except
                on E: EMatcherException do { raised by Select() }
-                  Fail(E.Message(Perspective, CurrentClause.GetFragment()));
+                  Fail(E.Message(Perspective, CurrentClause.GetFragment(), Verb));
             end;
             CurrentClause := CurrentClause.FPrevious;
          until not Assigned(CurrentClause);
@@ -1786,6 +1827,8 @@ var
          if (GotWhitelist) then
             Whitelist.Free();
       end;
+      if (not (optAllowMultiples in Options)) then
+         (FirstClause as TStartClause).PostCheckNoMultiples(Perspective, Verb);
       (FirstClause as TStartClause).Bank(Perspective, Things, Disambiguate);
    end;
 
@@ -1996,7 +2039,7 @@ var
       if (TryMatch(CurrentToken, Tokens, ['some'])) then
          Result := CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickNumber, tsmPickSome, [cfDisambiguateAnyLoneResult, cfHadArticle], False)
       else
-         Result := CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickOnlyRelevantNumber, tsmPickAll, [], ClauseClass.CanFail());
+         Result := CollectExplicitThings(ClauseClass.GetPreferredGrammaticalNumber(PreferredGrammaticalNumber), 1, tsmPickWithoutArticle, tsmPickAll, [], ClauseClass.CanFail());
       if (not Result) then
          Dec(CurrentToken, ClauseLength);
       Assert((not Assigned(FCurrentBestThingList)) or (FCurrentBestThingList.Length = 0));
@@ -2126,6 +2169,10 @@ begin
    Assert(FTokenCount = 0);
    Assert(not FDisambiguate);
    Assert(not Assigned(FThingList));
+   if (optAllowMultiples in Options) then
+      PreferredGrammaticalNumber := gnEither
+   else
+      PreferredGrammaticalNumber := [gnSingular];
    FCurrentlyCollecting := True;
    Result := False;
    try
@@ -2163,6 +2210,7 @@ begin
                raise;
             end;
             Result := True;
+            Assert((optAllowMultiples in Options) or (FThingList.Length = 1));
          end
          else
          begin

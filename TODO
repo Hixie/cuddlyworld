@@ -1,7 +1,12 @@
+DONE
+ + find paving gives silly inappropriate text
+ + find e arch give silly inappropriate text
+ + find e says "I don't know how to find multiple things at once." which isn't clear
+ + 'find stone' says 'I don't know how to find multiple...' which isn't helpful (should say "do you mean...")
+ + examine stone, examine eastern: "I don't know how to examine multiple things at once." should instead say "when you say 'stone' do you mean..."
+
 PLOT
- + find paving, find e arch give silly inappropriate text
  + plot
- + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
 
 WIZARDING
  + tools to shape the world - magic digging wand that doesn't make piles appear
@@ -35,6 +40,7 @@ NAVIGATION
     - this would mean that any object that can be entered would have to have a separate surface inside
     - this would dramatically simplify navigation and looking around
     - this might be necessary to make descriptions from inside a bag make as much sense as outside a bag, anyway
+ + "enter e" when there are three matching things "e" should pick the right one and enter it
 
 PLAYER INTERACTION
  + if you "take all" when someone is present holding something, you take their stuff
@@ -109,6 +115,7 @@ NETWORK
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
+ + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
  + descriptions of locations should not list exits that are listed in the description
     - basically, exits should be able to be labeled as implicit
  + Players should have PartOfs: eyes, hands, etc
@@ -138,13 +145,11 @@ FOOD
  + "feed MacGuffin": I don't understand how to "feed".
 
 THING SEEKER IMPROVEMENTS: LOGIC
- + examine stone, examine eastern: "I don't know how to examine multiple things at once." should instead say "when you say 'stone' do you mean..."
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
  + "drop all" when holding something that contains something drops the contained things separately (first taking them)
  + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
     - this basically means reworking how the "scope" mechanism works so that it implicitly filters each overall clause, if they all would still match something
-    - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one
-    - maybe we should move the "expecting only one" logic completely out of the thingseeker in fact
+    - might make sense to change it to a simple mode: unrestricted, only from self, only from not self, expecting only one [added that last one already]
     - other examples: "drop coins" when there's some on the ground, picks them up then drops them
     - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
     - "drop all that is a coin" shouldn't drop those on the ground
@@ -171,14 +176,16 @@ THING SEEKER IMPROVEMENTS: VOCABULARY
  + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
 
 UI
- + It would be good to merge disambiguation messages, so that "put brown in bag" "(the brown bug) (the black bag) (first taking the brown mug)" became just one statement
+ + It would be good to merge disambiguation messages, so that "put brown in bag" "(the brown mug) (the black bag) (first taking the brown mug)" became just one statement
  + Disambiguation of things that fail should say "try to", e.g. "(first trying to take the mountain)"
  + Handle multiples of things, so that you can have "take three coins" and it doesn't say "Coin: Taken" "Coin: Taken" "Coin: Taken" but "You take three coins" or some such.
+ + Answering questions: each time we say "which do you mean...", if the player just replies, it should try again until getting to the question then try to use the answer
 
 CODE
  + move build.sh options to a configuration file
  + log exceptions other than parse errors - abstract out the logging code
  + see if it makes sense to change TThing.Navigate() and TThing.GetLookDirection() to instead use a GetAtomForDirection()-like approach
+ + change "raise EAssertionFailed(...)" to "Assert(False, ...)"
 
 MORE NOTES
  http://www.brasslantern.org/writers/iftheory/tads3andi7.html

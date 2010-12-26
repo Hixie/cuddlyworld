@@ -71,6 +71,7 @@ function HasSingularVsPluralAnnotation(S: AnsiString): Boolean;
 implementation
 
 uses
+   {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils;
 
  { A compiled pattern consists of a zero byte, a series of byte pairs,
@@ -1618,11 +1619,17 @@ begin
 end;
 
 procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMatcher);
+{$IFDEF DEBUG}
+var
+   OldHeapInfo: THeapInfo;
+{$ENDIF}
 begin
+{$IFDEF DEBUG} OldHeapInfo := SetHeapInfo('Compiling "' + Copy(S, 1, HeapInfoSize - 12) + '"'); {$ENDIF}
 {$IFDEF DEBUG_PATTERN_COMPILER} Writeln(#10#10'Pattern: "', S, '"'); {$ENDIF}
    Singular := CompilePatternVersion(S, 0);
 {$IFDEF DEBUG_PATTERN_COMPILER} Writeln(#10#10); {$ENDIF}
    Plural := CompilePatternVersion(S, 1);
+{$IFDEF DEBUG} SetHeapInfo(OldHeapInfo); {$ENDIF}
 end;
 
 {$IFDEF DEBUG}
