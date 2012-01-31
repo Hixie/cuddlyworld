@@ -8,46 +8,47 @@ uses
    network, sysutils;
 
 type
-   TWebSocketState = (wsGET, wsURLPath, wsURLUsername, wsURLPassword,
-                      wsFieldTrailingEnd, wsFieldEnd,
-                      wsFieldNameStart, wsFieldName, wsFieldSeparator, wsFieldValue,
-                      wsHandshakeEnd, wsHandshakeEndKey,
-                      wsFrameType, wsTextData, wsError);
-
    TWebSocket = class(TNetworkSocket)
     protected
+     type
+      TWebSocketState = (wsRequestLine,
+                         wsFieldTrailingEnd, wsFieldEnd, wsFieldNameStart, wsFieldName, wsFieldSeparator, wsFieldValue, wsHandshakeEnd,
+                         wsFrameByte1, wsFrameByte2, wsFrameExtendedLength16, wsFrameExtendedLength64, wsFrameMask, wsFramePayload,
+                         wsError);
+      TWebSocketFrameType = (ftContinuation := $00, ftText := $01, ftBinary := $02, ftClose := $08, ftPing := $09, ftPong := $0A);
+      TWebSocketFrame = record
+       FrameType: TWebSocketFrameType;
+       FinalFrame: Boolean;
+       MaskKey: array[0..3] of Byte;
+       Length, Index: Cardinal;
+       Data: AnsiString;
+      end;
+     var
       FState: TWebSocketState;
+      FCurrentFrame: TWebSocketFrame;
+      FBufferType: TWebSocketFrameType;
       FBuffer: AnsiString;
-      FUsername: AnsiString;
-      FPassword: AnsiString;
-      FOrigin: AnsiString;
-      FHostName: AnsiString;
-      FPort: Word;
-      FResource: AnsiString;
-      FCurrentFieldName, FCurrentFieldValue, FHandshakeKey1, FHandshakeKey2, FHandshakeKey3: AnsiString;
+      FCurrentFieldName, FCurrentFieldValue, FHandshakeKey: AnsiString;
       function InternalRead(c: Byte): Boolean; override;
+      procedure CheckField(); virtual;
+      procedure Handshake(); virtual;
+      procedure ProcessFrame();
       function HandleMessage(s: AnsiString): Boolean; virtual; abstract;
       procedure WriteFrame(s: AnsiString);
-      procedure Handshake(); virtual;
-      procedure CheckField(); virtual;
     public
-      constructor Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString);
+      constructor Create(AListener: TListenerSocket);
       destructor Destroy(); override;
     end;
 
 implementation
 
 uses
-   md5;
+   sha1, base64encoder;
 
-constructor TWebSocket.Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString);
+constructor TWebSocket.Create(AListener: TListenerSocket);
 begin
    inherited Create(AListener);
-   FState := wsGET;
-   FOrigin := AOrigin;
-   FHostName := AHostName;
-   FPort := APort;
-   FResource := AResource;
+   FState := wsRequestLine;
 end;
 
 destructor TWebSocket.Destroy();
@@ -59,31 +60,7 @@ function TWebSocket.InternalRead(c: Byte): Boolean;
 begin
    Result := True;
    case FState of
-     wsGET:
-      case c of
-       $2F: FState := wsURLPath;
-      end;
-     wsURLPath:
-      case c of
-       $2F: FState := wsURLUsername;
-      end;
-     wsURLUsername:
-      case c of
-       Ord('a')..Ord('z'), Ord('A')..Ord('Z'): FUsername := FUsername + Chr(c);
-       $2F: FState := wsURLPassword;
-       else
-          FState := wsError;
-          Result := False;
-      end;
-     wsURLPassword:
-      case c of
-       Ord('a')..Ord('z'), Ord('A')..Ord('Z'): FPassword := FPassword + Chr(c);
-       $20: FState := wsFieldTrailingEnd;
-       else
-          FState := wsError;
-          Result := False;
-      end;
-     wsFieldTrailingEnd:
+     wsRequestLine, wsFieldTrailingEnd:
       case c of
        $0D: FState := wsFieldEnd;
       end;
@@ -125,104 +102,166 @@ begin
       end;
      wsHandshakeEnd:
       case c of
-       $0A: FState := wsHandshakeEndKey;
+       $0A: begin FState := wsFrameByte1; Handshake(); end;
        else
           FState := wsError;
           Result := False;
       end;
-     wsHandshakeEndKey:
+     wsFrameByte1:
       begin
-         FHandshakeKey3 := FHandshakeKey3 + Chr(c);
-         if (Length(FHandshakeKey3) >= 8) then
-         begin
-            Handshake();
-            FState := wsFrameType;
+         FCurrentFrame.FrameType := TWebSocketFrameType(c and $0F);
+         // assume bits 5, 6, and 7 are zero (extension bits, we don't negotiate any extensions)
+         FCurrentFrame.FinalFrame := (c and $80) = $80;
+         FState := wsFrameByte2;
+      end;
+     wsFrameByte2:
+      begin
+         FCurrentFrame.Length := (c and $7F);
+         // assume bit 8 is set (masking bit, client must mask)
+         FCurrentFrame.Index := 0;
+         case (FCurrentFrame.Length) of
+          0..125: FState := wsFrameMask;
+          126: begin FCurrentFrame.Length := 0; FState := wsFrameExtendedLength16; end;
+          127: begin FCurrentFrame.Length := 0; FState := wsFrameExtendedLength64; end;
+          else Assert(False);
          end;
       end;
-     wsFrameType:
-      case c of
-       $00: begin FBuffer := ''; FState := wsTextData; end;
-       else
-          FState := wsError;
-          Result := False;
+     wsFrameExtendedLength16, wsFrameExtendedLength64:
+      begin
+         FCurrentFrame.Length := FCurrentFrame.Length or (c shl (FCurrentFrame.Index * 8));
+         Inc(FCurrentFrame.Index);
+         if (((FState = wsFrameExtendedLength16) and (FCurrentFrame.Index = 2)) or
+             ((FState = wsFrameExtendedLength64) and (FCurrentFrame.Index = 8))) then
+         begin
+            FCurrentFrame.Index := 0;
+            FState := wsFrameMask;
+         end;
       end;
-     wsTextData:
-      case c of
-       $FF: begin Result := HandleMessage(FBuffer); FState := wsFrameType; end;
-       else
-          FBuffer := FBuffer + Chr(c);
+     wsFrameMask:
+      begin
+         FCurrentFrame.MaskKey[FCurrentFrame.Index] := c;
+         Inc(FCurrentFrame.Index);
+         if (FCurrentFrame.Index = 4) then
+         begin
+            if (FCurrentFrame.Length > 1024) then
+            begin
+               FState := wsError;
+               Result := False;
+            end
+            else
+            begin
+               SetLength(FCurrentFrame.Data, FCurrentFrame.Length);
+               if (FCurrentFrame.Length > 0) then
+               begin
+                  FCurrentFrame.Index := 1;
+                  FState := wsFramePayload;
+               end
+               else
+               begin
+                  ProcessFrame();
+                  FState := wsFrameByte1;
+               end;
+            end;
+         end;
+      end;
+     wsFramePayload:
+      begin
+         FCurrentFrame.Data[FCurrentFrame.Index] := Chr(c xor FCurrentFrame.MaskKey[(FCurrentFrame.Index-1) mod 4]);
+         Inc(FCurrentFrame.Index);
+         if (FCurrentFrame.Index > FCurrentFrame.Length) then
+         begin
+            ProcessFrame();
+            FState := wsFrameByte1;
+         end;
       end;
      else Assert(False);
    end;
-end;
-
-procedure TWebSocket.Handshake();
-
-   function GetKeyFromString(S: AnsiString): Cardinal;
-   var
-      NS: AnsiString;
-      Index: Cardinal;
-   begin
-      NS := '';
-      for Index := 1 to Length(S) do
-         if (S[Index] in ['0'..'9']) then
-            NS := NS + S[Index];
-      Result := StrToQWord(NS); { there's no StrToCardinal() }
-   end;
-
-   function CountSpacesInString(S: AnsiString): Cardinal;
-   var
-      Index: Cardinal;
-   begin
-      Result := 0;
-      for Index := 1 to Length(S) do
-         if (S[Index] = ' ') then
-            Inc(Result);
-   end;
-
-var
-   KeyNumber1, KeyNumber2, Spaces1, Spaces2, Part1, Part2, Index: Cardinal;
-   Challenge, Response: AnsiString;
-   Digest: TMD5Digest;
-begin
-   KeyNumber1 := GetKeyFromString(FHandshakeKey1);
-   KeyNumber2 := GetKeyFromString(FHandshakeKey2);
-   Spaces1 := CountSpacesInString(FHandshakeKey1);
-   Spaces2 := CountSpacesInString(FHandshakeKey2);
-   Part1 := KeyNumber1 div Spaces1;
-   Part2 := KeyNumber2 div Spaces2;
-   Challenge := Chr((Part1 >> 24) and $FF) + Chr((Part1 >> 16) and $FF) + Chr((Part1 >> 8) and $FF) + Chr((Part1 >> 0) and $FF) +
-                Chr((Part2 >> 24) and $FF) + Chr((Part2 >> 16) and $FF) + Chr((Part2 >> 8) and $FF) + Chr((Part2 >> 0) and $FF) +
-                FHandshakeKey3;
-   Digest := MDString(Challenge, MD_VERSION_5);
-   Response := '';
-   for Index := Low(Digest) to High(Digest) do
-      Response := Response + Chr(Digest[Index]);
-   Write('HTTP/1.1 101 WebSocket Protocol Handshake'#13#10);
-   Write('Connection: Upgrade'#13#10);
-   Write('Sec-WebSocket-Location: ws://' + FHostName + ':' + IntToStr(FPort) + '/' + FResource + '/' + FUsername + '/' + FPassword + #13#10);
-   Write('Sec-WebSocket-Origin: ' + FOrigin + #13#10);
-   Write('Upgrade: WebSocket'#13#10);
-   Write(#13#10);
-   Write(Response);
+Writeln();
 end;
 
 procedure TWebSocket.CheckField();
 begin
-   if (FCurrentFieldName = 'Sec-WebSocket-Key1') then
-      FHandshakeKey1 := FCurrentFieldValue
-   else
-   if (FCurrentFieldName = 'Sec-WebSocket-Key2') then
-      FHandshakeKey2 := FCurrentFieldValue;
-   { ... Host, Origin, Sec-WebSocket-Protocol }
+   if (FCurrentFieldName = 'Sec-WebSocket-Key') then
+      FHandshakeKey := FCurrentFieldValue
+   { ... Host, Origin, Sec-WebSocket-Protocol, ... }
+end;
+
+procedure TWebSocket.Handshake();
+var
+   Challenge, Response: AnsiString;
+   Digest: TSHA1Digest;
+   Index: Cardinal;
+begin
+   Challenge := FHandshakeKey + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+   Digest := SHA1String(Challenge);
+   Response := '';
+   for Index := Low(Digest) to High(Digest) do
+      Response := Response + Chr(Digest[Index]);
+   Response := Base64(Response);
+   Write('HTTP/1.1 101 WebSocket Protocol Handshake'#13#10);
+   Write('Upgrade: WebSocket'#13#10);
+   Write('Connection: Upgrade'#13#10);
+   Write('Sec-WebSocket-Accept: ' + Response + #13#10);
+   Write(#13#10);
+end;
+
+procedure TWebSocket.ProcessFrame();
+begin
+   case (FCurrentFrame.FrameType) of
+    ftContinuation:
+     begin
+        FBuffer := FBuffer + FCurrentFrame.Data;
+        if ((FCurrentFrame.FinalFrame) and (FBufferType = ftText)) then
+        begin
+           HandleMessage(FBuffer);
+           FBuffer := '';
+        end;
+     end;
+    ftText:
+     begin
+        FBuffer := FCurrentFrame.Data;
+        FBufferType := ftText;
+        if (FCurrentFrame.FinalFrame) then
+        begin
+           HandleMessage(FBuffer);
+           FBuffer := '';
+        end;
+     end;
+    ftBinary:
+     begin
+        // we don't support binary frames
+        FBuffer := '';
+        FBufferType := ftBinary;
+     end;
+    ftClose, ftPing, ftPong:
+     begin
+        // we don't support control frames
+     end;
+   end;
 end;
 
 procedure TWebSocket.WriteFrame(s: AnsiString);
 begin
-   Write([$00]);
+   Write([$81]); // unfragmented text frame
+   if (Length(s) > 65536) then
+      Write([127,
+             Byte((Length(s) shr 8*7) and $FF),
+             Byte((Length(s) shr 8*6) and $FF),
+             Byte((Length(s) shr 8*5) and $FF),
+             Byte((Length(s) shr 8*4) and $FF),
+             Byte((Length(s) shr 8*3) and $FF),
+             Byte((Length(s) shr 8*2) and $FF),
+             Byte((Length(s) shr 8*1) and $FF),
+             Byte((Length(s)        ) and $FF)])
+   else
+   if (Length(s) > 126) then
+      Write([126,
+             Byte((Length(s) shr 8*1) and $FF),
+             Byte((Length(s)        ) and $FF)])
+   else
+      Write([Byte(Length(s))]);
    if (Length(s) > 0) then
       Write(s);
-   Write([$FF]);
 end;
 
 end.

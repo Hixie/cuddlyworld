@@ -15,9 +15,10 @@ type
       function HandleMessage(Message: AnsiString): Boolean; override;
       procedure HandleAvatarMessage(Message: AnsiString);
       procedure HandleForceDisconnect();
-      procedure Handshake(); override;
+      procedure TryLogin(Message: AnsiString);
+      procedure TryCommand(Message: AnsiString);
     public
-      constructor Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString; AWorld: TWorld);
+      constructor Create(AListener: TListenerSocket; AWorld: TWorld);
       destructor Destroy(); override;
     end;
 
@@ -29,7 +30,7 @@ type
       FWorld: TWorld;
       function CreateNetworkSocket(AListenerSocket: TListenerSocket): TNetworkSocket; override;
     public
-      constructor Create(APort: Word; AOrigin: AnsiString; AHostName: AnsiString; AResource: AnsiString; AWorld: TWorld);
+      constructor Create(APort: Word; AWorld: TWorld);
    end;
 
 implementation
@@ -37,9 +38,9 @@ implementation
 uses
    sysutils;
 
-constructor TCuddlyWorldClient.Create(AListener: TListenerSocket; AOrigin: AnsiString; AHostName: AnsiString; APort: Word; AResource: AnsiString; AWorld: TWorld);
+constructor TCuddlyWorldClient.Create(AListener: TListenerSocket; AWorld: TWorld);
 begin
-   inherited Create(AListener, AOrigin, AHostName, APort, AResource);
+   inherited Create(AListener);
    FWorld := AWorld;
 end;
 
@@ -51,6 +52,75 @@ begin
 end;
 
 function TCuddlyWorldClient.HandleMessage(Message: AnsiString): Boolean;
+begin
+   if (not Assigned(FPlayer)) then
+      TryLogin(Message)
+   else
+      TryCommand(Message);
+   Result := True;
+end;
+
+procedure TCuddlyWorldClient.TryLogin(Message: AnsiString);
+var
+   PotentialPlayer: TPlayer;
+   Index: Cardinal;
+   Username, Password: AnsiString;
+begin
+   Index := Pos(' ', Message);
+   if (Index = 0) then
+   begin
+      WriteFrame('First frame must be username and password, separated by a space character.');
+      Disconnect();
+      Exit;
+   end;
+   Username := Copy(Message, 1, Index-1);
+   Password := Copy(Message, Index+1, Length(Message)-Index);
+   try
+      PotentialPlayer := FWorld.GetPlayer(Username) as TPlayer;
+      if (Assigned(PotentialPlayer)) then
+      begin
+         if (PotentialPlayer.GetPassword() = Password) then
+         begin
+            FPlayer := PotentialPlayer;
+            FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
+            WriteFrame('Welcome back to Cuddly World, ' + Username + '!');
+            WriteFrame('');
+            FPlayer.DoLook();
+            FPlayer.DoInventory();
+            WriteFrame('');
+         end
+         else
+         begin
+            WriteFrame('Wrong password.');
+            Disconnect();
+            Exit;
+         end;
+      end
+      else
+      begin
+         FPlayer := TPlayer.Create(Username, Password, gOrb);
+         FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
+         FWorld.AddPlayer(FPlayer); { this puts it into the world }
+         FPlayer.AnnounceAppearance();
+         WriteFrame('Welcome to Cuddly World, ' + Username + '!');
+         WriteFrame('');
+         FPlayer.DoLook();
+         WriteFrame('');
+      end;
+   except
+      on E: EExternal do raise;
+      on E: Exception do
+      begin // for debugging
+         WriteFrame('You feel a disturbance in the force that whispers "' + E.Message + '".');
+         Writeln('');
+         Writeln('While connecting user "' + Username + '", the following exception was raised:');
+         Writeln(E.Message);
+         DumpExceptionBackTrace(Output);
+      end;
+   end;
+end;
+
+procedure TCuddlyWorldClient.TryCommand(Message: AnsiString);
 begin
    WriteFrame('> ' + Message);
    try
@@ -67,7 +137,6 @@ begin
          DumpExceptionBackTrace(Output);
       end;
    end;
-   Result := True;
 end;
 
 procedure TCuddlyWorldClient.HandleAvatarMessage(Message: AnsiString);
@@ -83,69 +152,16 @@ begin
    Disconnect();
 end;
 
-procedure TCuddlyWorldClient.Handshake();
-var
-   PotentialPlayer: TPlayer;
-begin
-   inherited;
-   try
-      PotentialPlayer := FWorld.GetPlayer(FUsername) as TPlayer;
-      if (Assigned(PotentialPlayer)) then
-      begin
-         if (PotentialPlayer.GetPassword() = FPassword) then
-         begin
-            FPlayer := PotentialPlayer;
-            FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
-            WriteFrame('Welcome back to Cuddly World, ' + FUsername + '!');
-            WriteFrame('');
-            FPlayer.DoLook();
-            FPlayer.DoInventory();
-            WriteFrame('');
-         end
-         else
-         begin
-            WriteFrame('Wrong password.');
-            Disconnect();
-            Exit;
-         end;
-      end
-      else
-      begin
-         FPlayer := TPlayer.Create(FUsername, FPassword, gOrb);
-         FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
-         FWorld.AddPlayer(FPlayer); { this puts it into the world }
-         FPlayer.AnnounceAppearance();
-         WriteFrame('Welcome to Cuddly World, ' + FUsername + '!');
-         WriteFrame('');
-         FPlayer.DoLook();
-         WriteFrame('');
-      end;
-   except
-      on E: EExternal do raise;
-      on E: Exception do
-      begin // for debugging
-         WriteFrame('You feel a disturbance in the force that whispers "' + E.Message + '".');
-         Writeln('');
-         Writeln('While connecting user "' + FUsername + '", the following exception was raised:');
-         Writeln(E.Message);
-         DumpExceptionBackTrace(Output);
-      end;
-   end;
-end;
 
-
-constructor TCuddlyWorldServer.Create(APort: Word; AOrigin: AnsiString; AHostName: AnsiString; AResource: AnsiString; AWorld: TWorld);
+constructor TCuddlyWorldServer.Create(APort: Word; AWorld: TWorld);
 begin
    inherited Create(APort);
-   FOrigin := AOrigin;
-   FHostName := AHostName;
-   FResource := AResource;
    FWorld := AWorld;
 end;
 
 function TCuddlyWorldServer.CreateNetworkSocket(AListenerSocket: TListenerSocket): TNetworkSocket;
 begin
-   Result := TCuddlyWorldClient.Create(AListenerSocket, FOrigin, FHostName, FPort, FResource, FWorld);
+   Result := TCuddlyWorldClient.Create(AListenerSocket, FWorld);
 end;
 
 end.

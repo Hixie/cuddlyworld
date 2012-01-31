@@ -1,3 +1,26 @@
+WORLD
+ + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
+   - basically backdrops, that can be seen from many rooms
+   - maybe have a list of things that are in another room that can be seen from this room, which the room visits when doing the FindMatchingThings stuff?
+   - have a list of Backdrop rooms for each room, then we can have a TSky room and a TCourtyard room both visible from the TBalcony
+   - or probably even better, chain them
+   - also use this to make "look west" and "examine mountain" show the (same) mountain from multiple rooms
+ + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
+   - have a global "door" object (with no parent) and two "door side" objects
+   - have the sides forward to the door
+   - have the sides be partOf the door when the door is taken off its hinges
+ + make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
+ + we should still describe non-implicit things that are on implicit things
+ + descriptions of locations should not list exits that are listed in the description
+    - basically, exits should be able to be labeled as implicit
+ + well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
+ + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
+ + Players should have PartOfs: eyes, hands, etc
+ + Players should have Implicits: "you", "time" ("take time"), etc
+ + "harvest forest": I don't understand how to "harvest".
+ + "chop down forest": I don't understand how to "chop".
+ + "repair", "unbreak system": I don't understand how to "unbreak".
+
 PLOT
  + plot
 
@@ -105,27 +128,6 @@ NETWORK
  + gender command / "i am male", "i am a robot", "i am a hive mind" / UI
  + If you send too much data at once, the socket's write buffer is filled, which causes the socket to have an exception (ETryAgain), which causes the game to abort.
  + Sometimes the server just dies silently (killed by the kernel?).
-
-WORLD
- + we should still describe non-implicit things that are on implicit things
- + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
- + descriptions of locations should not list exits that are listed in the description
-    - basically, exits should be able to be labeled as implicit
- + Players should have PartOfs: eyes, hands, etc
- + Players should have Implicits: "you", "time" ("take time"), etc
- + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
-   - basically backdrops, that can be seen from many rooms
-   - maybe have a list of things that are in another room that can be seen from this room, which the room visits when doing the FindMatchingThings stuff?
-   - also use this to make "look west" and "examine mountain" show the (same) mountain from multiple rooms
- + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
-   - have a global "door" object (with no parent) and two "door side" objects
-   - have the sides forward to the door
-   - have the sides be partOf the door when the door is taken off its hinges
- + make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
- + well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
- + "harvest forest": I don't understand how to "harvest".
- + "chop down forest": I don't understand how to "chop".
- + "repair", "unbreak system": I don't understand how to "unbreak".
 
 ILLUMINATION
  + Looking should check for illumination by walking all the objects (FUp-not-in-FChildren would need special treatment... maybe some TLocations can contribute light?)

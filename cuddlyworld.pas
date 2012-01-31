@@ -117,7 +117,7 @@ end;
 constructor TNetworkMain.Create();
 begin
    inherited;
-   FServer := TCuddlyWorldServer.Create(10000, 'http://software.hixie.ch', 'damowmow.com', 'cuddlyworld', FWorld);
+   FServer := TCuddlyWorldServer.Create(10000, FWorld);
 end;
 
 destructor TNetworkMain.Destroy();
