@@ -7,7 +7,34 @@
 program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
-   sysutils, storable, matcher, lists, world, player, locations, things, thingdim, grammarian, cuddlycamp;
+   sysutils, storable, matcher, lists, world, player, locations, things, thingdim, grammarian, cuddlycamp,
+   base64encoder;
+
+procedure TestBase64Encoder();
+var
+   Failed: Boolean = False;
+
+   procedure CheckBase64(S1, S2: AnsiString);
+   begin
+      if (Base64(S1) <> S2) then
+      begin
+         Writeln('Base64: Encoding "', S1, '" gave "', Base64(S1), '" instead of "', S2, '".');
+         Failed := True;
+      end;
+   end;
+
+begin
+   // Test Vectors from RFC 4648
+   CheckBase64('', '');
+   CheckBase64('f', 'Zg==');
+   CheckBase64('fo', 'Zm8=');
+   CheckBase64('foo', 'Zm9v');
+   CheckBase64('foob', 'Zm9vYg==');
+   CheckBase64('fooba', 'Zm9vYmE=');
+   CheckBase64('foobar', 'Zm9vYmFy');
+   if (Failed) then
+      Halt(1);
+end;
 
 type
    TExpectationKind = (ekString, ekSubstring, ekNoSubstring, ekSkip, ekDisconnected, ekRecordingStart);
@@ -2403,6 +2430,7 @@ end;
 begin
    Writeln('CuddlyWorld Tests initializing...');
    {$IFDEF DEBUG} Writeln('CuddlyWorld debugging enabled.'); {$ENDIF}
+   TestBase64Encoder();
    TestMatcher();
    TestLists();
    TestMechanics();
