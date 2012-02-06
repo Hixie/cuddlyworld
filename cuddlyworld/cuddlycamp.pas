@@ -375,7 +375,7 @@ begin
    Mountains := TDistantScenery.Create('mountain', 'mountain/mountains', cdWest);
    Forest := TScenery.Create('forest', '((forest/forests (of trees)?) (tree forest/forests)& tree/trees)@', 'The forest is dense and impassable.');
    // This should be done using some sort of explicit backdrop mechanism
-   // so that we can add these things to each path below also
+   // so that we can add these things to each path also
 
    CreateStartingArea();
    Result := World;

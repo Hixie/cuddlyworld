@@ -25,7 +25,7 @@ type
        mkCallbackPerspective: (DataCallbackPerspective: TMessageCallbackPerspective);
        mkCallbackMethod: (DataCallbackMethod: TMessageCallbackMethod);
        mkCallbackPerspectiveMethod: (DataCallbackPerspectiveMethod: TMessageCallbackPerspectiveMethod);
-       mkPluralCheck: (DataPluralCheckThing: TThing; DataPluralSingularPart: PMessagePart; DataPluralPluralPart: PMessagePart);
+       mkPluralCheck: (DataPluralCheckTarget: TAtom; DataPluralSingularPart: PMessagePart; DataPluralPluralPart: PMessagePart);
        mkPerspectivePluralCheck: (DataPerspectivePluralSingularPart: PMessagePart; DataPerspectivePluralPluralPart: PMessagePart);
    end;
 
@@ -36,7 +36,7 @@ function M(const V: TMessageCallback): PMessagePart; inline; { Message part }
 function M(const V: TMessageCallbackPerspective): PMessagePart; inline; { Message part }
 function M(const V: TMessageCallbackMethod): PMessagePart; inline; { Message part }
 function M(const V: TMessageCallbackPerspectiveMethod): PMessagePart; inline; { Message part }
-function MP(const T: TThing; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline; { Message part - thing is Plural check }
+function MP(const T: TAtom; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline; { Message part - thing is Plural check }
 function MPP(const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline; { Message part - Perspective is Plural check }
 
 procedure ClearMessagePart(MessagePart: PMessagePart);
@@ -98,11 +98,11 @@ begin
    Result^.DataCallbackPerspectiveMethod := V;
 end;
 
-function MP(const T: TThing; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline;
+function MP(const T: TAtom; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline;
 begin
    New(Result);
    Result^.Kind := mkPluralCheck;
-   Result^.DataPluralCheckThing := T;
+   Result^.DataPluralCheckTarget := T;
    Result^.DataPluralSingularPart := M1;
    Result^.DataPluralPluralPart := M2;
 end;
@@ -145,7 +145,7 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar;
            mkCallbackPerspective: Result := Part^.DataCallbackPerspective(Perspective);
            mkCallbackMethod: Result := Part^.DataCallbackMethod();
            mkCallbackPerspectiveMethod: Result := Part^.DataCallbackPerspectiveMethod(Perspective);
-           mkPluralCheck: if (Part^.DataPluralCheckThing.IsPlural(Perspective)) then Result := GetPart(Part^.DataPluralPluralPart) else Result := GetPart(Part^.DataPluralSingularPart);
+           mkPluralCheck: if (Part^.DataPluralCheckTarget.IsPlural(Perspective)) then Result := GetPart(Part^.DataPluralPluralPart) else Result := GetPart(Part^.DataPluralSingularPart);
            mkPerspectivePluralCheck: if (Perspective.IsPlural(Perspective)) then Result := GetPart(Part^.DataPerspectivePluralPluralPart) else Result := GetPart(Part^.DataPerspectivePluralSingularPart);
           else
             raise EAssertionFailed.Create('Failed to assemble broadcast message - unexpected type ' + IntToStr(Cardinal(Part^.Kind)));

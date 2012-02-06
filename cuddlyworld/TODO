@@ -1,3 +1,7 @@
+ONGOING WORK
+ + Make the take/drop/etc logic keep track of whether you can reach something
+   - (to later be used to check that things aren't backdrop)
+
 WORLD
  + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
    - basically backdrops, that can be seen from many rooms
@@ -5,6 +9,8 @@ WORLD
    - have a list of Backdrop rooms for each room, then we can have a TSky room and a TCourtyard room both visible from the TBalcony
    - or probably even better, chain them
    - also use this to make "look west" and "examine mountain" show the (same) mountain from multiple rooms
+   - are there assumptions built into the code that you can manipulate things you can see?
+   - are there assumptions built into the code that things you can see are in the same room as you?
  + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
    - have a global "door" object (with no parent) and two "door side" objects
    - have the sides forward to the door
@@ -169,6 +175,7 @@ THING SEEKER IMPROVEMENTS: VOCABULARY
  + "take blue from red BUT NOT big" - BUT NOT, AND NOT are equivalents of ThatIs for exclusion
  + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones that are small"
  + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
+ + "put MY penny in MY bag" -- "my" should only look in one's inventory
 
 UI
  + It would be good to merge disambiguation messages, so that "put brown in bag" "(the brown mug) (the black bag) (first taking the brown mug)" became just one statement
