@@ -385,12 +385,12 @@ end;
 function TFeature.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
 begin
    Result := False;
-   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
+   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
 end;
 
 function TFeature.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
-   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
+   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
 end;
 
 
@@ -423,7 +423,7 @@ begin
       Message := FCannotMoveExcuse
    else
    if (FPosition = tpPartOfImplicit) then
-      Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' part of ' + FParent.GetDefiniteName(Perspective) + '.'
+      Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' part of ' + FParent.GetDefiniteName(Perspective) + '.'
    else
    if (FPosition = tpOpening) then
       Message := 'Moving ' + GetIndefiniteName(Perspective) + ' doesn''t even make sense.'
@@ -506,7 +506,7 @@ function TSurface.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolea
 begin
    Assert(Assigned(FParent));
    Result := False;
-   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' part of ' + FParent.GetDefiniteName(Perspective) + '.';
+   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' part of ' + FParent.GetDefiniteName(Perspective) + '.';
 end;
 
 procedure TSurface.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
@@ -670,7 +670,7 @@ end;
 function TDistantScenery.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
 begin
    if (Mode = psThereIsAThingHere) then
-      Result := Capitalise(CardinalDirectionToDirectionString(FDirection)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + '.'
+      Result := Capitalise(CardinalDirectionToDirectionString(FDirection)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + '.'
    else
       Result := FarAway(Perspective);
 end;
@@ -683,7 +683,7 @@ end;
 
 function TDistantScenery.FarAway(Perspective: TAvatar): AnsiString;
 begin
-   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + CardinalDirectionToDirectionString(FDirection) + '.';
+   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + CardinalDirectionToDirectionString(FDirection) + '.';
 end;
 
 
@@ -833,7 +833,7 @@ begin
       begin
          if (Mode = psTheThingIsOnThatThing) then
          begin
-            Result := Result + 'There ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
+            Result := Result + 'There ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
             Exit;
          end
          else
@@ -881,8 +881,8 @@ begin
          if (Assigned(OverflowedChildren)) then
          begin
             Assert(OverflowedChildren.Length > 0);
-            Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' full to overflowing; ' +
-                      'at the top of it ' + TernaryConditional('is', 'are', (OverflowedChildren.Length > 1) or (OverflowedChildren.First.IsPlural(Perspective))) + ' ' +
+            Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' full to overflowing; ' +
+                      'at the top of it ' + IsAre((OverflowedChildren.Length > 1) or (OverflowedChildren.First.IsPlural(Perspective))) + ' ' +
                       OverflowedChildren.GetIndefiniteString(Perspective, 'and') + '.';
          end;
       finally
@@ -899,7 +899,7 @@ begin
    Assert(not IsOpen());
    Cover := GetBiggestCoverer();
    Assert(Assigned(Cover));
-   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' covered by ' + Cover.GetIndefiniteName(Perspective) + '.';
+   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' covered by ' + Cover.GetIndefiniteName(Perspective) + '.';
 end;
 
 function THole.GetLookUnder(Perspective: TAvatar): AnsiString;
@@ -952,7 +952,7 @@ begin
       begin
          { can't cover hole if it's already covered }
          Result := False;
-         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' already covered.';
+         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' already covered.';
       end;
    end
    else
@@ -966,7 +966,7 @@ begin
       else
       begin
          Result := False;
-         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' already full to overflowing.';
+         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' already full to overflowing.';
       end;
    end
    else
@@ -1048,7 +1048,7 @@ begin
             finally
                E.Free();
             end;
-            // announce the hole is filled
+            // XXX announce the hole is filled
             QueueForDisposal(Self);
          end;
       end;

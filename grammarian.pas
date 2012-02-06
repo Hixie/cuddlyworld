@@ -78,6 +78,8 @@ function ThingPositionToDirectionString(Position: TThingPosition): AnsiString;
 
 function NumberToEnglish(Number: Cardinal): AnsiString;
 
+function IsAre(const IsPlural: Boolean): AnsiString; inline;
+
 implementation
 
 procedure Fail(Message: AnsiString);
@@ -536,6 +538,14 @@ begin
     9: Result := 'nine';
     else Result := IntToStr(Number);
    end;
+end;
+
+function IsAre(const IsPlural: Boolean): AnsiString;
+begin
+   if (IsPlural) then
+      Result := 'are'
+   else
+      Result := 'is';
 end;
 
 end.

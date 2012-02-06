@@ -50,6 +50,7 @@ type
       function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
       function Referenceable(Subject: TAtom): Boolean;
+      function Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
       function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
       procedure SetContext(Context: AnsiString);
       procedure ResetContext();
@@ -562,10 +563,10 @@ end;
 function TPlayer.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
 begin
    if (Mode = psThereIsAThingHere) then
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' here.'
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' here.'
    else
    if ((Mode = psOnThatThingIsAThing) or (Mode = psTheThingIsOnThatThing)) then
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' +
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' +
                            ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
    else
       raise EAssertionFailed.Create('unknown mode');
@@ -636,13 +637,13 @@ end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom; Direction: TCardinalDirection);
 begin
-   // this relies on the rooms being symmetric
+   // XXX this relies on the rooms being symmetric
    DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDirectionString(Direction)), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom);
 begin
-   // could be more intelligent by querying the current location
+   // XXX could be more intelligent by querying the current location
    // e.g. "enters from" when the current location has an exit and "arrives from" when it doesn't
    DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), M('.')]);
 end;
@@ -667,6 +668,11 @@ begin
          if (not Referenceable(CurrentSubject)) then
          begin
             AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (not Reachable(CurrentSubject, Message)) then
+         begin
+            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
          end
          else
          if (CurrentSubject.Parent = Self) then
@@ -730,9 +736,19 @@ begin
             AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
          end
          else
+         if (not Reachable(CurrentSubject, Message)) then
+         begin
+            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+         end
+         else
          if (not Referenceable(Target)) then
          begin
             AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (not Reachable(Target, Message)) then
+         begin
+            AvatarMessage(Capitalise(Target.GetDefiniteName(Self)) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + Message + '.');
          end
          else
          if (Target = CurrentSubject) then
@@ -752,13 +768,13 @@ begin
                { the target is on the thing }
                Assert(Target is TThing);
                Assert(Assigned((Target as TThing).Parent));
-               Message := (Target as TThing).GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', (Target as TThing).IsPlural(Self)) + ' ' + ThingPositionToString((Target as TThing).Position) + ' ';
+               Message := (Target as TThing).GetDefiniteName(Self) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + ThingPositionToString((Target as TThing).Position) + ' ';
                Ancestor := (Target as TThing).Parent;
                while (Ancestor <> CurrentSubject) do
                begin
                   Assert(Ancestor is TThing);
                   Assert(Assigned((Ancestor as TThing).Parent));
-                  Message := Message + Ancestor.GetDefiniteName(Self) + ', which ' + TernaryConditional('is', 'are', (Ancestor as TThing).IsPlural(Self)) + ' ' + ThingPositionToString((Ancestor as TThing).Position) + ' ';
+                  Message := Message + Ancestor.GetDefiniteName(Self) + ', which ' + IsAre(Ancestor.IsPlural(Self)) + ' ' + ThingPositionToString((Ancestor as TThing).Position) + ' ';
                   Ancestor := (Ancestor as TThing).Parent;
                end;
                Assert(Ancestor = CurrentSubject);
@@ -783,9 +799,21 @@ begin
                      Success := False;
                   end
                   else
+                  if (not Reachable(CurrentSubject, Message)) then
+                  begin
+                     AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+                     Success := False;
+                  end
+                  else
                   if (not Referenceable(Target)) then
                   begin
                      AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+                     Success := False;
+                  end
+                  else
+                  if (not Reachable(Target, Message)) then
+                  begin
+                     AvatarMessage(Capitalise(Target.GetDefiniteName(Self)) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + Message + '.');
                      Success := False;
                   end
                   else
@@ -909,16 +937,6 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
-         if (Assigned(Target) and (not Referenceable(Target))) then
-         begin
-            AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
          if (CurrentSubject.Parent = Self) then
          begin
             SingleThingList := TThingList.Create();
@@ -941,6 +959,26 @@ begin
             else
                DoDance();
             {$IFOPT C+} Assert(FParent = PreviousParent); {$ENDIF}
+         end
+         else
+         if (not Referenceable(CurrentSubject)) then
+         begin
+            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (not Reachable(CurrentSubject, Message)) then
+         begin
+            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+         end
+         else
+         if (Assigned(Target) and (not Referenceable(Target))) then
+         begin
+            AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (Assigned(Target) and (not Reachable(Target, Message))) then
+         begin
+            AvatarMessage(Capitalise(Target.GetDefiniteName(Self)) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + Message + '.');
          end
          else
          begin
@@ -996,7 +1034,7 @@ begin
                   end
                   else
                   begin
-                     AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' already ' + ThingPositionToString(CurrentSubject.Position) + ' ' + Target.GetDefiniteName(Self) + '.'));
+                     AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' already ' + ThingPositionToString(CurrentSubject.Position) + ' ' + Target.GetDefiniteName(Self) + '.'));
                   end;
                end
                else
@@ -1068,13 +1106,18 @@ begin
             AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
          end
          else
+         if (not Reachable(CurrentSubject, Message)) then
+         begin
+            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+         end
+         else
          begin
             Assert(Assigned(CurrentSubject.Parent));
             Destination := CurrentSubject.Parent.GetDefaultAtom();
-            Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' immovable.';
+            Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' immovable.';
             if (CurrentSubject = Self) then
             begin
-               AvatarMessage('You try to push yourself but find that a closed system cannot apply an external force on itself.');
+               AvatarMessage('You try to push yourself but find that a closed system cannot have any unbalanced internal forces.');
             end
             else
             if (Destination is TLocation) then
@@ -1126,7 +1169,7 @@ begin
             end
             else
             begin
-               AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
+               AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
             end;
          end;
       end;
@@ -1156,15 +1199,25 @@ begin
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
          Assert(Assigned(CurrentSubject.Parent));
          Denied := True;
-         Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' immovable.';
+         Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' immovable.';
          if (not Referenceable(CurrentSubject)) then
          begin
             Message := 'You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.';
          end
          else
-         if (Assigned(RequiredParent) and not Referenceable(RequiredParent)) then
+         if (not Reachable(CurrentSubject, Message)) then
+         begin
+            Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.';
+         end
+         else
+         if (Assigned(RequiredParent) and (not Referenceable(RequiredParent))) then
          begin
             Message := 'You can''t see ' + RequiredParent.GetDefiniteName(Self) + ' anymore.';
+         end
+         else
+         if (Assigned(RequiredParent) and (not Reachable(RequiredParent, Message))) then
+         begin
+            Message := Capitalise(RequiredParent.GetDefiniteName(Self)) + ' ' + IsAre(RequiredParent.IsPlural(Self)) + ' ' + Message + '.';
          end
          else
          if (CurrentSubject = Self) then
@@ -1176,7 +1229,7 @@ begin
             if (Assigned(RequiredParent)) then
             begin
                if ((CurrentSubject.Parent <> RequiredParent) or (CurrentSubject.Position <> RequiredPosition)) then
-                  Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' ' + RequiredParent.GetDefiniteName(Self) + ', ' + CurrentSubject.GetSubjectPronoun(Self) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '.'
+                  Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' ' + RequiredParent.GetDefiniteName(Self) + ', ' + CurrentSubject.GetSubjectPronoun(Self) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '.'
                else
                   Denied := False;
             end
@@ -1184,7 +1237,7 @@ begin
             begin
                if (CurrentSubject.Position <> RequiredPosition) then
                begin
-                  Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' anything, ' + CurrentSubject.GetSubjectPronoun(Self) + ' ' + TernaryConditional('is', 'are', CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '.';
+                  Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' anything, ' + CurrentSubject.GetSubjectPronoun(Self) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '.';
                end
                else
                begin
@@ -1266,6 +1319,7 @@ procedure TPlayer.DoPress(Subject: TThingList);
 var
    Multiple: Boolean;
    CurrentSubject: TThing;
+   Message: AnsiString;
 begin
    Assert(Assigned(Subject));
    Assert(Subject.Length > 0);
@@ -1280,6 +1334,11 @@ begin
             AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
          end
          else
+         if (not Reachable(CurrentSubject, Message)) then
+         begin
+            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+         end
+         else
          if (CurrentSubject = Self) then
          begin
             DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@GetReflexivePronoun), M('.')]);
@@ -1287,7 +1346,6 @@ begin
          end
          else
          begin
-            // CanReach()? (what about "press mountain", etc?) (for now it's ok since it just says "it does nothing")
             DoBroadcast([CurrentSubject, Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@CurrentSubject.GetDefiniteName), M('.')]);
             CurrentSubject.Press(Self);
          end;
@@ -1315,6 +1373,11 @@ begin
          if (not Referenceable(CurrentSubject)) then
          begin
             AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
+         end
+         else
+         if (not Reachable(CurrentSubject, Message)) then
+         begin
+            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
          end
          else
          if (CurrentSubject = Self) then
@@ -1438,7 +1501,7 @@ end;
 
 procedure TPlayer.DoDance();
 begin
-   // need a general emoting mechanic
+   // XXX need a general emoting mechanic
    NotImplemented();
 end;
 
@@ -1492,13 +1555,13 @@ begin
    if (Thing.GetMassManifest() > MaxCarryMass) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too heavy.';
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too heavy.';
    end
    else
    if (Thing.GetOutsideSizeManifest() > MaxCarrySize) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too big.';
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too big.';
    end
    else
       Result := True;
@@ -1509,13 +1572,13 @@ begin
    if (Thing.GetMassManifest() >= MaxPushMass) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too heavy.';
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too heavy.';
    end
    else
    if (Thing.GetOutsideSizeManifest() >= MaxPushSize) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Self)) + ' far too big.';
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too big.';
    end
    else
       Result := True;
@@ -1536,7 +1599,13 @@ begin
    if (Subject is TThing) then
       Result := Root.StillReferenceable(Subject as TThing, Self, FromOutside)
    else
-      raise Exception.Create('TPlayer.Referencable() does not know how to handle objects of class ' + Subject.ClassName());
+      raise Exception.Create('TPlayer.Referenceable() does not know how to handle objects of class ' + Subject.ClassName());
+end;
+
+function TPlayer.Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
+begin
+   Result := True;
+   // XXX check that Subject is in the same TLocation
 end;
 
 function TPlayer.GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
@@ -1554,7 +1623,7 @@ begin
          FindMatchingThings(Self, True, aisSelf in Scope, tpEverything, FeatureFilter, List);
       if (List.Length > 0) then
       begin
-         // should implement some kind of prioritisation scheme
+         // XXX should implement some kind of prioritisation scheme
          Result := List.First;
       end
       else

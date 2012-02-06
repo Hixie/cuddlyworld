@@ -235,7 +235,7 @@
             Thing := Things.First;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(Thing.GetDefiniteName(Self)); // should really let the caller do that
+               AutoDisambiguated(Thing.GetDefiniteName(Self)); // XXX should really let the caller do that
          finally
             Things.Free();
          end;
@@ -280,7 +280,7 @@
             end;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(Things.GetDefiniteString(Self, 'and')); // should really let the caller do that
+               AutoDisambiguated(Things.GetDefiniteString(Self, 'and')); // XXX should really let the caller do that
          except
             { in case we fail }
             Things.Free();
@@ -755,7 +755,7 @@
          Inc(CurrentToken);
          if (CanEnd()) then
          begin
-            // pick a random direction and imply it
+            // XXX pick a random direction and imply it
             Fail('Move in what direction?');
          end;
          if (TryDirection(Action.GoDirection, []) or
@@ -818,7 +818,7 @@
                PositionOverride := tpIn;
                if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
                begin
-                  // could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
+                  // XXX could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
                   AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Self));
                   Action.MovePosition := tpIn;
                end
@@ -952,7 +952,7 @@
                PositionOverride := tpIn;
                if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
                begin
-                  // could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
+                  // XXX could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
                   AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Self));
                   Assert(@Action.PushSubject = @Action.MoveSubject);
                   Action.Verb := avMove;
@@ -1158,8 +1158,8 @@
       if (Tokens[CurrentToken] = 'bug') then
       begin
          Fail('Your bug report has been noted. Whether anyone will do anything about it is another question.');
-         // should also support "pray", to notify an admin
-         // should also support "i wish ..."
+         // XXX should also support "pray", to notify an admin
+         // XXX should also support "i wish ..."
       end
       else
       {$IFDEF DEBUG}
@@ -1230,8 +1230,8 @@
          Action.Verb := avHelp;
          if (not CanEnd()) then
          begin
-            // we should add 'help <thing>', especially 'help me'.
-            // not sure how to respond to 'help fred' where fred is another player, though.
+            // XXX we should add 'help <thing>', especially 'help me'.
+            // XXX not sure how to respond to 'help fred' where fred is another player, though. Maybe just "How?"?
             EnsureNoPunctuation();
             Fail('I don''t understand how to help "' + OriginalTokens[CurrentToken] + '".');
          end;

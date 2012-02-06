@@ -72,6 +72,7 @@ type
       function GetSurfaceSizeManifest(): TThingSizeManifest; virtual; { children that are tpOn }
       procedure GetAvatars(List: TAvatarList; FromOutside: Boolean); virtual;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
+      function IsPlural(Perspective: TAvatar): Boolean; virtual; abstract;
       function GetName(Perspective: TAvatar): AnsiString; virtual; abstract;
       function GetSummaryName(Perspective: TAvatar): AnsiString; virtual;
       function GetLongName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
@@ -139,7 +140,7 @@ type
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
-      function IsPlural(Perspective: TAvatar): Boolean; virtual;
+      function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetTitle(Perspective: TAvatar): AnsiString; override;
       function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString; override;
       function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString; override;
@@ -212,6 +213,7 @@ type
       procedure ConnectVerticals(AUp, ADown: TAtom);
       procedure ConnectExits(AOut: TAtom);
       function GetAtomForDirection(Direction: TCardinalDirection): TAtom;
+      function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString; override;
@@ -308,8 +310,7 @@ begin
       Ancestor := (Ancestor as TThing).Parent;
    if (Ancestor = Perspective) then
    begin
-      Assert(ATo is TThing);
-      Perspective.AvatarMessage('That would prove rather challenging given where ' + ATo.GetDefiniteName(Perspective) + ' ' + TernaryConditional('is', 'are', (ATo as TThing).IsPlural(Perspective)) + ' relative to yourself.');
+      Perspective.AvatarMessage('That would prove rather challenging given where ' + ATo.GetDefiniteName(Perspective) + ' ' + IsAre(ATo.IsPlural(Perspective)) + ' relative to yourself.');
    end
    else
    if (Position = tpOn) then
@@ -358,7 +359,7 @@ begin
 end;
 
 
-// would be nice to find a way to have the next three methods be implemented somehow using a common body
+// XXX would be nice to find a way to have the next three methods be implemented somehow using a common body
 
 function TThingList.GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
@@ -580,7 +581,7 @@ begin
       if (not Result) then
       begin
          if ((not Assigned(GetInside(ThingPosition))) and (Self is TThing)) then
-            Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('does', 'do', (Self as TThing).IsPlural(Perspective)) + ' not appear to have an opening.'
+            Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('does', 'do', IsPlural(Perspective)) + ' not appear to have an opening.'
          else
             Message := 'There is not enough room in ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetDefiniteName(Perspective) + '.';
       end;
@@ -1001,7 +1002,7 @@ begin
    else
    if (Perspective.GetIntrinsicSize() > GetOutsideSizeManifest()) then
    begin
-      Message := Capitalise(Perspective.GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)) + ' bigger than ' + GetDefiniteName(Perspective) + '.';
+      Message := Capitalise(Perspective.GetIndefiniteName(Perspective)) + ' ' + IsAre(Perspective.IsPlural(Perspective)) + ' bigger than ' + GetDefiniteName(Perspective) + '.';
    end
    else
    begin
@@ -1114,7 +1115,7 @@ end;
 
 function TThing.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
-    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
+    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
 end;
 
 function TThing.GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
@@ -1185,7 +1186,7 @@ end;
 
 function TThing.GetDescriptionEmpty(Perspective: TAvatar): AnsiString;
 begin
-   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' empty.';
+   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' empty.';
 end;
 
 function TThing.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
@@ -1199,14 +1200,14 @@ begin
    if (not Assigned(Inside)) then
       Result := 'It is not clear how to get inside ' + GetDefiniteName(Perspective) + '.'
    else
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' closed.';
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' closed.';
 end;
 
 function TThing.GetInventory(Perspective: TAvatar): AnsiString;
 begin
    Result := GetDescriptionCarried(Perspective, True);
    if (Result = '') then
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' not carrying anything.';
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' not carrying anything.';
 end;
 
 function TThing.GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil): AnsiString;
@@ -1331,13 +1332,13 @@ end;
 function TThing.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
 begin
    if (Mode = psThereIsAThingHere) then
-      Result := 'There ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' here.'
+      Result := 'There ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' here.'
    else
    if (Mode = psOnThatThingIsAThing) then
-      Result := Capitalise(ThingPositionToString(FPosition)) + ' ' + FParent.GetDefiniteName(Perspective) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + '.'
+      Result := Capitalise(ThingPositionToString(FPosition)) + ' ' + FParent.GetDefiniteName(Perspective) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + '.'
    else
    if (Mode = psTheThingIsOnThatThing) then
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
    else
       raise EAssertionFailed.Create('unknown mode');
 end;
@@ -1457,7 +1458,7 @@ end;
 
 procedure TThing.Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar);
 begin
-   // should be more specific about where things are going, e.g. 'takes x', 'drops x', 'puts x on y', 'moves x around' (if oldparent=newparent)
+   // XXX should be more specific about where things are going, e.g. 'takes x', 'drops x', 'puts x on y', 'moves x around' (if oldparent=newparent)
    DoBroadcast([OldParent, FParent], Perspective, [C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), M('.')]);
 end;
 
@@ -1628,6 +1629,12 @@ begin
    Result := GetFieldForDirection(Direction)^;
 end;
 
+function TLocation.IsPlural(Perspective: TAvatar): Boolean;
+begin
+   Result := False; // good default, but override for things like "The Everglades"
+   // (needed for things like "_The Everglades_ are out of reach." in response to "take everglades" from a nearby room)
+end;
+
 function TLocation.GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
 var
    RemoteLocation: TAtom;
@@ -1693,19 +1700,19 @@ begin
          begin
             Thing := Atom as TThing;
             if (Thing.Position in tpAutoDescribe) then
-               ProcessThing(Thing, Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + TernaryConditional('is', 'are', Thing.IsPlural(Perspective)) + ' ' + Thing.GetIndefiniteName(Perspective) + '.');
+               ProcessThing(Thing, Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + IsAre(Thing.IsPlural(Perspective)) + ' ' + Thing.GetIndefiniteName(Perspective) + '.');
          end
          else
          if (Atom is TLocation) then
          begin
             if (Length(Result) > 0) then
                Result := Result + ' ';
-            Result := Result + (Atom as TLocation).GetDescriptionRemoteBrief(Perspective, Direction); // should make this optional
+            Result := Result + (Atom as TLocation).GetDescriptionRemoteBrief(Perspective, Direction); // XXX should make this optional
          end;
       end;
       Inc(Direction);
    end;
-   // could support cdOut by saying "You may also exit the hut to Camp Cuddlyworld."
+   // XXX could support cdOut by saying "You may also exit the hut to Camp Cuddlyworld."
    ProcessBatch(FChildren);
    if (GetSurface() <> Self) then
       ProcessBatch(GetSurface().FChildren);
@@ -1713,7 +1720,7 @@ end;
 
 function TLocation.GetDescriptionRemoteBrief(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
 begin
-   Result := Capitalise(CardinalDirectionToDirectionString(Direction)) + ' is ' + GetDefiniteName(Perspective) + '.';
+   Result := Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetDefiniteName(Perspective) + '.';
 end;
 
 function TLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
