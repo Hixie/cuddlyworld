@@ -124,12 +124,12 @@ begin
       begin
          Subject.Gender := FGender;
          case FGender of
-           gMale: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('become'), M('becomes')), SP, M('a man.')]);
-           gFemale: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('become'), M('becomes')), SP, M('a woman.')]);
-           gThirdGender: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('become'), M('becomes')), SP, M('a person.')]);
-           gRobot: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('become'), M('becomes')), SP, M('a robot.')]);
-           gOrb: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('become'), M('becomes')), SP, M('an orb.')]);
-           gHive: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('become'), M('becomes')), SP, M('a hive mind.')]);
+           gMale: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('a man.')]);
+           gFemale: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('a woman.')]);
+           gThirdGender: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('a person.')]);
+           gRobot: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('a robot.')]);
+           gOrb: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('an orb.')]);
+           gHive: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('a hive mind.')]);
           else
             raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
          end;
@@ -147,13 +147,12 @@ var
 
       procedure AddTheSlideHole(Path, SlideDispatchRoom: TLocation);
       var
-         Thing: TLocationProxy;
+         Thing: TOpening;
       begin
-         Thing := TLocationProxy.Create('hole in the ground', 'hole/holes (in the ground)?', 'The hole looks like the entrance to a fun slide at an amusement park. Some light shines up from inside.', SlideDispatchRoom);
+         Thing := TOpening.Create('hole in the ground', '((hole/holes (in the ground)?) (slide/slides opening?) (opening/openings))@', 'The hole looks like the entrance to a fun slide at an amusement park. Some light shines up from inside.', SlideDispatchRoom, tsMassive);
          Thing.CannotMoveExcuse := 'You can''t move a hole.';
          Thing.FindDescription := 'The hole is in the ground.';
          Path.GetSurface().Add(Thing, tpOpening);
-         Path.ConnectVerticals(nil, Thing);
       end;
 
    var
@@ -164,17 +163,17 @@ var
    begin
 
       { Locations }
-      ArrivalsCircle := TFeaturelessOutdoorLocation.Create('Arrivals Circle', 'the arrivals circle', 'an arrivals circle', 'The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. '+'Large signs staked into the ground point elaborately to the north and south paths. '+'A large stone serves as a sign next to the east archway. '+'To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. '+'To the southwest are another sign and archway, the sign in an even more dilapidated state. In the distance to the '+'west is a mountain. In other directions, you see an impenetrable forest.');
-      MalePath1 := TFeaturelessOutdoorLocation.Create('Male Path', 'the male path', 'a male path', 'The male path meanders from the south to the west.');
-      MalePath2 := TFeaturelessOutdoorLocation.Create('Male Clearing', 'the male clearing', 'a male clearing', 'The forest thins out, leaving a circular clearing.');
-      FemalePath1 := TFeaturelessOutdoorLocation.Create('Female Path', 'the female path', 'a female path', 'The female path meanders from the north to the east.');
-      FemalePath2 := TFeaturelessOutdoorLocation.Create('Female Clearing', 'the female clearing', 'a female clearing', 'The forest thins out, leaving a circular clearing.');
-      ThirdGenderPath1 := TFeaturelessOutdoorLocation.Create('Third-Gender Path', 'the third-gender path', 'a third-gender path', 'The third-gender path meanders from the east to the north.');
-      ThirdGenderPath2 := TFeaturelessOutdoorLocation.Create('Third-Gender Clearing', 'the third-gender clearing', 'a third-gender clearing', 'The forest thins out, leaving a circular clearing.');
-      HivePath1 := TFeaturelessOutdoorLocation.Create('Hive Path', 'the hive path', 'an hive path', 'The hive path meanders from the west to the south.');
-      HivePath2 := TFeaturelessOutdoorLocation.Create('Hive Clearing', 'the hive clearing', 'an hive clearing', 'The forest thins out, leaving a circular clearing.');
-      RobotPath1 := TFeaturelessOutdoorLocation.Create('Robot Path', 'the robot path', 'a robot path', 'The robot path meanders from the northeast to the southeast.');
-      RobotPath2 := TFeaturelessOutdoorLocation.Create('Robot Clearing', 'the robot clearing', 'a robot clearing', 'The forest thins out, leaving a circular clearing.');
+      ArrivalsCircle := TFeaturelessEarthOutdoorLocation.Create('Arrivals Circle', 'the arrivals circle', 'an arrivals circle', 'The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. '+'Large signs staked into the ground point elaborately to the north and south paths. '+'A large stone serves as a sign next to the east archway. '+'To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. '+'To the southwest are another sign and archway, the sign in an even more dilapidated state. In the distance to the '+'west is a mountain. In other directions, you see an impenetrable forest.');
+      MalePath1 := TFeaturelessEarthOutdoorLocation.Create('Male Path', 'the male path', 'a male path', 'The male path meanders from the south to the west.');
+      MalePath2 := TFeaturelessStoneOutdoorLocation.Create('Male Clearing', 'the male clearing', 'a male clearing', 'The forest thins out, leaving a circular clearing.');
+      FemalePath1 := TFeaturelessEarthOutdoorLocation.Create('Female Path', 'the female path', 'a female path', 'The female path meanders from the north to the east.');
+      FemalePath2 := TFeaturelessStoneOutdoorLocation.Create('Female Clearing', 'the female clearing', 'a female clearing', 'The forest thins out, leaving a circular clearing.');
+      ThirdGenderPath1 := TFeaturelessEarthOutdoorLocation.Create('Third-Gender Path', 'the third-gender path', 'a third-gender path', 'The third-gender path meanders from the east to the north.');
+      ThirdGenderPath2 := TFeaturelessStoneOutdoorLocation.Create('Third-Gender Clearing', 'the third-gender clearing', 'a third-gender clearing', 'The forest thins out, leaving a circular clearing.');
+      HivePath1 := TFeaturelessEarthOutdoorLocation.Create('Hive Path', 'the hive path', 'an hive path', 'The hive path meanders from the west to the south.');
+      HivePath2 := TFeaturelessStoneOutdoorLocation.Create('Hive Clearing', 'the hive clearing', 'an hive clearing', 'The forest thins out, leaving a circular clearing.');
+      RobotPath1 := TFeaturelessEarthOutdoorLocation.Create('Robot Path', 'the robot path', 'a robot path', 'The robot path meanders from the northeast to the southeast.');
+      RobotPath2 := TFeaturelessStoneOutdoorLocation.Create('Robot Clearing', 'the robot clearing', 'a robot clearing', 'The forest thins out, leaving a circular clearing.');
 
       SlideDispatchRoom := ArrivalsCircle; // make SlideDispatchRoom here
 

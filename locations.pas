@@ -12,7 +12,7 @@ type
     protected
       FGround: TThing;
     public
-      constructor Create();
+      constructor Create(Surface: TThing);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -26,7 +26,7 @@ type
       FIndefiniteName: AnsiString;
       FDescription: AnsiString;
     public
-      constructor Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString);
+      constructor Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString; Surface: TThing);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -36,17 +36,27 @@ type
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
    end;
 
+   TFeaturelessStoneOutdoorLocation = class(TFeaturelessOutdoorLocation)
+    public
+      constructor Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString);
+   end;
+
+   TFeaturelessEarthOutdoorLocation = class(TFeaturelessOutdoorLocation)
+    public
+      constructor Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString);
+   end;
+
 implementation
 
 uses
    things;
 
-constructor TOutdoorLocation.Create();
+constructor TOutdoorLocation.Create(Surface: TThing);
 begin
-   inherited;
-   FGround := TSurface.Create('ground', 'ground/grounds', 'The ground is a flat surface.');
+   inherited Create();
+   FGround := Surface;
    Add(FGround, tpPartOfImplicit);
-   FDown := FGround;
+   SetConnectionForDirection(cdDown, FGround);
 end;
 
 destructor TOutdoorLocation.Destroy();
@@ -72,9 +82,9 @@ begin
 end;
 
 
-constructor TFeaturelessOutdoorLocation.Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString);
+constructor TFeaturelessOutdoorLocation.Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString; Surface: TThing);
 begin
-   inherited Create();
+   inherited Create(Surface);
    FName := AName;
    FDefiniteName := ADefiniteName;
    FIndefiniteName := AIndefiniteName;
@@ -124,6 +134,22 @@ begin
    Result := FDescription;
 end;
 
+
+constructor TFeaturelessStoneOutdoorLocation.Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString);
+begin
+   inherited Create(AName, ADefiniteName, AIndefiniteName, ADescription,
+                    TSurface.Create('ground', '(ground/grounds ((hard (stone rock)@)% surface/surfaces) rock/rocks)@', 'The ground is a flat surface of stone.'));
+end;
+
+
+constructor TFeaturelessEarthOutdoorLocation.Create(AName, ADefiniteName, AIndefiniteName, ADescription: AnsiString);
+begin
+   inherited Create(AName, ADefiniteName, AIndefiniteName, ADescription,
+                    TEarthGround.Create('ground', '(ground/grounds earth)@', 'The ground is a flat surface of earth.'));
+end;
+
 initialization
-   RegisterStorableClass(TFeaturelessOutdoorLocation, 2000);
+   RegisterStorableClass(TFeaturelessOutdoorLocation,      2000);
+   RegisterStorableClass(TFeaturelessStoneOutdoorLocation, 2001);
+   RegisterStorableClass(TFeaturelessEarthOutdoorLocation, 2002);
 end.

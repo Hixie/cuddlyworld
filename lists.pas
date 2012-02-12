@@ -73,7 +73,7 @@ type
       procedure AdoptItem(Enumerator: TEnumerator);
       procedure AdoptList(List: TAbstractStorableList); // need compile-time type check here -- see http://mantis.freepascal.org/view.php?id=11777
       function GetEnumerator(const Direction: TTraversalDirection = tdForward): TEnumerator;
-      function Contains(Item: TItem): Boolean; { make public if needed }
+      function Contains(Item: TItem): Boolean;
       property First: TItem read InternalGetFirst;
    end;
 

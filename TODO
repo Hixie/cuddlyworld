@@ -1,3 +1,5 @@
+"there is an opening here" in mount olympus
+
 ONGOING WORK
  + Make the take/drop/etc logic keep track of whether you can reach something
    - (to later be used to check that things aren't backdrop)
@@ -9,8 +11,8 @@ WORLD
    - have a list of Backdrop rooms for each room, then we can have a TSky room and a TCourtyard room both visible from the TBalcony
    - or probably even better, chain them
    - also use this to make "look west" and "examine mountain" show the (same) mountain from multiple rooms
-   - are there assumptions built into the code that you can manipulate things you can see?
-   - are there assumptions built into the code that things you can see are in the same room as you?
+   - when in a hole, "look up" should see the sky
+   - when on the ground with a hole, "look down" should mention the ground and the hole, not just the hole
  + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
    - have a global "door" object (with no parent) and two "door side" objects
    - have the sides forward to the door
@@ -20,6 +22,14 @@ WORLD
  + descriptions of locations should not list exits that are listed in the description
     - basically, exits should be able to be labeled as implicit
  + well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
+    - remember the kind of footprint for people exitting and entering in each direction
+       - gender (male/female/robot/etc), from/to, direction, how heavy
+       - linked list, remember the last five
+       - at a regular interval, forget oldest one (grass growing back)
+    - if there's two directions that are heavily walked, describe a path between them
+    - if there's three or more directions heavily walked, describe an intersection between them
+    - if there's a direction walked but noticeably less, describe it as "a lesser path also leads" that way
+    - allow players to study tracks
  + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
  + Players should have PartOfs: eyes, hands, etc
  + Players should have Implicits: "you", "time" ("take time"), etc
@@ -44,6 +54,7 @@ WIZARDING
  + "instantiate axe": I don't understand how to "instantiate".
 
 NAVIGATION
+ + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + exit things by name
     - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
     - "get out of pile": That's a direction, I don't know how to take it.
@@ -79,6 +90,7 @@ PLAYER INTERACTION
  + implement dancing, kissing, emoting in general
  + bounce balloon
  + if you disconnect, you should (after a timeout) get encased in a ludicrously heavy transparent bubble.
+ + should write a test that triggers the size check in TThing.GetEntrance ("enter apple" should do it)
 
 THINGS
  + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it's heavy
