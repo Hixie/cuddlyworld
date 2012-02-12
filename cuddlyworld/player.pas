@@ -12,6 +12,8 @@ const
    MaxCarrySize = tsGigantic; { not inclusive }
    MaxPushMass = tmLudicrous; { not inclusive }
    MaxPushSize = tsLudicrous; { not inclusive }
+   MaxShakeMass = tmLudicrous; { not inclusive }
+   MaxShakeSize = tsGigantic; { not inclusive }
    MaxCarryCount = 10; { not inclusive }
 
 type
@@ -47,8 +49,9 @@ type
       {$ENDIF}
       procedure DoHelp();
       procedure DoQuit();
-      function CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
-      function CanPush(Thing: TThing; var Message: AnsiString): Boolean;
+      function CanCarryThing(Thing: TThing; var Message: AnsiString): Boolean;
+      function CanPushThing(Thing: TThing; var Message: AnsiString): Boolean;
+      function CanShakeThing(Thing: TThing; var Message: AnsiString): Boolean;
       function Referenceable(Subject: TAtom): Boolean;
       function Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
       function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
@@ -64,7 +67,7 @@ type
       procedure DoInventory();
       procedure AvatarMessage(Message: AnsiString); override;
       procedure AvatarBroadcast(Message: AnsiString); override;
-      procedure AutoDisambiguated(Message: AnsiString);
+      procedure AutoDisambiguated(Message: AnsiString); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetName(Perspective: TAvatar): AnsiString; override;
@@ -700,7 +703,7 @@ begin
             else
             begin
                Message := 'Taken.';
-               Success := CurrentSubject.CanTake(Self, Message) and CanCarry(CurrentSubject, Message);
+               Success := CanCarryThing(CurrentSubject, Message);
                AvatarMessage(Message);
                if (Success) then
                   Self.Put(CurrentSubject, tpCarried, True, Self);
@@ -1063,7 +1066,7 @@ begin
                begin
                   { if we get here then we have a target that makes sense }
                   Message := 'Moved ' + ThingPositionToDirectionString(ThingPosition) + ' ' + SurrogateTarget.GetDefiniteName(Self) + '.';
-                  Success := CurrentSubject.CanMove(Self, Message) and CanPush(CurrentSubject, Message) and SurrogateTarget.CanPut(CurrentSubject, ThingPosition, Self, Message);
+                  Success := CanPushThing(CurrentSubject, Message) and SurrogateTarget.CanPut(CurrentSubject, ThingPosition, Self, Message);
                   AvatarMessage(Message);
                   if (Success) then
                      SurrogateTarget.Put(CurrentSubject, ThingPosition, True, Self);
@@ -1086,7 +1089,7 @@ end;
 procedure TPlayer.DoPush(Subject: TThingList; Direction: TCardinalDirection);
 var
    Multiple, Success: Boolean;
-   CurrentSubject: TThing;
+   CurrentSubject, DisambiguationOpening: TThing;
    Destination, CurrentNotifiee: TAtom;
    Location: TLocation;
    ThingPosition: TThingPosition;
@@ -1131,14 +1134,16 @@ begin
                else
                begin
                   ThingPosition := tpOn;
+                  DisambiguationOpening := nil;
                   Message := 'Pushed.';
                   NotificationList := TAtomList.Create();
                   try
-                     Destination := Destination.GetEntrance(CurrentSubject, CurrentSubject.Parent, Self, ThingPosition, Message, NotificationList);
+                     Destination := Destination.GetEntrance(CurrentSubject, CurrentSubject.Parent, Self, ThingPosition, DisambiguationOpening, Message, NotificationList);
                      if (Assigned(Destination)) then
                      begin
-                        Success := CurrentSubject.CanMove(Self, Message) and
-                                   CanPush(CurrentSubject, Message) and
+                        if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
+                           AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Self));
+                        Success := CanPushThing(CurrentSubject, Message) and
                                    Destination.CanPut(CurrentSubject, ThingPosition, Self, Message);
                         AvatarMessage(Message);
                         if (Success) then
@@ -1253,7 +1258,7 @@ begin
                   Denied := False;
                end;
             end;
-            Denied := (not CurrentSubject.CanMove(Self, Message)) or (not CanPush(CurrentSubject, Message)) or Denied;
+            Denied := (not CanPushThing(CurrentSubject, Message)) or Denied;
          end;
          if (Denied) then
          begin
@@ -1388,7 +1393,7 @@ begin
          else
          begin
             Message := 'You can''t shake ' + CurrentSubject.GetDefiniteName(Self) + '.';
-            if (CanCarry(CurrentSubject, Message)) then
+            if (CanShakeThing(CurrentSubject, Message)) then
             begin
                { have to do broadcast as well as avatar message because broadcast won't get the context }
                DoBroadcast([CurrentSubject, Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@CurrentSubject.GetDefiniteName), M('.')]);
@@ -1396,7 +1401,9 @@ begin
                CurrentSubject.Shake(Self);
             end
             else
+            begin
                AvatarMessage(Message);
+            end;
          end;
       end;
    finally
@@ -1550,8 +1557,13 @@ begin
    end;
 end;
 
-function TPlayer.CanCarry(Thing: TThing; var Message: AnsiString): Boolean;
+function TPlayer.CanCarryThing(Thing: TThing; var Message: AnsiString): Boolean;
 begin
+   if (not Thing.CanTake(Self, Message)) then
+   begin
+      Result := False;
+   end
+   else
    if (Thing.GetMassManifest() > MaxCarryMass) then
    begin
       Result := False;
@@ -1567,8 +1579,13 @@ begin
       Result := True;
 end;
 
-function TPlayer.CanPush(Thing: TThing; var Message: AnsiString): Boolean;
+function TPlayer.CanPushThing(Thing: TThing; var Message: AnsiString): Boolean;
 begin
+   if (not Thing.CanMove(Self, Message)) then
+   begin
+      Result := False;
+   end
+   else
    if (Thing.GetMassManifest() >= MaxPushMass) then
    begin
       Result := False;
@@ -1576,6 +1593,28 @@ begin
    end
    else
    if (Thing.GetOutsideSizeManifest() >= MaxPushSize) then
+   begin
+      Result := False;
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too big.';
+   end
+   else
+      Result := True;
+end;
+
+function TPlayer.CanShakeThing(Thing: TThing; var Message: AnsiString): Boolean;
+begin
+   if (not Thing.CanShake(Self, Message)) then
+   begin
+      Result := False;
+   end
+   else
+   if (Thing.GetMassManifest() >= MaxShakeMass) then
+   begin
+      Result := False;
+      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too heavy.';
+   end
+   else
+   if (Thing.GetOutsideSizeManifest() >= MaxShakeSize) then
    begin
       Result := False;
       Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too big.';

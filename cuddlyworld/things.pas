@@ -73,24 +73,42 @@ type
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+   end;
+
+   TOpening = class(TLocationProxy)
+    public
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Size: TThingSize);
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
+      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function GetFeatures(): TThingFeatures; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+   end;
+
+   TSurface = class(TStaticThing)
+    public
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
+      function GetDefaultAtom(): TAtom; override;
    end;
 
    THole = class;
 
-   TSurface = class(TStaticThing)
+   TEarthGround = class(TSurface)
     protected
       FHole: THole;
+      {$IFOPT C+} procedure AssertChildPositionOk(Thing: TThing; APosition: TThingPosition); override; {$ENDIF}
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetLookIn(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      function GetDefaultAtom(): TAtom; override;
       function GetFeatures(): TThingFeatures; override;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -169,8 +187,9 @@ type
       function GetIntrinsicSize(): TThingSize; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function IsOpen(): Boolean; override;
@@ -472,6 +491,12 @@ begin
    Stream.WriteReference(FDestination);
 end;
 
+function TLocationProxy.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+begin
+   DisambiguationOpening := Self;       
+   Result := inherited;
+end;
+
 function TLocationProxy.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
    Assert(Assigned(FDestination));
@@ -484,22 +509,61 @@ begin
 end;
 
 
+constructor TOpening.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Size: TThingSize);
+begin
+   inherited Create(Name, Pattern, Description, Destination, tmLudicrous, Size);
+end;
+
+function TOpening.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+begin
+   if (not CanInsideHold(Traveller.GetOutsideSizeManifest())) then
+   begin
+      Result := nil;
+      Message := Traveller.GetDefiniteName(Perspective) + ' ' + IsAre(Traveller.IsPlural(Perspective)) + ' too big to fit in ' + GetDefiniteName(Perspective) + '.';
+   end
+   else
+      Result := inherited; // defers to GetInside(); TLocation.GetInside() gets the FDestination surface
+end;
+
+function TOpening.GetLookUnder(Perspective: TAvatar): AnsiString;
+begin
+   Result := GetLookIn(Perspective);
+end;
+
+function TOpening.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot move ' + GetIndefiniteName(Perspective) + '. That does not make sense.');
+end;
+
+function TOpening.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot physically pick up ' + GetIndefiniteName(Perspective) + '. That is ludicrous.');
+end;
+
+function TOpening.CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot shake ' + GetIndefiniteName(Perspective) + '. That is just silly.');
+end;
+
+function TOpening.GetFeatures(): TThingFeatures;
+begin
+   Result := inherited;
+   Result := Result + [tfCanHaveThingsPushedOn, tfCanHaveThingsPushedIn];
+end;
+
+function TOpening.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+begin
+   Result := (GetInsideSizeManifest() + Manifest) < FSize;
+end;
+
+
 constructor TSurface.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
-end;
-
-constructor TSurface.Read(Stream: TReadStream);
-begin
-   inherited;
-   Stream.ReadReference(@FHole);
-end;
-
-procedure TSurface.Write(Stream: TWriteStream);
-begin
-   inherited;
-   Stream.WriteReference(FHole);
 end;
 
 function TSurface.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -511,6 +575,7 @@ end;
 
 procedure TSurface.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
 begin
+   // always defer to parent, so that "get out" doesn't try to get out of the TSurface and into the TLocation!
    Assert(Assigned(FParent));
    FParent.Navigate(Direction, Perspective);
 end;
@@ -521,7 +586,36 @@ begin
    Result := FParent;
 end;
 
-function TSurface.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+
+constructor TEarthGround.Read(Stream: TReadStream);
+begin
+   inherited;
+   Stream.ReadReference(@FHole);
+end;
+
+procedure TEarthGround.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteReference(FHole);
+end;
+
+{$IFOPT C+}
+procedure TEarthGround.AssertChildPositionOk(Thing: TThing; APosition: TThingPosition);
+begin
+   if (Thing <> FHole) then
+   begin
+      Assert(APosition <> tpOpening);
+   end
+   else
+   begin
+      Assert(Assigned(FHole));
+      Assert(APosition = tpOpening);
+   end;
+   inherited;
+end;
+{$ENDIF}
+
+function TEarthGround.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
 begin
    if ((Direction = cdDown) and (Assigned(FHole)) and (FHole.IsOpen())) then
       Result := FHole.GetDescriptionRemoteDetailed(Perspective, Direction)
@@ -529,7 +623,7 @@ begin
       Result := inherited;
 end;
 
-function TSurface.GetLookIn(Perspective: TAvatar): AnsiString;
+function TEarthGround.GetLookIn(Perspective: TAvatar): AnsiString;
 var
    Contents: AnsiString;
 begin
@@ -544,7 +638,7 @@ begin
       Result := 'To look in ' + GetDefiniteName(Perspective) + ', you first need to dig a hole in it.';
 end;
 
-function TSurface.GetLookUnder(Perspective: TAvatar): AnsiString;
+function TEarthGround.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
    if (Assigned(FHole) and (FHole.IsOpen())) then
       Result := 'If the hole is any guide, there is a lot of earth under ' + GetDefiniteName(Perspective) + '.'
@@ -552,13 +646,13 @@ begin
       Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
 end;
 
-function TSurface.GetFeatures(): TThingFeatures;
+function TEarthGround.GetFeatures(): TThingFeatures;
 begin
    Result := inherited;
    Result := Result + [tfDiggable];
 end;
 
-function TSurface.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TEarthGround.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
 const
    Size = tsGigantic;
 var
@@ -601,7 +695,7 @@ begin
    end;
 end;
 
-function TSurface.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TEarthGround.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
    if (Assigned(FHole) and (FHole.IsOpen())) then { if it's not open then the hole isn't visible, so we pretend it's not there }
       Result := FHole
@@ -609,7 +703,7 @@ begin
       Result := Self;
 end;
 
-function TSurface.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TEarthGround.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
 begin
    if (Assigned(FHole)) then
       Result := FHole.CanInsideHold(Manifest)
@@ -617,12 +711,12 @@ begin
       Result := False;
 end;
 
-function TSurface.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
+function TEarthGround.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
 begin
    Result := 'To put things in ' + GetDefiniteName(Perspective) + ', you''ll have to dig a hole to put them in.';
 end;
 
-procedure TSurface.Removed(Thing: TThing);
+procedure TEarthGround.Removed(Thing: TThing);
 begin
    if (Thing = FHole) then
       FHole := nil;
@@ -927,16 +1021,22 @@ begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
 
-function THole.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
-begin
-   Result := False;
-   Message := 'Taking a hole is a ludicrous concept.';
-end;
-
 function THole.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
 begin
    Result := False;
-   Message := 'You can''t move a hole. That''s silly. I recommend digging a new hole and then filling this one in.';
+   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot move ' + GetIndefiniteName(Perspective) + '. That does not make sense. Maybe try filling this hole in and digging a new one in the new location.');
+end;
+
+function THole.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot physically pick up ' + GetIndefiniteName(Perspective) + '. That is ludicrous.');
+end;
+
+function THole.CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := False;
+   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot shake ' + GetIndefiniteName(Perspective) + '. That is just silly.');
 end;
 
 function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -1081,7 +1181,7 @@ end;
 
 procedure THole.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
 begin
-   Assert(FParent is TSurface);
+   Assert(FParent is TEarthGround);
    case Direction of
      cdUp, cdOut: DoNavigation(Self, FParent.GetDefaultAtom(), cdUp, Perspective);
     else
@@ -1263,8 +1363,10 @@ initialization
    RegisterStorableClass(TScenery,                1003);
    RegisterStorableClass(TLocationProxy,          1004);
    RegisterStorableClass(TSurface,                1005);
-   RegisterStorableClass(TDistantScenery,         1006);
-   RegisterStorableClass(TContainer,              1007);
+   RegisterStorableClass(TEarthGround,            1006);
+   RegisterStorableClass(TDistantScenery,         1007);
+   RegisterStorableClass(TContainer,              1008);
+   RegisterStorableClass(TOpening,                1009);
    RegisterStorableClass(TSpade,                  1010);
    RegisterStorableClass(TBag,                    1011);
    RegisterStorableClass(THole,                   1012);

@@ -1,7 +1,7 @@
 {$MODE OBJFPC} { -*- text -*- }
 
 //{$DEFINE VERBOSE}
-//{$DEFINE PLAY_IN_TEST_EDEN}
+//{$DEFINE PLAY_IN_TEST_EDEN} // play as Flathead, password zorkmid (the world doesn't support adding players; you can add some below)
 
 {$INCLUDE settings.inc}
 program tests;
@@ -362,15 +362,15 @@ procedure TestMechanics();
       World := TTestWorld.Create();
 
       { Locations }
-      Camp := TFeaturelessOutdoorLocation.Create('Camp Cuddlyfort', 'Camp Cuddlyfort', 'a camp', 'This is a camp nestled in a forest, under the shadow of a mountain to the north.');
-      Cliff := TFeaturelessOutdoorLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff to the north is a sheer rock face, essentially unclimbable, with a cave entrance. ' + ' Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.');
-      Cave1 := TFeaturelessOutdoorLocation.Create('Cave one', 'the first cave', 'a cave', 'The cave is very well-lit from the south.');
-      Cave2 := TFeaturelessOutdoorLocation.Create('Cave two', 'the second cave', 'a cave', 'The cave is somewhat well-lit from the south.');
-      Cave3 := TFeaturelessOutdoorLocation.Create('Cave three', 'the third cave', 'a cave', 'The cave is lit from the south.');
-      Cave4 := TFeaturelessOutdoorLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south.');
-      FlowerRoom := TFeaturelessOutdoorLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave, while another exit leads south. A third goes up, ascending towards the heavens.');
-      Kitchen := TFeaturelessOutdoorLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.');
-      Olympus := TFeaturelessOutdoorLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor. An exit leads down.');
+      Camp := TFeaturelessEarthOutdoorLocation.Create('Camp Cuddlyfort', 'Camp Cuddlyfort', 'a camp', 'This is a camp nestled in a forest, under the shadow of a mountain to the north.');
+      Cliff := TFeaturelessEarthOutdoorLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff to the north is a sheer rock face, essentially unclimbable, with a cave entrance. ' + ' Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.');
+      Cave1 := TFeaturelessEarthOutdoorLocation.Create('Cave one', 'the first cave', 'a cave', 'The cave is very well-lit from the south.');
+      Cave2 := TFeaturelessEarthOutdoorLocation.Create('Cave two', 'the second cave', 'a cave', 'The cave is somewhat well-lit from the south.');
+      Cave3 := TFeaturelessEarthOutdoorLocation.Create('Cave three', 'the third cave', 'a cave', 'The cave is lit from the south.');
+      Cave4 := TFeaturelessEarthOutdoorLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south.');
+      FlowerRoom := TFeaturelessEarthOutdoorLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave, while another exit leads south. A third goes up, ascending towards the heavens.');
+      Kitchen := TFeaturelessEarthOutdoorLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.');
+      Olympus := TFeaturelessStoneOutdoorLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor. An exit leads down.');
 
       { Camp }
       CampMountain := TDistantScenery.Create('mountain', 'mountain/mountains', cdNorth);
@@ -613,7 +613,7 @@ procedure TestMechanics();
       FlowerRoom.ConnectCardinals(nil, Cave4, Kitchen, nil);
       FlowerRoom.ConnectVerticals(Olympus, nil);
       Kitchen.ConnectCardinals(FlowerRoom, nil, nil, nil);
-      Olympus.ConnectVerticals(nil, FlowerRoom);
+      Olympus.GetSurface().Add(TOpening.Create('opening', 'opening/openings', '', FlowerRoom, tsBig), tpOpening);
 
       World.AddLocation(Camp);
       World.AddLocation(Cliff);
@@ -755,7 +755,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('x rim bag');
 
-         Proxy.ExpectString('Pile of leaves: You shake the pile of leaves.');
+         Proxy.ExpectString('Pile of leaves: The pile of leaves slips through your fingers.');
          Proxy.ExpectString('MacGuffin: You shake the MacGuffin.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the pile, some leaves, and a macguffin');
@@ -799,19 +799,27 @@ begin
          Proxy.ExpectNoSubstring('I can''t see anything to move.');
          Proxy.WaitUntilString('');
          Proxy.ExpectString('Foot of Cliff Face');
-         Proxy.ExpectNoSubstring('hole');
-         Proxy.AndAlso();
-         Proxy.ExpectNoSubstring('leaves');
+         Proxy.ExpectNoSubstring('hole'); Proxy.AndAlso(); Proxy.ExpectNoSubstring('leaves');
          Proxy.WaitUntilString('');
-         Proxy.ExpectString('(the ground with the spade)');
+         Proxy.ExpectString('(the ground with the spade)'); // dig
          Proxy.ExpectString('(first taking the spade)');
          Proxy.ExpectString('Taken.');
          Proxy.ExpectString('With much effort, you dig a huge hole.');
          Proxy.ExpectString('');
-         Proxy.ExpectString('Foot of Cliff Face');
-         Proxy.ExpectSubstring('hole');
-         Proxy.AndAlso();
-         Proxy.ExpectNoSubstring('leaves');
+         Proxy.ExpectString('Foot of Cliff Face'); // look
+         Proxy.ExpectSubstring('hole'); Proxy.AndAlso(); Proxy.ExpectNoSubstring('leaves');
+         Proxy.WaitUntilString('');
+         Proxy.ExpectString('Looking down, you see a hole. The hole is quite dirty.'); // look down (this could also mention the ground)
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Hole in the ground'); // down
+         Proxy.ExpectString('The hole is quite dirty.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Hole in the ground'); // look
+         Proxy.ExpectString('The hole is quite dirty.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('You are in the hole.'); // look up (this could be made a bit better, e.g. seeing the sky)
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Foot of Cliff Face'); // look
          Proxy.WaitUntilString('');
          Proxy.ExpectSubstring('(first taking the '); Proxy.AndAlso(); Proxy.ExpectSubstring(' penny)');
          Proxy.ExpectString('Taken.');
@@ -835,11 +843,9 @@ begin
          Proxy.ExpectString('To look in the ground, you first need to dig a hole in it.'); { look in ground }
          Proxy.ExpectString('');
          Proxy.ExpectString('Foot of Cliff Face');
-         Proxy.ExpectNoSubstring('hole');
-         Proxy.AndAlso();
-         Proxy.ExpectSubstring('leaves');
+         Proxy.ExpectNoSubstring('hole'); Proxy.AndAlso(); Proxy.ExpectSubstring('leaves');
          Proxy.WaitUntilString('');
-         TestPlayer.Perform('move all n; n; dig; l; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l in hole; look in ground; l');
+         TestPlayer.Perform('move all n; n; dig; l; l d; d; l; l u; u; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l in hole; look in ground; l');
          Proxy.ExpectDone();
 
          { complex parsing }
@@ -1071,7 +1077,7 @@ begin
          Proxy.ExpectString('');
          Proxy.ExpectString('I can''t find anything like a "hole" here.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('move leaves onto ground; x hole; find hole; push balloons on hole; x hole; move earth on hole; find hole; move earth off; move pink out; get spade; move earth onto hole; find hole');
+         TestPlayer.Perform('move leaves onto ground; x hole; find hole; push balloons on hole; x hole; move soil on hole; find hole; move soil off; move pink out; get spade; move soil onto hole; find hole');
          Proxy.ExpectDone();
 
          { and/then/etc tests }
@@ -1591,6 +1597,10 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('dig the ground with the spade that is metal');
 
+         Proxy.ExpectString('Which earth do you want to find first, the ground or the pile of earth?');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('find earth');
+
          Proxy.ExpectString('Wooden spoon: Moved into the hole.');
          Proxy.ExpectString('Plastic spoon: Moved into the hole.');
          Proxy.ExpectString('Stainless steel spoon: Moved into the hole.');
@@ -1628,9 +1638,10 @@ begin
          Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
          Proxy.ExpectString('Silver spoon: You shake the silver spoon.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('shake all from all that is earth');
+         TestPlayer.Perform('shake all from all that is soil');
 
-         Proxy.ExpectString('It''s not clear to what you are referring.');
+         Proxy.ExpectString('Hole: You cannot shake a hole. That is just silly.');
+         Proxy.ExpectString('Pile of earth: The pile of earth slips through your fingers.');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake all from all that is earth but pile');
 
@@ -2056,6 +2067,24 @@ begin
          Proxy.ExpectString('Which diamond from one of the arches that is an arch and that is pink do you mean, the diamond-studded gold inlay of the south archway or the circle-and-cross diamonds of the south archway?');
          Proxy.ExpectString('');
          TestPlayer.Perform('shake the one diamond from one of the arches that is an arch and is pink');
+
+         Proxy.ExpectString('(through the north archway)');
+         Proxy.ExpectString('You become a man.');
+         Proxy.ExpectString('Male Path');
+         Proxy.ExpectSubstring('meanders');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('n');
+
+         Proxy.ExpectString('Male Clearing');
+         Proxy.ExpectSubstring('hole');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('w');
+
+         Proxy.ExpectString('(through the hole in the ground)');
+         Proxy.SkipLine(); // name of destination, but we don't have one yet
+         Proxy.SkipLine(); // destination description
+         Proxy.ExpectString('');
+         TestPlayer.Perform('d');
 
          { test round-tripping }
          Proxy.Test('Round-tripping');

@@ -176,7 +176,6 @@ begin
       end;
      else Assert(False);
    end;
-Writeln();
 end;
 
 procedure TWebSocket.CheckField();

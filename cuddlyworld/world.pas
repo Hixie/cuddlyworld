@@ -10,6 +10,7 @@ uses
 type
    TAtom = class;
    TAtomEnumerator = specialize TGenericStorableListEnumerator<TAtom>;
+   PAtomList = ^TAtomList;
    TAtomList = specialize TStorableList<TAtom, TAtomEnumerator>;
    TThing = class;
    TThingEnumerator = Specialize TGenericStorableListEnumerator<TThing>;
@@ -45,7 +46,6 @@ type
    TReferencedCallback = procedure (Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber) of object;
 
 type
-   PAtom = ^TAtom; { used for pointers to fields that point to TAtoms }
    TAtom = class(TStorable)
     {$IFDEF DEBUG}
     private
@@ -55,6 +55,7 @@ type
       FChildren: TThingList;
       procedure Removed(Thing: TThing); virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
+      {$IFOPT C+} procedure AssertChildPositionOk(Thing: TThing; Position: TThingPosition); virtual; {$ENDIF}
     public
       constructor Create();
       destructor Destroy(); override;
@@ -108,7 +109,7 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
       function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetDefaultAtom) }
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom; virtual; abstract;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
       {$IFDEF DEBUG} function Debug(): AnsiString; virtual; {$ENDIF}
@@ -128,14 +129,15 @@ type
       procedure GetAvatars(List: TAvatarList; FromOutside: Boolean); override;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
+      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
+      function CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       function GetIntrinsicMass(): TThingMass; virtual; abstract;
       function GetIntrinsicSize(): TThingSize; virtual; abstract;
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function GetSummaryName(Perspective: TAvatar): AnsiString; override;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
@@ -193,6 +195,7 @@ type
       procedure AnnounceDeparture(Destination: TAtom); virtual; abstract;
       procedure AnnounceArrival(Source: TAtom); virtual; abstract;
       procedure AnnounceArrival(Source: TAtom; Direction: TCardinalDirection); virtual; abstract;
+      procedure AutoDisambiguated(Message: AnsiString); virtual; abstract;
       function HasConnectedPlayer(): Boolean; virtual; abstract;
       function IsReadyForRemoval(): Boolean; virtual; abstract;
       procedure RemoveFromWorld(); virtual;
@@ -201,8 +204,10 @@ type
 
    TLocation = class(TAtom)
     protected
-      FNorth, FNorthEast, FEast, FSouthEast, FSouth, FSouthWest, FWest, FNorthWest, FUp, FDown, FOut: TAtom;
-      function GetFieldForDirection(Direction: TCardinalDirection): PAtom;
+      FNorth, FNorthEast, FEast, FSouthEast, FSouth, FSouthWest, FWest, FNorthWest, FUp, FDown, FOut: TAtomList;
+      function GetFieldForDirection(Direction: TCardinalDirection): PAtomList;
+      procedure SetConnectionForDirection(Direction: TCardinalDirection; Atom: TAtom);
+      function CanFindInDirection(Direction: TCardinalDirection; Atom: TAtom): Boolean;
     public
       constructor Create();
       destructor Destroy(); override;
@@ -221,7 +226,7 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
    end;
 
@@ -251,6 +256,17 @@ type
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);
 
+{ Navigation works as follows:
+    Enter and ClimbOn actions invoke the Position-based DoNavigation() above directly.
+    Go actions invoke the player's parent's Navigate() method.
+      Navigate() then typicially defers up until you reach the location.
+      The TLocation.Navigate() method then looks in the appropriate direction.
+      If that returns something, it calls the Direction-based DoNavigation().
+    Then, DoNavigate() calls GetSurface() (for ClimbOn) or GetEntrance() (for Enter and Go).
+      TThing.GetEntrance() looks for the child that is at tpOpening and defers to it, else defers to GetInside()
+      TLocation.GetEntrance() calls GetSurface().
+}
+
 procedure QueueForDisposal(Atom: TAtom);
 
 implementation
@@ -265,17 +281,21 @@ var
    Position: TThingPosition;
    NotificationList: TAtomList;
    NotificationTarget: TAtom;
+   DisambiguationOpening: TThing;
 begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
    Assert(Assigned(Perspective));
    Position := tpOn;
+   DisambiguationOpening := nil;
    Message := '';
    NotificationList := TAtomList.Create();
    try
-      Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message, NotificationList);
+      Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, DisambiguationOpening, Message, NotificationList);
       if (Assigned(Destination)) then
       begin
+         if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
+            Perspective.AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Perspective));
          Perspective.AnnounceDeparture(ATo, Direction);
          for NotificationTarget in NotificationList do
             NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
@@ -300,6 +320,7 @@ var
    Ancestor: TAtom;
    NotificationList: TAtomList;
    NotificationTarget: TAtom;
+   DisambiguationOpening: TThing;
 begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
@@ -318,6 +339,7 @@ begin
       ATo := ATo.GetSurface();
       Assert(Assigned(ATo));
       Assert(ATo is TThing);
+      DisambiguationOpening := nil;
       Message := '';
       Success := (ATo as TThing).CanPut(Perspective, Position, Perspective, Message);
       if (Success) then
@@ -336,9 +358,11 @@ begin
       Assert(ATo is TThing);
       NotificationList := TAtomList.Create();
       try
-         Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, Message, NotificationList);
+         Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, DisambiguationOpening, Message, NotificationList);
          if (Assigned(Destination)) then
          begin
+            if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
+               Perspective.AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Perspective));
             Perspective.AnnounceDeparture(ATo);
             for NotificationTarget in NotificationList do
                NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
@@ -505,6 +529,17 @@ begin
    Stream.WriteObject(FChildren);
 end;
 
+{$IFOPT C+}
+procedure TAtom.AssertChildPositionOk(Thing: TThing; Position: TThingPosition);
+var
+   Child: TThing;
+begin
+   if (Position = tpOpening) then
+      for Child in FChildren do
+         Assert(Child.FPosition <> tpOpening, 'Can''t have two things that are the tpOpening of another thing. See note in grammarian.pas.');
+end;
+{$ENDIF}
+
 procedure TAtom.Add(Thing: TThing; Position: TThingPosition);
 {$IFOPT C+}
 var
@@ -514,6 +549,7 @@ begin
    {$IFOPT C+}
      TempPosition := tpIn;
      Assert((Position <> tpIn) or (GetInside(TempPosition) = Self), 'tried to put something inside something without an inside');
+     AssertChildPositionOk(Thing, Position);
    {$ENDIF}
    if (Assigned(Thing.FParent)) then
       Thing.FParent.Remove(Thing);
@@ -530,11 +566,12 @@ var
    {$IFOPT C+} TempPosition: TThingPosition; {$ENDIF}
 begin
    Assert(Thing.FList <> FChildren);
+   ActualThing := Thing.Current;
    {$IFOPT C+}
      TempPosition := tpIn;
      Assert((Position <> tpIn) or (GetInside(TempPosition) = Self), 'tried to put something inside something without an inside');
+     AssertChildPositionOk(ActualThing, Position);
    {$ENDIF}
-   ActualThing := Thing.Current;
    Assert(Assigned(ActualThing));
    OldParent := ActualThing.FParent;
    FChildren.AdoptItem(Thing);
@@ -880,9 +917,20 @@ begin
 end;
 
 function TAtom.GetInside(var PositionOverride: TThingPosition): TAtom;
+var
+   Child: TThing;
 begin
    Assert(PositionOverride = tpIn);
    Result := nil;
+   for Child in FChildren do
+   begin
+      if (Child.Position = tpOpening) then
+      begin
+         Assert(not Assigned(Result));
+         Result := Child.GetInside(PositionOverride);
+         {$IFOPT C-} Exit; {$ENDIF} // no need to go through the list if not checking for assertions anyway
+      end;
+   end;
 end;
 
 function TAtom.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
@@ -983,8 +1031,22 @@ begin
       Result := (GetSurfaceSizeManifest() + Manifest) <= (GetIntrinsicSize());
 end;
 
-function TThing.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TThing.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+var
+   Child: TThing;
 begin
+   // first, look for an opening we can use as the entrance, and defer to it if we have one
+   Assert(Assigned(FChildren));
+   for Child in FChildren do
+   begin
+      if (Child.Position = tpOpening) then
+      begin
+         DisambiguationOpening := Child;
+         Result := Child.GetEntrance(Traveller, AFrom, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList);
+         Exit;
+      end;
+   end;
+   // no opening, so instead try to directly put the thing inside our insides
    PositionOverride := tpIn;
    Result := GetInside(PositionOverride);
    if (Assigned(Result)) then
@@ -1002,13 +1064,17 @@ begin
    else
    if (Perspective.GetIntrinsicSize() > GetOutsideSizeManifest()) then
    begin
-      Message := Capitalise(Perspective.GetIndefiniteName(Perspective)) + ' ' + IsAre(Perspective.IsPlural(Perspective)) + ' bigger than ' + GetDefiniteName(Perspective) + '.';
+      // no entrance, no inside, but the thing is too small anyway
+      // "You are bigger than the apple."
+      Message := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' ' + IsAre(Perspective.IsPlural(Perspective)) + ' bigger than ' + GetDefiniteName(Perspective) + '.';
    end
    else
    begin
+      // no entrance, no inside
+      // try to give a message along the lines of "the bottle is closed", but failing that, the default below
       Message := GetDescriptionState(Perspective);
       if (Length(Message) = 0) then
-         Message := Capitalise(GetDefiniteName(Perspective)) + ' has no discernible entrance.';
+         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('has', 'have', IsPlural(Perspective)) + ' no discernible entrance.';
    end;
 end;
 
@@ -1361,14 +1427,19 @@ begin
    end;
 end;
 
+function TThing.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+begin
+   Result := True;
+end;
+
 function TThing.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
 begin
    Result := CanMove(Perspective, Message);
 end;
 
-function TThing.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TThing.CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean;
 begin
-   Result := True;
+   Result := CanTake(Perspective, Message);
 end;
 
 procedure TThing.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
@@ -1541,70 +1612,79 @@ begin
 end;
 
 destructor TLocation.Destroy();
+var
+   Direction: TCardinalDirection;
+   ListField: PAtomList;
 begin
+   for Direction in cdPhysicalDirections do
+   begin
+      ListField := GetFieldForDirection(Direction);
+      if (Assigned(ListField^)) then
+         ListField^.Free();
+   end;
    inherited;
 end;
 
 constructor TLocation.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@FNorth);
-   Stream.ReadReference(@FNorthEast);
-   Stream.ReadReference(@FEast);
-   Stream.ReadReference(@FSouthEast);
-   Stream.ReadReference(@FSouth);
-   Stream.ReadReference(@FSouthWest);
-   Stream.ReadReference(@FWest);
-   Stream.ReadReference(@FNorthWest);
-   Stream.ReadReference(@FUp);
-   Stream.ReadReference(@FDown);
-   Stream.ReadReference(@FOut);
+   FNorth := Stream.ReadObject() as TAtomList;
+   FNorthEast := Stream.ReadObject() as TAtomList;
+   FEast := Stream.ReadObject() as TAtomList;
+   FSouthEast := Stream.ReadObject() as TAtomList;
+   FSouth := Stream.ReadObject() as TAtomList;
+   FSouthWest := Stream.ReadObject() as TAtomList;
+   FWest := Stream.ReadObject() as TAtomList;
+   FNorthWest := Stream.ReadObject() as TAtomList;
+   FUp := Stream.ReadObject() as TAtomList;
+   FDown := Stream.ReadObject() as TAtomList;
+   FOut := Stream.ReadObject() as TAtomList;
 end;
 
 procedure TLocation.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteReference(FNorth);
-   Stream.WriteReference(FNorthEast);
-   Stream.WriteReference(FEast);
-   Stream.WriteReference(FSouthEast);
-   Stream.WriteReference(FSouth);
-   Stream.WriteReference(FSouthWest);
-   Stream.WriteReference(FWest);
-   Stream.WriteReference(FNorthWest);
-   Stream.WriteReference(FUp);
-   Stream.WriteReference(FDown);
-   Stream.WriteReference(FOut);
+   Stream.WriteObject(FNorth);
+   Stream.WriteObject(FNorthEast);
+   Stream.WriteObject(FEast);
+   Stream.WriteObject(FSouthEast);
+   Stream.WriteObject(FSouth);
+   Stream.WriteObject(FSouthWest);
+   Stream.WriteObject(FWest);
+   Stream.WriteObject(FNorthWest);
+   Stream.WriteObject(FUp);
+   Stream.WriteObject(FDown);
+   Stream.WriteObject(FOut);
 end;
 
 procedure TLocation.ConnectCardinals(ANorth, AEast, ASouth, AWest: TAtom);
 begin
-   FNorth := ANorth;
-   FEast := AEast;
-   FSouth := ASouth;
-   FWest := AWest;
+   SetConnectionForDirection(cdNorth, ANorth);
+   SetConnectionForDirection(cdEast, AEast);
+   SetConnectionForDirection(cdSouth, ASouth);
+   SetConnectionForDirection(cdWest, AWest);
 end;
 
 procedure TLocation.ConnectDiagonals(ANorthEast, ASouthEast, ASouthWest, ANorthWest: TAtom);
 begin
-   FNorthEast := ANorthEast;
-   FSouthEast := ASouthEast;
-   FSouthWest := ASouthWest;
-   FNorthWest := ANorthWest;
+   SetConnectionForDirection(cdNorthEast, ANorthEast);
+   SetConnectionForDirection(cdSouthEast, ASouthEast);
+   SetConnectionForDirection(cdSouthWest, ASouthWest);
+   SetConnectionForDirection(cdNorthWest, ANorthWest);
 end;
 
 procedure TLocation.ConnectVerticals(AUp, ADown: TAtom);
 begin
-   FUp := AUp;
-   FDown := ADown;
+   SetConnectionForDirection(cdUp, AUp);
+   SetConnectionForDirection(cdDown, ADown);
 end;
 
 procedure TLocation.ConnectExits(AOut: TAtom);
 begin
-   FOut := AOut;
+   SetConnectionForDirection(cdOut, AOut);
 end;
 
-function TLocation.GetFieldForDirection(Direction: TCardinalDirection): PAtom;
+function TLocation.GetFieldForDirection(Direction: TCardinalDirection): PAtomList;
 begin
    case Direction of
     cdNorth: Result := @FNorth; 
@@ -1624,9 +1704,42 @@ begin
    end;
 end;
 
-function TLocation.GetAtomForDirection(Direction: TCardinalDirection): TAtom;
+procedure TLocation.SetConnectionForDirection(Direction: TCardinalDirection; Atom: TAtom);
+var
+   ListField: PAtomList;
 begin
-   Result := GetFieldForDirection(Direction)^;
+   if (Assigned(Atom)) then
+   begin
+      ListField := GetFieldForDirection(Direction);
+      Assert(not Assigned(ListField^));
+      ListField^ := TAtomList.Create();
+      ListField^.AppendItem(Atom);
+   end;
+end;
+
+function TLocation.CanFindInDirection(Direction: TCardinalDirection; Atom: TAtom): Boolean;
+var
+   ListField: PAtomList;
+begin
+   Assert(Assigned(Atom));
+   ListField := GetFieldForDirection(Direction);
+   Result := Assigned(ListField^) and (ListField^.Contains(Atom));
+end;
+
+function TLocation.GetAtomForDirection(Direction: TCardinalDirection): TAtom;
+var
+   ListField: PAtomList;
+begin
+   ListField := GetFieldForDirection(Direction);
+   if (Assigned(ListField^)) then
+   begin
+      Result := ListField^.First;
+      Assert(Assigned(Result));
+   end
+   else
+   begin
+      Result := nil;
+   end;
 end;
 
 function TLocation.IsPlural(Perspective: TAvatar): Boolean;
@@ -1641,6 +1754,7 @@ var
 begin
    Assert(Direction <> cdIn);
    RemoteLocation := GetAtomForDirection(Direction);
+   // XXX should support describing the whole list of things in that direction
    if (Assigned(RemoteLocation)) then
       Result := RemoteLocation.GetDescriptionRemoteDetailed(Perspective, Direction)
    else
@@ -1669,17 +1783,17 @@ function TLocation.GetDescriptionHere(Perspective: TAvatar; Context: TAtom = nil
       begin
          if ((Child.Position in tpAutoDescribe) and
              (Child <> Perspective) and
-             (Child <> FNorth) and
-             (Child <> FNorthEast) and
-             (Child <> FEast) and
-             (Child <> FSouthEast) and
-             (Child <> FSouth) and
-             (Child <> FSouthWest) and
-             (Child <> FWest) and
-             (Child <> FNorthWest) and
-             (Child <> FUp) and
-             (Child <> FDown) and
-             (Child <> Context)) then
+             (Child <> Context) and
+             (not CanFindInDirection(cdNorth, Child)) and
+             (not CanFindInDirection(cdNorthEast, Child)) and
+             (not CanFindInDirection(cdEast, Child)) and
+             (not CanFindInDirection(cdSouthEast, Child)) and
+             (not CanFindInDirection(cdSouth, Child)) and
+             (not CanFindInDirection(cdSouthWest, Child)) and
+             (not CanFindInDirection(cdWest, Child)) and
+             (not CanFindInDirection(cdNorthWest, Child)) and
+             (not CanFindInDirection(cdUp, Child)) and
+             (not CanFindInDirection(cdDown, Child))) then
             ProcessThing(Child, Child.GetPresenceStatement(Perspective, psThereIsAThingHere));
       end;
    end;
@@ -1693,6 +1807,7 @@ begin
    Direction := Low(Direction);
    while (Direction <= cdLastPhysical) do
    begin
+      // XXX should consider the entire list, not just the first atom
       Atom := GetAtomForDirection(Direction);
       if (Atom <> Context) then
       begin
@@ -1746,7 +1861,7 @@ begin
    Perspective.AvatarMessage('You can''t go ' + CardinalDirectionToString(Direction) + ' from here.');
 end;
 
-function TLocation.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TLocation.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
    Result := GetSurface();
 end;
