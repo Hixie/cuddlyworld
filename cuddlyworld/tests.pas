@@ -1,7 +1,7 @@
 {$MODE OBJFPC} { -*- text -*- }
 
 //{$DEFINE VERBOSE}
-//{$DEFINE PLAY_IN_TEST_EDEN} // play as Flathead, password zorkmid (the world doesn't support adding players; you can add some below)
+//{$DEFINE PLAY_IN_TEST_EDEN} // play as Flathead, password zorkmid (the world doesn't support adding players; you can add some below) (don't forget to comment out genesis in build.sh)
 
 {$INCLUDE settings.inc}
 program tests;
@@ -370,7 +370,7 @@ procedure TestMechanics();
       Cave4 := TFeaturelessEarthOutdoorLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south.');
       FlowerRoom := TFeaturelessEarthOutdoorLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave, while another exit leads south. A third goes up, ascending towards the heavens.');
       Kitchen := TFeaturelessEarthOutdoorLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.');
-      Olympus := TFeaturelessStoneOutdoorLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor. An exit leads down.');
+      Olympus := TFeaturelessStoneOutdoorLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor.');
 
       { Camp }
       CampMountain := TDistantScenery.Create('mountain', 'mountain/mountains', cdNorth);
@@ -613,7 +613,7 @@ procedure TestMechanics();
       FlowerRoom.ConnectCardinals(nil, Cave4, Kitchen, nil);
       FlowerRoom.ConnectVerticals(Olympus, nil);
       Kitchen.ConnectCardinals(FlowerRoom, nil, nil, nil);
-      Olympus.GetSurface().Add(TOpening.Create('opening', 'opening/openings', '', FlowerRoom, tsBig), tpOpening);
+      Olympus.GetSurface().Add(TOpening.Create('opening', 'opening/openings', '', FlowerRoom, tsBig), tpDirectionalOpening);
 
       World.AddLocation(Camp);
       World.AddLocation(Cliff);
@@ -664,6 +664,15 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('look');
          Proxy.ExpectDone();
+
+         { Sanity tests }
+         Proxy.Test('Sanity Tests');
+         Proxy.ExpectString('You see nothing noteworthy when looking out.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('look out');
+         Proxy.ExpectString('You cannot enter the penny. You are bigger than the penny.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('enter penny');
 
          { Basic parsing of things }
          Proxy.Test('Parsing of things');
@@ -809,7 +818,7 @@ begin
          Proxy.ExpectString('Foot of Cliff Face'); // look
          Proxy.ExpectSubstring('hole'); Proxy.AndAlso(); Proxy.ExpectNoSubstring('leaves');
          Proxy.WaitUntilString('');
-         Proxy.ExpectString('Looking down, you see a hole. The hole is quite dirty.'); // look down (this could also mention the ground)
+         Proxy.ExpectSubstring('down'); Proxy.AndAlso(); {Proxy.ExpectSubstring('ground'); Proxy.AndAlso();} Proxy.ExpectSubstring('hole');
          Proxy.ExpectString('');
          Proxy.ExpectString('Hole in the ground'); // down
          Proxy.ExpectString('The hole is quite dirty.');
@@ -817,7 +826,10 @@ begin
          Proxy.ExpectString('Hole in the ground'); // look
          Proxy.ExpectString('The hole is quite dirty.');
          Proxy.ExpectString('');
-         Proxy.ExpectString('You are in the hole.'); // look up (this could be made a bit better, e.g. seeing the sky)
+         Proxy.ExpectString('Looking out, you see:'); // look out
+         Proxy.ExpectString('Foot of Cliff Face');
+         Proxy.WaitUntilString('');
+         Proxy.ExpectString('You see nothing noteworthy when looking up.'); // look up
          Proxy.ExpectString('');
          Proxy.ExpectString('Foot of Cliff Face'); // look
          Proxy.WaitUntilString('');
@@ -845,7 +857,7 @@ begin
          Proxy.ExpectString('Foot of Cliff Face');
          Proxy.ExpectNoSubstring('hole'); Proxy.AndAlso(); Proxy.ExpectSubstring('leaves');
          Proxy.WaitUntilString('');
-         TestPlayer.Perform('move all n; n; dig; l; l d; d; l; l u; u; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l in hole; look in ground; l');
+         TestPlayer.Perform('move all n; n; dig; l; l d; d; l; l out; l u; u; drop penny onto hole; move spade on to hole; push macguffin on hole; move leaves over hole; x hole; l in hole; look in ground; l');
          Proxy.ExpectDone();
 
          { complex parsing }

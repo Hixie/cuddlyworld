@@ -73,8 +73,10 @@ type
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; override;
       function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function IsOpen(): Boolean; override;
    end;
 
    TOpening = class(TLocationProxy)
@@ -183,6 +185,7 @@ type
       function GetDescriptionState(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionClosed(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
+      function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -444,7 +447,7 @@ begin
    if (FPosition = tpPartOfImplicit) then
       Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' part of ' + FParent.GetDefiniteName(Perspective) + '.'
    else
-   if (FPosition = tpOpening) then
+   if (FPosition in tpOpening) then
       Message := 'Moving ' + GetIndefiniteName(Perspective) + ' doesn''t even make sense.'
    else
       Message := Capitalise(GetDefiniteName(Perspective)) + ' cannot be moved.';
@@ -491,6 +494,11 @@ begin
    Stream.WriteReference(FDestination);
 end;
 
+function TLocationProxy.GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString;
+begin
+   Result := Capitalise(GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('leads', 'lead', IsPlural(Perspective)) + ' ' + CardinalDirectionToString(Direction) + '.';
+end;
+
 function TLocationProxy.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
    DisambiguationOpening := Self;       
@@ -506,6 +514,11 @@ begin
       Result := FDestination.GetSurface();
       PositionOverride := tpOn;
    end;
+end;
+
+function TLocationProxy.IsOpen(): Boolean;
+begin
+   Result := True;
 end;
 
 
@@ -604,12 +617,12 @@ procedure TEarthGround.AssertChildPositionOk(Thing: TThing; APosition: TThingPos
 begin
    if (Thing <> FHole) then
    begin
-      Assert(APosition <> tpOpening);
+      Assert(not (APosition in tpOpening));
    end
    else
    begin
       Assert(Assigned(FHole));
-      Assert(APosition = tpOpening);
+      Assert(APosition in tpOpening);
    end;
    inherited;
 end;
@@ -617,6 +630,7 @@ end;
 
 function TEarthGround.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
 begin
+   // we intentionally override seeing the ground if there's a hole, because we want to see what's in the hole
    if ((Direction = cdDown) and (Assigned(FHole)) and (FHole.IsOpen())) then
       Result := FHole.GetDescriptionRemoteDetailed(Perspective, Direction)
    else
@@ -688,10 +702,10 @@ begin
          E.Free();
       end;
       FHole := THole.Create('The hole is quite dirty.', Size, TEarthPile);
-      Add(FHole, tpOpening);
+      Add(FHole, tpSurfaceOpening);
       Add(Pile, tpOn);
       Result := True;
-      Message := 'With much effort, you dig a huge hole.';
+      Message := 'With much effort, ' + Perspective.GetDefiniteName(Perspective) + ' dig a huge hole.';
    end;
 end;
 
@@ -999,6 +1013,17 @@ end;
 function THole.GetLookUnder(Perspective: TAvatar): AnsiString;
 begin
    Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
+end;
+
+function THole.GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+begin
+   if (Direction = cdUp) then
+   begin
+      Assert(Assigned(FParent));
+      Result := FParent.GetLookDirection(Perspective, Direction);
+   end
+   else
+      Result := inherited;
 end;
 
 function THole.GetIntrinsicMass(): TThingMass;

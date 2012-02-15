@@ -107,6 +107,7 @@ begin
          FPlayer.DoLook();
          WriteFrame('');
       end;
+      FPlayer.ReportFailedCommands := True;
    except
       on E: EExternal do raise;
       on E: Exception do
@@ -148,6 +149,7 @@ procedure TCuddlyWorldClient.HandleForceDisconnect();
 begin
    WriteFrame('Switching to new connection...');
    FPlayer.Abandon();
+   FPlayer.ReportFailedCommands := False;
    FPlayer := nil;
    Disconnect();
 end;
