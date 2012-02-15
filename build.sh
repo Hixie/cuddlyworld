@@ -1,3 +1,6 @@
+# Generate helper files
+perl -w regen.pl &&
+
 # TESTING
 # ~/bin/fpc/bin/fpc test.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gh -Sa -veiwnhb && ./test && exit;
 
@@ -10,8 +13,8 @@ echo &&
 ../bin/tests &&
 echo &&
 echo &&
-# rm -f world.dat &&
-# ../bin/genesis &&
+rm -f world.dat &&
+../bin/genesis &&
 echo &&
 echo &&
 ../bin/cuddlyworld

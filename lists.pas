@@ -408,7 +408,7 @@ begin
    inherited;
    Assert(Assigned(Template));
    Assert(Template is Self.ClassType);
-   Assert((slOwner in Flags) <> (slOwner in Template.FFlags));
+   Assert((not (slOwner in Flags)) or (not (slOwner in Template.FFlags)));
    {$IFOPT C+} CheckLength(); {$ENDIF}
    FFlags := Flags;
    TheirNode := Template.FFirstNode;

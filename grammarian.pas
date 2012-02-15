@@ -38,19 +38,21 @@ type
      everything disambiguate wherever we are currently using GetInside() instead of having it assume it's one or nil. }
    { See further notes below for other implications of these values }
    TThingPosition = (tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit,
-                     tpOpening, tpAt, tpOn, tpIn, tpEmbedded, tpCarried);
+                     tpDirectionalOpening, tpDirectionalPath,
+                     tpSurfaceOpening, tpAt, tpOn, tpIn, tpEmbedded, tpCarried);
    TThingPositionFilter = set of TThingPosition;
 
 const
-   tpEverything = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpOpening, tpAt, tpOn, tpIn, tpEmbedded, tpCarried];
-   tpImplicit = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit]; { parent is assumed to include the description of these children already }
-   tpAutoDescribe = [tpOpening, tpAt]; { things that should be included in the main description of an object }
-   tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpOpening, tpAt]; { parent includes the mass of these children already }
+   tpEverything = [Low(TThingPosition) .. High(TThingPosition)];
+   tpAutoDescribe = [tpSurfaceOpening, tpAt]; { things that should be included in the main description of an object }
+   tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks tree, and not tpContained in something else) }
+   tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already }
    tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
-   tpStacked = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { affects how things are removed }
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
    tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
-   tpArguablyInside = [tpIn, tpEmbedded, tpOpening]; { things that the user can refer to as being "in" their parent }
+   tpOpening = [tpSurfaceOpening, tpDirectionalOpening];
+   tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn, tpDirectionalPath]; { thinsg that the user can refer to as being "on" then parent }
+   tpArguablyInside = [tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
    tpOutside = [tpOn, tpCarried]; { things that count towards OutsideSizeManifest }
    tpSurface = [tpOn]; { things that count towards SurfaceSizeManifest }
    tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
@@ -458,7 +460,8 @@ end;
 
 function CardinalDirectionToDirectionString(CardinalDirection: TCardinalDirection): AnsiString;
 begin
-   { There is an exit... }
+   { ...is a mountain. }
+   { The mountain is... }
    case CardinalDirection of
      cdNorth: Result := 'to the north';
      cdNorthEast: Result := 'to the northeast';
@@ -470,8 +473,8 @@ begin
      cdNorthWest: Result := 'to the northwest';
      cdUp: Result := 'above';
      cdDown: Result := 'below';
-     cdOut: raise EAssertionFailed.Create('Tried to get direction string for cdOut.');
-     cdIn: raise EAssertionFailed.Create('Tried to get direction string for cdIn.');
+     cdOut: Result := 'outside'; // probably doesn't make much sense
+     cdIn: Result := 'inside'; // probably doesn't make much sense
     else
       raise EAssertionFailed.Create('Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
    end;
@@ -499,12 +502,13 @@ end;
 
 function ThingPositionToString(Position: TThingPosition): AnsiString;
 begin
+   { as in "the foo is ... the floor" }
    case Position of
      tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := 'part of';
      tpAroundImplicit: Result := 'around';
      tpAtImplicit, tpAt: Result := 'at';
-     tpOn: Result := 'on';
-     tpOpening, tpIn, tpEmbedded: Result := 'in';
+     tpDirectionalPath, tpOn: Result := 'on';
+     tpDirectionalOpening, tpSurfaceOpening, tpIn, tpEmbedded: Result := 'in';
      tpCarried: Result := 'being carried by';
     else
      raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));
@@ -520,7 +524,9 @@ begin
      tpAtImplicit: Result := 'to'; // assert instead?
      tpAt: Result := 'to';
      tpOn: Result := 'onto';
-     tpOpening, tpIn, tpEmbedded: Result := 'into';
+     tpDirectionalOpening: Result := 'through';
+     tpDirectionalPath: Result := 'along';
+     tpSurfaceOpening, tpIn, tpEmbedded: Result := 'into';
      tpCarried: Result := 'so that it is carried by'; // assert instead?
     else
      raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));

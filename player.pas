@@ -28,6 +28,7 @@ type
     protected
       FName, FPassword: AnsiString;
       FGender: TGender;
+      FReportFailedCommands: Boolean;
       FOnAvatarMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: AnsiString; { transient }
@@ -99,6 +100,7 @@ type
       procedure Adopt(AOnAvatarMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
       property Gender: TGender read FGender write FGender;
+      property ReportFailedCommands: Boolean read FReportFailedCommands write FReportFailedCommands;
    end;
 
 {$IFDEF DEBUG}
@@ -163,7 +165,7 @@ type
 
 var
    FailedCommandLog: Text;
-   GlobalThingCollector: TThingCollector;
+   GlobalThingCollector: TThingCollector; // used in parser.inc
 
 constructor TPlayer.Create(AName: AnsiString; APassword: AnsiString; AGender: TGender);
 var
@@ -305,7 +307,8 @@ begin
            on EExternal do raise;
            on E: Exception do Location := '(while finding location: ' + E.Message + ')';
          end;
-         Writeln(FailedCommandLog, '"', Command, '" for ' + Location + ': ', E.Message);
+         if (FReportFailedCommands) then
+            Writeln(FailedCommandLog, '"', Command, '" for ' + Location + ': ', E.Message);
          AvatarMessage(E.Message);
          AvatarMessage('');
       end;
@@ -641,7 +644,7 @@ end;
 procedure TPlayer.AnnounceArrival(Source: TAtom; Direction: TCardinalDirection);
 begin
    // XXX this relies on the rooms being symmetric
-   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDirectionString(Direction)), M('.')]);
+   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDefiniteString(Direction)), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom);

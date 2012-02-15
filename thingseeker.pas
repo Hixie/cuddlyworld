@@ -1338,7 +1338,7 @@ begin
    Assert(Assigned(Candidate));
    Assert(Assigned(Candidate.Parent));
    Assert(Assigned(Condition));
-   Result := (Candidate.Parent = Condition) and (Candidate.Position in tpStacked); { maybe should change that to just [tpOn, tpOnImplicit] }
+   Result := (Candidate.Parent = Condition) and (Candidate.Position in tpArguablyOn);
 end;
 
 function TOnClause.GetClausePrefix(): AnsiString;

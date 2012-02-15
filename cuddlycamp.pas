@@ -69,7 +69,6 @@ const
    magicY = #226#152#152;
    magicZ = #226#152#153;
 
-
 constructor TCuddlyWorld.Read(Stream: TReadStream);
 begin
    inherited;
@@ -152,7 +151,7 @@ var
          Thing := TOpening.Create('hole in the ground', '((hole/holes (in the ground)?) (slide/slides opening?) (opening/openings))@', 'The hole looks like the entrance to a fun slide at an amusement park. Some light shines up from inside.', SlideDispatchRoom, tsMassive);
          Thing.CannotMoveExcuse := 'You can''t move a hole.';
          Thing.FindDescription := 'The hole is in the ground.';
-         Path.GetSurface().Add(Thing, tpOpening);
+         Path.GetSurface().Add(Thing, tpDirectionalOpening);
       end;
 
    var
