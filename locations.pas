@@ -1,5 +1,4 @@
 {$MODE OBJFPC} { -*- text -*- }
-{$MACRO ON}
 {$INCLUDE settings.inc}
 unit locations;
 
@@ -139,7 +138,7 @@ end;
 constructor TSlavedLocation.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@FMaster);
+   Stream.ReadReference(@Pointer(FMaster));
 end;
 
 procedure TSlavedLocation.Write(Stream: TWriteStream);

@@ -1,7 +1,7 @@
-{$MACRO ON} { -*- text -*- }
-{$IFNDEF PART}
+{$IFNDEF PART} { -*- text -*- }
 {$MODE OBJFPC}
 {$INCLUDE settings.inc}
+
 unit thingdim;
 
 { This is way over-complicated. }

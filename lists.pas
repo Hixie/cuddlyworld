@@ -459,7 +459,7 @@ begin
             AppendItem(nil);
             Assert(Assigned(FFirstNode));
             Assert(Assigned(FLastNode));
-            {$IFOPT C+} Found := {$ENDIF} Stream.ReadReference(@FLastNode^.Value);
+            {$IFOPT C+} Found := {$ENDIF} Stream.ReadReference(@Pointer(FLastNode^.Value));
             {$IFOPT C+} Assert(Found); {$ENDIF}
          end;
       end;

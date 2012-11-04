@@ -476,7 +476,7 @@ end;
 constructor TLocationProxy.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@FDestination);
+   Stream.ReadReference(@Pointer(FDestination));
 end;
 
 procedure TLocationProxy.Write(Stream: TWriteStream);
@@ -595,7 +595,7 @@ end;
 constructor TEarthGround.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@FHole);
+   Stream.ReadReference(@Pointer(FHole));
 end;
 
 procedure TEarthGround.Write(Stream: TWriteStream);

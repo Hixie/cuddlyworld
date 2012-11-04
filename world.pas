@@ -969,7 +969,7 @@ end;
 constructor TThing.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@FParent);
+   Stream.ReadReference(@Pointer(FParent));
    FPosition := TThingPosition(Stream.ReadCardinal());
 end;
 
@@ -1753,7 +1753,7 @@ begin
          for Index := Low(FDirectionalLandmarks[Direction]) to High(FDirectionalLandmarks[Direction]) do
          begin
             FDirectionalLandmarks[Direction][Index].Options := TLandmarkOptions(Stream.ReadCardinal());
-            Stream.ReadReference(@FDirectionalLandmarks[Direction][Index].Atom);
+            Stream.ReadReference(@Pointer(FDirectionalLandmarks[Direction][Index].Atom));
          end;
    end;
 end;

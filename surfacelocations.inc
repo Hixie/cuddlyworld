@@ -38,7 +38,7 @@ end;
 constructor SUBCLASS.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@FGround);
+   Stream.ReadReference(@Pointer(FGround));
 end;
 
 procedure SUBCLASS.Write(Stream: TWriteStream);

@@ -17,7 +17,7 @@ function SetHeapInfo(S: THeapInfo): THeapInfo;
 implementation
 
 uses
-   heaptrc, lineinfo;
+   heaptrc, lineinfo; {BOGUS Warning: Don't load LINEINFO unit manually, Use the -gl compiler switch instead}
 
 var
    CurrentHeapInfo: THeapInfo = '';
@@ -43,7 +43,7 @@ begin
       LineNumber := 0;
       Frame := Get_Frame;
       while (Assigned(Frame) and
-             GetLineInfo(PtrUInt(Get_Caller_Addr(Frame)), FunctionName, SourceFile, LineNumber) and 
+             GetLineInfo(PtrUInt(Get_Caller_Addr(Frame)), FunctionName, SourceFile, LineNumber) and
              ((SourceFile = '') or (SourceFile = 'heaptrc.pas') or (SourceFile = 'debug.pas'))) do
          Frame := Get_Caller_Frame(Frame);
       if (SourceFile <> '') then
