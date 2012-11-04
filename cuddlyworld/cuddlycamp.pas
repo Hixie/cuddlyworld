@@ -140,7 +140,8 @@ end;
 function InitEden: TWorld;
 var
    World: TCuddlyWorld;
-   Mountains, Forest: TThing;
+   SkyBox: TLocation;
+   Sky, Sun: TThing;
 
    procedure CreateStartingArea;
 
@@ -154,6 +155,20 @@ var
          Path.GetSurface().Add(Thing, tpDirectionalOpening);
       end;
 
+      procedure PopulateTrees(Location: TLocation; Directions: TCardinalDirectionSet = cdCompasDirection);
+      var
+         Direction: TCardinalDirection;
+         Tree: TThing;
+      begin
+         for Direction in Directions do
+         begin
+            // XXX skip if there's something there already
+            Tree := TTree.Create('tree', 'tree/trees', 'This tree looks like any other tree.', tmLudicrous, tsGigantic);
+            Location.GetSurface().Add(Tree, tpPlantedInImplicit);
+            Location.AddLandmark(Direction, Tree, []);
+         end;
+      end;
+
    var
       ArrivalsCircle, MalePath1, MalePath2, FemalePath1, FemalePath2, ThirdGenderPath1, ThirdGenderPath2, HivePath1, HivePath2, RobotPath1, RobotPath2,
       SlideDispatchRoom: TLocation;
@@ -162,34 +177,27 @@ var
    begin
 
       { Locations }
-      ArrivalsCircle := TFeaturelessEarthOutdoorLocation.Create('Arrivals Circle', 'the arrivals circle', 'an arrivals circle', 'The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. '+'Large signs staked into the ground point elaborately to the north and south paths. '+'A large stone serves as a sign next to the east archway. '+'To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. '+'To the southwest are another sign and archway, the sign in an even more dilapidated state. In the distance to the '+'west is a mountain. In other directions, you see an impenetrable forest.');
-      MalePath1 := TFeaturelessEarthOutdoorLocation.Create('Male Path', 'the male path', 'a male path', 'The male path meanders from the south to the west.');
-      MalePath2 := TFeaturelessStoneOutdoorLocation.Create('Male Clearing', 'the male clearing', 'a male clearing', 'The forest thins out, leaving a circular clearing.');
-      FemalePath1 := TFeaturelessEarthOutdoorLocation.Create('Female Path', 'the female path', 'a female path', 'The female path meanders from the north to the east.');
-      FemalePath2 := TFeaturelessStoneOutdoorLocation.Create('Female Clearing', 'the female clearing', 'a female clearing', 'The forest thins out, leaving a circular clearing.');
-      ThirdGenderPath1 := TFeaturelessEarthOutdoorLocation.Create('Third-Gender Path', 'the third-gender path', 'a third-gender path', 'The third-gender path meanders from the east to the north.');
-      ThirdGenderPath2 := TFeaturelessStoneOutdoorLocation.Create('Third-Gender Clearing', 'the third-gender clearing', 'a third-gender clearing', 'The forest thins out, leaving a circular clearing.');
-      HivePath1 := TFeaturelessEarthOutdoorLocation.Create('Hive Path', 'the hive path', 'an hive path', 'The hive path meanders from the west to the south.');
-      HivePath2 := TFeaturelessStoneOutdoorLocation.Create('Hive Clearing', 'the hive clearing', 'an hive clearing', 'The forest thins out, leaving a circular clearing.');
-      RobotPath1 := TFeaturelessEarthOutdoorLocation.Create('Robot Path', 'the robot path', 'a robot path', 'The robot path meanders from the northeast to the southeast.');
-      RobotPath2 := TFeaturelessStoneOutdoorLocation.Create('Robot Clearing', 'the robot clearing', 'a robot clearing', 'The forest thins out, leaving a circular clearing.');
+      ArrivalsCircle := TSurfaceNamedLocation.Create('Arrivals Circle', 'the arrivals circle', 'an arrivals circle', 'The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. '+'Large signs staked into the ground point elaborately to the north and south paths. '+'A large stone serves as a sign next to the east archway. '+'To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. '+'To the southwest are another sign and archway, the sign in an even more dilapidated state. Beyond, in all directions, you see an impenetrable forest.', CreateEarthSurface());
+      MalePath1 := TSurfaceNamedLocation.Create('Male Path', 'the male path', 'a male path', 'The male path meanders from the south to the west.', CreateEarthSurface());
+      MalePath2 := TSurfaceNamedLocation.Create('Male Clearing', 'the male clearing', 'a male clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      FemalePath1 := TSurfaceNamedLocation.Create('Female Path', 'the female path', 'a female path', 'The female path meanders from the north to the east.', CreateEarthSurface());
+      FemalePath2 := TSurfaceNamedLocation.Create('Female Clearing', 'the female clearing', 'a female clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      ThirdGenderPath1 := TSurfaceNamedLocation.Create('Third-Gender Path', 'the third-gender path', 'a third-gender path', 'The third-gender path meanders from the east to the north.', CreateEarthSurface());
+      ThirdGenderPath2 := TSurfaceNamedLocation.Create('Third-Gender Clearing', 'the third-gender clearing', 'a third-gender clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      HivePath1 := TSurfaceNamedLocation.Create('Hive Path', 'the hive path', 'an hive path', 'The hive path meanders from the west to the south.', CreateEarthSurface());
+      HivePath2 := TSurfaceNamedLocation.Create('Hive Clearing', 'the hive clearing', 'an hive clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      RobotPath1 := TSurfaceNamedLocation.Create('Robot Path', 'the robot path', 'a robot path', 'The robot path meanders from the northeast to the southeast.', CreateEarthSurface());
+      RobotPath2 := TSurfaceNamedLocation.Create('Robot Clearing', 'the robot clearing', 'a robot clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
 
       SlideDispatchRoom := ArrivalsCircle; // make SlideDispatchRoom here
 
       { ArrivalsCircle }
-      World.AddLocation(ArrivalsCircle);
-
-      ArrivalsCircle.Add(Mountains, tpAroundImplicit); // ... backdrop
-      ArrivalsCircle.Add(Forest, tpAroundImplicit); // ... backdrop
 
       ArrivalsPedestal := TStaticThing.Create('stone pedestal', '((big glowing stone ((twelve-pointed twelve-point (twelve (pointed point)@))@ star)&)# arrivals (pedestal/pedestals slab/slabs)@)&',
                                               'The arrivals pedestal is a big stone slab, in the shape of a twelve-pointed star, over which you materialised when you arrived in Cuddly World. Glowing sigils are engraved at each point of the star, and a circle is engraved around the center.', tmLudicrous, tsGigantic);
       ArrivalsPedestal.Add(TFeature.Create('glowing engraved sigils', '((glowing engraved (deep? magic))# (sigil/sigils engraving/engravings)@)&', 'The sigils are of a deep magic. '+'Each point has a symbol engraved in it. There are eight unique symbols; two are repeated twice, and one presumably important symbol is repeated three times. '+'Starting from the northern-most point of the star and going around the circle in a clockwise direction, you see the following symbols: '+magicA+magicL+magicM+magicA+magicG+magicI+magicC+magicA+magicR+magicR+magicI+magicV), tpPartOfImplicit);
       ArrivalsPedestal.Add(TFeature.Create('engraved circle', '((center engraved)# (circle/circles engraving/engravings)@)&', 'The circle is engraved around the center of the pedestal.'), tpPartOfImplicit);
       ArrivalsCircle.GetSurface().Add(ArrivalsPedestal, tpAt);
-
-      World.StartingLocation := ArrivalsPedestal;
-      World.StartingPosition := tpOn;
 
       MaleArchway := TGenderArchway.Create('north archway', '(((((navy dark)@ blue)& painted Lancet (wooden wood)@)# ((archway/archways arch/arches)@ (to the (north n)@)?))& '+
                                                              '((((navy dark)@ blue)& painted Lancet (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', 'The north archway is a Lancet arch made of painted wood. It is a predominantly dark blue affair, with small white geometric shapes (primarily circles and arrows, all pointing diagonally upwards and to the right) painted on its tall columns.', gMale, MalePath1);
@@ -309,52 +317,73 @@ var
       (Thing as TSign).CannotMoveExcuse := 'The sign is remarkably firmly planted in the ground.';
       ArrivalsCircle.GetSurface().Add(Thing, tpAtImplicit);
 
-      ArrivalsCircle.ConnectCardinals(MaleArchway, ThirdGenderArchway, FemaleArchway, HiveArchway);
-      ArrivalsCircle.ConnectDiagonals(Forest, Forest, RobotArchway, Forest);
+      ArrivalsCircle.AddLandmark(cdNorth, MaleArchway, [loReachable, loAutoDescribe]);
+      ArrivalsCircle.AddLandmark(cdEast, ThirdGenderArchway, [loReachable, loAutoDescribe]);
+      ArrivalsCircle.AddLandmark(cdSouth, FemaleArchway, [loReachable, loAutoDescribe]);
+      ArrivalsCircle.AddLandmark(cdWest, HiveArchway, [loReachable, loAutoDescribe]);
+      ArrivalsCircle.AddLandmark(cdSouthWest, RobotArchway, [loReachable, loAutoDescribe]);
+      PopulateTrees(ArrivalsCircle);
 
       { Slide Dispatch Room }
       // ...
 
+      // XXXX the archways need to be in their own rooms and have sides and stuff
+
       { Paths }
-      World.AddLocation(MalePath1);
-      MalePath1.ConnectCardinals(Forest, Forest, ArrivalsCircle, MalePath2);
-      MalePath1.ConnectDiagonals(Forest, Forest, Forest, Forest);
-      World.AddLocation(MalePath2);
-      MalePath2.ConnectCardinals(Forest, MalePath1, Forest, Forest);
-      MalePath2.ConnectDiagonals(Forest, Forest, Forest, Forest);
+      ConnectLocations(ArrivalsCircle, cdNorth, MalePath1);
+      ConnectLocations(MalePath1, cdWest, MalePath2);
       AddTheSlideHole(MalePath2, SlideDispatchRoom);
-
-      World.AddLocation(FemalePath1);
-      FemalePath1.ConnectCardinals(ArrivalsCircle, FemalePath2, Forest, Forest);
-      FemalePath1.ConnectDiagonals(Forest, Forest, Forest, Forest);
-      World.AddLocation(FemalePath2);
-      FemalePath2.ConnectCardinals(Forest, Forest, Forest, FemalePath1);
-      FemalePath2.ConnectDiagonals(Forest, Forest, Forest, Forest);
+      ConnectLocations(ArrivalsCircle, cdSouth, FemalePath1);
+      ConnectLocations(FemalePath1, cdEast, FemalePath2);
       AddTheSlideHole(FemalePath2, SlideDispatchRoom);
-
-      World.AddLocation(ThirdGenderPath1);
-      ThirdGenderPath1.ConnectCardinals(ThirdGenderPath2, Forest, Forest, ArrivalsCircle);
-      ThirdGenderPath1.ConnectDiagonals(Forest, Forest, Forest, Forest);
-      World.AddLocation(ThirdGenderPath2);
-      ThirdGenderPath2.ConnectCardinals(Forest, Forest, Forest, ArrivalsCircle);
-      ThirdGenderPath2.ConnectDiagonals(Forest, Forest, Forest, Forest);
+      ConnectLocations(ArrivalsCircle, cdEast, ThirdGenderPath1);
+      ConnectLocations(ThirdGenderPath1, cdNorth, ThirdGenderPath2);
       AddTheSlideHole(ThirdGenderPath2, SlideDispatchRoom);
-
-      World.AddLocation(HivePath1);
-      HivePath1.ConnectCardinals(Forest, ArrivalsCircle, HivePath2, Forest);
-      HivePath1.ConnectDiagonals(Forest, Forest, Forest, Forest);
-      World.AddLocation(HivePath2);
-      HivePath2.ConnectCardinals(Forest, ArrivalsCircle, Forest, Forest);
-      HivePath2.ConnectDiagonals(Forest, Forest, Forest, Forest);
+      ConnectLocations(ArrivalsCircle, cdWest, HivePath1);
+      ConnectLocations(HivePath1, cdSouth, HivePath2);
       AddTheSlideHole(HivePath2, SlideDispatchRoom);
-
-      World.AddLocation(RobotPath1);
-      RobotPath1.ConnectCardinals(Forest, Forest, Forest, Forest);
-      RobotPath1.ConnectDiagonals(ArrivalsCircle, RobotPath2, Forest, Forest);
-      World.AddLocation(RobotPath2);
-      RobotPath2.ConnectCardinals(Forest, Forest, Forest, Forest);
-      RobotPath2.ConnectDiagonals(ArrivalsCircle, Forest, Forest, Forest);
+      ConnectLocations(ArrivalsCircle, cdSouthWest, RobotPath1);
+      ConnectLocations(RobotPath1, cdSouthWest, RobotPath2);
       AddTheSlideHole(RobotPath2, SlideDispatchRoom);
+
+      { Trees and Skies }
+      PopulateTrees(ArrivalsCircle);
+      ArrivalsCircle.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(MalePath1);
+      MalePath1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(MalePath2);
+      MalePath2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(FemalePath1);
+      FemalePath1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(FemalePath2);
+      FemalePath2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(ThirdGenderPath1);
+      ThirdGenderPath1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(ThirdGenderPath2);
+      ThirdGenderPath2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(HivePath1);
+      HivePath1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(HivePath2);
+      HivePath2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(RobotPath1);
+      RobotPath1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+      PopulateTrees(RobotPath2);
+      RobotPath2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+
+      { Register locations }
+      World.AddLocation(ArrivalsCircle);
+      World.StartingLocation := ArrivalsPedestal;
+      World.StartingPosition := tpOn;
+      World.AddLocation(MalePath1);
+      World.AddLocation(MalePath2);
+      World.AddLocation(FemalePath1);
+      World.AddLocation(FemalePath2);
+      World.AddLocation(ThirdGenderPath1);
+      World.AddLocation(ThirdGenderPath2);
+      World.AddLocation(HivePath1);
+      World.AddLocation(HivePath2);
+      World.AddLocation(RobotPath1);
+      World.AddLocation(RobotPath2);
 
       { temporary }
       RobotPath1.GetSurface().Add(TSpade.Create(), tpOn);
@@ -369,11 +398,12 @@ var
 begin
    World := TCuddlyWorld.Create();
 
-   { Backdrops }
-   Mountains := TDistantScenery.Create('mountain', 'mountain/mountains', cdWest);
-   Forest := TScenery.Create('forest', '((forest/forests (of trees)?) (tree forest/forests)& tree/trees)@', 'The forest is dense and impassable.');
-   // This should be done using some sort of explicit backdrop mechanism
-   // so that we can add these things to each path also
+   Sky := TScenery.Create('sky', 'blue? sky/skies', 'The sky is clear.');
+   Sun := TScenery.Create('sun', '(sun/suns star/stars)@', 'The sun is bright.');
+   (Sky as TScenery).Opened := True;
+   Sky.Add(Sun, tpEmbedded);
+   SkyBox := TBackdrop.Create(Sky, tpAtImplicit);
+   World.AddLocation(SkyBox);
 
    CreateStartingArea();
    Result := World;

@@ -25,7 +25,7 @@ type
       FList: TAbstractStorableList;
       FDirection: TTraversalDirection;
       FAdvanced: Boolean;
-     private { "private" has no useful effect here since the generic is compiled in the context of whomever invokes us }
+     strict private { just "private" has no useful effect here since the generic is compiled in the context of whomever invokes us }
       function InternalGetCurrent(): TItem;
      public
       constructor Create(List: TAbstractStorableList; StartListNode: PListNode; Direction: TTraversalDirection);
@@ -449,12 +449,12 @@ begin
    begin
       if (slOwner in FFlags) then
       begin
-         for Index := 0 to ReadLength-1 do
+         for Index := 0 to ReadLength-1 do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
             AppendItem(TItem(Stream.ReadObject()));
       end
       else
       begin
-         for Index := 0 to ReadLength-1 do
+         for Index := 0 to ReadLength-1 do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          begin
             AppendItem(nil);
             Assert(Assigned(FFirstNode));

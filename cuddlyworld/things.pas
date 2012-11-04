@@ -46,7 +46,6 @@ type
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
    end;
 
    TScenery = class(TStaticThing)
@@ -54,16 +53,19 @@ type
       FUnderDescription: AnsiString;
       FFindDescription: AnsiString;
       FCannotMoveExcuse: AnsiString;
+      FOpened: Boolean;
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      function IsOpen(): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       property UnderDescription: AnsiString read FUnderDescription write FUnderDescription;
       property FindDescription: AnsiString read FFindDescription write FFindDescription;
       property CannotMoveExcuse: AnsiString read FCannotMoveExcuse write FCannotMoveExcuse;
+      property Opened: Boolean read FOpened write FOpened;
    end;
 
    TLocationProxy = class(TScenery)
@@ -119,6 +121,7 @@ type
       procedure Removed(Thing: TThing); override;
    end;
 
+   // XXX this class' days are numbered
    TDistantScenery = class(TNamedThing)
     protected
       FDirection: TCardinalDirection;
@@ -185,7 +188,7 @@ type
       function GetDescriptionState(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionClosed(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
-      function GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -239,6 +242,9 @@ type
       procedure Write(Stream: TWriteStream); override;
       function GetFeatures(): TThingFeatures; override;
       function GetDescriptionWriting(Perspective: TAvatar): AnsiString; override;
+   end;
+
+   TTree = class(TStaticThing)
    end;
 
 implementation
@@ -410,11 +416,6 @@ begin
    Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
 end;
 
-function TFeature.GetLookUnder(Perspective: TAvatar): AnsiString;
-begin
-   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
-end;
-
 
 constructor TScenery.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
 begin
@@ -428,6 +429,7 @@ begin
    FUnderDescription := Stream.ReadAnsiString();
    FFindDescription := Stream.ReadAnsiString();
    FCannotMoveExcuse := Stream.ReadAnsiString();
+   FOpened := Stream.ReadBoolean();
 end;
 
 procedure TScenery.Write(Stream: TWriteStream);
@@ -436,6 +438,12 @@ begin
    Stream.WriteAnsiString(FUnderDescription);
    Stream.WriteAnsiString(FFindDescription);
    Stream.WriteAnsiString(FCannotMoveExcuse);
+   Stream.WriteBoolean(FOpened);
+end;
+
+function TScenery.IsOpen(): Boolean;
+begin
+   Result := FOpened;
 end;
 
 function TScenery.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
@@ -471,7 +479,7 @@ begin
          Result := 'You cannot see under ' + GetDefiniteName(Perspective) + '.';
    end
    else
-      inherited;
+      Result := inherited;
 end;
 
 
@@ -529,6 +537,7 @@ end;
 
 function TOpening.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
+   Assert(Assigned(Traveller));
    if (not CanInsideHold(Traveller.GetOutsideSizeManifest())) then
    begin
       Result := nil;
@@ -737,6 +746,7 @@ begin
 end;
 
 
+{ THIS CLASS IS ONLY USED BY THE TESTS NOW }
 constructor TDistantScenery.Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
 begin
    inherited Create(Name, Pattern);
@@ -934,6 +944,7 @@ function THole.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStat
 var
    Child: TThing;
 begin
+   // This is a little dubious, IMHO
    Result := '';
    for Child in FChildren do
    begin
@@ -941,7 +952,13 @@ begin
       begin
          if (Mode = psTheThingIsOnThatThing) then
          begin
-            Result := Result + 'There ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
+            Result := 'There ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
+            Exit;
+         end
+         else
+         if (Mode = psOnThatSpecialThing) then
+         begin
+            Result := 'under ' + Child.GetDefiniteName(Perspective);
             Exit;
          end
          else
@@ -1015,12 +1032,12 @@ begin
    Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
 end;
 
-function THole.GetLookDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function THole.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
 begin
    if (Direction = cdUp) then
    begin
       Assert(Assigned(FParent));
-      Result := FParent.GetLookDirection(Perspective, Direction);
+      Result := FParent.GetLookTowardsDirection(Perspective, Direction);
    end
    else
       Result := inherited;
@@ -1242,10 +1259,10 @@ begin
    Assert(Length(PluralIngredients) = Length(SingularIngredients));
    Pattern := '((pile/piles (of (' + PluralIngredients[0];
    if (Length(PluralIngredients) > 1) then
-      for Index := 1 to Length(PluralIngredients)-1 do
+      for Index := 1 to High(PluralIngredients) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          Pattern := Pattern + ' ' + PluralIngredients[Index];
    Pattern := Pattern + ')@)?)';
-   for Index := 0 to Length(SingularIngredients)-1 do
+   for Index := Low(SingularIngredients) to High(SingularIngredients) do
    begin
       {$IFDEF DEBUG} Assert(not HasPatternChars(SingularIngredients[Index])); {$ENDIF}
       {$IFDEF DEBUG} Assert(not HasPatternChars(PluralIngredients[Index])); {$ENDIF}
@@ -1398,4 +1415,5 @@ initialization
    RegisterStorableClass(TPile,                   1013);
    RegisterStorableClass(TEarthPile,              1014);
    RegisterStorableClass(TSign,                   1015);
+   RegisterStorableClass(TTree,                   1016);
 end.

@@ -156,7 +156,8 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar;
       Index: Cardinal;
    begin
       Result := '';
-      for Index := Low(MessageParts) to High(MessageParts) do
+      Assert(Length(MessageParts) > 0);
+      for Index := Low(MessageParts) to High(MessageParts) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          Result := Result + GetPart(MessageParts[Index]);
    end;
 
@@ -166,10 +167,13 @@ var
    Index: Cardinal;
    FromOutside: Boolean;
 begin
+   Assert(Length(NotificationTargets) > 0, 'Don''t call DoBroadcast with nobody to broadcast to!');
+   Assert(Length(MessageParts) > 0, 'Don''t call DoBroadcast with nothing to broadcast!');
    try
       Avatars := TAvatarList.Create([slDropDuplicates]);
       try
-         for Index := Low(NotificationTargets) to High(NotificationTargets) do
+         Assert(Length(NotificationTargets) > 0);
+         for Index := Low(NotificationTargets) to High(NotificationTargets) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
             NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetAvatars(Avatars, FromOutside);
          for CurrentAvatar in Avatars do
             if (CurrentAvatar <> Perspective) then
@@ -178,7 +182,8 @@ begin
          Avatars.Free();
       end;
    finally
-      for Index := Low(MessageParts) to High(MessageParts) do
+      Assert(Length(MessageParts) > 0);
+      for Index := Low(MessageParts) to High(MessageParts) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          ClearMessagePart(MessageParts[Index]);
    end;
 end;

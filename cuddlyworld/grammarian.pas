@@ -25,11 +25,12 @@ const
 type
    TCardinalDirection = (cdNorth, cdNorthEast, cdEast, cdSouthEast, cdSouth, cdSouthWest, cdWest, cdNorthWest, cdUp, cdDown,
                          cdOut, cdIn); { physical directions then logical directions }
+   TCardinalDirectionSet = set of TCardinalDirection;
 
 const
-   cdFirstPhysical = cdNorth;
-   cdLastPhysical = cdDown;
-   cdPhysicalDirections = [cdFirstPhysical .. cdLastPhysical];
+   cdCompasDirection = [cdNorth .. cdNorthWest];
+   cdPhysicalDirections = [cdNorth .. cdDown];
+   cdReverse: array [TCardinalDirection] of TCardinalDirection = (cdSouth, cdSouthWest, cdWest, cdNorthWest, cdNorth, cdNorthEast, cdEast, cdSouthEast, cdDown, cdUp, cdIn, cdOut);
 
 type
    { Ambiguous means that the placement is made explicit in the name (e.g. "rim" + "of bag") }
@@ -37,24 +38,24 @@ type
    { Currently, only one tpOpening is allowed per thing. We could relax this by changing GetInside() to GetOpenings() and making
      everything disambiguate wherever we are currently using GetInside() instead of having it assume it's one or nil. }
    { See further notes below for other implications of these values }
-   TThingPosition = (tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit,
+   TThingPosition = (tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit,
                      tpDirectionalOpening, tpDirectionalPath,
-                     tpSurfaceOpening, tpAt, tpOn, tpIn, tpEmbedded, tpCarried);
+                     tpSurfaceOpening, tpAt, tpOn, tpPlantedIn, tpIn, tpEmbedded, tpCarried);
    TThingPositionFilter = set of TThingPosition;
 
 const
    tpEverything = [Low(TThingPosition) .. High(TThingPosition)];
    tpAutoDescribe = [tpSurfaceOpening, tpAt]; { things that should be included in the main description of an object }
-   tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks tree, and not tpContained in something else) }
+   tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks arrays, and not tpContained in something else) }
    tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already }
    tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
    tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
    tpOpening = [tpSurfaceOpening, tpDirectionalOpening];
-   tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn, tpDirectionalPath]; { thinsg that the user can refer to as being "on" then parent }
-   tpArguablyInside = [tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
-   tpOutside = [tpOn, tpCarried]; { things that count towards OutsideSizeManifest }
-   tpSurface = [tpOn]; { things that count towards SurfaceSizeManifest }
+   tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpAt, tpOn, tpPlantedIn, tpDirectionalPath]; { thinsg that the user can refer to as being "on" then parent }
+   tpArguablyInside = [tpPlantedInImplicit, tpPlantedIn, tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
+   tpOutside = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpCarried]; { things that count towards OutsideSizeManifest }
+   tpSurface = [tpPlantedInImplicit, tpOn, tpPlantedIn]; { things that count towards SurfaceSizeManifest }
    tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
 
 function Tokenise(const S: AnsiString): TTokens;
@@ -244,6 +245,7 @@ end;
 
 function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; out Number: Cardinal): Boolean;
 // would be good to extend this to supprot "a dozen" "one dozen" etc
+// (if you add dozen here, also add it to NumberToEnglish)
 var
    Index, Subindex: Cardinal;
    FoundNumber, Digits: Boolean;
@@ -510,6 +512,7 @@ begin
      tpDirectionalPath, tpOn: Result := 'on';
      tpDirectionalOpening, tpSurfaceOpening, tpIn, tpEmbedded: Result := 'in';
      tpCarried: Result := 'being carried by';
+     tpPlantedInImplicit, tpPlantedIn: Result := 'planted in';
     else
      raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));
    end;
@@ -528,6 +531,7 @@ begin
      tpDirectionalPath: Result := 'along';
      tpSurfaceOpening, tpIn, tpEmbedded: Result := 'into';
      tpCarried: Result := 'so that it is carried by'; // assert instead?
+     tpPlantedInImplicit, tpPlantedIn: Result := 'so that it is planted in';
     else
      raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));
    end;
