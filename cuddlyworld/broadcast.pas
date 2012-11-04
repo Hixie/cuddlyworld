@@ -148,7 +148,7 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar;
            mkPluralCheck: if (Part^.DataPluralCheckTarget.IsPlural(Perspective)) then Result := GetPart(Part^.DataPluralPluralPart) else Result := GetPart(Part^.DataPluralSingularPart);
            mkPerspectivePluralCheck: if (Perspective.IsPlural(Perspective)) then Result := GetPart(Part^.DataPerspectivePluralPluralPart) else Result := GetPart(Part^.DataPerspectivePluralSingularPart);
           else
-            raise EAssertionFailed.Create('Failed to assemble broadcast message - unexpected type ' + IntToStr(Cardinal(Part^.Kind)));
+            Assert(False, 'Failed to assemble broadcast message - unexpected type ' + IntToStr(Cardinal(Part^.Kind)));
          end;
       end;
 

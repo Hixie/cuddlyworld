@@ -250,7 +250,7 @@ begin
    {$IFOPT C+}
      NameIsPlural := FPluralPattern.Matches(TokenisedName, 0) = Length(TokenisedName);
      if ((not NameIsSingular) and (not NameIsPlural)) then
-        raise EAssertionFailed.Create('Default name ("' + Name + '") does not match given pattern ("' + Pattern + '")');
+        Assert(False, 'Default name ("' + Name + '") does not match given pattern ("' + Pattern + '")');
    {$ENDIF}
    FPlural := not NameIsSingular;
    if (FPlural) then
