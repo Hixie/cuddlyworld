@@ -370,15 +370,15 @@ procedure TestMechanics();
       World.AddLocation(SkyBox);
 
       { Locations }
-      Camp := TSurfaceNamedLocation.Create('Camp Cuddlyfort', 'Camp Cuddlyfort', 'a camp', 'This is a camp nestled in a forest, under the shadow of a mountain to the north.', CreateEarthSurface());
-      Cliff := TSurfaceNamedLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff to the north is a sheer rock face, essentially unclimbable, with a cave entrance. ' + ' Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.', CreateEarthSurface());
-      Cave1 := TSurfaceNamedLocation.Create('Cave one', 'the first cave', 'a cave', 'The cave is very well-lit from the south.', CreateEarthSurface());
-      Cave2 := TSurfaceNamedLocation.Create('Cave two', 'the second cave', 'a cave', 'The cave is somewhat well-lit from the south.', CreateEarthSurface());
-      Cave3 := TSurfaceNamedLocation.Create('Cave three', 'the third cave', 'a cave', 'The cave is lit from the south.', CreateEarthSurface());
-      Cave4 := TSurfaceNamedLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south.', CreateEarthSurface());
-      FlowerRoom := TSurfaceNamedLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave, while another exit leads south. A third goes up, ascending towards the heavens.', CreateEarthSurface());
-      Kitchen := TSurfaceNamedLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.', CreateEarthSurface());
-      Olympus := TSurfaceNamedLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor.', CreateStoneSurface());
+      Camp := TGroundLocation.Create('Camp Cuddlyfort', 'Camp Cuddlyfort', 'a camp', 'This is a camp nestled in a forest, under the shadow of a mountain to the north.', CreateEarthSurface());
+      Cliff := TGroundLocation.Create('Foot of Cliff Face', 'the foot of the cliff face', 'a foot of a cliff face', 'The south side of a mountain rises out of the ground here, in a clear and well-defined way, as if to say "this far, no farther" to an enemy whose nature you cannot fathom. ' + 'The cliff to the north is a sheer rock face, essentially unclimbable, with a cave entrance. ' + ' Conspicuous is the absence of any vegetation anywhere on the cliff, at least as far as you can see. At the base of the cliff to the east and west is a dense forest.', CreateEarthSurface());
+      Cave1 := TGroundLocation.Create('Cave one', 'the first cave', 'a cave', 'The cave is very well-lit from the south.', CreateEarthSurface());
+      Cave2 := TGroundLocation.Create('Cave two', 'the second cave', 'a cave', 'The cave is somewhat well-lit from the south.', CreateEarthSurface());
+      Cave3 := TGroundLocation.Create('Cave three', 'the third cave', 'a cave', 'The cave is lit from the south.', CreateEarthSurface());
+      Cave4 := TGroundLocation.Create('Cave four', 'the fourth cave', 'a cave', 'The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south.', CreateEarthSurface());
+      FlowerRoom := TGroundLocation.Create('Flower room', 'the flower room', 'a flower room', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of floweriness. An exit to the east appears to lead to a dimly lit cave, while another exit leads south. A third goes up, ascending towards the heavens.', CreateEarthSurface());
+      Kitchen := TGroundLocation.Create('Kitchen', 'the kitchen', 'a kitchen', 'The room has bright ambient lighting for no apparent reason. It is a bright white room, almost clinical in nature, but it unexpectedly conveys a sense of being, or having once been, used for food preparation. An exit leads north.', CreateEarthSurface());
+      Olympus := TGroundLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor.', CreateStoneSurface());
 
       { Camp }
       CampMountain := TScenery.Create('mountain', 'big? mountain/mountains', 'The mountain is big.');
@@ -648,11 +648,16 @@ var
    Proxy: TTestProxy;
    Failed: Boolean;
 begin
-   Writeln('MECHANICS');
    Proxy := TTestProxy.Create();
+   Writeln('MECHANICS');
+   {$IFDEF PLAY_IN_TEST_EDEN}
+      RegisterStorableClassAsSynonym('TTestWorld', TWorld);
+   {$ELSE}
+      RegisterStorableClass(TTestWorld);
+   {$ENDIF}
+   RegisterStorableClass(TTestPlayer);
    TestWorld := InitTestEden();
    {$IFDEF PLAY_IN_TEST_EDEN}
-      RegisterStorableClassAsSynonym(TTestWorld, TWorld);
       TestWorld.AddPlayer(TPlayer.Create('Flathead', 'zorkmid', gMale));
       StoreObjectToFile(kWorldFileName, TestWorld, kSaveDataVersion);
       TestWorld.Free();
@@ -2181,7 +2186,6 @@ no hole!
 
          { test round-tripping }
          Proxy.Test('Round-tripping');
-         RegisterStorableClass(TTestPlayer, 19);
          StoreObjectToFile('/tmp/world.dat.$$$', TestWorld, kSaveDataVersion);
          TestWorld2 := ReadObjectFromFile('/tmp/world.dat.$$$') as TWorld;
          TestWorld2.Free();
@@ -2427,6 +2431,9 @@ var
    end;
 
 begin
+   RegisterStorableClass(TMoleculeList);
+   RegisterStorableClass(TMolecule);
+
    Writeln('LISTS');
    Failed := False;
    TestCount := 0;

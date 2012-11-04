@@ -47,14 +47,17 @@ type
 {$UNDEF PART}
 
 
-   TThresholdLocation = class(TSurfaceSlavedLocation)
+   TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
     public
       constructor Create(Landmark: TThing; Surface: TThing);
       // XXXXXX make this give the landmark thing's description when the place is examined
       // XXXXXX make this fast-forward you across the landmark
    end;
 
-   TAirLocation = class(TNamedLocation)
+   TGroundLocation = class(TSurfaceNamedLocation) // @RegisterStorableClass
+   end;
+
+   TAirLocation = class(TNamedLocation) // @RegisterStorableClass
     // make sure this has a downwards reachable landmark if it's possible to put things in it, since they'll drop to it
     protected
       function GetBelow(): TAtom; virtual;
@@ -65,7 +68,7 @@ type
       procedure Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar); override;
    end;
 
-   TBackdrop = class(TSlavedLocation) 
+   TBackdrop = class(TSlavedLocation) // @RegisterStorableClass
     // XXX should assert that nobody can enter this one
     public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -246,11 +249,5 @@ begin
 end;
 
 initialization
-   RegisterStorableClass(TNamedLocation,                  2001);
-   RegisterStorableClass(TSlavedLocation,                 2002);
-   RegisterStorableClass(TSurfaceNamedLocation,           2003);
-   RegisterStorableClass(TSurfaceSlavedLocation,          2004);
-   RegisterStorableClass(TThresholdLocation,              2005);
-   RegisterStorableClass(TAirLocation,                    2006);
-   RegisterStorableClass(TBackdrop,                       2007);
+{$INCLUDE registrations/locations.inc}
 end.

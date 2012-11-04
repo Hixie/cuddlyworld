@@ -304,6 +304,7 @@ begin
       CurrentNode := CurrentNode^.Next;
       {$IFOPT C+} Inc(WriteLength); {$ENDIF}
    end;
+   Stream.WriteSentinel();
    Assert(WriteLength = FLength);
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
@@ -439,7 +440,6 @@ end;
 constructor TStorableList.Read(Stream: TReadStream);
 var
    ReadLength, Index: Cardinal;
-   {$IFOPT C+} Found: Boolean; {$ENDIF}
 begin
    inherited;
    {$IFOPT C+} CheckLength(); {$ENDIF}
@@ -459,11 +459,11 @@ begin
             AppendItem(nil);
             Assert(Assigned(FFirstNode));
             Assert(Assigned(FLastNode));
-            {$IFOPT C+} Found := {$ENDIF} Stream.ReadReference(@Pointer(FLastNode^.Value));
-            {$IFOPT C+} Assert(Found); {$ENDIF}
+            Stream.ReadReference(@Pointer(FLastNode^.Value));
          end;
       end;
    end;
+   Stream.VerifySentinel();
    Assert(FLength = ReadLength);
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;

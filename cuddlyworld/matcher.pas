@@ -12,7 +12,7 @@ type
    PCompiledPattern = ^TCompiledPattern;
    TCompiledPattern = packed array[TByteCode] of TByteCode;
 
-   TMatcher = class(TStorable)
+   TMatcher = class(TStorable) // @RegisterStorableClass
     protected
       FTokens: TTokens; { must be stored lexically sorted }
       FOriginalTokens: TTokens; { must be stored in the same order as FTokens }
@@ -1655,5 +1655,5 @@ end;
 {$ENDIF}
 
 initialization
-   RegisterStorableClass(TMatcher, 20);
+{$INCLUDE registrations/matcher.inc}
 end.

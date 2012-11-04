@@ -24,7 +24,7 @@ type
    TMessageEvent = procedure (Message: AnsiString) of object;
    TForceDisconnectEvent = procedure () of object;
 
-   TPlayer = class(TAvatar)
+   TPlayer = class(TAvatar) // @RegisterStorableClass
     protected
       FName, FPassword: AnsiString;
       FGender: TGender;
@@ -1955,8 +1955,8 @@ initialization
    {$I-} Append(FailedCommandLog); {$I+}
    if (IOResult = 2) then
      Rewrite(FailedCommandLog);
-   RegisterStorableClass(TPlayer, 100);
    GlobalThingCollector := TThingCollector.Create();
+{$INCLUDE registrations/player.inc}
 finalization
    GlobalThingCollector.Free();
    Close(FailedCommandLog);
