@@ -381,7 +381,7 @@ procedure TestMechanics();
       Olympus := TSurfaceNamedLocation.Create('Mount Olympus', 'Mount Olympus', 'a mountain top', 'The top of Olympus is more business-like than the legends would suggest: any ancient Greek stylings have been replaced by a modern, sleek, and understated decor.', CreateStoneSurface());
 
       { Camp }
-      CampMountain := TDistantScenery.Create('mountain', 'mountain/mountains', cdNorth);
+      CampMountain := TScenery.Create('mountain', 'big? mountain/mountains', 'The mountain is big.');
       Camp.Add(CampMountain, tpAroundImplicit);
       CampForest := TScenery.Create('forest', '((forest/forests (of trees)?) tree/trees)@', 'The forest is dense and impassable.');
       Camp.Add(CampForest, tpAroundImplicit);
@@ -398,7 +398,7 @@ procedure TestMechanics();
       CliffMountain.Add(CliffCliff, tpPartOfImplicit);
       CliffForest := TScenery.Create('forest', '((forest/forests (of trees)?) tree/trees)@', 'The forest is dense and impassable.');
       Cliff.Add(CliffForest, tpAroundImplicit);
-      CliffCamp := TDistantScenery.Create('camp', 'camp/camps', cdSouth);
+      CliffCamp := TScenery.Create('camp', 'camp/camps', 'The camp is hard to see from here.');
       Cliff.Add(CliffCamp, tpAroundImplicit);
       Cliff.GetSurface().Add(TStaticThing.Create('large pink balloon', '((large huge massive)@ pink balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured pink.', tmLight, tsMassive), tpOn);
       Cliff.GetSurface().Add(TStaticThing.Create('large grey balloon', '((large huge massive)@ (grey gray)@ balloon/balloons)&', 'This balloon is as wide as your arm span, making it difficult to handle. It is coloured grey.', tmLight, tsMassive), tpOn);

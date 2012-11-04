@@ -162,10 +162,12 @@ var
       begin
          for Direction in Directions do
          begin
-            // XXX skip if there's something there already
-            Tree := TTree.Create('tree', 'tree/trees', 'This tree looks like any other tree.', tmLudicrous, tsGigantic);
-            Location.GetSurface().Add(Tree, tpPlantedInImplicit);
-            Location.AddLandmark(Direction, Tree, []);
+            if (not Location.HasLandmark(Direction)) then
+            begin
+               Tree := TTree.Create('tree', 'tree/trees', 'This tree looks like any other tree.', tmLudicrous, tsGigantic);
+               Location.GetSurface().Add(Tree, tpPlantedInImplicit);
+               Location.AddLandmark(Direction, Tree, []);
+            end;
          end;
       end;
 
