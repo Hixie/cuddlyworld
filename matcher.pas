@@ -1564,7 +1564,7 @@ function CompilePatternVersion(S: AnsiString; Version: Cardinal): TMatcher;
                Exit;
             end;
           else
-            raise EAssertionFailed.Create('unknown parse mode');
+            Assert(False, 'unknown parse mode');
          end;
 //Writeln('END INC');
          Inc(Index);

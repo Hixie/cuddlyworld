@@ -130,7 +130,7 @@ begin
            gOrb: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('an orb.')]);
            gHive: DoBroadcast([Traveller], nil, [C(M(@Traveller.GetDefiniteName)), SP, MP(Traveller, M('becomes'), M('become')), SP, M('a hive mind.')]);
           else
-            raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+            Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
          end;
       end;
    end;

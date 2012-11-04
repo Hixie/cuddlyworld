@@ -524,7 +524,7 @@ begin
               Result := '';
            end;
        else
-        raise EAssertionFailed.Create('unknown TThingSelectionMechanism');
+        Assert(False, 'unknown TThingSelectionMechanism');
       end;
    end
    else
@@ -604,7 +604,7 @@ begin
           Result := False;
        end;
     else
-       raise EAssertionFailed.Create('unknown thing selection mechanism');
+       Assert(False, 'unknown thing selection mechanism');
    end;
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' ended with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Result=', Result); {$ENDIF}
 end;

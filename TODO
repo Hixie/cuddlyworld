@@ -220,7 +220,6 @@ CODE
  + move build.sh options to a configuration file
  + log exceptions other than parse errors - abstract out the logging code
  + see if it makes sense to change TThing.Navigate() and TThing.GetLookTowardsDirection() to instead use a GetAtomForDirection()-like approach
- + change "raise EAssertionFailed(...)" to "Assert(False, ...)"
  + import ../../isd/server/src/infrastructure/hashtable.pas
  + import ../../isd/server/src/infrastructure/settings.inc (also see lggwg's)
  + import ../../isd/server/src/infrastructure/storable.pas and the registrations mechanism (regen.pl)

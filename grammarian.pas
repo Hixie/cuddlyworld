@@ -161,7 +161,7 @@ begin
            end;
           end;
       else
-       raise EAssertionFailed.Create('Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
+       Assert(False, 'Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
       end;
       Inc(Index);
    end;
@@ -181,7 +181,7 @@ begin
            PushToken('""')
      end;
    else
-    raise EAssertionFailed.Create('Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
+    Assert(False, 'Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
    end;
 end;
 
@@ -416,7 +416,7 @@ begin
    if (GrammaticalNumber = []) then
       Result := 'neither'
    else
-      raise EAssertionFailed.Create('unknown grammatical number');
+      Assert(False, 'unknown grammatical number');
 end;
 {$ENDIF}
 
@@ -436,7 +436,7 @@ begin
      cdOut: Result := 'out';
      cdIn: Result := 'in';
     else
-      raise EAssertionFailed.Create('Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
    end;
 end;
 
@@ -456,7 +456,7 @@ begin
      cdOut: Result := 'outside';
      cdIn: Result := 'inside';
     else
-      raise EAssertionFailed.Create('Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
    end;
 end;
 
@@ -478,7 +478,7 @@ begin
      cdOut: Result := 'outside'; // probably doesn't make much sense
      cdIn: Result := 'inside'; // probably doesn't make much sense
     else
-      raise EAssertionFailed.Create('Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
    end;
 end;
 
@@ -498,7 +498,7 @@ begin
      cdOut: Result := cdIn;
      cdIn: Result := cdOut;
     else
-      raise EAssertionFailed.Create('Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
    end;
 end;
 
@@ -514,7 +514,7 @@ begin
      tpCarried: Result := 'being carried by';
      tpPlantedInImplicit, tpPlantedIn: Result := 'planted in';
     else
-     raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));
+     Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
    end;
 end;
 
@@ -533,7 +533,7 @@ begin
      tpCarried: Result := 'so that it is carried by'; // assert instead?
      tpPlantedInImplicit, tpPlantedIn: Result := 'so that it is planted in';
     else
-     raise EAssertionFailed.Create('Unknown thing position ' + IntToStr(Ord(Position)));
+     Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
    end;
 end;
 

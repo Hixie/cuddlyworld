@@ -477,7 +477,7 @@ begin
      gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
      gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
     else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
 end;
 
@@ -490,7 +490,7 @@ begin
      gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
      gHive: Result := 'The ' + Capitalise(FName);
     else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
 end;
 
@@ -514,7 +514,7 @@ begin
      gRobot, gOrb: Result := 'it';
      gHive: Result := 'they';
     else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
 end;
 
@@ -530,7 +530,7 @@ begin
      gRobot, gOrb: Result := 'it';
      gHive: Result := 'them';
     else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
 end;
 
@@ -546,7 +546,7 @@ begin
      gRobot, gOrb: Result := 'itself';
      gHive: Result := 'themselves';
     else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
 end;
 
@@ -562,7 +562,7 @@ begin
      gRobot, gOrb: Result := 'its';
      gHive: Result := 'theirs';
     else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
 end;
 
@@ -578,7 +578,7 @@ begin
      gRobot, gOrb: Result := 'its';
      gHive: Result := 'their';
     else
-      raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
    end;
 end;
 
@@ -617,7 +617,7 @@ begin
         gOrb: Result := 'You are a beautiful orb of light, ' + FName + ', floating in the air.';
         gHive: Result := 'You are quite the hive, ' + FName + '.';
        else
-         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+         Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
       end;
    end
    else
@@ -630,7 +630,7 @@ begin
         gOrb: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a floating orb of light of no consequence.';
         gHive: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a hive mind of no consequence.';
        else
-         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+         Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
       end;
       if (not HasConnectedPlayer) then
       begin
@@ -639,7 +639,7 @@ begin
            gRobot: Result := Result + ' It appears to be currently powered down, though you see no visible means of turning it on.';
            gOrb: Result := Result + ' The light is currently quite dim.';
           else
-            raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+            Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
          end;
       end;
    end;
@@ -1915,7 +1915,7 @@ begin
                   GrammaticalNumber := [gnPlural];
             end;
         else
-         raise EAssertionFailed.Create('Unknown gender ' + IntToStr(Cardinal(FGender)));
+         Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
       end;
    end;
    Result := GrammaticalNumber <> [];
