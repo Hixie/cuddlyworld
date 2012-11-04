@@ -72,7 +72,7 @@ const
 constructor TCuddlyWorld.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@FStartingLocation);
+   Stream.ReadReference(@Pointer(FStartingLocation));
    FStartingPosition := TThingPosition(Stream.ReadCardinal());
 end;
 

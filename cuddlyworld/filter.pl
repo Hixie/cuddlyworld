@@ -32,6 +32,18 @@ while (<>) {
         next if $statement =~ m/^ *Assert\(/os;
     }
 
+    if (m!^([^(]+)\(([0-9]+),([0-9]+)\) Hint: Conversion between ordinals and pointers is not portable$!os) {
+        my $file = $1;
+        my $line = $2;
+        # column is $3 but we don't care
+        open(FILE, $file) or die "could not open $file: $!\n";
+        local $_;
+        <FILE> for (1..$line-1);
+        my $statement = <FILE>;
+        close(FILE);
+        next if $statement =~ m/PtrUInt\(/os;
+    }
+
     if (m!^([^(]+)\(([0-9]+),([0-9]+)\) Warning: (?:Type size mismatch, possible loss of data / range check error)$!os) {
         my $file = $1;
         my $line = $2;

@@ -193,7 +193,7 @@ begin
    inherited Create();
    FActive := True;
    FInput := AInput;
-   FObjectsRead := TFixupHashTable.Create(@PtrUIntHash);
+   FObjectsRead := TFixupHashTable.Create(@PtrUIntHash32);
    VerifyFieldType(btStream);
    FVersion := ReadCardinal();
    if (ReadByte() <> SizeOf(PtrUInt)) then
@@ -475,11 +475,11 @@ end;
 
 function StorableClassHash(Key: StorableClass): Cardinal; inline;
 begin
-   Result := PointerHash(Pointer(Key));
+   Result := PointerHash32(Pointer(Key));
 end;
 
 initialization
-   ClassKeyToClassHash := TClassKeyToClassHashTable.Create(@Integer32toHash32);
+   ClassKeyToClassHash := TClassKeyToClassHashTable.Create(@Integer32Hash32);
    ClassToClassKeyHash := TClassToClassKeyHashTable.Create(@StorableClassHash);
 finalization
    ClassKeyToClassHash.Free();

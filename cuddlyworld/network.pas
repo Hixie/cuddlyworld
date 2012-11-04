@@ -43,7 +43,7 @@ type
 
    TNetworkSocket = class(TBaseSocket)
     protected
-      FAddr: TINetSockAddr;
+      FAddr: SockAddr;
       function InternalRead(c: Byte): Boolean; virtual; abstract;
     public
       constructor Create(AListener: TListenerSocket);
@@ -88,7 +88,7 @@ uses
 
 constructor TListenerSocket.Create(Port: Word);
 var
-   Addr: TINetSockAddr;
+   Addr: SockAddr;
    FoundPort: Boolean;
 begin
    inherited Create();
@@ -96,7 +96,8 @@ begin
    if (FSocketNumber < 0) then
       raise ESocketError.Create(SocketError);
    Addr.sin_family := AF_INET;
-   Addr.sin_addr.s_addr := htonl(INADDR_ANY);
+   {$IF SizeOf(LongWord) <> SizeOf(LongInt)} {$FATAL Platform has weird LongWord and LongInt types} {$ENDIF}
+   Addr.sin_addr.s_addr := LongWord(htonl(LongInt(INADDR_ANY)));
    repeat
       Addr.sin_port := htons(Port);
       if (fpBind(FSocketNumber, @Addr, SizeOf(Addr)) = 0) then
@@ -209,7 +210,8 @@ var
 begin
    Assert(FConnected);
    Assert(Length(s) > 0);
-   Sent := fpSend(FSocketNumber, Pointer(s), Length(s), 0);
+   // Length(s) can't be negative, which is the concern on the next line
+   Sent := fpSend(FSocketNumber, Pointer(s), Length(s), 0); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
    if (Sent < Length(s)) then
       raise ESocketError.Create(SocketError);
 end;
@@ -219,7 +221,8 @@ var
    Sent: ssize_t;
 begin
    Assert(FConnected);
-   Sent := fpSend(FSocketNumber, @s, Length(s), 0);
+   // Length(s) can't be negative, which is the concern on the next line
+   Sent := fpSend(FSocketNumber, @s, Length(s), 0);; {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
    if (Sent < Length(s)) then
       raise ESocketError.Create(SocketError);
 end;
