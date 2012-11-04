@@ -272,6 +272,7 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      function HasLandmark(Direction: TCardinalDirection): Boolean;
       procedure AddLandmark(Direction: TCardinalDirection; Atom: TAtom; Options: TLandmarkOptions);
       procedure AddSurroundings(Atom: TAtom; const Directions: TCardinalDirectionSet = cdCompasDirection);
       function GetAtomForDirectionalNavigation(Direction: TCardinalDirection): TAtom;
@@ -1773,6 +1774,11 @@ begin
             Stream.WriteReference(FDirectionalLandmarks[Direction][Index].Atom);
          end;
    end;
+end;
+
+function TLocation.HasLandmark(Direction: TCardinalDirection): Boolean;
+begin
+   Result := Length(FDirectionalLandmarks[Direction]) > 0;
 end;
 
 procedure TLocation.AddLandmark(Direction: TCardinalDirection; Atom: TAtom; Options: TLandmarkOptions);

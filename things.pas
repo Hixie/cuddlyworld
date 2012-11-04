@@ -121,23 +121,6 @@ type
       procedure Removed(Thing: TThing); override;
    end;
 
-   // XXX this class' days are numbered
-   TDistantScenery = class(TNamedThing)
-    protected
-      FDirection: TCardinalDirection;
-      function FarAway(Perspective: TAvatar): AnsiString; virtual;
-    public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
-      constructor Read(Stream: TReadStream); override;
-      procedure Write(Stream: TWriteStream); override;
-      function GetIntrinsicMass(): TThingMass; override;
-      function GetIntrinsicSize(): TThingSize; override;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-   end;
-
    TContainer = class(TStaticThing)
      public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -746,65 +729,6 @@ begin
 end;
 
 
-{ THIS CLASS IS ONLY USED BY THE TESTS NOW }
-constructor TDistantScenery.Create(Name: AnsiString; Pattern: AnsiString; Direction: TCardinalDirection);
-begin
-   inherited Create(Name, Pattern);
-   FDirection := Direction;
-end;
-
-constructor TDistantScenery.Read(Stream: TReadStream);
-begin
-   inherited;
-   FDirection := TCardinalDirection(Stream.ReadCardinal());
-end;
-
-procedure TDistantScenery.Write(Stream: TWriteStream);
-begin
-   inherited;
-   Stream.WriteCardinal(Cardinal(FDirection));
-end;
-
-function TDistantScenery.GetIntrinsicMass(): TThingMass;
-begin
-   Result := tmLudicrous;
-end;
-
-function TDistantScenery.GetIntrinsicSize(): TThingSize;
-begin
-   Result := tsLudicrous;
-end;
-
-function TDistantScenery.GetLookUnder(Perspective: TAvatar): AnsiString;
-begin
-   Result := FarAway(Perspective);
-end;
-
-function TDistantScenery.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
-begin
-   Result := FarAway(Perspective);
-end;
-
-function TDistantScenery.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
-begin
-   if (Mode = psThereIsAThingHere) then
-      Result := Capitalise(CardinalDirectionToDirectionString(FDirection)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + '.'
-   else
-      Result := FarAway(Perspective);
-end;
-
-function TDistantScenery.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
-begin
-   Result := False;
-   Message := FarAway(Perspective);
-end;
-
-function TDistantScenery.FarAway(Perspective: TAvatar): AnsiString;
-begin
-   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + CardinalDirectionToDirectionString(FDirection) + '.';
-end;
-
-
 function TContainer.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
    Result := Self;
@@ -1406,7 +1330,6 @@ initialization
    RegisterStorableClass(TLocationProxy,          1004);
    RegisterStorableClass(TSurface,                1005);
    RegisterStorableClass(TEarthGround,            1006);
-   RegisterStorableClass(TDistantScenery,         1007);
    RegisterStorableClass(TContainer,              1008);
    RegisterStorableClass(TOpening,                1009);
    RegisterStorableClass(TSpade,                  1010);
