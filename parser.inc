@@ -296,9 +296,10 @@
       Direction: TCardinalDirection;
       Index: Cardinal;
    begin
+      Assert(Length(Prepositions) > 0);
       if (CurrentToken + Length(Prepositions) <= Length(Tokens)) then
       begin
-         for Index := 0 to Length(Prepositions)-1 do
+         for Index := Low(Prepositions) to High(Prepositions) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          begin
 {$IFDEF DEBUG_PARSER} Writeln('GetCompoundPrepositionThing() comparing "', Tokens[CurrentToken+Index], '" to "', Prepositions[Index], '"'); {$ENDIF}
             if (Tokens[CurrentToken+Index] <> Prepositions[Index]) then
@@ -1208,13 +1209,27 @@
                   Fail('Syntax: "debug thing <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThing.GetDefiniteName(Self) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
             end
             else
+            if (Tokens[CurrentToken] = 'teleport') then
+            begin
+               // XXX also support specifiying position to teleport to
+               Inc(CurrentToken);
+               Result := True;
+               Action.Verb := avDebugTeleport;
+               if (CanEnd()) then
+                  Fail('Syntax: "debug teleport <thing>"');
+               if (not GetThing(Action.DebugTarget, [], 'debug')) then
+                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
+               if (not CanEnd()) then
+                  Fail('Syntax: "debug teleport <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugTarget.GetDefiniteName(Self) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+            end
+            else
             begin
                EnsureNoPunctuation();
                Fail('Unrecognised debug command.');
             end;
          end
          else
-            Fail('Syntax: "debug <command>", where <command> is one of "status", "things", or "thing <thing>".');
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "things", "thing <thing>", "teleport <thing>".');
       end
       else
       {$ENDIF}

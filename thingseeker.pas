@@ -28,7 +28,7 @@ type
       FCurrentBestLength: Cardinal;
       FCurrentBestGrammaticalNumber: TGrammaticalNumber;
       FCurrentBestThingList: TThingList;
-      procedure ReferencedCallback(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
+      procedure Add(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
     public
       constructor Create();
       destructor Destroy(); override;
@@ -589,7 +589,7 @@ begin
              if (Count > 8) then
                 SelectN(7)
              else
-                SelectN((Count div 2) + 1);
+                SelectN((Count div 2) + 1); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
              Result := True;
           end;
        end;
@@ -664,7 +664,7 @@ end;
 class procedure TAbstractClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString);
 begin
    Assert(ClauseStart <> CurrentToken);
-   Fail('I was with you until you said "' + Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart + 1) + '".');
+   Fail('I was with you until you said "' + Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart + 1) + '".'); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
 end;
 
 procedure TAbstractClause.AddFilterFragment(Fragment: AnsiString);
@@ -989,6 +989,7 @@ var
    Index: Cardinal;
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Process() on a ', ClassName, ' -- ', Length(FVictims), ' victims follow') {$ENDIF};
+   Assert(Length(FVictims) > 0);
    for Index := Low(FVictims) to High(FVictims) do
    begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Process() on a ', ClassName, ' -- victim ', Index, ':') {$ENDIF};
@@ -1544,6 +1545,7 @@ begin
    if (Length(FRegisteredJoins) > 0) then
    begin
       Include(FFlags, cfDisambiguateAnyLoneResult);
+      Assert(Length(FRegisteredJoins) > 0);
       for Index := High(FRegisteredJoins) downto Low(FRegisteredJoins) do
          FThings.AdoptList(FRegisteredJoins[Index].FThings);
    end;
@@ -1617,7 +1619,7 @@ begin
    inherited;
 end;
 
-procedure TThingCollector.ReferencedCallback(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
+procedure TThingCollector.Add(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() called with Thing=', Thing.GetDefiniteName(nil), ', Count=', Count); {$ENDIF}
 {$IFDEF DEBUG_SEEKER} if (gnSingular in GrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() GrammaticalNumber contains gnSingular'); {$ENDIF}
@@ -1767,6 +1769,7 @@ begin
 //      p          b          b
 //      b          b          b
    FCurrentBestThingList.AppendItem(Thing);
+   // *** this would be a place to remember stuff about Thing, e.g. what direction it was in, in case we need that later
 end;
 
 function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; Options: TThingCollectionOptions; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
@@ -1865,7 +1868,7 @@ var
             FCurrentBestLength := 0;
             FCurrentBestGrammaticalNumber := [];
             try
-               Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @ReferencedCallback);
+               Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @Add);
             except
                FCurrentBestThingList.Empty();
                raise;
@@ -1899,7 +1902,7 @@ var
                      Include(Flags, cfSingular)
                   else
                      Include(Flags, cfDisambiguateSingularLoneResult);
-                  AppendClause(ClauseClass.Create(Number, PluralThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start)));
+                  AppendClause(ClauseClass.Create(Number, PluralThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
                   Result := True;
                end
                else { take apple }
@@ -1907,7 +1910,7 @@ var
                   Assert(gnSingular in FCurrentBestGrammaticalNumber);
                   Assert(Assigned(FCurrentBestThingList));
                   Include(Flags, cfSingular);
-                  AppendClause(ClauseClass.Create(Number, SingularThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start)));
+                  AppendClause(ClauseClass.Create(Number, SingularThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
                   Result := True;
                end;
                FCurrentBestThingList := nil;
@@ -1923,8 +1926,8 @@ var
          end
          else
          begin
-            Message := Capitalise(Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart)) + ' what?';
-            for Index := ClauseStart to CurrentToken-1 do
+            Message := Capitalise(Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart)) + ' what?'; {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+            for Index := ClauseStart to CurrentToken-1 do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
             begin
                { these are, more or less by definition, guaranteed to be keywords we have hard-coded below }
                if (Tokens[Index] = ',') then
@@ -2201,7 +2204,7 @@ begin
             Assert(Assigned(FirstClause));
             try
                Collapse(FirstClause, FThingList, FDisambiguate);
-               FTokenCount := CurrentToken - Start;
+               FTokenCount := CurrentToken - Start; {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
             except
                FTokenCount := 0;
                FDisambiguate := False;

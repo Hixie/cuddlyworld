@@ -32,6 +32,8 @@ type
       FOnAvatarMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: AnsiString; { transient }
+      procedure DoFind(Subject: TThing);
+      procedure DoLookUnder(Subject: TThing);
       procedure DoTake(Subject: TThingList);
       procedure DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
       procedure DoMove(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition);
@@ -47,13 +49,13 @@ type
       procedure DoDebugStatus();
       procedure DoDebugThings(Things: TThingList);
       procedure DoDebugThing(Thing: TThing);
+      procedure DoDebugTeleport(Target: TAtom);
       {$ENDIF}
       procedure DoHelp();
       procedure DoQuit();
       function CanCarryThing(Thing: TThing; var Message: AnsiString): Boolean;
       function CanPushThing(Thing: TThing; var Message: AnsiString): Boolean;
       function CanShakeThing(Thing: TThing; var Message: AnsiString): Boolean;
-      function Referenceable(Subject: TAtom): Boolean;
       function Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
       function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
       procedure SetContext(Context: AnsiString);
@@ -121,7 +123,7 @@ type
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection,
                   avTalk, avDance,
-                  {$IFDEF DEBUG} avDebugStatus, avDebugThings, avDebugThing, {$ENDIF}
+                  {$IFDEF DEBUG} avDebugStatus, avDebugThings, avDebugThing, avDebugTeleport, {$ENDIF}
                   avHelp, avQuit);
 
    PTalkMessage = ^TTalkMessage;
@@ -158,6 +160,7 @@ type
       avDebugStatus: ();
       avDebugThings: (DebugThings: TThingList);
       avDebugThing: (DebugThing: TThing);
+      avDebugTeleport: (DebugTarget: TAtom);
       {$ENDIF}
       avHelp: ();
       avQuit: ();
@@ -214,14 +217,14 @@ var
    begin
       case Action.Verb of
        avLook: DoLook();
-       avLookDirectional: AvatarMessage(FParent.GetDefaultAtom().GetLookDirection(Self, Action.LookDirection));
+       avLookDirectional: AvatarMessage(FParent.GetDefaultAtom().GetLookTowardsDirection(Self, Action.LookDirection));
        avLookAt: AvatarMessage(Action.LookAtSubject.GetLookAt(Self));
        avExamine: AvatarMessage(Action.ExamineSubject.GetExamine(Self));
        avRead: AvatarMessage(Action.ReadSubject.GetDescriptionWriting(Self));
-       avLookUnder: AvatarMessage(Action.LookUnder.GetLookUnder(Self));
+       avLookUnder: DoLookUnder(Action.LookUnder);
        avLookIn: AvatarMessage(Action.LookIn.GetLookIn(Self));
        avInventory: DoInventory();
-       avFind: AvatarMessage(Action.FindSubject.GetPresenceStatement(Self, psTheThingIsOnThatThing));
+       avFind: DoFind(Action.FindSubject);
        avGo: FParent.Navigate(Action.GoDirection, Self);
        avEnter: DoNavigation(FParent, Action.EnterSubject, tpIn, Self);
        avClimbOn: DoNavigation(FParent, Action.ClimbOnSubject, tpOn, Self);
@@ -240,6 +243,7 @@ var
        avDebugStatus: DoDebugStatus();
        avDebugThings: DoDebugThings(Action.DebugThings);
        avDebugThing: DoDebugThing(Action.DebugThing);
+       avDebugTeleport: DoDebugTeleport(Action.DebugTarget);
        {$ENDIF}
        avHelp: DoHelp();
        avQuit: DoQuit();
@@ -363,6 +367,26 @@ end;
 procedure TPlayer.DoDebugThing(Thing: TThing);
 begin
    AvatarMessage(Thing.Debug());
+end;
+
+procedure TPlayer.DoDebugTeleport(Target: TAtom);
+var
+   Ancestor: TAtom;
+begin
+   Ancestor := Target;
+   while ((Ancestor <> Self) and (Ancestor is TThing)) do
+      Ancestor := (Ancestor as TThing).Parent;
+   if (Ancestor = Self) then
+   begin
+      AvatarMessage('Can''t teleport an actor onto the actor itself or any of its descendants.');
+   end
+   else
+   begin
+      AnnounceDisappearance();
+      Target.Add(Self, tpOn);
+      AnnounceAppearance();
+      DoLook();
+   end;
 end;
 {$ENDIF}
 
@@ -571,11 +595,14 @@ begin
    if (Mode = psThereIsAThingHere) then
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' here.'
    else
+   if (Mode = psThereIsAThingThere) then
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' there.'
+   else
    if ((Mode = psOnThatThingIsAThing) or (Mode = psTheThingIsOnThatThing)) then
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' +
                            ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
    else
-      raise EAssertionFailed.Create('unknown mode');
+      Result := inherited;
 end;
 
 function TPlayer.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
@@ -654,6 +681,73 @@ begin
    DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), M('.')]);
 end;
 
+procedure TPlayer.DoFind(Subject: TThing);
+var
+   Root: TAtom;
+   SubjectiveInformation: TSubjectiveInformation;
+   Message, ExtraMessage: AnsiString;
+   {$IFOPT C+} Found, {$ENDIF} FromOutside, UseCommas: Boolean;
+   Count, Index: Cardinal;
+   Direction: TCardinalDirection;
+begin
+   Root := GetSurroundingsRoot(FromOutside);
+   SubjectiveInformation.Reset(); {BOGUS Warning: Local variable "SubjectiveInformation" does not seem to be initialized}
+   {$IFOPT C+} Found := {$ENDIF} Root.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
+   {$IFOPT C+} Assert(Found); {$ENDIF}
+   if (SubjectiveInformation.Directions <> []) then
+   begin
+      Message := Capitalise(Subject.GetDefiniteName(Self)) + ' ' + IsAre(Subject.IsPlural(Self)) + ' ';
+      Count := 0;
+      for Direction := Low(SubjectiveInformation.Directions) to High(SubjectiveInformation.Directions) do
+         if (Direction in SubjectiveInformation.Directions) then
+            Inc(Count);
+      Assert(Count > 0);
+      UseCommas := Count > 2;
+      Index := 0;
+      for Direction := Low(SubjectiveInformation.Directions) to High(SubjectiveInformation.Directions) do
+      begin
+         if (Direction in SubjectiveInformation.Directions) then
+         begin
+            Inc(Index);
+            if (Index > 1) then
+            begin
+               if (UseCommas) then
+                  Message := Message + ',';
+               if (Count = Index) then
+                  Message := Message + ' and';
+               Message := Message + ' ';
+            end;
+            Message := Message + CardinalDirectionToDirectionString(Direction);
+         end;
+      end;
+      ExtraMessage := Subject.GetPresenceStatement(Self, psOnThatSpecialThing);
+      if (ExtraMessage <> '') then
+         Message := Message + ', ' + ExtraMessage;
+      Message := Message + '.';
+      AvatarMessage(Message);
+   end
+   else
+      AvatarMessage(Subject.GetPresenceStatement(Self, psTheThingIsOnThatThing));
+end;
+
+procedure TPlayer.DoLookUnder(Subject: TThing);
+var
+   Root: TAtom;
+   SubjectiveInformation: TSubjectiveInformation;
+   {$IFOPT C+} Found, {$ENDIF} FromOutside: Boolean;
+begin
+   Root := GetSurroundingsRoot(FromOutside);
+   SubjectiveInformation.Reset(); {BOGUS Warning: Local variable "SubjectiveInformation" does not seem to be initialized}
+   {$IFOPT C+} Found := {$ENDIF} Root.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
+   {$IFOPT C+} Assert(Found); {$ENDIF}
+   if (SubjectiveInformation.Directions = [cdUp]) then
+   begin
+      AvatarMessage('You are under ' + Subject.GetDefiniteName(Self) + '.');
+   end
+   else
+      AvatarMessage(Subject.GetLookUnder(Self));
+end;
+
 procedure TPlayer.DoTake(Subject: TThingList);
 var
    Multiple: Boolean;
@@ -671,14 +765,9 @@ begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
          Message := '';
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+            AvatarMessage(Message);
          end
          else
          if (CurrentSubject.Parent = Self) then
@@ -737,24 +826,14 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
-         end
-         else
-         if (not Referenceable(Target)) then
-         begin
-            AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+            AvatarMessage(Message);
          end
          else
          if (not Reachable(Target, Message)) then
          begin
-            AvatarMessage(Capitalise(Target.GetDefiniteName(Self)) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + Message + '.');
+            AvatarMessage(Message);
          end
          else
          if (Target = CurrentSubject) then
@@ -799,27 +878,15 @@ begin
                   finally
                      SingleThingList.Free();
                   end;
-                  if (not Referenceable(CurrentSubject)) then
-                  begin
-                     AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-                     Success := False;
-                  end
-                  else
                   if (not Reachable(CurrentSubject, Message)) then
                   begin
-                     AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
-                     Success := False;
-                  end
-                  else
-                  if (not Referenceable(Target)) then
-                  begin
-                     AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+                     AvatarMessage(Message);
                      Success := False;
                   end
                   else
                   if (not Reachable(Target, Message)) then
                   begin
-                     AvatarMessage(Capitalise(Target.GetDefiniteName(Self)) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + Message + '.');
+                     AvatarMessage(Message);
                      Success := False;
                   end
                   else
@@ -928,8 +995,8 @@ procedure TPlayer.DoMove(Subject: TThingList; Target: TAtom; ThingPosition: TThi
 var
    Multiple, NavigateToTarget, Success: Boolean;
    SingleThingList: TThingList;
-   Ancestor, SurrogateTarget: TAtom;
-   LocationSurface, CurrentSubject: TThing;
+   Ancestor, SurrogateTarget, LocationSurface: TAtom;
+   CurrentSubject: TThing;
    {$IFOPT C+} PreviousParent: TAtom; {$ENDIF}
    Message: AnsiString;
 begin
@@ -967,24 +1034,14 @@ begin
             {$IFOPT C+} Assert(FParent = PreviousParent); {$ENDIF}
          end
          else
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
-         end
-         else
-         if (Assigned(Target) and (not Referenceable(Target))) then
-         begin
-            AvatarMessage('You can''t see ' + Target.GetDefiniteName(Self) + ' anymore.');
+            AvatarMessage(Message);
          end
          else
          if (Assigned(Target) and (not Reachable(Target, Message))) then
          begin
-            AvatarMessage(Capitalise(Target.GetDefiniteName(Self)) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + Message + '.');
+            AvatarMessage(Message);
          end
          else
          begin
@@ -1009,7 +1066,8 @@ begin
                      Ancestor := CurrentSubject.Parent;
                      while (Ancestor is TThing) do
                         Ancestor := (Ancestor as TThing).Parent;
-                     LocationSurface := Ancestor.GetSurface() as TThing;
+                     Assert(Assigned(Ancestor));
+                     LocationSurface := Ancestor.GetSurface();
                      if ((CurrentSubject.Parent = Ancestor) or
                          (CurrentSubject.Parent = LocationSurface)) then
                      begin
@@ -1107,14 +1165,9 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+            AvatarMessage(Message);
          end
          else
          begin
@@ -1129,7 +1182,7 @@ begin
             if (Destination is TLocation) then
             begin
                Location := Destination as TLocation;
-               Destination := Location.GetAtomForDirection(Direction);
+               Destination := Location.GetAtomForDirectionalNavigation(Direction);
                if (not Assigned(Destination)) then
                begin
                   Location.FailNavigation(Direction, Self);
@@ -1208,24 +1261,14 @@ begin
          Assert(Assigned(CurrentSubject.Parent));
          Denied := True;
          Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' immovable.';
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            Message := 'You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.';
-         end
-         else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.';
-         end
-         else
-         if (Assigned(RequiredParent) and (not Referenceable(RequiredParent))) then
-         begin
-            Message := 'You can''t see ' + RequiredParent.GetDefiniteName(Self) + ' anymore.';
+            // Message set
          end
          else
          if (Assigned(RequiredParent) and (not Reachable(RequiredParent, Message))) then
          begin
-            Message := Capitalise(RequiredParent.GetDefiniteName(Self)) + ' ' + IsAre(RequiredParent.IsPlural(Self)) + ' ' + Message + '.';
+            // Message set
          end
          else
          if (CurrentSubject = Self) then
@@ -1297,6 +1340,7 @@ begin
                end
                else
                begin
+                  Assert(CurrentSubject.Parent is TThing); { since we checked for this above }
                   DestinationPosition := (CurrentSubject.Parent as TThing).Position;
                   if (DestinationPosition = tpIn) then
                   begin
@@ -1337,14 +1381,9 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+            AvatarMessage(Message);
          end
          else
          if (CurrentSubject = Self) then
@@ -1378,14 +1417,9 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         if (not Referenceable(CurrentSubject)) then
-         begin
-            AvatarMessage('You can''t see ' + CurrentSubject.GetDefiniteName(Self) + ' anymore.');
-         end
-         else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + Message + '.');
+            AvatarMessage(Message);
          end
          else
          if (CurrentSubject = Self) then
@@ -1456,7 +1490,7 @@ begin
    if (DefaultParent is TLocation) then
    begin
       CurrentLocation := DefaultParent as TLocation;
-      Destination := CurrentLocation.GetAtomForDirection(Direction);
+      Destination := CurrentLocation.GetAtomForDirectionalNavigation(Direction);
       if (not Assigned(Destination)) then
       begin
          // could give a better message?
@@ -1469,7 +1503,7 @@ begin
       end
       else
       begin
-         AvatarMessage('You cannot dig ' + Destination.GetDefiniteName(Self) + '.');
+         AvatarMessage('You cannot dig ' + Destination.GetDefiniteName(Self) + '.'); // XXX "from here", maybe?
       end;
    end
    else
@@ -1626,28 +1660,71 @@ begin
       Result := True;
 end;
 
-function TPlayer.Referenceable(Subject: TAtom): Boolean;
+function TPlayer.Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
+
+   function GetRootFor(Atom: TAtom): TAtom;
+   begin
+      while (Atom is TThing) do
+         Atom := (Atom as TThing).Parent;
+      Result := Atom;
+   end;
+
 var
-   Root: TAtom;
+   SelfRoot, SubjectRoot: TAtom;
    FromOutside: Boolean;
+   SubjectiveInformation: TSubjectiveInformation;
+   Direction: TCardinalDirection;
+   DirectionMessage: AnsiString;
 begin
    Assert(Assigned(Subject));
    Assert(Assigned(FParent));
-   Root := GetSurroundingsRoot(FromOutside);
-   Assert(Assigned(Root));
+   SelfRoot := GetSurroundingsRoot(FromOutside);
+   Assert(Assigned(SelfRoot));
    if (Subject is TLocation) then
-      Result := Root = Subject
+   begin
+      // XXX can this branch ever be taken?
+      Result := SelfRoot = Subject;
+      if (not Result) then
+         Message := 'You aren''t at ' + Subject.GetDefiniteName(Self) + ' anymore.'; // "at" might not work, e.g. "You aren't in Kansas anymore." needs "in" not "at"
+   end
    else
    if (Subject is TThing) then
-      Result := Root.StillReferenceable(Subject as TThing, Self, FromOutside)
+   begin
+      SubjectiveInformation.Reset(); {BOGUS Warning: Local variable "SubjectiveInformation" does not seem to be initialized}
+      Result := SelfRoot.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
+      if (not Result) then
+      begin
+         Message := 'You can''t see ' + Subject.GetDefiniteName(Self) + ' anymore.';
+      end
+      else
+      begin
+         SelfRoot := GetRootFor(Self);
+         SubjectRoot := GetRootFor(Subject);
+         if (SubjectRoot <> SelfRoot) then
+         begin
+            Result := False;
+            Message := Capitalise(Subject.GetDefiniteName(Self)) + ' ' + IsAre(Subject.IsPlural(Self)) + ' too far away';
+            DirectionMessage := '';
+            for Direction := Low(SubjectiveInformation.Directions) to High(SubjectiveInformation.Directions) do
+            begin
+               if (Direction in SubjectiveInformation.Directions) then
+               begin
+                  if (DirectionMessage <> '') then
+                  begin
+                     // it's in more than one direction, give up trying to explain where it is
+                     DirectionMessage := '';
+                     Break;
+                  end;
+                  DirectionMessage := ' (' + CardinalDirectionToDirectionString(Direction) + ')';
+               end;
+            end;
+            Message := Message + DirectionMessage + '.';
+            // Message := Message + ' You are in ' + SelfRoot.GetDefiniteName(Self) + ' but ' + Subject.GetDefiniteName(Self) + ' is in ' + SubjectRoot.GetDefiniteName(Self) + '.';
+         end;
+      end;
+   end
    else
-      raise Exception.Create('TPlayer.Referenceable() does not know how to handle objects of class ' + Subject.ClassName());
-end;
-
-function TPlayer.Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
-begin
-   Result := True;
-   // XXX check that Subject is in the same TLocation
+      raise Exception.Create('TPlayer.Reachable() does not know how to handle objects of class ' + Subject.ClassName());
 end;
 
 function TPlayer.GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;

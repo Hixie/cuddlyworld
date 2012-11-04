@@ -1,33 +1,34 @@
 ONGOING WORK
- + Make the take/drop/etc logic keep track of whether you can reach something
-   - (to later be used to check that things aren't backdrop)
+ + add the threshold locations using THorizontalThresholdLocation in locations.pas for the arches
+    TDoubleSidedThing's does the right thing
+    TThresholdLocation invokes its TDoubleSidedThing's AddExplicitlyReferencedThingsFromDirection()
+ + see XXX in tests.pas for pre-submit requirements
+ + "find tree" hung once after: l u; l s; x tree; n; l u; x sun; find sun; find sky; l at sky; take sun; l; find tree
 
 WORLD
- + Outdoor rooms can all point FUp to a TSky owned by the World, which itself can have a TSun which could go up and down maybe also a TMoon... and TStars...)
-   - basically backdrops, that can be seen from many rooms
-   - maybe have a list of things that are in another room that can be seen from this room, which the room visits when doing the FindMatchingThings stuff?
-   - have a list of Backdrop rooms for each room, then we can have a TSky room and a TCourtyard room both visible from the TBalcony
-   - or probably even better, chain them
-   - also use this to make "look west" and "examine mountain" show the (same) mountain from multiple rooms
-   - when in a hole, "look up" should see the sky
-   - when on the ground with a hole, "look down" should mention the ground and the hole, not just the hole
  + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
    - have a global "door" object (with no parent) and two "door side" objects
    - have the sides forward to the door
    - have the sides be partOf the door when the door is taken off its hinges
- + make sure FUp doesn't have to be in FChildren... maybe TSky is a TLocation instead? or use the global thing feature
  + we should still describe non-implicit things that are on implicit things
  + descriptions of locations should not list exits that are listed in the description
     - basically, exits should be able to be labeled as implicit
- + well-worn paths: outdoor wild locations should count how many people have walked on them and should start describing themselves as paths
-    - remember the kind of footprint for people exitting and entering in each direction
-       - gender (male/female/robot/etc), from/to, direction, how heavy
-       - linked list, remember the last five
-       - at a regular interval, forget oldest one (grass growing back)
-    - if there's two directions that are heavily walked, describe a path between them
-    - if there's three or more directions heavily walked, describe an intersection between them
-    - if there's a direction walked but noticeably less, describe it as "a lesser path also leads" that way
-    - allow players to study tracks
+ + TFeaturelessOutdoorLocation should magically describe itself:
+   + count tpPlantedIn* trees and decide if it's a forested area
+     - should be able to refer to "forest of trees"
+     - should automatically say, for areas that have no exits but are blocked by trees, that the forest is too dense
+       (rather than the default "you can't go that way")
+   + if it's not forested but has forests around it, it's a clearing
+   + well-worn paths: count how many people have walked on them and should start describing themselves as paths
+     - remember the kind of footprint for people exitting and entering in each direction
+        - gender (male/female/robot/etc), from/to, direction, how heavy
+        - linked list, remember the last five
+        - at a regular interval, forget oldest one (grass growing back)
+     - if there's two directions that are heavily walked, describe a path between them
+     - if there's three or more directions heavily walked, describe an intersection between them
+     - if there's a direction walked but noticeably less, describe it as "a lesser path also leads" that way
+     - allow players to study tracks
+   + if it's surrounded by non-forested, non-path areas, it's a field
  + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
  + Players should have PartOfs: eyes, hands, etc
  + Players should have Implicits: "you", "time" ("take time"), etc
@@ -96,7 +97,9 @@ THINGS
  + make orbs smaller but with no carrying capability
  + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
  + you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
- + When you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
+ + when you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
+ + when you drop something from the sky onto a ground surface that's full, it should drop onto something (the biggest non-full
+   thing in a depth-first search?) on the ground surface
  + taking something with things on it should make the things fall off
  + throwing - "throw MacGuffin north": I don't understand how to "throw".
  + "push things off table" doesn't work (pushing things off)
@@ -114,9 +117,8 @@ THINGS
  + 'dig hole' should work
  + "fill hole" (with pile of earth) (by moving pile of earth into hole)
  + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
- + "Take a carinda" to take just one. "take a leaf" as a way to take a leaf from pile?
- + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers
- + "look at X Y" where Y is "to the north", "to n", "to north", "in the north", "in n", "in north"
+ + "take a leaf" as a way to take a leaf from pile?
+ + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
  + "move all but inventory" should work
  + "move leaves through door", "push pile through door"
  + 'look under' should move things if they are bigger than what they are on
@@ -128,17 +130,27 @@ THINGS
  + "take leaves with spade"
  + "put x under y" should say (by putting y on x) (first taking y)
  + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
+ + support finding multiple things?
  + "look on" should list what's on something (maybe including things like engravings?)
- + Looking at something that itself contains things has weird spacing before the second "contains":
+ + looking at something that itself contains things has weird spacing before the second "contains" (looks like missing newline):
     | The hole contains:
     |   A bag of holding.   The bag of holding contains:
     |     A spade.
- + Things claim to be "part of the ground" when they are partOf the ground and you try to take them, which looks weird.
+   Somehow this only happens if the bag is in the hole, not if it's being carried. Compare inventory code to "x hole" code.
+ + things claim to be "part of the ground" when they are partOf the ground and you try to take them, which looks weird.
+ + need to support the idea of an arch being over something
  + "empty bag"
  + "empty bag on table"
  + if a container is closed and you try to put something inside it, it should implicitly try to open it
  + dropping something should put it at the end of the list, not the start
  + "drop things down" when there's a down exit
+ + automatic piles
+    - when you drop multiple compatible things on the same surface, they should spontaneously generate a pile to contain them
+    - the pile should vanish when there's only one of them left
+    - the pile can be clever, e.g. a pile of money should summarise the value of tender (coins, bills) in the pile
+ + tpAutoDescribeDirectional seems a bit dubious. Maybe use an lo* constant instead, or something? does that even make sense?
+ + find hole says "The hole is below, in the ground." but "below" sounds a bit weird.
+ + "read sky" should say "in" not "on" -- maybe base this on whether something has a surface? consider book (in), bag (on)
 
 NETWORK
  + password command
@@ -172,6 +184,9 @@ THING SEEKER IMPROVEMENTS: LOGIC
     - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
  + find a solution to:
     - "There is an orange here. There is an orange mug here." "Take orange." "Which orange do you mean, the orange or the orange mug?"
+    - Trees all over the place. "Examine tree." "Which tree do you mean, the tree, the tree, the tree, the tree, the tree, the tree, the tree, or the tree?"
+       - ideally, use FDirectionalLandmarks if possible - "the tree to the north"; should also happen for the arches
+       - as a last resort, number them. "Which tree do you mean, the first tree, the second tree, ...".
  + every time we mention something, Thing.UpdatePronouns(Perspective) (Perspective has the pronoun state)
 
 THING SEEKER IMPROVEMENTS: VOCABULARY
@@ -180,7 +195,8 @@ THING SEEKER IMPROVEMENTS: VOCABULARY
  + "take everything THAT IS OPEN"
     - add a feature to pattern thingies that allows a callback to check if a particular word is on to support "open bottle" vs "closed bottle"
  + "FROM WITHIN <object>", "FROM INSIDE", "FROM ATOP", etc
- + "look at arch TO the north"
+ + "look at arch TO the north" -- derived from the FDirectionalLandmarks
+    - "look at X Y" where Y is "to the north", "to n", "to north", "in the north", "in n", "in north"
  + "take all bottles EXCEPT bottles from table"
  + "take all bottles from tables, chairs, floor BUT NOT blue bottles"
  + "take blue from red BUT NOT big" - BUT NOT, AND NOT are equivalents of ThatIs for exclusion
@@ -195,10 +211,21 @@ UI
  + Answering questions: each time we say "which do you mean...", if the player just replies, it should try again until getting to the question then try to use the answer
 
 CODE
+ + Check all the warnings
+ + share matchers across things
+    - either explicitly, or have the compiler use a hashtable to return the right one
+    - matchers will need to be reference counted
+    - make sure to share objects when writing to / reading from disk
+ + track strings when reading to/from disk (e.g. so that common descriptions are shared in memory)
  + move build.sh options to a configuration file
  + log exceptions other than parse errors - abstract out the logging code
- + see if it makes sense to change TThing.Navigate() and TThing.GetLookDirection() to instead use a GetAtomForDirection()-like approach
+ + see if it makes sense to change TThing.Navigate() and TThing.GetLookTowardsDirection() to instead use a GetAtomForDirection()-like approach
  + change "raise EAssertionFailed(...)" to "Assert(False, ...)"
+ + import ../../isd/server/src/infrastructure/hashtable.pas
+ + import ../../isd/server/src/infrastructure/settings.inc (also see lggwg's)
+ + import ../../isd/server/src/infrastructure/storable.pas and the registrations mechanism (regen.pl)
+ + consider ../../isd/server/src/infrastructure/filter.pl
+ + import ../../isd/server/src/infrastructure/corewebsocket.pas and ../../isd/server/src/infrastructure/corenetwork.pas
 
 MORE NOTES
  http://www.brasslantern.org/writers/iftheory/tads3andi7.html
