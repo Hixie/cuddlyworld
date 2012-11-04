@@ -19,7 +19,7 @@ uses
    storable, grammarian, locations, thingdim, things, player, broadcast, sysutils;
 
 type
-   TCuddlyWorld = class(TWorld)
+   TCuddlyWorld = class(TWorld) // @RegisterStorableClass
     protected
       FStartingLocation: TAtom;
       FStartingPosition: TThingPosition;
@@ -31,7 +31,7 @@ type
       property StartingPosition: TThingPosition read FStartingPosition write FStartingPosition;
    end;
 
-   TGenderArchway = class(TLocationProxy)
+   TGenderArchway = class(TLocationProxy) // @RegisterStorableClass
     protected
       FGender: TGender;
     public
@@ -179,17 +179,17 @@ var
    begin
 
       { Locations }
-      ArrivalsCircle := TSurfaceNamedLocation.Create('Arrivals Circle', 'the arrivals circle', 'an arrivals circle', 'The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. '+'Large signs staked into the ground point elaborately to the north and south paths. '+'A large stone serves as a sign next to the east archway. '+'To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. '+'To the southwest are another sign and archway, the sign in an even more dilapidated state. Beyond, in all directions, you see an impenetrable forest.', CreateEarthSurface());
-      MalePath1 := TSurfaceNamedLocation.Create('Male Path', 'the male path', 'a male path', 'The male path meanders from the south to the west.', CreateEarthSurface());
-      MalePath2 := TSurfaceNamedLocation.Create('Male Clearing', 'the male clearing', 'a male clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
-      FemalePath1 := TSurfaceNamedLocation.Create('Female Path', 'the female path', 'a female path', 'The female path meanders from the north to the east.', CreateEarthSurface());
-      FemalePath2 := TSurfaceNamedLocation.Create('Female Clearing', 'the female clearing', 'a female clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
-      ThirdGenderPath1 := TSurfaceNamedLocation.Create('Third-Gender Path', 'the third-gender path', 'a third-gender path', 'The third-gender path meanders from the east to the north.', CreateEarthSurface());
-      ThirdGenderPath2 := TSurfaceNamedLocation.Create('Third-Gender Clearing', 'the third-gender clearing', 'a third-gender clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
-      HivePath1 := TSurfaceNamedLocation.Create('Hive Path', 'the hive path', 'an hive path', 'The hive path meanders from the west to the south.', CreateEarthSurface());
-      HivePath2 := TSurfaceNamedLocation.Create('Hive Clearing', 'the hive clearing', 'an hive clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
-      RobotPath1 := TSurfaceNamedLocation.Create('Robot Path', 'the robot path', 'a robot path', 'The robot path meanders from the northeast to the southeast.', CreateEarthSurface());
-      RobotPath2 := TSurfaceNamedLocation.Create('Robot Clearing', 'the robot clearing', 'a robot clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      ArrivalsCircle := TGroundLocation.Create('Arrivals Circle', 'the arrivals circle', 'an arrivals circle', 'The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. '+'Large signs staked into the ground point elaborately to the north and south paths. '+'A large stone serves as a sign next to the east archway. '+'To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. '+'To the southwest are another sign and archway, the sign in an even more dilapidated state. Beyond, in all directions, you see an impenetrable forest.', CreateEarthSurface());
+      MalePath1 := TGroundLocation.Create('Male Path', 'the male path', 'a male path', 'The male path meanders from the south to the west.', CreateEarthSurface());
+      MalePath2 := TGroundLocation.Create('Male Clearing', 'the male clearing', 'a male clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      FemalePath1 := TGroundLocation.Create('Female Path', 'the female path', 'a female path', 'The female path meanders from the north to the east.', CreateEarthSurface());
+      FemalePath2 := TGroundLocation.Create('Female Clearing', 'the female clearing', 'a female clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      ThirdGenderPath1 := TGroundLocation.Create('Third-Gender Path', 'the third-gender path', 'a third-gender path', 'The third-gender path meanders from the east to the north.', CreateEarthSurface());
+      ThirdGenderPath2 := TGroundLocation.Create('Third-Gender Clearing', 'the third-gender clearing', 'a third-gender clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      HivePath1 := TGroundLocation.Create('Hive Path', 'the hive path', 'an hive path', 'The hive path meanders from the west to the south.', CreateEarthSurface());
+      HivePath2 := TGroundLocation.Create('Hive Clearing', 'the hive clearing', 'an hive clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
+      RobotPath1 := TGroundLocation.Create('Robot Path', 'the robot path', 'a robot path', 'The robot path meanders from the northeast to the southeast.', CreateEarthSurface());
+      RobotPath2 := TGroundLocation.Create('Robot Clearing', 'the robot clearing', 'a robot clearing', 'The forest thins out, leaving a circular clearing.', CreateStoneSurface());
 
       SlideDispatchRoom := ArrivalsCircle; // make SlideDispatchRoom here
 
@@ -412,6 +412,5 @@ begin
 end;
 
 initialization
-   RegisterStorableClass(TCuddlyWorld,   100000);
-   RegisterStorableClass(TGenderArchway, 100001);
+{$INCLUDE registrations/cuddlycamp.inc}
 end.

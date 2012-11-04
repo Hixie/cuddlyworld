@@ -12,24 +12,24 @@ type
    TAtomEnumerator = specialize TGenericStorableListEnumerator<TAtom>;
    TInternalAtomList = specialize TStorableList<TAtom, TAtomEnumerator>;
    TThing = class;
-   TThingEnumerator = Specialize TGenericStorableListEnumerator<TThing>;
-   TInternalThingList = Specialize TStorableList<TThing, TThingEnumerator>;
+   TThingEnumerator = specialize TGenericStorableListEnumerator<TThing>;
+   TInternalThingList = specialize TStorableList<TThing, TThingEnumerator>;
    TAvatar = class;
-   TAvatarEnumerator = Specialize TGenericStorableListEnumerator<TAvatar>;
-   TAvatarList = Specialize TStorableList<TAvatar, TAvatarEnumerator>;
+   TAvatarEnumerator = specialize TGenericStorableListEnumerator<TAvatar>;
+   TAvatarList = specialize TStorableList<TAvatar, TAvatarEnumerator>; // @RegisterStorableClass
    TLocation = class;
-   TLocationEnumerator = Specialize TGenericStorableListEnumerator<TLocation>;
-   TLocationList = Specialize TStorableList<TLocation, TLocationEnumerator>;
+   TLocationEnumerator = specialize TGenericStorableListEnumerator<TLocation>;
+   TLocationList = specialize TStorableList<TLocation, TLocationEnumerator>; // @RegisterStorableClass
 
 type
    PAtomList = ^TAtomList;
-   TAtomList = class(TInternalAtomList)
+   TAtomList = class(TInternalAtomList) // @RegisterStorableClass
       function GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
       function GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
       function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
    end;
 
-   TThingList = class(TInternalThingList)
+   TThingList = class(TInternalThingList) // @RegisterStorableClass
       function GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
       function GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
       function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
@@ -226,7 +226,7 @@ type
    end;
 
    {$IFDEF DEBUG} // used by AssertDirectionHasDestination()
-   TDummyAvatar = class(TAvatar)
+   TDummyAvatar = class(TAvatar) // @RegisterStorableClass
     public
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetName(Perspective: TAvatar): AnsiString; override;
@@ -292,7 +292,7 @@ type
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); virtual;
    end;
 
-   TWorld = class(TStorable)
+   TWorld = class(TStorable) // @RegisterStorableClass
     protected
       FLocations: TLocationList;
       FGlobalThings: TThingList;
@@ -2255,11 +2255,7 @@ end;
 
 initialization
    DisposalQueue := nil;
-   RegisterStorableClass(TWorld, 1);
-   RegisterStorableClass(TAtomList, 2);
-   RegisterStorableClass(TThingList, 3);
-   RegisterStorableClass(TAvatarList, 4);
-   RegisterStorableClass(TLocationList, 5);
+{$INCLUDE registrations/world.inc}
 finalization
    if (Assigned(DisposalQueue)) then
       DisposalQueue.Free();

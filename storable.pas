@@ -7,17 +7,7 @@ interface
 uses
    hashtable, sysutils;
 
-{ reserved ranges of keys:
-   1..99999: libraries
-   |  1..10: world (TWorld, TThingList, etc)
-   |    10s: player
-   |    20s: matcher
-   |  1000s: things
-   |  2000s: locations
-    100000+: game-specific }
-
 type
-
    TStorable = class;
    StorableClass = class of TStorable;
 
@@ -28,6 +18,15 @@ type
       Next: PPendingFixupItem;
    end;
 
+   TFixerProcedure = procedure (const Data: Pointer; const Value: Pointer) of object;
+
+   PPendingFixerItem = ^TPendingFixerItem;
+   TPendingFixerItem = record
+      Fixer: TFixerProcedure;
+      Data, Value: Pointer;
+      Next: PPendingFixerItem;
+   end;
+
    TFixupHashTable = specialize THashTable<PtrUInt, Pointer>;
 
    TReadStream = class
@@ -35,9 +34,11 @@ type
       FActive: Boolean;
       FObjectsRead: TFixupHashTable;
       FPendingFixups: PPendingFixupItem;
+      FPendingFixers: PPendingFixerItem;
       FInput: File;
       FVersion: Cardinal;
       procedure VerifyFieldType(FieldType: Byte);
+      function GetFilename(): AnsiString;
     public
       constructor Create(var AInput: File);
       destructor Destroy; override;
@@ -45,14 +46,19 @@ type
       function ReadByte: Byte;
       function ReadBoolean: Boolean;
       function ReadCardinal: Cardinal;
+      function ReadInteger: Integer;
       function ReadPtrUInt: PtrUInt;
+      function ReadDouble: Double;
       function ReadAnsiString: AnsiString;
       procedure ReadByteStream(var Buffer; Length: Cardinal);
       function ReadClass: StorableClass;
       function ReadObject: TStorable;
-      function ReadReference(Destination: PPointer): Boolean;
+      procedure ReadReference(Destination: PPointer);
+      procedure ReadReference(Fixer: TFixerProcedure; const Data: Pointer);
+      procedure VerifySentinel();
       procedure FixupReferences();
       property Version: Cardinal read FVersion;
+      property Filename: AnsiString read GetFilename;
    end;
 
    TWriteStream = class
@@ -65,18 +71,22 @@ type
       procedure WriteByte(Value: Byte);
       procedure WriteBoolean(Value: Boolean);
       procedure WriteCardinal(Value: Cardinal);
+      procedure WriteInteger(Value: Integer);
       procedure WritePtrUInt(Value: PtrUInt);
+      procedure WriteDouble(Value: Double);
       procedure WriteAnsiString(Value: AnsiString);
       procedure WriteByteStream(var Buffer; Length: Cardinal);
       procedure WriteClass(Value: StorableClass);
       procedure WriteObject(Value: TStorable);
       procedure WriteReference(Value: Pointer);
+      procedure WriteSentinel();
    end;
 
-   TStorable = class
+   TStorable = class abstract
     protected
       {$IFOPT C+} FDebugCalledInherited: Boolean; {$ENDIF}
     public
+      constructor Create();
       constructor Read(Stream: TReadStream); virtual;
       procedure Write(Stream: TWriteStream); virtual;
    end;
@@ -84,66 +94,66 @@ type
    EStorageError = class(Exception)
    end;
 
-procedure RegisterStorableClass(AClass: StorableClass; ID: Cardinal);
-{$IFDEF ALLOW_SYNONYMS} procedure RegisterStorableClassAsSynonym(AClass: StorableClass; RestoreClass: StorableClass); {$ENDIF}
+procedure RegisterStorableClass(AClass: StorableClass);
+procedure RegisterStorableClassSynonym(AClassName: AnsiString; RestoreClass: StorableClass);
 
 procedure StoreObjectToFile(FileName: AnsiString; Value: TStorable; Version: Cardinal);
 function ReadObjectFromFile(FileName: AnsiString): TStorable;
 
 implementation
 
+uses
+   exceptions;
+
 type
-   TClassKeyToClassHashTable = specialize THashTable<Cardinal, StorableClass>;
-   TClassToClassKeyHashTable = specialize THashTable<StorableClass, Cardinal>;
+   TStorableClassesHashTable = specialize THashTable<AnsiString, StorableClass>;
 
 var
-   ClassKeyToClassHash: TClassKeyToClassHashTable;
-   ClassToClassKeyHash: TClassToClassKeyHashTable;
+   RegisteredClasses: TStorableClassesHashTable;
 
-const { values with unlikely bit patterns }
+const { values with bit patterns unlikely to be found in typical data (so e.g. not $00, $01, $FF) }
    btSignature  = $AA;
    btStream     = $BB;
    btStreamEnd  = $DD;
+
    btBoolean    = $60;
    btCardinal   = $61;
-   btPtrUInt    = $62;
-   btAnsiString = $64;
-   btByteStream = $64;
+   btInteger    = $62;
+   btPtrUInt    = $63;
+   btDouble     = $63;
+   btAnsiString = $65;
+   btByteStream = $66;
+
    btClass      = $80;
    btReference  = $81;
+
    btObject     = $51;
    btObjectData = $52;
    btObjectEnd  = $54;
+   btSentinel   = $58;
 
 const
-   ciNoClass = 0;
-   ciUnregistered = Cardinal(nil);
+   ciNoClass = 'nil';
 
-procedure RegisterStorableClass(AClass: StorableClass; ID: Cardinal);
+procedure RegisterStorableClass(AClass: StorableClass);
 begin
-   Assert(ID <> ciNoClass, 'Class ID ' + IntToStr(ciNoClass) + ' is reserved');
-   Assert(ID <> ciUnregistered, 'Class ID ' + IntToStr(ciUnregistered) + ' is reserved');
-   Assert(not Assigned(ClassKeyToClassHash.Get(ID)), 'Class ID ' + IntToStr(ID) + ' used for both classes ' + AClass.ClassName() + ' and ' + ClassKeyToClassHash.Get(ID).ClassName());
-   Assert(ClassToClassKeyHash.Get(AClass) = 0, 'Class ' + AClass.ClassName() + ' registered twice (first time as ID ' + IntToStr(ClassToClassKeyHash.Get(AClass)) + ', second time as ID ' + IntToStr(ID) + ')');
-   ClassKeyToClassHash.Add(ID, AClass);
-   ClassToClassKeyHash.Add(AClass, ID);
+   Assert(not RegisteredClasses.Has(AClass.ClassName), AClass.ClassName + ' registered twice');
+   RegisteredClasses[AClass.ClassName] := AClass;
 end;
 
-{$IFDEF ALLOW_SYNONYMS}
-procedure RegisterStorableClassAsSynonym(AClass: StorableClass; RestoreClass: StorableClass);
+procedure RegisterStorableClassSynonym(AClassName: AnsiString; RestoreClass: StorableClass);
 begin
-   Assert(ClassToClassKeyHash.Get(RestoreClass) <> 0, 'Class ' + RestoreClass.ClassName() + ' not yet registered.');
-   ClassToClassKeyHash.Add(AClass, ClassToClassKeyHash.Get(RestoreClass));
+   Assert(not RegisteredClasses.Has(AClassName), AClassName + ' registered twice');
+   RegisteredClasses[AClassName] := RestoreClass;
 end;
-{$ENDIF}
 
 
 procedure StoreObjectToFile(FileName: AnsiString; Value: TStorable; Version: Cardinal);
 var
-   F: File;
+   F, OldF: File;
    Stream: TWriteStream;
 begin
-   Assign(F, FileName);
+   Assign(F, FileName + '.$$$');
    Stream := nil;
    try
       Rewrite(F, 1);
@@ -153,6 +163,10 @@ begin
       Stream.Free();
       Close(F);
    end;
+   Assign(OldF, FileName);
+   if (FileExists(FileName)) then
+      Erase(OldF);
+   Rename(F, FileName);
 end;
 
 function ReadObjectFromFile(FileName: AnsiString): TStorable;
@@ -202,15 +216,22 @@ end;
 
 destructor TReadStream.Destroy;
 var
-   Next: PPendingFixupItem;
+   NextFixup: PPendingFixupItem;
+   NextFixer: PPendingFixerItem;
 begin
    if (FActive) then
       VerifyFieldType(btStreamEnd);
    while (Assigned(FPendingFixups)) do
    begin
-      Next := FPendingFixups^.Next;
+      NextFixup := FPendingFixups^.Next;
       Dispose(FPendingFixups);
-      FPendingFixups := Next;
+      FPendingFixups := NextFixup;
+   end;
+   while (Assigned(FPendingFixers)) do
+   begin
+      NextFixer := FPendingFixers^.Next;
+      Dispose(FPendingFixers);
+      FPendingFixers := NextFixer;
    end;
    FObjectsRead.Free();
    inherited;
@@ -226,7 +247,7 @@ var
    Signature: Byte;
 begin 
    if (ReadByte() <> btSignature) then
-      raise EStorageError.Create('Stream inconsistent - sentinel not found');
+      raise EStorageError.Create('Stream inconsistent - type signature marker not found');
    Signature := ReadByte();
    if (Signature <> FieldType) then
       raise EStorageError.Create('Stream inconsistent - expected type signature ' + IntToHex(FieldType, 2) + ' but found ' + IntToHex(Signature, 2));
@@ -234,8 +255,9 @@ end;
 
 function TReadStream.ReadByte: Byte;
 begin
-   { The following statement is guaranteed to either set Result or throw an exception. }
+   {$HINTS OFF} // The following statement is guaranteed to either set Result or throw an exception, but compiler doesn't know that
    BlockRead(FInput, Result, SizeOf(Result));
+   {$HINTS ON}
 end;
 
 function TReadStream.ReadBoolean: Boolean;
@@ -247,15 +269,33 @@ end;
 function TReadStream.ReadCardinal: Cardinal;
 begin
    VerifyFieldType(btCardinal);
-   { The following statement is guaranteed to either set Result or throw an exception. }
+   {$HINTS OFF} // The following statement is guaranteed to either set Result or throw an exception, but compiler doesn't know that
    BlockRead(FInput, Result, SizeOf(Result));
+   {$HINTS ON}
+end;
+
+function TReadStream.ReadInteger: Integer;
+begin
+   VerifyFieldType(btInteger);
+   {$HINTS OFF} // The following statement is guaranteed to either set Result or throw an exception, but compiler doesn't know that
+   BlockRead(FInput, Result, SizeOf(Result));
+   {$HINTS ON}
 end;
 
 function TReadStream.ReadPtrUInt: PtrUInt;
 begin
    VerifyFieldType(btPtrUInt);
-   { The following statement is guaranteed to either set Result or throw an exception. }
+   {$HINTS OFF} // The following statement is guaranteed to either set Result or throw an exception, but compiler doesn't know that
    BlockRead(FInput, Result, SizeOf(Result));
+   {$HINTS ON}
+end;
+
+function TReadStream.ReadDouble: Double;
+begin
+   VerifyFieldType(btDouble);
+   {$HINTS OFF} // The following statement is guaranteed to either set Result or throw an exception, but compiler doesn't know that
+   BlockRead(FInput, Result, SizeOf(Result));
+   {$HINTS ON}
 end;
 
 function TReadStream.ReadAnsiString: AnsiString;
@@ -280,36 +320,18 @@ end;
 
 function TReadStream.ReadClass: StorableClass;
 var
-   ClassID: Cardinal;
+   RestoreClassName: AnsiString;
 begin
    VerifyFieldType(btClass);
-   ClassID := ReadCardinal();
-   if (ClassID <> ciNoClass) then
+   RestoreClassName := ReadAnsiString();
+   if (RestoreClassName <> ciNoClass) then
    begin
-      Assert(Assigned(ClassKeyToClassHash.Get(ClassID)), 'Unknown class ID ' + IntToStr(ClassID));
-      Result := ClassKeyToClassHash.Get(ClassID);
+      Assert(RegisteredClasses.Has(RestoreClassName), 'Tried to restore unregistered class ' + RestoreClassName);
+      Result := RegisteredClasses[RestoreClassName];
    end
    else
    begin
       Result := nil;
-   end;
-end;
-
-function TReadStream.ReadReference(Destination: PPointer): Boolean;
-var
-   Item: PPendingFixupItem;
-   ObjectID: PtrUInt;
-begin
-   VerifyFieldType(btReference);
-   ObjectID := ReadPtrUInt();
-   Result := ObjectID <> PtrUInt(nil);
-   if (Result) then
-   begin
-      New(Item);
-      Item^.Destination := Destination;
-      Item^.ObjectID := ObjectID;
-      Item^.Next := FPendingFixups;
-      FPendingFixups := Item;
    end;
 end;
 
@@ -328,23 +350,76 @@ begin
    begin
       ObjectID := ReadPtrUInt();
       Result := ClassValue.Read(Self);
-      {$IFOPT C+} Assert(Result.FDebugCalledInherited); {$ENDIF}
+      {$IFOPT C+} Assert(Result.FDebugCalledInherited); {$ENDIF} // it's initialised to false when the object is created
       FObjectsRead.Add(ObjectID, Result);
    end;
    VerifyFieldType(btObjectEnd);
 end;
 
+procedure TReadStream.ReadReference(Destination: PPointer);
+var
+   Item: PPendingFixupItem;
+   ObjectID: PtrUInt;
+begin
+   VerifyFieldType(btReference);
+   ObjectID := ReadPtrUInt();
+   {$HINTS OFF} // Compiler thinks casting 'nil' to PtrUInt might be non-portable
+   if (ObjectID <> PtrUInt(nil)) then
+   {$HINTS ON}
+   begin
+      New(Item);
+      Item^.Destination := Destination;
+      Item^.ObjectID := ObjectID;
+      Item^.Next := FPendingFixups;
+      FPendingFixups := Item;
+   end
+   else
+   begin
+      Destination^ := nil;
+   end;
+end;
+
+procedure TReadStream.ReadReference(Fixer: TFixerProcedure; const Data: Pointer);
+var
+   Item: PPendingFixerItem;
+begin
+   New(Item);
+   Item^.Fixer := Fixer;
+   Item^.Data := Data;
+   ReadReference(@(Item^.Value));
+   Item^.Next := FPendingFixers;
+   FPendingFixers := Item;
+end;
+
+procedure TReadStream.VerifySentinel();
+begin
+   VerifyFieldType(btSentinel);
+end;
+
 procedure TReadStream.FixupReferences();
 var
-   Next: PPendingFixupItem;
+   NextFixup: PPendingFixupItem;
+   NextFixer: PPendingFixerItem;
 begin
    while (Assigned(FPendingFixups)) do
    begin
       FPendingFixups^.Destination^ := FObjectsRead.Get(FPendingFixups^.ObjectID);
-      Next := FPendingFixups^.Next;
+      NextFixup := FPendingFixups^.Next;
       Dispose(FPendingFixups);
-      FPendingFixups := Next;
+      FPendingFixups := NextFixup;
    end;
+   while (Assigned(FPendingFixers)) do
+   begin
+      FPendingFixers^.Fixer(FPendingFixers^.Data, FPendingFixers^.Value);
+      NextFixer := FPendingFixers^.Next;
+      Dispose(FPendingFixers);
+      FPendingFixers := NextFixer;
+   end;
+end;
+
+function TReadStream.GetFilename(): AnsiString;
+begin
+   Result := FileRec(FInput).Name;
 end;
 
 
@@ -389,9 +464,21 @@ begin
    BlockWrite(FOutput, Value, SizeOf(Value));
 end;
 
+procedure TWriteStream.WriteInteger(Value: Integer);
+begin
+   WriteFieldType(btInteger);
+   BlockWrite(FOutput, Value, SizeOf(Value));
+end;
+
 procedure TWriteStream.WritePtrUInt(Value: PtrUInt);
 begin
    WriteFieldType(btPtrUInt);
+   BlockWrite(FOutput, Value, SizeOf(Value));
+end;
+
+procedure TWriteStream.WriteDouble(Value: Double);
+begin
+   WriteFieldType(btDouble);
    BlockWrite(FOutput, Value, SizeOf(Value));
 end;
 
@@ -410,19 +497,16 @@ begin
 end;
 
 procedure TWriteStream.WriteClass(Value: StorableClass);
-var
-   ClassID: Cardinal;
 begin
    WriteFieldType(btClass);
    if (not Assigned(Value)) then
    begin
-      WriteCardinal(ciNoClass);
+      WriteAnsiString(ciNoClass);
    end
    else
    begin
-      ClassID := ClassToClassKeyHash.Get(StorableClass(Value));
-      Assert(ClassID <> ciUnregistered, 'Class ' + Value.ClassName() + ' not registered');
-      WriteCardinal(ClassID);
+      Assert(RegisteredClasses.Has(Value.ClassName), 'Tried to store unregistered class ' + Value.ClassName);
+      WriteAnsiString(Value.ClassName);
    end;
 end;
 
@@ -447,41 +531,38 @@ end;
 procedure TWriteStream.WriteReference(Value: Pointer);
 begin
    WriteFieldType(btReference);
+   {$HINTS OFF} // Compiler thinks casting a pointer to PtrUInt might not be portable
    WritePtrUInt(PtrUInt(Value));
+   {$HINTS ON}
+end;
+
+procedure TWriteStream.WriteSentinel();
+begin
+   WriteFieldType(btSentinel);
 end;
 
 
+constructor TStorable.Create();
+begin
+   inherited;
+   Assert(RegisteredClasses.Has(ClassName), 'Class ' + ClassName + ' has not been registered with RegisterStorableClass().');
+end;
+
 constructor TStorable.Read(Stream: TReadStream);
-var
-   S: AnsiString;
 begin
    {$IFOPT C+} FDebugCalledInherited := True; {$ENDIF}
    Stream.VerifyFieldType(btObjectData);
-   S := Stream.ReadAnsiString();
-   Assert(S = ClassName);
 end;
 
 procedure TStorable.Write(Stream: TWriteStream);
 begin
    {$IFOPT C+} FDebugCalledInherited := True; {$ENDIF}
    Stream.WriteFieldType(btObjectData);
-   {$IFDEF ALLOW_SYNONYMS}
-      Stream.WriteAnsiString(ClassKeyToClassHash.Get(ClassToClassKeyHash.Get(StorableClass(ClassType))).ClassName);
-   {$ELSE}
-      Stream.WriteAnsiString(ClassName);
-   {$ENDIF}
 end;
 
-
-function StorableClassHash(Key: StorableClass): Cardinal; inline;
-begin
-   Result := PointerHash32(Pointer(Key));
-end;
 
 initialization
-   ClassKeyToClassHash := TClassKeyToClassHashTable.Create(@Integer32Hash32);
-   ClassToClassKeyHash := TClassToClassKeyHashTable.Create(@StorableClassHash);
+   RegisteredClasses := TStorableClassesHashTable.Create(@AnsiStringHash32);
 finalization
-   ClassKeyToClassHash.Free();
-   ClassToClassKeyHash.Free();
+   RegisteredClasses.Free();
 end.

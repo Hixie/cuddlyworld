@@ -28,7 +28,7 @@ type
       property Plural: Boolean read FPlural write FPlural;
    end;
 
-   TStaticThing = class(TNamedThing) { "static" in the sense of unchanging }
+   TStaticThing = class(TNamedThing) { "static" in the sense of unchanging } // @RegisterStorableClass
     protected
       FDescription: AnsiString;
       FMass: TThingMass;
@@ -42,13 +42,13 @@ type
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
    end;
 
-   TFeature = class(TStaticThing)
+   TFeature = class(TStaticThing) // @RegisterStorableClass
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
 
-   TScenery = class(TStaticThing)
+   TScenery = class(TStaticThing) // @RegisterStorableClass
     protected
       FUnderDescription: AnsiString;
       FFindDescription: AnsiString;
@@ -81,7 +81,7 @@ type
       function IsOpen(): Boolean; override;
    end;
 
-   TOpening = class(TLocationProxy)
+   TOpening = class(TLocationProxy) // @RegisterStorableClass
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Size: TThingSize);
       function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
@@ -93,7 +93,7 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
    end;
 
-   TSurface = class(TStaticThing)
+   TSurface = class(TStaticThing) // @RegisterStorableClass
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
@@ -103,7 +103,7 @@ type
 
    THole = class;
 
-   TEarthGround = class(TSurface)
+   TEarthGround = class(TSurface) // @RegisterStorableClass
     protected
       FHole: THole;
       {$IFOPT C+} procedure AssertChildPositionOk(Thing: TThing; APosition: TThingPosition); override; {$ENDIF}
@@ -121,7 +121,7 @@ type
       procedure Removed(Thing: TThing); override;
    end;
 
-   TContainer = class(TStaticThing)
+   TContainer = class(TStaticThing) // @RegisterStorableClass
      public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
@@ -129,14 +129,14 @@ type
       function GetFeatures(): TThingFeatures; override;
    end;
 
-   TSpade = class(TStaticThing)
+   TSpade = class(TStaticThing) // @RegisterStorableClass
     public
       constructor Create();
       function GetFeatures(): TThingFeatures; override;
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
 
-   TBag = class(TNamedThing)
+   TBag = class(TNamedThing) // @RegisterStorableClass
     protected
       FDescription: AnsiString;
       FMaxSize: TThingSize;
@@ -156,7 +156,7 @@ type
 
    TPileClass = class of TPile;
 
-   THole = class(TNamedThing)
+   THole = class(TNamedThing) // @RegisterStorableClass
     protected
       FDescription: AnsiString;
       FSize: TThingSize;
@@ -187,7 +187,7 @@ type
       function GetFeatures(): TThingFeatures; override;
    end;
 
-   TPile = class(TNamedThing)
+   TPile = class(TNamedThing) // @RegisterStorableClass
     protected
       FIngredient: AnsiString;
       FDescription: AnsiString;
@@ -211,12 +211,12 @@ type
       function IsOpen(): Boolean; override;
    end;
 
-   TEarthPile = class(TPile)
+   TEarthPile = class(TPile) // @RegisterStorableClass
     public
       constructor Create(Size: TThingSize);
    end;
 
-   TSign = class(TScenery)
+   TSign = class(TScenery) // @RegisterStorableClass
     protected
       FWriting: AnsiString;
     public
@@ -227,7 +227,7 @@ type
       function GetDescriptionWriting(Perspective: TAvatar): AnsiString; override;
    end;
 
-   TTree = class(TStaticThing)
+   TTree = class(TStaticThing) // @RegisterStorableClass
    end;
 
 implementation
@@ -1323,20 +1323,5 @@ end;
 
 
 initialization
-   RegisterStorableClass(TNamedThing,             1000);
-   RegisterStorableClass(TStaticThing,            1001);
-   RegisterStorableClass(TFeature,                1002);
-   RegisterStorableClass(TScenery,                1003);
-   RegisterStorableClass(TLocationProxy,          1004);
-   RegisterStorableClass(TSurface,                1005);
-   RegisterStorableClass(TEarthGround,            1006);
-   RegisterStorableClass(TContainer,              1008);
-   RegisterStorableClass(TOpening,                1009);
-   RegisterStorableClass(TSpade,                  1010);
-   RegisterStorableClass(TBag,                    1011);
-   RegisterStorableClass(THole,                   1012);
-   RegisterStorableClass(TPile,                   1013);
-   RegisterStorableClass(TEarthPile,              1014);
-   RegisterStorableClass(TSign,                   1015);
-   RegisterStorableClass(TTree,                   1016);
+{$INCLUDE registrations/things.inc}
 end.
