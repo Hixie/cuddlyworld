@@ -46,14 +46,6 @@ type
 {$UNDEF SUPERCLASS}
 {$UNDEF PART}
 
-
-   TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
-    public
-      constructor Create(Landmark: TThing; Surface: TThing);
-      // XXXXXX make this give the landmark thing's description when the place is examined
-      // XXXXXX make this fast-forward you across the landmark
-   end;
-
    TGroundLocation = class(TSurfaceNamedLocation) // @RegisterStorableClass
    end;
 
@@ -185,14 +177,6 @@ end;
 {$UNDEF PART}
 
 
-constructor TThresholdLocation.Create(Landmark: TThing; Surface: TThing);
-begin
-   inherited Create(Landmark, tpAt, Surface);
-end;
-
-// XXX navigation stuff
-
-
 function TAirLocation.GetInside(var PositionOverride: TThingPosition): TAtom;
 begin
    Assert(PositionOverride = tpIn);
@@ -226,7 +210,7 @@ end;
 function TAirLocation.GetBelow(): TAtom;
 begin
    Assert(Length(FDirectionalLandmarks[cdDown]) > 0);
-   Assert(loReachable in FDirectionalLandmarks[cdDown][0].Options);
+   Assert(loPermissibleNavigationTarget in FDirectionalLandmarks[cdDown][0].Options);
    Result := FDirectionalLandmarks[cdDown][0].Atom.GetSurface();
 end;
 

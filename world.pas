@@ -40,8 +40,11 @@ function GetDefiniteString(const List: array of TAtom; StartIndex, EndIndex: Car
 function GetLongDefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 
 type
+   TReachablePosition = (rpReachable, rpNotReachable);
+   TReachablePositionSet = set of TReachablePosition;
    TSubjectiveInformation = record
       Directions: TCardinalDirectionSet;
+      Reachable: TReachablePositionSet;
       procedure Reset();
    end;
 
@@ -76,6 +79,9 @@ type
       procedure Removed(Thing: TThing); virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       {$IFOPT C+} procedure AssertChildPositionOk(Thing: TThing; Position: TThingPosition); virtual; {$ENDIF}
+      function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
+      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
+      procedure ProxiedFindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
     public
       constructor Create();
       destructor Destroy(); override;
@@ -119,18 +125,18 @@ type
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): AnsiString;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: AnsiString): AnsiString; virtual;
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString; virtual;
-      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; virtual; abstract;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
+      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; virtual; abstract; // used by locations to include their loAutoDescribe landmarks in their Here description
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract; // used for things like "look north"
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
       procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
-      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; var SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
+      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
       function GetDefaultAtom(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
       function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
       function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetDefaultAtom) }
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; virtual; abstract;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
       {$IFDEF DEBUG} function Debug(): AnsiString; virtual; {$ENDIF}
@@ -144,6 +150,7 @@ type
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean; virtual;
       function IsExplicitlyReferenceable(Perspective: TAvatar): Boolean; virtual;
+      function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -158,7 +165,7 @@ type
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function GetSummaryName(Perspective: TAvatar): AnsiString; override;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
@@ -187,7 +194,6 @@ type
       function GetDescriptionWriting(Perspective: TAvatar): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
-      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; var SubjectiveInformation: TSubjectiveInformation): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract; // compares Tokens to FName, essentially
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
       procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
@@ -253,19 +259,27 @@ type
    TLocation = class(TAtom)
     public
      type
-      TLandmarkOptions = set of (loAutoDescribe,
-                                 loReachable, // only the first landmark in each direction is allowed to be loReachable
-                                 loVisibleFromFarAway,
+      TLandmarkOptions = set of (loAutoDescribe, // include landmark in descriptions of the room
+                                 loPermissibleNavigationTarget, // only the first landmark in each direction is allowed to be loPermissibleNavigationTarget
+                                 loThreshold, // whether FindThing and FindMatchingThings should traverse (ExplicitlyReferenced logic doesn't use this since it looks everywhere)
+                                 loVisibleFromFarAway, // for e.g. mountains
+                                 loNotVisibleFromBehind, // for e.g. surfaces so that they're not visible from below
                                  loConsiderDirectionUnimportantWhenFindingChildren); // so that "find hole" doesn't say "below"
     protected
      type
+      PDirectionalLandmark = ^TDirectionalLandmark;
       TDirectionalLandmark = record
-        Atom: TAtom;
+        Direction: TCardinalDirection; // in case it was accessed via FImportantLandmarks
         Options: TLandmarkOptions;
+        Atom: TAtom;
       end;
+     const
+      loImportantLandmarks = [loAutoDescribe, loThreshold]; // don't include the same atom in more than one direction if you use these
      var
+      FImportantLandmarks: array of PDirectionalLandmark; // pointers into FDirectionalLandmarks with loImportantLandmarks
       FDirectionalLandmarks: array[TCardinalDirection] of array of TDirectionalLandmark;
       function CanFindInDirection(Direction: TCardinalDirection; Atom: TAtom): Boolean;
+      function FindThingDirectionalTraverser(Thing: TThing; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; var SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
       {$IFDEF DEBUG} procedure AssertDirectionHasDestination(Direction: TCardinalDirection; Atom: TAtom); {$ENDIF}
     public
       constructor Create();
@@ -278,18 +292,19 @@ type
       function GetAtomForDirectionalNavigation(Direction: TCardinalDirection): TAtom;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; var SubjectiveInformation: TSubjectiveInformation): Boolean; override;
-      function FindThingDirectional(Thing: TThing; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; var SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); virtual;
+      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
+      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; override;
    end;
 
    TWorld = class(TStorable) // @RegisterStorableClass
@@ -327,6 +342,7 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Persp
     Then, DoNavigate() calls GetSurface() (for ClimbOn) or GetEntrance() (for Enter and Go).
       TThing.GetEntrance() looks for the child that is a tpOpening and defers to it, else defers to GetInside()
       TLocation.GetEntrance() calls GetSurface().
+      TThresholdLocation.GetEntrance() fast-forwards you to the other side.
 }
 
 procedure QueueForDisposal(Atom: TAtom);
@@ -341,6 +357,7 @@ uses
 procedure TSubjectiveInformation.Reset();
 begin
    Directions := [];
+   Reachable := [];
 end;
 
 
@@ -361,7 +378,7 @@ begin
    Message := '';
    NotificationList := TAtomList.Create();
    try
-      Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, DisambiguationOpening, Message, NotificationList);
+      Destination := ATo.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
       if (Assigned(Destination)) then
       begin
          if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
@@ -391,6 +408,7 @@ var
    NotificationList: TAtomList;
    NotificationTarget: TAtom;
    DisambiguationOpening: TThing;
+   Direction: TCardinalDirection;
 begin
    Assert(Assigned(AFrom));
    Assert(Assigned(ATo));
@@ -428,7 +446,14 @@ begin
       Assert(ATo is TThing);
       NotificationList := TAtomList.Create();
       try
-         Destination := ATo.GetEntrance(Perspective, AFrom, Perspective, Position, DisambiguationOpening, Message, NotificationList);
+         Ancestor := AFrom;
+         while ((Ancestor is TThing) and (Ancestor <> ATo)) do
+            Ancestor := (Ancestor as TThing).Parent;
+         if (Ancestor = ATo) then
+            Direction := cdOut
+         else
+            Direction := cdIn;
+         Destination := ATo.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
          if (Assigned(Destination)) then
          begin
             if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
@@ -870,18 +895,36 @@ begin
          Child.FindMatchingThings(Perspective, True, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
 end;
 
-function TAtom.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; var SubjectiveInformation: TSubjectiveInformation): Boolean;
+procedure TAtom.ProxiedFindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+begin
+   FindMatchingThings(Perspective, FromOutside, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
+end;
+
+function TAtom.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean;
+begin
+   SubjectiveInformation.Reset(); {BOGUS Warning: Variable "SubjectiveInformation" does not seem to be initialized}
+   Result := FindThingTraverser(Thing, Perspective, FromOutside);
+   if (Result) then
+      Include(SubjectiveInformation.Reachable, rpReachable);
+end;
+
+function TAtom.FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 var
    Child: TThing;
 begin
    for Child in FChildren do
       if (IsChildTraversable(Child, Perspective, FromOutside)) then
-         if (Child.FindThing(Thing, Perspective, True, SubjectiveInformation)) then
+         if (Child.FindThingTraverser(Thing, Perspective, True)) then
          begin
             Result := True;
             Exit;
          end;
    Result := False;
+end;
+
+function TAtom.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
+begin
+   Result := FindThingTraverser(Thing, Perspective, FromOutside);
 end;
 
 procedure TAtom.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
@@ -1028,7 +1071,7 @@ begin
       Result := (GetSurfaceSizeManifest() + Manifest) <= (GetIntrinsicSize());
 end;
 
-function TThing.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TThing.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 var
    Child: TThing;
 begin
@@ -1039,7 +1082,7 @@ begin
       if (Child.Position in tpOpening) then
       begin
          DisambiguationOpening := Child;
-         Result := Child.GetEntrance(Traveller, AFrom, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList);
+         Result := Child.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList);
          Exit;
       end;
    end;
@@ -1546,7 +1589,7 @@ begin
    inherited;
 end;
 
-function TThing.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; var SubjectiveInformation: TSubjectiveInformation): Boolean;
+function TThing.FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 begin
    if (Thing = Self) then
       Result := True
@@ -1752,8 +1795,14 @@ begin
       if (Length(FDirectionalLandmarks[Direction]) > 0) then
          for Index := Low(FDirectionalLandmarks[Direction]) to High(FDirectionalLandmarks[Direction]) do
          begin
+            FDirectionalLandmarks[Direction][Index].Direction := Direction;
             FDirectionalLandmarks[Direction][Index].Options := TLandmarkOptions(Stream.ReadCardinal());
             Stream.ReadReference(@Pointer(FDirectionalLandmarks[Direction][Index].Atom));
+            if (FDirectionalLandmarks[Direction][Index].Options * loImportantLandmarks <> []) then
+            begin
+               SetLength(FImportantLandmarks, Length(FImportantLandmarks)+1);
+               FImportantLandmarks[High(FImportantLandmarks)] := @FDirectionalLandmarks[Direction][Index];
+            end;
          end;
    end;
 end;
@@ -1786,10 +1835,16 @@ begin
    Assert(Assigned(Atom));
    Assert((Atom is TLocation) or (Atom is TThing));
    Assert((Atom is TLocation) or ((Atom is TThing) and Assigned((Atom as TThing).Parent)), 'Cannot add landmark that does not have parent.');
-   Assert((Length(FDirectionalLandmarks[Direction]) = 0) or (not (loReachable in Options)));
+   Assert((Length(FDirectionalLandmarks[Direction]) = 0) or (not (loPermissibleNavigationTarget in Options)));
    SetLength(FDirectionalLandmarks[Direction], Length(FDirectionalLandmarks[Direction])+1);
+   FDirectionalLandmarks[Direction][High(FDirectionalLandmarks[Direction])].Direction := Direction;
    FDirectionalLandmarks[Direction][High(FDirectionalLandmarks[Direction])].Options := Options;
    FDirectionalLandmarks[Direction][High(FDirectionalLandmarks[Direction])].Atom := Atom;
+   if (Options * loImportantLandmarks <> []) then
+   begin
+      SetLength(FImportantLandmarks, Length(FImportantLandmarks)+1);
+      FImportantLandmarks[High(FImportantLandmarks)] := @FDirectionalLandmarks[Direction][High(FDirectionalLandmarks[Direction])];
+   end;
 end;
 
 procedure TLocation.AddSurroundings(Atom: TAtom; const Directions: TCardinalDirectionSet = cdCompasDirection);
@@ -1829,7 +1884,7 @@ begin
    Assert(Length(FDirectionalLandmarks[Direction]) > 0);
    Assert(Low(FDirectionalLandmarks[Direction]) = 0);
    Assert(Assigned(FDirectionalLandmarks[Direction][0].Atom));
-   Assert(loReachable in FDirectionalLandmarks[Direction][0].Options, FDirectionalLandmarks[Direction][0].Atom.GetDefiniteName(nil) + ' is not reachable, so cannot be a valid way to reach ' + Atom.GetDefiniteName(nil));
+   Assert(loPermissibleNavigationTarget in FDirectionalLandmarks[Direction][0].Options, FDirectionalLandmarks[Direction][0].Atom.GetDefiniteName(nil) + ' is not reachable, so cannot be a valid way to reach ' + Atom.GetDefiniteName(nil));
    NotificationList := TAtomList.Create();
    try
       Traveller := TDummyAvatar.Create();
@@ -1837,11 +1892,11 @@ begin
          PositionOverride := tpOn;
          DisambiguationOpening := nil;
          Message := '';
-         ActualDestination := FDirectionalLandmarks[Direction][0].Atom.GetEntrance(Traveller, Self, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
+         ActualDestination := FDirectionalLandmarks[Direction][0].Atom.GetEntrance(Traveller, Direction, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
          PositionOverride := tpOn;
          DisambiguationOpening := nil;
          Message := '';
-         DesiredDestination := Atom.GetEntrance(Traveller, Self, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
+         DesiredDestination := Atom.GetEntrance(Traveller, Direction, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
          Assert(Assigned(ActualDestination));
          Assert(Assigned(DesiredDestination));
          Assert(ActualDestination = DesiredDestination);
@@ -1889,7 +1944,12 @@ begin
       end;
    end
    else
-      Result := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' ' + TernaryConditional('sees', 'see', Perspective.IsPlural(Perspective)) + ' nothing noteworthy when looking ' + CardinalDirectionToString(Direction) + '.';
+      Result := GetLookTowardsDirectionDefault(Perspective, Direction);
+end;
+
+function TLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+begin
+   Result := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' ' + TernaryConditional('sees', 'see', Perspective.IsPlural(Perspective)) + ' nothing noteworthy when looking ' + CardinalDirectionToString(Direction) + '.';
 end;
 
 function TLocation.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
@@ -1918,28 +1978,30 @@ function TLocation.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceSt
    end;
 
 var
-   Direction: TCardinalDirection;
    Index: Cardinal;
    Atom: TAtom;
    S: AnsiString;
 begin
+   Assert(Mode in [psThereIsAThingThere, // look north
+                   psThereIsAThingHere]); // look
    Result := '';
-   for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
-      if (Length(FDirectionalLandmarks[Direction]) > 0) then
-         for Index := Low(FDirectionalLandmarks[Direction]) to High(FDirectionalLandmarks[Direction]) do
+   if (Length(FImportantLandmarks) > 0) then
+      for Index := Low(FImportantLandmarks) to High(FImportantLandmarks) do
+      begin
+         Assert(Assigned(FImportantLandmarks[Index]));
+         Assert(FImportantLandmarks[Index]^.Options * loImportantLandmarks <> []);
+         Atom := FImportantLandmarks[Index]^.Atom;
+         if ((Atom <> Context) and (loAutoDescribe in FImportantLandmarks[Index]^.Options)) then
          begin
-            Atom := FDirectionalLandmarks[Direction][Index].Atom;
-            if ((Atom <> Context) and (loAutoDescribe in FDirectionalLandmarks[Direction][Index].Options)) then
+            S := Atom.GetDescriptionRemoteBrief(Perspective, Mode, FImportantLandmarks[Index]^.Direction);
+            if (Length(S) > 0) then
             begin
-               S := Atom.GetDescriptionRemoteBrief(Perspective, Mode, Direction);
-               if (Length(S) > 0) then
-               begin
-                  if (Length(Result) > 0) then
-                     Result := Result + ' ';
-                  Result := Result + S;
-               end;
+               if (Length(Result) > 0) then
+                  Result := Result + ' ';
+               Result := Result + S;
             end;
          end;
+      end;
    ProcessBatch(FChildren);
    if (GetSurface() <> Self) then
       ProcessBatch(GetSurface().FChildren);
@@ -1947,8 +2009,8 @@ end;
 
 function TLocation.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString;
 begin
-   // XXX obey Mode
-   Assert(Mode = psThereIsAThingThere);
+   Assert(Mode in [psThereIsAThingThere, // look north (called indirectly from TLocation.GetDescriptionRemoteDetailed() below)
+                   psThereIsAThingHere]); // if we're an autodescribed thing to the north of where the player is
    Result := Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetDefiniteName(Perspective) + '.';
 end;
 
@@ -1962,7 +2024,7 @@ end;
 function TLocation.GetAtomForDirectionalNavigation(Direction: TCardinalDirection): TAtom;
 begin
    Assert(Low(FDirectionalLandmarks[Direction]) = 0);
-   if ((Length(FDirectionalLandmarks[Direction]) > 0) and (loReachable in FDirectionalLandmarks[Direction][0].Options)) then
+   if ((Length(FDirectionalLandmarks[Direction]) > 0) and (loPermissibleNavigationTarget in FDirectionalLandmarks[Direction][0].Options)) then
       Result := FDirectionalLandmarks[Direction][0].Atom
    else
       Result := nil;
@@ -1984,7 +2046,7 @@ begin
    Perspective.AvatarMessage(Capitalise(Perspective.GetDefiniteName(Perspective)) + ' can''t go ' + CardinalDirectionToString(Direction) + ' from here.');
 end;
 
-function TLocation.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
    Result := GetSurface();
 end;
@@ -2001,56 +2063,92 @@ begin
       Result := True;
 end;
 
-function TLocation.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; var SubjectiveInformation: TSubjectiveInformation): Boolean;
+procedure TLocation.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 var
-   Direction: TCardinalDirection;
+   Index: Cardinal;
 begin
    Assert(FromOutside = True);
-   Result := False;
-   for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
-      if (FindThingDirectional(Thing, Perspective, 0, Direction, SubjectiveInformation)) then
-         Result := True;
-   if (not Result) then
-      Result := inherited;
+   inherited;
+   if (Length(FImportantLandmarks) > 0) then
+      for Index := Low(FImportantLandmarks) to High(FImportantLandmarks) do
+      begin
+         Assert(Assigned(FImportantLandmarks[Index]));
+         Assert(FImportantLandmarks[Index]^.Options * loImportantLandmarks <> []);
+         if (loThreshold in FImportantLandmarks[Index]^.Options) then
+         begin
+            Assert(Assigned(FImportantLandmarks[Index]^.Atom));
+            FImportantLandmarks[Index]^.Atom.ProxiedFindMatchingThings(Perspective, FromOutside, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
+         end;
+      end;
 end;
 
-function TLocation.FindThingDirectional(Thing: TThing; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; var SubjectiveInformation: TSubjectiveInformation): Boolean;
+function TLocation.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean;
+var
+   Direction: TCardinalDirection;
+   Index: Cardinal;
+begin
+   Assert(FromOutside = True);
+   Result := inherited;
+   if (Length(FImportantLandmarks) > 0) then
+      for Index := Low(FImportantLandmarks) to High(FImportantLandmarks) do
+      begin
+         Assert(Assigned(FImportantLandmarks[Index]));
+         Assert(FImportantLandmarks[Index]^.Options * loImportantLandmarks <> []);
+         if (loThreshold in FImportantLandmarks[Index]^.Options) then
+         begin
+            Assert(Assigned(FImportantLandmarks[Index]^.Atom));
+            if (FImportantLandmarks[Index]^.Atom.ProxiedFindThingTraverser(Thing, Perspective, True)) then
+            begin
+               Result := True;
+               if (not (loConsiderDirectionUnimportantWhenFindingChildren in FImportantLandmarks[Index]^.Options)) then
+                  Include(SubjectiveInformation.Directions, FImportantLandmarks[Index]^.Direction);
+               Include(SubjectiveInformation.Reachable, rpReachable);
+            end;
+         end;
+      end;
+   for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
+      if (FindThingDirectionalTraverser(Thing, Perspective, 0, Direction, SubjectiveInformation)) then
+         Result := True;
+end;
 
-   procedure Internal(CurrentDirection: TCardinalDirection; MustBeVisibleFromFarAway: Boolean);
+function TLocation.FindThingDirectionalTraverser(Thing: TThing; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; var SubjectiveInformation: TSubjectiveInformation): Boolean;
+
+   procedure Internal(CurrentDirection: TCardinalDirection; MustBeVisibleFromFarAway, Reversed: Boolean);
    var
       Index: Cardinal;
       CandidateAtom: TAtom;
       CandidateOptions: TLandmarkOptions;
-      IsVisible: Boolean;
    begin
       if ((Length(FDirectionalLandmarks[CurrentDirection]) > 0) and (Distance < High(Distance))) then
          for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          begin
-            IsVisible := (not MustBeVisibleFromFarAway) or
-                         (loVisibleFromFarAway in FDirectionalLandmarks[CurrentDirection][Index].Options);
-            if (IsVisible) then
+            CandidateOptions := FDirectionalLandmarks[CurrentDirection][Index].Options;
+            if ((not (loThreshold in CandidateOptions)) and
+                ((not MustBeVisibleFromFarAway) or (loVisibleFromFarAway in CandidateOptions)) and
+                ((not Reversed) or (not (loNotVisibleFromBehind in CandidateOptions)))) then
             begin
                CandidateAtom := FDirectionalLandmarks[CurrentDirection][Index].Atom;
                Assert(Assigned(CandidateAtom));
                if (CandidateAtom is TThing) then
                begin
-                  if (CandidateAtom.FindThing(Thing, Perspective, True, SubjectiveInformation)) then
+                  if (CandidateAtom.FindThingTraverser(Thing, Perspective, True)) then
+                  begin
                      Result := True;
+                     if ((Thing = CandidateAtom) or (not (loConsiderDirectionUnimportantWhenFindingChildren in CandidateOptions))) then
+                        Include(SubjectiveInformation.Directions, Direction);
+                  end;
                end
                else
                if (CandidateAtom is TLocation) then
                begin
-                  if ((CandidateAtom as TLocation).FindThingDirectional(Thing, Perspective, Distance+1, CurrentDirection, SubjectiveInformation)) then {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+                  if ((CandidateAtom as TLocation).FindThingDirectionalTraverser(Thing, Perspective, Distance+1, CurrentDirection, SubjectiveInformation)) then {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
                      Result := True;
                end
                else
                   Assert(False, 'Not sure how to handle directional atom of class ' + CandidateAtom.ClassName);
                if (Result) then
                begin
-                  CandidateOptions := FDirectionalLandmarks[CurrentDirection][Index].Options;
-                  if ((Thing = CandidateAtom) or
-                      (not (loConsiderDirectionUnimportantWhenFindingChildren in CandidateOptions))) then
-                     Include(SubjectiveInformation.Directions, Direction);
+                  Include(SubjectiveInformation.Reachable, rpNotReachable);
                   Exit;
                end;
             end;
@@ -2062,51 +2160,77 @@ begin
    Result := False;
    if (Distance > 0) then
    begin
-      Internal(cdReverse[Direction], Distance > 1);
+      Internal(cdReverse[Direction], Distance > 1, True);
       if (Result) then
          Exit;
    end;
-   Internal(Direction, Distance > 0);
+   Internal(Direction, Distance > 0, False);
 end;
 
 procedure TLocation.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
 var
+   Index: Cardinal;
    Direction: TCardinalDirection;
 begin
    inherited;
+   if (Length(FImportantLandmarks) > 0) then
+      for Index := Low(FImportantLandmarks) to High(FImportantLandmarks) do
+      begin
+         Assert(Assigned(FImportantLandmarks[Index]));
+         Assert(FImportantLandmarks[Index]^.Options * loImportantLandmarks <> []);
+         if (loThreshold in FImportantLandmarks[Index]^.Options) then
+         begin
+            if (FImportantLandmarks[Index]^.Atom is TLocation) then
+               (FImportantLandmarks[Index]^.Atom as TLocation).AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, 1, FImportantLandmarks[Index]^.Direction, Reporter)
+            else
+               FImportantLandmarks[Index]^.Atom.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
+         end;
+      end;
    for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
       AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, 0, Direction, Reporter);
 end;
 
 procedure TLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter);
 
-   procedure Internal(CurrentDirection: TCardinalDirection; MustBeVisibleFromFarAway: Boolean);
+   procedure Internal(CurrentDirection: TCardinalDirection; MustBeVisibleFromFarAway: Boolean; Reversed: Boolean);
    var
       Index: Cardinal;
       CandidateAtom, Ancestor: TAtom;
-      IsVisible: Boolean;
+      CandidateOptions: TLandmarkOptions;
+      ShouldInclude: Boolean;
    begin
       if ((Length(FDirectionalLandmarks[CurrentDirection]) > 0) and (Distance < High(Distance))) then
          for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          begin
-            IsVisible := (not MustBeVisibleFromFarAway) or
-                         (loVisibleFromFarAway in FDirectionalLandmarks[CurrentDirection][Index].Options);
-            if (IsVisible) then
+            CandidateOptions := FDirectionalLandmarks[CurrentDirection][Index].Options;
+            if ((not (loThreshold in CandidateOptions)) and
+                ((not MustBeVisibleFromFarAway) or (loVisibleFromFarAway in CandidateOptions)) and
+                ((not Reversed) or (not (loNotVisibleFromBehind in CandidateOptions)))) then
             begin
                CandidateAtom := FDirectionalLandmarks[CurrentDirection][Index].Atom;
                Assert(Assigned(CandidateAtom));
-               if (CandidateAtom is TThing) then
-               begin
-                  Ancestor := (CandidateAtom as TThing).Parent;
-                  while ((Assigned(Ancestor)) and (Ancestor is TThing)) do
-                     Ancestor := (Ancestor as TThing).Parent;
-                  if (Ancestor <> Self) then
-                     CandidateAtom.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter)
-               end
-               else
                if (CandidateAtom is TLocation) then
                begin
                   (CandidateAtom as TLocation).AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, Distance+1, CurrentDirection, Reporter); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+               end
+               else
+               if (CandidateAtom is TThing) then
+               begin
+                  if (Distance > 0) then
+                  begin
+                     // if we're far away, then include all our landmarks
+                     ShouldInclude := True;
+                  end
+                  else
+                  begin
+                     // otherwise, only include foreign ones; the local ones are taken care of already by TAtom
+                     Ancestor := (CandidateAtom as TThing).Parent;
+                     while ((Assigned(Ancestor)) and (Ancestor is TThing)) do
+                        Ancestor := (Ancestor as TThing).Parent;
+                     ShouldInclude := Ancestor <> Self;
+                  end;
+                  if (ShouldInclude) then
+                     CandidateAtom.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
                end
                else
                   Assert(False, 'Not sure how to handle directional atom of class ' + CandidateAtom.ClassName);
@@ -2117,8 +2241,8 @@ procedure TLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; St
 begin
    Assert(Distance < High(Distance));
    if (Distance > 0) then
-      Internal(cdReverse[Direction], Distance > 1);
-   Internal(Direction, Distance > 0);
+      Internal(cdReverse[Direction], Distance > 1, True);
+   Internal(Direction, Distance > 0, False);
 end;
 
 
@@ -2134,7 +2258,7 @@ procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirect
       end
       else
       begin
-         A.AddLandmark(Direction, B, [loReachable]);
+         A.AddLandmark(Direction, B, [loPermissibleNavigationTarget]);
       end;
    end;
 

@@ -691,7 +691,6 @@ var
    Direction: TCardinalDirection;
 begin
    Root := GetSurroundingsRoot(FromOutside);
-   SubjectiveInformation.Reset(); {BOGUS Warning: Local variable "SubjectiveInformation" does not seem to be initialized}
    {$IFOPT C+} Found := {$ENDIF} Root.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
    {$IFOPT C+} Assert(Found); {$ENDIF}
    if (SubjectiveInformation.Directions <> []) then
@@ -737,7 +736,6 @@ var
    {$IFOPT C+} Found, {$ENDIF} FromOutside: Boolean;
 begin
    Root := GetSurroundingsRoot(FromOutside);
-   SubjectiveInformation.Reset(); {BOGUS Warning: Local variable "SubjectiveInformation" does not seem to be initialized}
    {$IFOPT C+} Found := {$ENDIF} Root.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
    {$IFOPT C+} Assert(Found); {$ENDIF}
    if (SubjectiveInformation.Directions = [cdUp]) then
@@ -1194,7 +1192,7 @@ begin
                   Message := 'Pushed.';
                   NotificationList := TAtomList.Create();
                   try
-                     Destination := Destination.GetEntrance(CurrentSubject, CurrentSubject.Parent, Self, ThingPosition, DisambiguationOpening, Message, NotificationList);
+                     Destination := Destination.GetEntrance(CurrentSubject, Direction, Self, ThingPosition, DisambiguationOpening, Message, NotificationList);
                      if (Assigned(Destination)) then
                      begin
                         if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
@@ -1670,7 +1668,7 @@ function TPlayer.Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
    end;
 
 var
-   SelfRoot, SubjectRoot: TAtom;
+   SelfRoot: TAtom;
    FromOutside: Boolean;
    SubjectiveInformation: TSubjectiveInformation;
    Direction: TCardinalDirection;
@@ -1683,14 +1681,14 @@ begin
    if (Subject is TLocation) then
    begin
       // XXX can this branch ever be taken?
+      Assert(False, 'There''s a comment here you need to remove... (its answer is apparently yes!)');
       Result := SelfRoot = Subject;
       if (not Result) then
-         Message := 'You aren''t at ' + Subject.GetDefiniteName(Self) + ' anymore.'; // "at" might not work, e.g. "You aren't in Kansas anymore." needs "in" not "at"
+         Message := 'You aren''t at ' + Subject.GetDefiniteName(Self) + ' anymore.'; // "at" might not work, e.g. "You aren't in Kansas anymore." needs "in" not "at"; but "The Bathroom" or "Whole Foods" wants "at"...
    end
    else
    if (Subject is TThing) then
    begin
-      SubjectiveInformation.Reset(); {BOGUS Warning: Local variable "SubjectiveInformation" does not seem to be initialized}
       Result := SelfRoot.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
       if (not Result) then
       begin
@@ -1698,10 +1696,9 @@ begin
       end
       else
       begin
-         SelfRoot := GetRootFor(Self);
-         SubjectRoot := GetRootFor(Subject);
-         if (SubjectRoot <> SelfRoot) then
+         if (not (rpReachable in SubjectiveInformation.Reachable)) then
          begin
+            Assert(GetRootFor(Self) <> GetRootFor(Subject));
             Result := False;
             Message := Capitalise(Subject.GetDefiniteName(Self)) + ' ' + IsAre(Subject.IsPlural(Self)) + ' too far away';
             DirectionMessage := '';
@@ -1719,6 +1716,8 @@ begin
                end;
             end;
             Message := Message + DirectionMessage + '.';
+            // SelfRoot := GetRootFor(Self);
+            // SubjectRoot := GetRootFor(Subject);
             // Message := Message + ' You are in ' + SelfRoot.GetDefiniteName(Self) + ' but ' + Subject.GetDefiniteName(Self) + ' is in ' + SubjectRoot.GetDefiniteName(Self) + '.';
          end;
       end;

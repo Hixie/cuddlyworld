@@ -204,6 +204,9 @@ end;
 var
    Main: TMain;
 begin
+   {$IFDEF DEBUG}
+      RegisterStorableClassSynonym('TTestWorld', TWorld);
+   {$ENDIF}
    try
       if (ParamCount() > 0) then
       begin

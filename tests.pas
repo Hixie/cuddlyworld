@@ -590,7 +590,7 @@ procedure TestMechanics();
       Thing2 := TFeature.Create('square', '(((large (etched carved)@)# (square/squares (geometric shape/shapes)&)@)& (square (etching/etchings carving/carvings)@)&)@', 'The square is etched into the table.');
       Thing2.Add(TStaticThing.Create('Astorian people', '(Astorian people/peoples)&', 'The Astorian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
       Thing2.Add(TStaticThing.Create('Dagian people', '(Dagian people/peoples)&', 'The Dagian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
-      Thing2.Add(TStaticThing.Create('Linian people', '(Linian people/peoples)&', 'The linian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
+      Thing2.Add(TStaticThing.Create('Linian people', '(Linian people/peoples)&', 'The Linian people are iconically represented for manipulation by the higher powers.', tmLight, tsSmall), tpOn);
       Thing.Add(Thing2, tpPartOfImplicit);
       Thing2 := TFeature.Create('triangle', '(((large (etched carved)@)# (triangle/triangles (geometric shape/shapes)&)@)& (triangle (etching/etchings carving/carvings)@)&)@', 'The triangle is etched into the table.');
       Thing.Add(Thing2, tpPartOfImplicit);
@@ -622,7 +622,7 @@ procedure TestMechanics();
       ConnectLocations(Cave3, cdNorth, Cave4);
       ConnectLocations(Cave4, cdWest, FlowerRoom);
       ConnectLocations(FlowerRoom, cdSouth, Kitchen);
-      Olympus.GetSurface().Add(TOpening.Create('opening', 'opening/openings', 'The opening is circular.', FlowerRoom, tsBig), tpSurfaceOpening);
+      Olympus.GetSurface().Add(TOpening.Create('opening', 'opening/openings', 'The opening is circular.', FlowerRoom, tsGigantic), tpSurfaceOpening);
       ConnectLocations(FlowerRoom, cdUp, Olympus);
 
       Camp.AddSurroundings(CampForest, cdCompasDirection - [cdNorth]);
@@ -650,19 +650,15 @@ var
 begin
    Proxy := TTestProxy.Create();
    Writeln('MECHANICS');
-   {$IFDEF PLAY_IN_TEST_EDEN}
-      RegisterStorableClassAsSynonym('TTestWorld', TWorld);
-   {$ELSE}
-      RegisterStorableClass(TTestWorld);
-   {$ENDIF}
+   RegisterStorableClass(TTestWorld);
    RegisterStorableClass(TTestPlayer);
-   TestWorld := InitTestEden();
    {$IFDEF PLAY_IN_TEST_EDEN}
+      TestWorld := InitTestEden();
       TestWorld.AddPlayer(TPlayer.Create('Flathead', 'zorkmid', gMale));
       StoreObjectToFile(kWorldFileName, TestWorld, kSaveDataVersion);
       TestWorld.Free();
-      TestWorld := InitTestEden();
    {$ENDIF}
+   TestWorld := InitTestEden();
    Failed := False;
    try
       try
@@ -1964,7 +1960,22 @@ begin
          Proxy.ExpectString('Which bag do you mean, the embroidered bag of holding labeled Tester, the black garbage bag, or the elongated brown sack?');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine bag');
-
+{XXX
+         Proxy.WaitUntilString('You are carrying:');
+         Proxy.WaitUntilString('  A bag of holding.');
+         Proxy.WaitUntilString('  A garbage bag.');
+         Proxy.WaitUntilString('  The garbage bag contains:');
+         Proxy.WaitUntilString('    Rotten grapes.');
+         Proxy.WaitUntilString('    A rotten kiwi.');
+         Proxy.WaitUntilString('    A rotten pineapple.');
+         Proxy.WaitUntilString('    A brown sack.');
+         Proxy.WaitUntilString('    The brown sack contains:');
+         Proxy.WaitUntilString('      A clove of garlic.');
+         Proxy.WaitUntilString('      A lunch.');
+         Proxy.WaitUntilString('      A wooden spoon.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('i');
+}
          Proxy.ExpectDone();
 
          Proxy.WaitUntilString('Mount Olympus');
@@ -2020,6 +2031,16 @@ begin
          Proxy.ExpectString('The sun is too far away (above).');
          Proxy.ExpectString('');
          TestPlayer.Perform('take sun');
+
+         Proxy.ExpectString('(through the opening)');
+         Proxy.ExpectString('Flower room');
+         Proxy.WaitUntilString('');
+         TestPlayer.Perform('down');
+
+         Proxy.ExpectString('Looking up, you see:');
+         Proxy.ExpectString('Mount Olympus');
+         Proxy.WaitUntilString('');
+         TestPlayer.Perform('look up');
 
          Proxy.ExpectDone();
 
@@ -2162,19 +2183,37 @@ begin
          Proxy.ExpectSubstring('meanders');
          Proxy.ExpectString('');
          TestPlayer.Perform('n');
-{XXX
-l s => " Beyond that, you can see a tree" which is all kinds of wrong. Should know about archway.
-going south from here should go through archway also.
-should be possible to stand under archway.
-}
 
-{XXX
+         Proxy.ExpectString('(through the north archway)');
+         Proxy.ExpectString('Arrivals Circle');
+         Proxy.ExpectString('The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. Large signs staked into the ground point elaborately to the north and south paths. A large stone serves as a sign next to the east archway. To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. To the southwest are another sign and archway, the sign in an even more dilapidated state. Beyond, in all directions, you see an impenetrable forest. There is a stone pedestal here.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('s');
+
+         Proxy.ExpectString('(through the south archway)');
+         Proxy.ExpectString('You become a woman.');
+         Proxy.ExpectString('Female Path');
+         Proxy.ExpectSubstring('meanders');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('s');
+
+         Proxy.ExpectString('(through the south archway)');
+         Proxy.ExpectString('Arrivals Circle');
+         Proxy.ExpectSubstring('The arrivals circle');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('n');
+
+         Proxy.ExpectString('(through the north archway)');
+         Proxy.ExpectString('You become a man.');
+         Proxy.ExpectString('Male Path');
+         Proxy.ExpectSubstring('meanders');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('n');
+
          Proxy.ExpectString('Male Clearing');
-         Proxy.ExpectSubstring('hole');
+         Proxy.ExpectSubstring('The forest thins out, leaving a circular clearing.'); // XXX this should expect a hole
          Proxy.ExpectString('');
          TestPlayer.Perform('w');
-no hole!
-}
 
 {XXX
          Proxy.ExpectString('(through the hole in the ground)');
@@ -2186,8 +2225,8 @@ no hole!
 
          { test round-tripping }
          Proxy.Test('Round-tripping');
-         StoreObjectToFile('/tmp/world.dat.$$$', TestWorld, kSaveDataVersion);
-         TestWorld2 := ReadObjectFromFile('/tmp/world.dat.$$$') as TWorld;
+         StoreObjectToFile('/tmp/map.dat.$$$', TestWorld, kSaveDataVersion);
+         TestWorld2 := ReadObjectFromFile('/tmp/map.dat.$$$') as TWorld;
          TestWorld2.Free();
 
          Proxy.Test('End');
