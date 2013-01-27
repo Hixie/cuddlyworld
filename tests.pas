@@ -1960,22 +1960,22 @@ begin
          Proxy.ExpectString('Which bag do you mean, the embroidered bag of holding labeled Tester, the black garbage bag, or the elongated brown sack?');
          Proxy.ExpectString('');
          TestPlayer.Perform('examine bag');
-{XXX
-         Proxy.WaitUntilString('You are carrying:');
-         Proxy.WaitUntilString('  A bag of holding.');
-         Proxy.WaitUntilString('  A garbage bag.');
-         Proxy.WaitUntilString('  The garbage bag contains:');
-         Proxy.WaitUntilString('    Rotten grapes.');
-         Proxy.WaitUntilString('    A rotten kiwi.');
-         Proxy.WaitUntilString('    A rotten pineapple.');
-         Proxy.WaitUntilString('    A brown sack.');
-         Proxy.WaitUntilString('    The brown sack contains:');
-         Proxy.WaitUntilString('      A clove of garlic.');
-         Proxy.WaitUntilString('      A lunch.');
-         Proxy.WaitUntilString('      A wooden spoon.');
+
+         Proxy.ExpectString('You are carrying:');
+         Proxy.ExpectString('  A bag of holding.');
+         Proxy.ExpectString('  A garbage bag.');
+         Proxy.ExpectString('  The garbage bag contains:');
+         Proxy.ExpectString('    Rotten grapes.');
+         Proxy.ExpectString('    A rotten kiwi.');
+         Proxy.ExpectString('    A rotten pineapple.');
+         Proxy.ExpectString('    A brown sack.');
+         Proxy.ExpectString('    The brown sack contains:');
+         Proxy.ExpectString('      A clove of garlic.');
+         Proxy.ExpectString('      A lunch.');
+         Proxy.ExpectString('      A wooden spoon.');
          Proxy.ExpectString('');
          TestPlayer.Perform('i');
-}
+
          Proxy.ExpectDone();
 
          Proxy.WaitUntilString('Mount Olympus');

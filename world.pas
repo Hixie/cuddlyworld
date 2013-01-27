@@ -347,7 +347,7 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Persp
 
 procedure QueueForDisposal(Atom: TAtom);
 
-procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation);
+procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation); // does not set loAutoDescribe
 
 implementation
 
@@ -1395,7 +1395,7 @@ function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionC
                Result := Result + #10;
             Result := Result + Prefix + '  ' + Capitalise(Child.GetIndefiniteName(Perspective)) + '.';
             if (optDeepChildren in Options) then
-               Result := Result + WithSpaceIfNotEmpty(Child.GetDescriptionIn(Perspective, Options - [optFar, optThorough], Prefix + '  '));
+               Result := Result + WithNewlineIfNotEmpty(Child.GetDescriptionIn(Perspective, Options - [optFar, optThorough], Prefix + '  '));
          end;
       end;
    end;

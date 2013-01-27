@@ -1,10 +1,5 @@
-ONGOING WORK
- + see XXX in tests.pas for unexpected bugs
-
 WORLD
  + we should still describe non-implicit things that are on implicit things
- + descriptions of locations should not list exits that are listed in the description
-    - basically, exits should be able to be labeled as implicit
  + TFeaturelessOutdoorLocation should magically describe itself:
    + count tpPlantedIn* trees and decide if it's a forested area
      - should be able to refer to "forest of trees"
@@ -27,9 +22,6 @@ WORLD
  + "harvest forest": I don't understand how to "harvest".
  + "chop down forest": I don't understand how to "chop".
  + "repair", "unbreak system": I don't understand how to "unbreak".
- + right now the logic in TLocation.GetLookTowardsDirection doesn't match the logic in FindThingDirectional and company
-    - maybe there should just be one landmark per direction, and if there's to be another behind it, then things
-      should be done via a chain of locations that add things rather than by listing them in each object in turn
       
 PLOT
  + plot
@@ -97,12 +89,12 @@ PLAYER INTERACTION
 THINGS
  + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it's heavy
     -- especially for the rim of the bag of holding, which can't possibly be too heavy to shake!
+    -- should probably just say "(by shaking the bag)" and defer up
  + make orbs smaller but with no carrying capability
  + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
  + you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
  + when you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
- + when you drop something from the sky onto a ground surface that's full, it should drop onto something (the biggest non-full
-   thing in a depth-first search?) on the ground surface
+ + when you drop something from the sky onto a ground surface that's full, it should drop onto something (the biggest non-full thing in a depth-first search?) on the ground surface
  + taking something with things on it should make the things fall off
  + throwing - "throw MacGuffin north": I don't understand how to "throw".
  + "push things off table" doesn't work (pushing things off)
@@ -135,11 +127,6 @@ THINGS
  + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
  + support finding multiple things?
  + "look on" should list what's on something (maybe including things like engravings?)
- + looking at something that itself contains things has weird spacing before the second "contains" (looks like missing newline):
-    | The hole contains:
-    |   A bag of holding.   The bag of holding contains:
-    |     A spade.
-   Somehow this only happens if the bag is in the hole, not if it's being carried. Compare inventory code to "x hole" code.
  + things claim to be "part of the ground" when they are partOf the ground and you try to take them, which looks weird.
  + need to support the idea of an arch being over something
  + "empty bag"
@@ -223,7 +210,7 @@ CODE
  + move build.sh options to a configuration file
  + log exceptions other than parse errors - abstract out the logging code
  + see if it makes sense to change TThing.Navigate() and TThing.GetLookTowardsDirection() to instead use a GetAtomForDirection()-like approach
- + replace HINTS OFF and WARNIGNS OFF pragmas with BOGUS pragmas
+ + replace HINTS OFF and WARNINGS OFF pragmas with BOGUS pragmas
  + import ../../isd/server/src/infrastructure/corewebsocket.pas and ../../isd/server/src/infrastructure/corenetwork.pas
 
 MORE NOTES
