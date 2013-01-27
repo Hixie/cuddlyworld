@@ -66,7 +66,7 @@ var
    Index: Cardinal;
    Username, Password: AnsiString;
 begin
-   Index := Pos(' ', Message);
+   Index := Pos(' ', Message); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
    if (Index = 0) then
    begin
       WriteFrame('First frame must be username and password, separated by a space character.');

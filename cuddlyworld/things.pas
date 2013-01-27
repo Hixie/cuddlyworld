@@ -28,7 +28,8 @@ type
       property Plural: Boolean read FPlural write FPlural;
    end;
 
-   TStaticThing = class(TNamedThing) { "static" in the sense of unchanging } // @RegisterStorableClass
+   // Things that never change: MacGuffins, set pieces, and other non-interactive nouns
+   TStaticThing = class(TNamedThing) // @RegisterStorableClass
     protected
       FDescription: AnsiString;
       FMass: TThingMass;
@@ -40,14 +41,18 @@ type
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      property Mass: TThingMass read FMass write FMass;
+      property Size: TThingSize read FSize write FSize;
    end;
 
+   // Things that are really just aspects of other things
    TFeature = class(TStaticThing) // @RegisterStorableClass
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
 
+   // Things that never change and don't even ever move and are typically gigantic
    TScenery = class(TStaticThing) // @RegisterStorableClass
     protected
       FUnderDescription: AnsiString;
@@ -55,7 +60,7 @@ type
       FCannotMoveExcuse: AnsiString;
       FOpened: Boolean;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function IsOpen(): Boolean; override;
@@ -68,23 +73,24 @@ type
       property Opened: Boolean read FOpened write FOpened;
    end;
 
+   // Things that don't change and don't move but that provide a portal to other locations
    TLocationProxy = class(TScenery)
     protected
       FDestination: TLocation;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; override;
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function IsOpen(): Boolean; override;
    end;
 
    TOpening = class(TLocationProxy) // @RegisterStorableClass
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Size: TThingSize);
-      function GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; ASize: TThingSize);
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
@@ -93,9 +99,10 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
    end;
 
+   // The ground, mainly
    TSurface = class(TStaticThing) // @RegisterStorableClass
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetDefaultAtom(): TAtom; override;
@@ -121,6 +128,7 @@ type
       procedure Removed(Thing: TThing); override;
    end;
 
+   // Open boxes, crates, etc
    TContainer = class(TStaticThing) // @RegisterStorableClass
      public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -135,6 +143,23 @@ type
       function GetFeatures(): TThingFeatures; override;
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
    end;
+
+   TSign = class(TScenery) // @RegisterStorableClass
+    protected
+      FWriting: AnsiString;
+    public
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; AMass: TThingMass; ASize: TThingSize);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetFeatures(): TThingFeatures; override;
+      function GetDescriptionWriting(Perspective: TAvatar): AnsiString; override;
+   end;
+
+   TTree = class(TScenery) // @RegisterStorableClass
+   end;
+
+
+   // More complicated things
 
    TBag = class(TNamedThing) // @RegisterStorableClass
     protected
@@ -214,20 +239,6 @@ type
    TEarthPile = class(TPile) // @RegisterStorableClass
     public
       constructor Create(Size: TThingSize);
-   end;
-
-   TSign = class(TScenery) // @RegisterStorableClass
-    protected
-      FWriting: AnsiString;
-    public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; Mass: TThingMass; Size: TThingSize);
-      constructor Read(Stream: TReadStream); override;
-      procedure Write(Stream: TWriteStream); override;
-      function GetFeatures(): TThingFeatures; override;
-      function GetDescriptionWriting(Perspective: TAvatar): AnsiString; override;
-   end;
-
-   TTree = class(TStaticThing) // @RegisterStorableClass
    end;
 
 implementation
@@ -400,7 +411,7 @@ begin
 end;
 
 
-constructor TScenery.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+constructor TScenery.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
@@ -466,10 +477,10 @@ begin
 end;
 
 
-constructor TLocationProxy.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+constructor TLocationProxy.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
 begin
    Assert(Assigned(Destination));
-   inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
+   inherited Create(Name, Pattern, Description, AMass, ASize);
    FDestination := Destination;
 end;
 
@@ -490,7 +501,7 @@ begin
    Result := Capitalise(GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('leads', 'lead', IsPlural(Perspective)) + ' ' + CardinalDirectionToString(Direction) + '.';
 end;
 
-function TLocationProxy.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TLocationProxy.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
    DisambiguationOpening := Self;       
    Result := inherited;
@@ -513,18 +524,18 @@ begin
 end;
 
 
-constructor TOpening.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; Size: TThingSize);
+constructor TOpening.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; ASize: TThingSize);
 begin
-   inherited Create(Name, Pattern, Description, Destination, tmLudicrous, Size);
+   inherited Create(Name, Pattern, Description, Destination, tmLudicrous, ASize);
 end;
 
-function TOpening.GetEntrance(Traveller: TThing; AFrom: TAtom; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
 begin
    Assert(Assigned(Traveller));
    if (not CanInsideHold(Traveller.GetOutsideSizeManifest())) then
    begin
       Result := nil;
-      Message := Traveller.GetDefiniteName(Perspective) + ' ' + IsAre(Traveller.IsPlural(Perspective)) + ' too big to fit in ' + GetDefiniteName(Perspective) + '.';
+      Message := Capitalise(Traveller.GetDefiniteName(Perspective)) + ' ' + IsAre(Traveller.IsPlural(Perspective)) + ' too big to fit in ' + GetDefiniteName(Perspective) + '.';
    end
    else
       Result := inherited; // defers to GetInside(); TLocation.GetInside() gets the FDestination surface
@@ -565,7 +576,7 @@ begin
 end;
 
 
-constructor TSurface.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass = tmLudicrous; Size: TThingSize = tsLudicrous);
+constructor TSurface.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
@@ -660,7 +671,7 @@ end;
 
 function TEarthGround.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
 const
-   Size = tsGigantic;
+   HoleSize = tsGigantic;
 var
    Pile: TPile;
    E: TThingEnumerator;
@@ -679,7 +690,7 @@ begin
    end
    else
    begin
-      Pile := TEarthPile.Create(Size);
+      Pile := TEarthPile.Create(HoleSize);
       E := FChildren.GetEnumerator();
       try
          while (E.MoveNext()) do
@@ -693,7 +704,7 @@ begin
       finally
          E.Free();
       end;
-      FHole := THole.Create('The hole is quite dirty.', Size, TEarthPile);
+      FHole := THole.Create('The hole is quite dirty.', HoleSize, TEarthPile);
       Add(FHole, tpSurfaceOpening);
       Add(Pile, tpOn);
       Result := True;
@@ -1186,7 +1197,7 @@ begin
       for Index := 1 to High(PluralIngredients) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          Pattern := Pattern + ' ' + PluralIngredients[Index];
    Pattern := Pattern + ')@)?)';
-   for Index := Low(SingularIngredients) to High(SingularIngredients) do
+   for Index := Low(SingularIngredients) to High(SingularIngredients) do // High() won't return -ve since Length(SingularIngredients) > 0
    begin
       {$IFDEF DEBUG} Assert(not HasPatternChars(SingularIngredients[Index])); {$ENDIF}
       {$IFDEF DEBUG} Assert(not HasPatternChars(PluralIngredients[Index])); {$ENDIF}
@@ -1292,9 +1303,9 @@ begin
 end;
 
 
-constructor TSign.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; Mass: TThingMass; Size: TThingSize);
+constructor TSign.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; AMass: TThingMass; ASize: TThingSize);
 begin
-   inherited Create(Name, Pattern, Description, Mass, Size);
+   inherited Create(Name, Pattern, Description, AMass, ASize);
    FWriting := Writing;
 end;
 

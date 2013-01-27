@@ -8,7 +8,7 @@ uses
    world;
 
 const
-   kWorldFileName = 'world.dat';
+   kWorldFileName = 'map.dat';
    kSaveDataVersion = 1;
 
 function InitEden: TWorld; { create the initial locations }
@@ -16,7 +16,7 @@ function InitEden: TWorld; { create the initial locations }
 implementation
 
 uses
-   storable, grammarian, locations, thingdim, things, player, broadcast, sysutils;
+   storable, grammarian, locations, thingdim, things, player, broadcast, sysutils, threshold;
 
 type
    TCuddlyWorld = class(TWorld) // @RegisterStorableClass
@@ -31,11 +31,11 @@ type
       property StartingPosition: TThingPosition read FStartingPosition write FStartingPosition;
    end;
 
-   TGenderArchway = class(TLocationProxy) // @RegisterStorableClass
+   TGenderArchway = class(TThresholdThing) // @RegisterStorableClass
     protected
       FGender: TGender;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Gender: TGender; Destination: TLocation);
+      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Gender: TGender; Side: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); override;
@@ -93,9 +93,9 @@ begin
 end;
 
 
-constructor TGenderArchway.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Gender: TGender; Destination: TLocation);
+constructor TGenderArchway.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Gender: TGender; Side: TCardinalDirection);
 begin
-   inherited Create(Name, Pattern, Description, Destination);
+   inherited Create(Name, Pattern, Description, cdReverse[Side]);
    FGender := Gender;
 end;
 
@@ -202,7 +202,7 @@ var
       ArrivalsCircle.GetSurface().Add(ArrivalsPedestal, tpAt);
 
       MaleArchway := TGenderArchway.Create('north archway', '(((((navy dark)@ blue)& painted Lancet (wooden wood)@)# ((archway/archways arch/arches)@ (to the (north n)@)?))& '+
-                                                             '((((navy dark)@ blue)& painted Lancet (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', 'The north archway is a Lancet arch made of painted wood. It is a predominantly dark blue affair, with small white geometric shapes (primarily circles and arrows, all pointing diagonally upwards and to the right) painted on its tall columns.', gMale, MalePath1);
+                                                             '((((navy dark)@ blue)& painted Lancet (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', 'The north archway is a Lancet arch made of painted wood. It is a predominantly dark blue affair, with small white geometric shapes (primarily circles and arrows, all pointing diagonally upwards and to the right) painted on its tall columns.', gMale, cdNorth);
       MaleArchway.CannotMoveExcuse := 'The archway seems to have been firmly embedded in the ground.';
       MaleArchway.FindDescription := 'The archway is to the north, over a path.';
       MaleArchway.Add(TFeature.Create('small white geometric shapes', '((small white geometric)# shape/shapes)&', 'The geometric shapes are small white circles painted against the blue wooden arch. Each circle has an arrow pointing out of the circle at the top left. Each arrow is the same length as the diameter of the circle from which it extends.'), tpPartOfImplicit);
@@ -211,7 +211,7 @@ var
 
       FemaleArchway := TGenderArchway.Create('south archway', '(((((light? pink) light-pink)@ thick (semicircular semi-circular)@ crystal)# (archway/archways arch/arches)@ (to the (south s)@))& '+
                                                                '((((light? pink) light-pink)@ thick (semicircular semi-circular)@ crystal (southern south s)@)# (archway/archways arch/arches)@)&)@',
-                                             'The south archway is a thick, semicircular arch made of a light-pink crystal. At the top of the arch is a gold inlay, which itself is decorated with a diamond-studded circle above a diamond-studded cross.', gFemale, FemalePath1);
+                                             'The south archway is a thick, semicircular arch made of a light-pink crystal. At the top of the arch is a gold inlay, which itself is decorated with a diamond-studded circle above a diamond-studded cross.', gFemale, cdSouth);
       FemaleArchway.CannotMoveExcuse := 'The archway seems to have been firmly embedded in the ground.';
       FemaleArchway.FindDescription := 'The archway is to the south, over a path.';
       FemaleArchway.Add(TFeature.Create('gold inlay', '(((diamond-studded (diamond studded)&)@ gold)# inlay/inlays)&', 'The gold is inlaid in the crystal archway. Diamonds are studded in the gold inlay, forming a circle and a cross.'), tpPartOfImplicit);
@@ -225,7 +225,7 @@ var
                                                                   '(((three-foiled cusped)& stone)# ((archway/archways arch/arches)@ (to the (east e)@)?))& '+
                                                                   '(((eastern east e)@ (three-foiled cusped)& stone)# (archway/archways arch/arches)@)& '+
                                                                   '((eastern east e)@ (three-foiled cusped)& ((archway/archways arch/arches)@ (of stone)?))&)@',
-                                                  'The east archway is a three-foiled cusped arch made of stone. Carved in the face of the arch are a series of human figures cooking, building huts, hunting, playing, digging, and so forth.', gThirdGender, ThirdGenderPath1);
+                                                  'The east archway is a three-foiled cusped arch made of stone. Carved in the face of the arch are a series of human figures cooking, building huts, hunting, playing, digging, and so forth.', gThirdGender, cdEast);
       ThirdGenderArchway.CannotMoveExcuse := 'The archway seems to have been firmly embedded in the ground.';
       ThirdGenderArchway.FindDescription := 'The archway is to the east, over a well-paved path.';
       ThirdGenderArchway.Add(TFeature.Create('human figures', '((carved human figure/figures)& (human figure carving/carvings)&)@', 'The carvings appear to represent humans partaking in typical day-to-day activities. The recognisable acts depicted are the cooking of a meal, the building of wooden huts, hunting, children playing, the digging of a hole, and fornication.'), tpPartOfImplicit);
@@ -233,7 +233,7 @@ var
 
       HiveArchway := TGenderArchway.Create('west archway', '((((stainless steel)& horseshoe)# ((archway/archways arch/arches)@ (to the (west w)@)?))& ' +
                                                            '(((stainless steel)& horseshoe (western west w)@)# (archway/archways arch/arches)@)&)@',
-                                           'The west archway is a horseshoe arch made of a series of adjacent bars of stainless steel, buried under tension.', gHive, HivePath1);
+                                           'The west archway is a horseshoe arch made of a series of adjacent bars of stainless steel, buried under tension.', gHive, cdWest);
       HiveArchway.CannotMoveExcuse := 'The archway seems to have been firmly embedded in the ground.';
       HiveArchway.FindDescription := 'The archway is to the west.';
       HiveArchway.Add(TFeature.Create('bars', '(((series of)? (buried adjacent)# bars (of (stainless steel)&)?) '+
@@ -244,7 +244,7 @@ var
 
       RobotArchway := TGenderArchway.Create('southwest archway', '(((shining (silicon metalloid)& (inverted catenary)&)# ((archway/archways arch/arches)@ (to the (southwest (south west) sw)@)?))& '+
                                                                  '(((southwestern (south western) southwest (south west) sw)@ shining (silicon metalloid)& (inverted catenary)&)# (archway/archways arch/arches)@)&)@',
-                                            'The southwest archway is an inverted catenary arch precisely carved into a block of shining silicon metalloid. Along the rim of the arch are many dots. '+'The archway itself is in good condition, but the area surrounding it appears to be unmaintained and rarely travelled.', gRobot, RobotPath1);
+                                            'The southwest archway is an inverted catenary arch precisely carved into a block of shining silicon metalloid. Along the rim of the arch are many dots. '+'The archway itself is in good condition, but the area surrounding it appears to be unmaintained and rarely travelled.', gRobot, cdSouthWest);
       RobotArchway.CannotMoveExcuse := 'The archway seems to have been firmly embedded in the ground.';
       RobotArchway.FindDescription := 'The archway is to the southwest.';
       Thing := TFeature.Create('rim', '(shining silicon metalloid)* rim/rims', 'The rim of the carved silicon metalloid is very smooth and shiny. It follows an inverted catenary shape. The rim is decorated with dots.');
@@ -319,32 +319,30 @@ var
       (Thing as TSign).CannotMoveExcuse := 'The sign is remarkably firmly planted in the ground.';
       ArrivalsCircle.GetSurface().Add(Thing, tpAtImplicit);
 
-      ArrivalsCircle.AddLandmark(cdNorth, MaleArchway, [loReachable, loAutoDescribe]);
-      ArrivalsCircle.AddLandmark(cdEast, ThirdGenderArchway, [loReachable, loAutoDescribe]);
-      ArrivalsCircle.AddLandmark(cdSouth, FemaleArchway, [loReachable, loAutoDescribe]);
-      ArrivalsCircle.AddLandmark(cdWest, HiveArchway, [loReachable, loAutoDescribe]);
-      ArrivalsCircle.AddLandmark(cdSouthWest, RobotArchway, [loReachable, loAutoDescribe]);
-      PopulateTrees(ArrivalsCircle);
-
       { Slide Dispatch Room }
       // ...
 
-      // XXXX the archways need to be in their own rooms and have sides and stuff
+      // XXX the threshold rooms should have the paths visible somehow
+      // (maybe as down landmarks to the things in the ArrivalsCircle?)
 
       { Paths }
-      ConnectLocations(ArrivalsCircle, cdNorth, MalePath1);
+      World.AddLocation(ConnectThreshold(ArrivalsCircle, MalePath1, MaleArchway, CreateEarthSurface(), []));
       ConnectLocations(MalePath1, cdWest, MalePath2);
       AddTheSlideHole(MalePath2, SlideDispatchRoom);
-      ConnectLocations(ArrivalsCircle, cdSouth, FemalePath1);
+
+      World.AddLocation(ConnectThreshold(ArrivalsCircle, FemalePath1, FemaleArchway, CreateEarthSurface(), []));
       ConnectLocations(FemalePath1, cdEast, FemalePath2);
       AddTheSlideHole(FemalePath2, SlideDispatchRoom);
-      ConnectLocations(ArrivalsCircle, cdEast, ThirdGenderPath1);
+
+      World.AddLocation(ConnectThreshold(ArrivalsCircle, ThirdGenderPath1, ThirdGenderArchway, CreateEarthSurface(), []));
       ConnectLocations(ThirdGenderPath1, cdNorth, ThirdGenderPath2);
       AddTheSlideHole(ThirdGenderPath2, SlideDispatchRoom);
-      ConnectLocations(ArrivalsCircle, cdWest, HivePath1);
+
+      World.AddLocation(ConnectThreshold(ArrivalsCircle, HivePath1, HiveArchway, CreateEarthSurface(), []));
       ConnectLocations(HivePath1, cdSouth, HivePath2);
       AddTheSlideHole(HivePath2, SlideDispatchRoom);
-      ConnectLocations(ArrivalsCircle, cdSouthWest, RobotPath1);
+
+      World.AddLocation(ConnectThreshold(ArrivalsCircle, RobotPath1, RobotArchway, CreateEarthSurface(), []));
       ConnectLocations(RobotPath1, cdSouthWest, RobotPath2);
       AddTheSlideHole(RobotPath2, SlideDispatchRoom);
 

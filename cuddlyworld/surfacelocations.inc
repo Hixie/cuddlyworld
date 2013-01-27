@@ -32,7 +32,7 @@ begin
    inherited Create(CONSTRUCTORARGUMENTNAMES);
    FGround := Ground;
    Add(FGround, tpPartOfImplicit);
-   AddLandmark(cdDown, FGround, [loReachable, loConsiderDirectionUnimportantWhenFindingChildren]);
+   AddLandmark(cdDown, FGround, [loPermissibleNavigationTarget, loConsiderDirectionUnimportantWhenFindingChildren, loNotVisibleFromBehind]);
 end;
 
 constructor SUBCLASS.Read(Stream: TReadStream);

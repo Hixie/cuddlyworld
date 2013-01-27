@@ -1,15 +1,7 @@
 ONGOING WORK
- + add the threshold locations using THorizontalThresholdLocation in locations.pas for the arches
-    TDoubleSidedThing's does the right thing
-    TThresholdLocation invokes its TDoubleSidedThing's AddExplicitlyReferencedThingsFromDirection()
- + see XXX in tests.pas for pre-submit requirements
- + "find tree" hung once after: l u; l s; x tree; n; l u; x sun; find sun; find sky; l at sky; take sun; l; find tree
+ + see XXX in tests.pas for unexpected bugs
 
 WORLD
- + doors and other location proxies might have to be in two rooms at once, one for each side, synchronised (e.g. door open state)
-   - have a global "door" object (with no parent) and two "door side" objects
-   - have the sides forward to the door
-   - have the sides be partOf the door when the door is taken off its hinges
  + we should still describe non-implicit things that are on implicit things
  + descriptions of locations should not list exits that are listed in the description
     - basically, exits should be able to be labeled as implicit
@@ -35,7 +27,10 @@ WORLD
  + "harvest forest": I don't understand how to "harvest".
  + "chop down forest": I don't understand how to "chop".
  + "repair", "unbreak system": I don't understand how to "unbreak".
-
+ + right now the logic in TLocation.GetLookTowardsDirection doesn't match the logic in FindThingDirectional and company
+    - maybe there should just be one landmark per direction, and if there's to be another behind it, then things
+      should be done via a chain of locations that add things rather than by listing them in each object in turn
+      
 PLOT
  + plot
 
@@ -73,6 +68,12 @@ NAVIGATION
     - this would dramatically simplify navigation and looking around
     - this might be necessary to make descriptions from inside a bag make as much sense as outside a bag, anyway
  + "enter e" when there are three matching things "e" should pick the right one and enter it
+ + no way to actually enter (and remain at) a threshold
+    - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
+    - make it possible to close and open a threshold door
+    - make sure it's possible to have doors with two distinct sides
+       - TThresholdLocation invokes its TDoubleSidedThing's AddExplicitlyReferencedThingsFromDirection()
+    - make it possible to take a door off its hinges, leaving the threshold
 
 PLAYER INTERACTION
  + if you "take all" when someone is present holding something, you take their stuff
@@ -90,6 +91,8 @@ PLAYER INTERACTION
  + bounce balloon
  + if you disconnect, you should (after a timeout) get encased in a ludicrously heavy transparent bubble.
  + should write a test that triggers the size check in TThing.GetEntrance ("enter apple" should do it)
+ + should support commands that end with a full stop ('l n.' => 'I don't understand how to look north ".".')
+ + "i,d" doesn't work, but "i;d" does
 
 THINGS
  + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it's heavy

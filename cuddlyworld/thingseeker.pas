@@ -1621,13 +1621,13 @@ end;
 
 procedure TThingCollector.Add(Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber);
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.ReferencedCallback() called with Thing=', Thing.GetDefiniteName(nil), ', Count=', Count); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} if (gnSingular in GrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() GrammaticalNumber contains gnSingular'); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} if (gnPlural in GrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() GrammaticalNumber contains gnPlural'); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} if (gnSingular in FCurrentBestGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentBestGrammaticalNumber contains gnSingular'); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} if (gnPlural in FCurrentBestGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentBestGrammaticalNumber contains gnPlural'); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} if (gnSingular in FCurrentPreferredGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentPreferredGrammaticalNumber contains gnSingular'); {$ENDIF}
-{$IFDEF DEBUG_SEEKER} if (gnPlural in FCurrentPreferredGrammaticalNumber) then Writeln('TThingCollector.ReferencedCallback() FCurrentPreferredGrammaticalNumber contains gnPlural'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('TThingCollector.Add() called with Thing=', Thing.GetDefiniteName(nil), ', Count=', Count); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnSingular in GrammaticalNumber) then Writeln('TThingCollector.Add() GrammaticalNumber contains gnSingular'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnPlural in GrammaticalNumber) then Writeln('TThingCollector.Add() GrammaticalNumber contains gnPlural'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnSingular in FCurrentBestGrammaticalNumber) then Writeln('TThingCollector.Add() FCurrentBestGrammaticalNumber contains gnSingular'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnPlural in FCurrentBestGrammaticalNumber) then Writeln('TThingCollector.Add() FCurrentBestGrammaticalNumber contains gnPlural'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnSingular in FCurrentPreferredGrammaticalNumber) then Writeln('TThingCollector.Add() FCurrentPreferredGrammaticalNumber contains gnSingular'); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} if (gnPlural in FCurrentPreferredGrammaticalNumber) then Writeln('TThingCollector.Add() FCurrentPreferredGrammaticalNumber contains gnPlural'); {$ENDIF}
    Assert(Assigned(FCurrentBestThingList));
    if (Count < FCurrentBestLength) then
       Exit;
