@@ -14,11 +14,9 @@ while (<>) {
     next if m!^.+\([0-9]+,[0-9]+\) Warning: Constructor should be public$!os; # i'll use whatever visibility i want, thanks
     next if m!^.+\([0-9]+,[0-9]+\) Hint: Inlining disabled$!os;
     next if m!^Error: .+ppcx64 returned an error exitcode \(normal if you did not specify a source file to be compiled\)$!os;
-    next if m!^Linking ../bin/[-a-z]+$!os;
-    next if m!^[0-9]+ lines compiled, [0-9.]+ sec $!os;
+    next if m!^Linking ../bin/[-a-z_0-9]+$!os;
+    next if m!^[0-9]+ lines compiled, [0-9.]+ sec *$!os;
     next if m!^[0-9]+ (?:hint|warning|note)\(s\) issued$!os;
-
-    next if m!^.+\([0-9]+,[0-9]+\) Hint: Local const "magic." is not used$!os;
 
     if (m!^([^(]+)\(([0-9]+),([0-9]+)\) Warning: (?:Comparison might be always true due to range of constant and expression|unreachable code)$!os) {
         my $file = $1;
@@ -73,6 +71,8 @@ while (<>) {
         next if $statement =~ m/ {BOGUS \Q$message\E}\n$/s;
     }
 
+    next if m!^.+\([0-9]+,[0-9]+\) Hint: Local const "magic." is not used$!os;
+
     $error = 1 if m!^Fatal: Compilation aborted$!os;
     print "$_\n";
 }
@@ -81,4 +81,4 @@ exit 1 if $error;
 #    next if m!^.+\([0-9]+,[0-9]+\) Hint: Value parameter ".+" is assigned but never used$!os;
 #    next if m!^.+\([0-9]+,[0-9]+\) Warning: Mixing signed expressions and longwords gives a 64bit result$!os;
 #    next if m!^.+\([0-9]+,[0-9]+\) Hint: Converting the operands to "Int64" before doing the add could prevent overflow errors\.$!os;
-#    next if m!^.+\([0-9]+,[0-9]+\) Warning: Type size mismatch, possible loss of data / range check error$!os;
+
