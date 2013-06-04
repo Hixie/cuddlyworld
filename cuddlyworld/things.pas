@@ -674,7 +674,7 @@ const
    HoleSize = tsGigantic;
 var
    Pile: TPile;
-   E: TThingEnumerator;
+   E: TThingList.TEnumerator;
 begin
    if (Assigned(FHole)) then
    begin
@@ -1055,7 +1055,7 @@ end;
 procedure THole.HandleAdd(Thing: TThing; Blame: TAvatar);
 var
    Child: TThing;
-   E: TThingEnumerator;
+   E: TThingList.TEnumerator;
    PileSize: TThingSizeManifest;
    OldParent: TAtom;
    OldThing: TThing;

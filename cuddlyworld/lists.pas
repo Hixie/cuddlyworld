@@ -17,63 +17,56 @@ type
       Value: TStorable;
    end;
 
-   TAbstractStorableList = class;
-
-   generic TGenericStorableListEnumerator<TItem> = class
-     protected
-      FCurrentListNode: PListNode;
-      FList: TAbstractStorableList;
-      FDirection: TTraversalDirection;
-      FAdvanced: Boolean;
-     strict private { just "private" has no useful effect here since the generic is compiled in the context of whomever invokes us }
-      function InternalGetCurrent(): TItem;
-     public
-      constructor Create(List: TAbstractStorableList; StartListNode: PListNode; Direction: TTraversalDirection);
-      destructor Destroy(); override;
-      function HasMore(): Boolean;
-      procedure Remove();
-      procedure RemoveRemainder();
-      { Enumerator support }
-      function MoveNext(): Boolean;
-      property Current: TItem read InternalGetCurrent;
-   end;
-
    TStorableListFlags = set of (slOwner, { if set, frees the contents of the list and writes objects to the stream; otherwise, doesn't free and writes references }
                                 slDropDuplicates); { if set, duplicates are checked for and ignored when adding }
 
-   TAbstractStorableList = class(TStorable)
-     public { should be protected }
-      { these members have to be visible since they are used by the generics below and the generics are compiled outside this unit }
+   generic TStorableList<TItem> = class(TStorable)
+     public
+      type
+       TEnumerator = class
+         protected
+          FCurrentListNode: PListNode;
+          FList: TStorableList;
+          FDirection: TTraversalDirection;
+          FAdvanced: Boolean;
+         strict private
+          function InternalGetCurrent(): TItem;
+         public
+          constructor Create(List: TStorableList; StartListNode: PListNode; Direction: TTraversalDirection);
+          destructor Destroy(); override;
+          function HasMore(): Boolean;
+          procedure Remove();
+          procedure RemoveRemainder();
+          { Enumerator support }
+          function MoveNext(): Boolean;
+          property Current: TItem read InternalGetCurrent;
+       end;
+     strict private
       FFlags: TStorableListFlags;
       FFirstNode, FLastNode: PListNode;
       FLength, FActiveEnumerators: Cardinal;
       procedure InternalRemoveItem(Node: PListNode); { has to be visible by enumerator }
       procedure InternalRemoveFromItem(Node: PListNode; Direction: TTraversalDirection); { has to be visible by enumerator }
+      procedure InternalMergeList(List: TStorableList);
+      procedure InternalAppendList(List: TStorableList);
+      function InternalGetFirst(): TItem;
       {$IFOPT C+} procedure CheckLength(); {$ENDIF}
      public
       constructor Create(Flags: TStorableListFlags = []);
+      constructor Clone(Template: TStorableList; Flags: TStorableListFlags = []);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
       destructor Destroy(); override;
       procedure Empty(); { without freeing }
-      procedure Deduplicate();
       procedure FreeItems(); { and empty }
-      procedure Write(Stream: TWriteStream); override;
-      property Length: Cardinal read FLength;
-   end;
-
-   generic TStorableList<TItem, TEnumerator> = class(TAbstractStorableList)
-     private { this is private to wherever we get replayed, sadly (so e.g. world.pas) }
-      procedure InternalMergeList(List: TAbstractStorableList);
-      procedure InternalAppendList(List: TAbstractStorableList);
-      function InternalGetFirst(): TItem;
-     public
-      constructor Clone(Template: TAbstractStorableList; Flags: TStorableListFlags = []);
-      constructor Read(Stream: TReadStream); override;
+      procedure Deduplicate();
       procedure AppendItem(Item: TItem);
       procedure RemoveItem(Item: TItem);
       procedure AdoptItem(Enumerator: TEnumerator);
-      procedure AdoptList(List: TAbstractStorableList); // need compile-time type check here -- see http://mantis.freepascal.org/view.php?id=11777
+      procedure AdoptList(List: TStorableList);
       function GetEnumerator(const Direction: TTraversalDirection = tdForward): TEnumerator;
       function Contains(Item: TItem): Boolean;
+      property Length: Cardinal read FLength;
       property First: TItem read InternalGetFirst;
    end;
 
@@ -82,7 +75,7 @@ implementation
 uses
    sysutils;
 
-constructor TGenericStorableListEnumerator.Create(List: TAbstractStorableList; StartListNode: PListNode; Direction: TTraversalDirection);
+constructor TStorableList.TEnumerator.Create(List: TStorableList; StartListNode: PListNode; Direction: TTraversalDirection);
 begin
    inherited Create();
    FList := List;
@@ -93,14 +86,14 @@ begin
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
 end;
 
-destructor TGenericStorableListEnumerator.Destroy();
+destructor TStorableList.TEnumerator.Destroy();
 begin
    Dec(FList.FActiveEnumerators);
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
    inherited;
 end;
 
-function TGenericStorableListEnumerator.MoveNext(): Boolean;
+function TStorableList.TEnumerator.MoveNext(): Boolean;
 begin
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
    if (not FAdvanced) then
@@ -120,7 +113,7 @@ begin
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
 end;
 
-function TGenericStorableListEnumerator.HasMore(): Boolean;
+function TStorableList.TEnumerator.HasMore(): Boolean;
 begin
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
    if (FAdvanced) then
@@ -139,7 +132,7 @@ begin
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
 end;
 
-function TGenericStorableListEnumerator.InternalGetCurrent(): TItem;
+function TStorableList.TEnumerator.InternalGetCurrent(): TItem;
 begin
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
    Assert(not FAdvanced);
@@ -147,7 +140,7 @@ begin
    Result := TItem(FCurrentListNode^.Value);
 end;
 
-procedure TGenericStorableListEnumerator.Remove();
+procedure TStorableList.TEnumerator.Remove();
 var
    Node: PListNode;
    {$IFOPT C+} BeforeLength: Cardinal; {$ENDIF}
@@ -170,7 +163,7 @@ begin
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
 end;
 
-procedure TGenericStorableListEnumerator.RemoveRemainder();
+procedure TStorableList.TEnumerator.RemoveRemainder();
 begin
    Assert(not FAdvanced);
    Assert(Assigned(FCurrentListNode));
@@ -184,7 +177,7 @@ begin
 end;
 
 
-constructor TAbstractStorableList.Create(Flags: TStorableListFlags = []);
+constructor TStorableList.Create(Flags: TStorableListFlags = []);
 begin
    inherited Create();
    Assert(not ((slOwner in Flags) and (slDropDuplicates in Flags)));
@@ -192,7 +185,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-destructor TAbstractStorableList.Destroy();
+destructor TStorableList.Destroy();
 begin
    Assert(FActiveEnumerators = 0);
    {$IFOPT C+} CheckLength(); {$ENDIF}
@@ -204,7 +197,7 @@ begin
    inherited;
 end;
 
-procedure TAbstractStorableList.FreeItems();
+procedure TStorableList.FreeItems();
 var
    CurrentNode: PListNode;
 begin
@@ -224,7 +217,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-procedure TAbstractStorableList.Empty();
+procedure TStorableList.Empty();
 var
    CurrentNode: PListNode;
 begin
@@ -242,7 +235,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-procedure TAbstractStorableList.Deduplicate();
+procedure TStorableList.Deduplicate();
 var
    Scan, Search: PListNode;
 begin
@@ -282,7 +275,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-procedure TAbstractStorableList.Write(Stream: TWriteStream);
+procedure TStorableList.Write(Stream: TWriteStream);
 var
    CurrentNode: PListNode;
    {$IFOPT C+} WriteLength: Cardinal; {$ENDIF}
@@ -309,7 +302,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-procedure TAbstractStorableList.InternalRemoveItem(Node: PListNode);
+procedure TStorableList.InternalRemoveItem(Node: PListNode);
 begin
    Assert(Assigned(FFirstNode));
    Assert(Assigned(FLastNode));
@@ -328,7 +321,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-procedure TAbstractStorableList.InternalRemoveFromItem(Node: PListNode; Direction: TTraversalDirection);
+procedure TStorableList.InternalRemoveFromItem(Node: PListNode; Direction: TTraversalDirection);
 var
    Garbage: PListNode;
 begin
@@ -377,7 +370,7 @@ begin
 end;
 
 {$IFOPT C+}
-procedure TAbstractStorableList.CheckLength();
+procedure TStorableList.CheckLength();
 var
    Node: PListNode;
    TestLength: Cardinal;
@@ -402,7 +395,7 @@ end;
 {$ENDIF}
 
 
-constructor TStorableList.Clone(Template: TAbstractStorableList; Flags: TStorableListFlags = []);
+constructor TStorableList.Clone(Template: TStorableList; Flags: TStorableListFlags = []);
 var
    TheirNode, OurNode: PListNode;
 begin
@@ -532,7 +525,7 @@ begin
    Assert(Assigned(Pointer(Enumerator)));
    Assert(not Enumerator.FAdvanced);
    Assert(Assigned(Enumerator.FCurrentListNode));
-   Assert(Enumerator.FCurrentListNode^.Value is TItem);
+   Assert(Enumerator.FCurrentListNode^.Value is TItem.ClassType);
    Assert(Assigned(Enumerator.FList));
    Assert(Enumerator.FList is Self.ClassType, 'Enumerator.FList has class ' + Enumerator.FList.ClassName + ' rather than expected type ' + Self.ClassName);
    Assert(Enumerator.FList <> Self);
@@ -609,7 +602,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-procedure TStorableList.AdoptList(List: TAbstractStorableList);
+procedure TStorableList.AdoptList(List: TStorableList);
 begin
    Assert(List is Self.ClassType);
    Assert(List.FActiveEnumerators = 0);
@@ -625,7 +618,7 @@ begin
 end;
 
 { if this becomes a bottleneck, maybe a hashtable would help }
-procedure TStorableList.InternalMergeList(List: TAbstractStorableList);
+procedure TStorableList.InternalMergeList(List: TStorableList);
 var
    LastOriginal, CurrentOriginal, CurrentCandidate, NextCandidate: PListNode;
 begin
@@ -681,7 +674,7 @@ begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
-procedure TStorableList.InternalAppendList(List: TAbstractStorableList);
+procedure TStorableList.InternalAppendList(List: TStorableList);
 {$IFOPT C+}
 var
    Item: PListNode;

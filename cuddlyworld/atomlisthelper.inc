@@ -3,7 +3,7 @@
 function TAtomList.GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
-   E: TAtomEnumerator;
+   E: TAtomList.TEnumerator;
 begin
    Result := '';
    Count := 0;
@@ -32,7 +32,7 @@ end;
 function TThingList.GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
-   E: TThingEnumerator;
+   E: TThingList.TEnumerator;
 begin
    Result := '';
    Count := 0;
@@ -85,7 +85,7 @@ end;
 function TAtomList.GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
-   E: TAtomEnumerator;
+   E: TAtomList.TEnumerator;
 begin
    Result := '';
    Count := 0;
@@ -114,7 +114,7 @@ end;
 function TThingList.GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
-   E: TThingEnumerator;
+   E: TThingList.TEnumerator;
 begin
    Result := '';
    Count := 0;
@@ -167,7 +167,7 @@ end;
 function TAtomList.GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
-   E: TAtomEnumerator;
+   E: TAtomList.TEnumerator;
 begin
    Result := '';
    Count := 0;
@@ -196,7 +196,7 @@ end;
 function TThingList.GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
-   E: TThingEnumerator;
+   E: TThingList.TEnumerator;
 begin
    Result := '';
    Count := 0;

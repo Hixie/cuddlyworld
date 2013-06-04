@@ -537,7 +537,7 @@ var
 
    procedure SelectN(N: Cardinal);
    var
-      E: TThingEnumerator;
+      E: TThingList.TEnumerator;
    begin
       Assert(N <= Count);
       E := FThings.GetEnumerator();
@@ -611,7 +611,7 @@ end;
 
 procedure TAbstractClause.SelfCensor(Whitelist: TThingList);
 var
-   E: TThingEnumerator;
+   E: TThingList.TEnumerator;
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.SelfCensor() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Whitelist=', Whitelist.GetDefiniteString(nil, 'and')); {$ENDIF}
    E := FThings.GetEnumerator();
@@ -888,8 +888,8 @@ end;
 
 procedure TAbstractFilteringClause.Filter(Victim: TAbstractClause);
 var
-   VictimEnumerator: TThingEnumerator;
-   FilterEnumerator, OldFilterEnumerator: TThingEnumerator;
+   VictimEnumerator: TThingList.TEnumerator;
+   FilterEnumerator, OldFilterEnumerator: TThingList.TEnumerator;
    Done, Found: Boolean;
    NextRegisteredJoin: Cardinal;
    CurrentIsMatch: TIsMatchFunction;
@@ -1172,7 +1172,7 @@ end;
 procedure TAbstractPreconditionFilterClause.Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism);
 var
    NeedMatching, HaveMatching, VictimIndex: Cardinal;
-   FilterEnumerator, VictimEnumerator, OldVictimEnumerator: TThingEnumerator;
+   FilterEnumerator, VictimEnumerator, OldVictimEnumerator: TThingList.TEnumerator;
    Trash: TThingList;
    TargetIsMatch: TIsMatchFunction;
    Done, Found: Boolean;
