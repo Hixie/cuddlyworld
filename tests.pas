@@ -2448,14 +2448,13 @@ type
    end;
 
 type
-   TMoleculeEnumerator = specialize TGenericStorableListEnumerator<TMolecule>;
-   TMoleculeList = specialize TStorableList<TMolecule, TMoleculeEnumerator>;
+   TMoleculeList = specialize TStorableList<TMolecule>;
 
 procedure TestLists();
 var
    List1, List2: TMoleculeList;
    Mol1, Mol2, Mol3: TMolecule;
-   Enum1, Enum2: TMoleculeEnumerator;
+   Enum1, Enum2: TMoleculeList.TEnumerator;
    Failed: Boolean;
    TestCount: Cardinal;
 

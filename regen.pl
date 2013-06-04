@@ -61,7 +61,7 @@ sub regenAtomLists {
 function T${class}List.Get${method}String(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
 var
    Count: Cardinal;
-   E: T${class}Enumerator;
+   E: T${class}List.TEnumerator;
 begin
    Result := '';
    Count := 0;

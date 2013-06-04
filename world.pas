@@ -9,17 +9,13 @@ uses
 
 type
    TAtom = class;
-   TAtomEnumerator = specialize TGenericStorableListEnumerator<TAtom>;
-   TInternalAtomList = specialize TStorableList<TAtom, TAtomEnumerator>;
+   TInternalAtomList = specialize TStorableList<TAtom>;
    TThing = class;
-   TThingEnumerator = specialize TGenericStorableListEnumerator<TThing>;
-   TInternalThingList = specialize TStorableList<TThing, TThingEnumerator>;
+   TInternalThingList = specialize TStorableList<TThing>;
    TAvatar = class;
-   TAvatarEnumerator = specialize TGenericStorableListEnumerator<TAvatar>;
-   TAvatarList = specialize TStorableList<TAvatar, TAvatarEnumerator>; // @RegisterStorableClass
+   TAvatarList = specialize TStorableList<TAvatar>; // @RegisterStorableClass
    TLocation = class;
-   TLocationEnumerator = specialize TGenericStorableListEnumerator<TLocation>;
-   TLocationList = specialize TStorableList<TLocation, TLocationEnumerator>; // @RegisterStorableClass
+   TLocationList = specialize TStorableList<TLocation>; // @RegisterStorableClass
 
 type
    PAtomList = ^TAtomList;
@@ -88,9 +84,9 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       procedure Add(Thing: TThing; Position: TThingPosition);
-      procedure Add(Thing: TThingEnumerator; Position: TThingPosition);
+      procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
-      procedure Remove(Thing: TThingEnumerator);
+      procedure Remove(Thing: TThingList.TEnumerator);
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
       procedure Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar); virtual;
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
@@ -566,7 +562,7 @@ begin
    Thing.FPosition := Position;
 end;
 
-procedure TAtom.Add(Thing: TThingEnumerator; Position: TThingPosition);
+procedure TAtom.Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
 var
    OldParent: TAtom;
    ActualThing: TThing;
@@ -595,7 +591,7 @@ begin
    Removed(Thing);
 end;
 
-procedure TAtom.Remove(Thing: TThingEnumerator);
+procedure TAtom.Remove(Thing: TThingList.TEnumerator);
 var
    OldThing: TThing;
 begin
@@ -2342,7 +2338,7 @@ end;
 
 procedure TWorld.CheckForDisconnectedPlayers();
 var
-   E: TAvatarEnumerator;
+   E: TAvatarList.TEnumerator;
    Item: TAvatar;
 begin
    E := FPlayers.GetEnumerator();
