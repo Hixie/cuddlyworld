@@ -440,6 +440,8 @@ begin
    if (Position = tpIn) then
    begin
       Assert(ATo is TThing);
+      DisambiguationOpening := nil;
+      Message := '';
       NotificationList := TAtomList.Create();
       try
          Ancestor := AFrom;

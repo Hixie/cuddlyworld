@@ -1706,9 +1706,38 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake a spoon in pile on ground');
 
-         Proxy.SkipEverything();
+         Proxy.ExpectString('You are carrying:');
+         Proxy.ExpectString('  A spade.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Cave four');
+         Proxy.ExpectString('The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south. There are cave paintings here. There is a hole here.');
+         Proxy.ExpectString('There is a pile of earth here.');
+         Proxy.ExpectString('There is a wooden spoon here.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Looking in, you see a hole. The hole is quite dirty.');
+         Proxy.ExpectString('The hole is empty.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Looking in, you see a pile of earth. The pile of earth is quite dirty.');
+         Proxy.ExpectString('A thorough search through the pile of earth reveals:');
+         Proxy.ExpectString('  A plastic spoon.');
+         Proxy.ExpectString('  A stainless steel spoon.');
+         Proxy.ExpectString('  A silver spoon.');
+         Proxy.ExpectString('');
          TestPlayer.Perform('inventory; look; look in hole; look in pile');
-         Proxy.StopSkipping();
+
+         Proxy.ExpectString('Hole in the ground');
+         Proxy.ExpectString('The hole is quite dirty.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('You see nothing noteworthy when looking up.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('You are in the hole.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('Cave four');
+         Proxy.ExpectString('The cave is brightly lit from an entrace to a white room to the west. There is also some dim light coming from the south. There are cave paintings here. There is a hole here.');
+         Proxy.ExpectString('There is a pile of earth here.');
+         Proxy.ExpectString('There is a wooden spoon here.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('enter hole; look up; look down; exit up');
 
          Proxy.ExpectString('Plastic spoon: You shake the plastic spoon.');
          Proxy.ExpectString('Stainless steel spoon: You shake the stainless steel spoon.');
@@ -2041,6 +2070,45 @@ begin
          Proxy.ExpectString('Mount Olympus');
          Proxy.WaitUntilString('');
          TestPlayer.Perform('look up');
+
+         Proxy.ExpectString('That would prove rather challenging given where the garbage bag is relative to yourself.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('enter garbage bag');
+
+         Proxy.ExpectString('Rotten grapes: (first taking the rotten grapes)');
+         Proxy.ExpectString('Rotten grapes: Taken.');
+         Proxy.ExpectString('Rotten grapes: Dropped.');
+         Proxy.ExpectString('Rotten kiwi: (first taking the rotten kiwi)');
+         Proxy.ExpectString('Rotten kiwi: Taken.');
+         Proxy.ExpectString('Rotten kiwi: Dropped.');
+         Proxy.ExpectString('Rotten pineapple: (first taking the rotten pineapple)');
+         Proxy.ExpectString('Rotten pineapple: Taken.');
+         Proxy.ExpectString('Rotten pineapple: Dropped.');
+         Proxy.ExpectString('Brown sack: (first taking the brown sack)');
+         Proxy.ExpectString('Brown sack: Taken.');
+         Proxy.ExpectString('Brown sack: Dropped.');
+         Proxy.ExpectString('Garbage bag: Dropped.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('You cannot enter the garbage bag. There is not enough room in the garbage bag for you.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('drop all from garbage bag and garbage bag then enter garbage bag');
+
+         Proxy.ExpectString('Looking in, you see a bag of holding. The bag has the name "Tester" embroidered around its rim.');
+         Proxy.ExpectString('The bag of holding is empty.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('look in bag of holding');
+
+         Proxy.ExpectString('Dropped.');
+         Proxy.ExpectString('');
+         Proxy.ExpectString('In the bag of holding (at the flower room)');
+         Proxy.ExpectString('The bag has the name "Tester" embroidered around its rim.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('drop bag of holding then enter bag of holding');
+
+         Proxy.ExpectString('In the bag of holding (at the flower room)');
+         Proxy.ExpectString('The bag has the name "Tester" embroidered around its rim.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('look');
 
          Proxy.ExpectDone();
 
