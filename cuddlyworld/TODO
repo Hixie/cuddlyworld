@@ -1,12 +1,10 @@
-CUDDLYWORLD
- + enter bag, in test world, crashes; look in bag hangs; enter hole is also broken
-
 NAVIGATION
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
  + "visit third gender"
  + exit things by name
     - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
+    - "exit hole"
     - "get out of pile": That's a direction, I don't know how to take it.
     - when doing this make sure that we can't escape closed containers
  + "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
@@ -91,6 +89,7 @@ PLAYER INTERACTION
  + should write a test that triggers the size check in TThing.GetEntrance ("enter apple" should do it)
  + should support commands that end with a full stop ('l n.' => 'I don't understand how to look north ".".')
  + "i,d" doesn't work, but "i;d" does
+ + similarly, "enter hole, look up, look down, exit hole" doesn't parse right
 
 THINGS
  + "except"
