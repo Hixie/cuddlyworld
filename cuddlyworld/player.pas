@@ -44,7 +44,7 @@ type
       procedure DoDig(Target: TThing; Spade: TThing);
       procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
       procedure DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
-      procedure DoDance();
+      procedure DoDance(); unimplemented;
       {$IFDEF DEBUG}
       procedure DoDebugStatus();
       procedure DoDebugThings(Things: TThingList);
@@ -1543,8 +1543,7 @@ end;
 
 procedure TPlayer.DoDance();
 begin
-   // XXX need a general emoting mechanic
-   NotImplemented();
+   XXX; // need a general emoting mechanic
 end;
 
 procedure TPlayer.HandleAdd(Thing: TThing; Blame: TAvatar);

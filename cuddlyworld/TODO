@@ -1,5 +1,4 @@
 CUDDLYWORLD
- + Archways shouldn't have "to the east", etc, 
  + enter bag, in test world, crashes; look in bag hangs; enter hole is also broken
 
 NAVIGATION
@@ -58,6 +57,7 @@ WORLD
  + "repair", "unbreak system": I don't understand how to "unbreak".
       
 PLOT
+ + Archways shouldn't have "to the east", etc, 
  + plot
 
 WIZARDING
