@@ -10,17 +10,17 @@ uses
 type
    TTraversalDirection = (tdForward, tdReverse);
 
+   TStorableListFlags = set of (slOwner, { if set, frees the list contents and writes objects to the stream; otherwise, doesn't free and writes references }
+                                slDropDuplicates); { if set, duplicates are checked for and ignored when adding }
+
    PListNode = ^TListNode;
    TListNode = record
       Next: PListNode;
       Previous: PListNode;
-      Value: TStorable;
+      Value: TStorable; // XXX should be a nested item, and of type TItem, but that doesn't work
    end;
 
-   TStorableListFlags = set of (slOwner, { if set, frees the contents of the list and writes objects to the stream; otherwise, doesn't free and writes references }
-                                slDropDuplicates); { if set, duplicates are checked for and ignored when adding }
-
-   generic TStorableList<TItem> = class(TStorable)
+   generic TStorableList<TItem> = class(TStorable) // XXX can't use constraint <TItem: TStorable> because we instantiate it with forwarded types
      public
       type
        TEnumerator = class

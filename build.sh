@@ -1,3 +1,6 @@
+
+# fpc test.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -Sa -veiwnhb && ./test; exit;
+
 # Generate helper files
 perl -w regen.pl &&
 
@@ -6,9 +9,9 @@ perl -w regen.pl &&
 
 # DEBUGGING
 # add -B to recompile everything
-fpc cuddlyworld.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gh -Sa -veiwnhb -FE../bin/ 2>&1 | ./filter.pl &&
-fpc genesis.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gh -Sa -veiwnhb -FE../bin/ 2>&1 | ./filter.pl &&
-fpc tests.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gh -Sa -veiwnhb -FE../bin/ 2>&1 | ./filter.pl &&
+fpc cuddlyworld.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gh -Sa -veiwnhb -FE../bin/ -Fulib -Filib 2>&1 | ./lib/filter.pl &&
+fpc genesis.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gh -Sa -veiwnhb -FE../bin/ -Fulib -Filib 2>&1 | ./lib/filter.pl &&
+fpc tests.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -gt -gl -gh -Sa -veiwnhb -FE../bin/ -Fulib -Filib 2>&1 | ./lib/filter.pl &&
 echo &&
 ../bin/tests &&
 echo &&

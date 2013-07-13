@@ -42,32 +42,32 @@ type
    end;
 
 const
-   magicA = #226#152#128;
-   magicB = #226#152#129;
-   magicC = #226#152#130;
-   magicD = #226#152#131;
-   magicE = #226#152#132;
-   magicF = #226#152#133;
-   magicG = #226#152#134;
-   magicH = #226#152#135;
-   magicI = #226#152#136;
-   magicJ = #226#152#137;
-   magicK = #226#152#138;
-   magicL = #226#152#139;
-   magicM = #226#152#140;
-   magicN = #226#152#141;
-   magicO = #226#152#142;
-   magicP = #226#152#143;
-   magicQ = #226#152#144;
-   magicR = #226#152#145;
-   magicS = #226#152#146;
-   magicT = #226#152#147;
-   magicU = #226#152#148;
-   magicV = #226#152#149;
-   magicW = #226#152#150;
-   magicX = #226#152#151;
-   magicY = #226#152#152;
-   magicZ = #226#152#153;
+   magicA = #226#152#128; {BOGUS Hint: Local const "magicA" is not used}
+   magicB = #226#152#129; {BOGUS Hint: Local const "magicB" is not used}
+   magicC = #226#152#130; {BOGUS Hint: Local const "magicC" is not used}
+   magicD = #226#152#131; {BOGUS Hint: Local const "magicD" is not used}
+   magicE = #226#152#132; {BOGUS Hint: Local const "magicE" is not used}
+   magicF = #226#152#133; {BOGUS Hint: Local const "magicF" is not used}
+   magicG = #226#152#134; {BOGUS Hint: Local const "magicG" is not used}
+   magicH = #226#152#135; {BOGUS Hint: Local const "magicH" is not used}
+   magicI = #226#152#136; {BOGUS Hint: Local const "magicI" is not used}
+   magicJ = #226#152#137; {BOGUS Hint: Local const "magicJ" is not used}
+   magicK = #226#152#138; {BOGUS Hint: Local const "magicK" is not used}
+   magicL = #226#152#139; {BOGUS Hint: Local const "magicL" is not used}
+   magicM = #226#152#140; {BOGUS Hint: Local const "magicM" is not used}
+   magicN = #226#152#141; {BOGUS Hint: Local const "magicN" is not used}
+   magicO = #226#152#142; {BOGUS Hint: Local const "magicO" is not used}
+   magicP = #226#152#143; {BOGUS Hint: Local const "magicP" is not used}
+   magicQ = #226#152#144; {BOGUS Hint: Local const "magicQ" is not used}
+   magicR = #226#152#145; {BOGUS Hint: Local const "magicR" is not used}
+   magicS = #226#152#146; {BOGUS Hint: Local const "magicS" is not used}
+   magicT = #226#152#147; {BOGUS Hint: Local const "magicT" is not used}
+   magicU = #226#152#148; {BOGUS Hint: Local const "magicU" is not used}
+   magicV = #226#152#149; {BOGUS Hint: Local const "magicV" is not used}
+   magicW = #226#152#150; {BOGUS Hint: Local const "magicW" is not used}
+   magicX = #226#152#151; {BOGUS Hint: Local const "magicX" is not used}
+   magicY = #226#152#152; {BOGUS Hint: Local const "magicY" is not used}
+   magicZ = #226#152#153; {BOGUS Hint: Local const "magicZ" is not used}
 
 constructor TCuddlyWorld.Read(Stream: TReadStream);
 begin
