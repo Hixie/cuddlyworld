@@ -3,7 +3,7 @@
 program cuddlyworld;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
-   sysutils, baseunix, client, network, exceptions,
+   sysutils, baseunix, client, corenetwork, exceptions,
    storable, world, locations,
    {$IFDEF DEBUG} player, {$ENDIF}
    cuddlycamp;

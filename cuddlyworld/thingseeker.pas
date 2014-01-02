@@ -1783,6 +1783,7 @@ var
       FromOutside, GotWhitelist: Boolean;
       Root: TAtom;
       WhiteList: TThingList;
+      FindMatchingThingsOptions: TFindMatchingThingsOptions;
    begin
       Assert(FirstClause is TStartClause);
       CurrentClause := FirstClause;
@@ -1813,7 +1814,12 @@ var
                         Assert(False, 'unexpected TAllImpliedScope value');
                      Whitelist := TThingList.Create();
                      GotWhitelist := True;
-                     Root.FindMatchingThings(Perspective, FromOutside, aisSelf in Scope, tpCountsForAll, [], Whitelist);
+                     FindMatchingThingsOptions := [];
+                     if (FromOutside) then
+                        Include(FindMatchingThingsOptions, foFromOutside);
+                     if (aisSelf in Scope) then
+                        Include(FindMatchingThingsOptions, foIncludePerspectiveChildren);
+                     Root.FindMatchingThings(Perspective, FindMatchingThingsOptions, tpCountsForAll, [], Whitelist);
                   end;
                   CurrentClause.SelfCensor(Whitelist);
                end;
@@ -1945,12 +1951,18 @@ var
       function CollectImplicitThings(Flags: TClauseFlags): Boolean;
       var
          FromOutside: Boolean;
+         Root: TAtom;
+         FindMatchingThingsOptions: TFindMatchingThingsOptions;
       begin
          Assert(not (cfHadArticle in Flags));
          if (not Assigned(FCurrentBestThingList)) then
             FCurrentBestThingList := TThingList.Create();
          Assert(FCurrentBestThingList.Length = 0);
-         Perspective.GetSurroundingsRoot(FromOutside).FindMatchingThings(Perspective, FromOutside, True, tpEverything, tfEverything, FCurrentBestThingList);
+         Root := Perspective.GetSurroundingsRoot(FromOutside);
+         FindMatchingThingsOptions := [foIncludePerspectiveChildren];
+         if (FromOutside) then
+            Include(FindMatchingThingsOptions, foFromOutside);
+         Root.FindMatchingThings(Perspective, FindMatchingThingsOptions, tpEverything, tfEverything, FCurrentBestThingList);
          AppendClause(ClauseClass.Create(1, tsmPickAll, Flags, FCurrentBestThingList, OriginalTokens[CurrentToken - 1]));
          FCurrentBestThingList := nil;
          Result := True;

@@ -346,13 +346,19 @@ procedure TPlayer.DoDebugThings(Things: TThingList);
 var
    Thing: TThing;
    Collect, FromOutside: Boolean;
+   Root: TAtom;
+   FindMatchingThingsOptions: TFindMatchingThingsOptions;
 begin
    Collect := not Assigned(Things);
    try
       if (Collect) then
       begin
+         Root := GetSurroundingsRoot(FromOutside);
          Things := TThingList.Create();
-         GetSurroundingsRoot(FromOutside).FindMatchingThings(Self, FromOutside, True, tpEverything, [], Things);
+         FindMatchingThingsOptions := [foIncludePerspectiveChildren, foIncludeNonImplicits];
+         if (FromOutside) then
+            Include(FindMatchingThingsOptions, foFromOutside);
+         Root.FindMatchingThings(Self, FindMatchingThingsOptions, tpEverything, [], Things);
          { there's always at least one thing: us }
       end;
       Assert(Things.Length > 0);
@@ -600,7 +606,7 @@ begin
    else
    if ((Mode = psOnThatThingIsAThing) or (Mode = psTheThingIsOnThatThing)) then
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' +
-                           ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
+                           ThingPositionToString(FPosition) + ' ' + FParent.GetLongDefiniteName(Perspective) + '.'
    else
       Result := inherited;
 end;
@@ -1727,17 +1733,30 @@ end;
 
 function TPlayer.GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
 var
+   Root: TAtom;
    List: TThingList;
    FromOutside: Boolean;
+   FindMatchingThingsOptions: TFindMatchingThingsOptions;
 begin
    Assert(Assigned(FParent));
    Assert((aisSelf in Scope) or (aisSurroundings in Scope));
    List := TThingList.Create();
    try
+      FindMatchingThingsOptions := [];
+      if (aisSelf in Scope) then
+         Include(FindMatchingThingsOptions, foIncludePerspectiveChildren);
       if (aisSurroundings in Scope) then
-         GetSurroundingsRoot(FromOutside).FindMatchingThings(Self, FromOutside, aisSelf in Scope, tpEverything, FeatureFilter, List)
+      begin
+         Root := GetSurroundingsRoot(FromOutside);
+         if (FromOutside) then
+            Include(FindMatchingThingsOptions, foFromOutside);
+      end
       else
-         FindMatchingThings(Self, True, aisSelf in Scope, tpEverything, FeatureFilter, List);
+      begin
+         Root := Self;
+         Include(FindMatchingThingsOptions, foFromOutside);
+      end;
+      Root.FindMatchingThings(Self, FindMatchingThingsOptions, tpEverything, FeatureFilter, List);
       if (List.Length > 0) then
       begin
          // XXX should implement some kind of prioritisation scheme
@@ -1783,139 +1802,202 @@ end;
 function TPlayer.IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean;
 var
    Word: AnsiString;
-   Aborted: Boolean;
-begin
-   GrammaticalNumber := [];
-   Word := Tokens[Start];
-   Count := 1;
-   if (Word = 'other') then
+
+   function Consume(const Candidate: AnsiString; out Aborted: Boolean): Boolean;
    begin
+      Result := False;
       Aborted := False;
-      if (Perspective = Self) then
+      if (Word = Candidate) then
       begin
-         Aborted := True;
-      end
-      else
-      if (Start + Count >= Length(Tokens)) then
-      begin
-         GrammaticalNumber := [gnSingular];
-         Aborted := True;
-      end
-      else
+         Result := True;
+         Inc(Count);
+         if (Start + Count >= Length(Tokens)) then
+         begin
+            Aborted := True;
+         end
+         else
+         begin
+            Word := Tokens[Start+Count];
+         end;
+      end;
+   end;
+
+   function ConsumeAndEnd(const Candidate: AnsiString): Boolean;
+   begin
+      Consume(Candidate, Result);
+   end;
+
+   function ConsumeAndEnd(const Candidate: AnsiString; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
+   begin
+      if (Consume(Candidate, Result)) then
+         GrammaticalNumber := WouldBeGrammaticalNumber;
+   end;
+
+   function ConsumeTerminal(const Candidate: AnsiString; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
+   begin
+      if (Word = Candidate) then
       begin
          Inc(Count);
-         Word := Tokens[Start+Count-1];
-      end;
-   end
-   else
+         GrammaticalNumber := WouldBeGrammaticalNumber;
+         Result := True;
+      end
+      else
+         Result := False;
+   end;
+
+   function ConsumeNonTerminal(const Candidate: AnsiString; out Aborted: Boolean): Boolean;
    begin
-      Aborted := True;
-      if (Word = 'us') then
-         GrammaticalNumber := [gnPlural]
+      Result := False;
+      if (Start + Count + 1 >= Length(Tokens)) then
+      begin
+         Aborted := True;
+      end
+      else
+      begin
+         Aborted := False;
+         if (Word = Candidate) then
+         begin
+            Result := True;
+            Inc(Count);
+            Word := Tokens[Start+Count];
+         end;
+      end;
+   end;
+
+   procedure InternalParse();
+   var
+      ReachedEnd: Boolean;
+   begin
+      Count := 0;
+      Word := Tokens[Start];
+      if (ConsumeTerminal('us', [gnPlural])) then
+         Exit
       else
       if (Perspective = Self) then
       begin
-         if (Word = 'me') then
-            GrammaticalNumber := [gnSingular];
+         if (ConsumeTerminal('me', [gnSingular])) then
+            Exit;
       end
       else
-      if (Word = 'them') then
-         GrammaticalNumber := [gnPlural]
-      else
-      if (Word = 'others') then
-         GrammaticalNumber := [gnPlural]
-      else
-         Aborted := False;
-   end;
-   if (not Aborted) then
-   begin
-      if (Word = 'player') then
-         GrammaticalNumber := [gnSingular]
-      else
-      if (Word = 'players') then
-         GrammaticalNumber := [gnPlural]
-      else
+      begin
+         Assert(Perspective <> Self);
+         if (ConsumeAndEnd('other')) then
+         begin
+            GrammaticalNumber := [gnSingular];
+            Exit;
+         end
+         else
+         if (ConsumeTerminal('them', [gnPlural]) or ConsumeTerminal('others', [gnPlural])) then
+            Exit;
+      end;
+      Assert(GrammaticalNumber = []);
+      if (ConsumeAndEnd(Canonicalise(FName), [gnSingular])) then
+         Exit;
       case FGender of
          gMale:
             begin
-               if ((Word = 'boy') or (Word = 'man') or (Word = 'person') or (Word = 'human') or (Word = 'male')) then
-                  GrammaticalNumber := [gnSingular]
-               else
-               if ((Word = 'boys') or (Word = 'men') or (Word = 'persons') or (Word = 'people') or (Word = 'humans') or (Word = 'males')) then
-                  GrammaticalNumber := [gnPlural];
+               if (ConsumeAndEnd('boy', [gnSingular]) or 
+                   ConsumeAndEnd('man', [gnSingular]) or
+                   ConsumeAndEnd('person', [gnSingular]) or
+                   ConsumeAndEnd('human', [gnSingular]) or
+                   ConsumeAndEnd('male', [gnSingular]) or
+                   ConsumeAndEnd('boys', [gnPlural]) or
+                   ConsumeAndEnd('men', [gnPlural]) or
+                   ConsumeAndEnd('persons', [gnPlural]) or
+                   ConsumeAndEnd('people', [gnPlural]) or
+                   ConsumeAndEnd('humans', [gnPlural]) or
+                   ConsumeAndEnd('males', [gnPlural])) then
+                  Exit;
             end;
          gFemale:
             begin
-               if ((Word = 'girl') or (Word = 'woman') or (Word = 'person') or (Word = 'human') or (Word = 'female')) then
-                  GrammaticalNumber := [gnSingular]
-               else
-               if ((Word = 'girls') or (Word = 'women') or (Word = 'persons') or (Word = 'people') or (Word = 'humans') or (Word = 'females')) then
-                  GrammaticalNumber := [gnPlural];
+               if (ConsumeAndEnd('girl', [gnSingular]) or
+                   ConsumeAndEnd('woman', [gnSingular]) or
+                   ConsumeAndEnd('person', [gnSingular]) or
+                   ConsumeAndEnd('human', [gnSingular]) or
+                   ConsumeAndEnd('female', [gnSingular]) or
+                   ConsumeAndEnd('girls', [gnPlural]) or
+                   ConsumeAndEnd('women', [gnPlural]) or
+                   ConsumeAndEnd('persons', [gnPlural]) or
+                   ConsumeAndEnd('people', [gnPlural]) or
+                   ConsumeAndEnd('humans', [gnPlural]) or
+                   ConsumeAndEnd('females', [gnPlural])) then
+                  Exit;
             end;
          gThirdGender:
             begin
-               if ((Word = 'person') or (Word = 'human')) then
-                  GrammaticalNumber := [gnSingular]
-               else
-               if ((Word = 'persons') or (Word = 'people') or (Word = 'humans')) then
-                  GrammaticalNumber := [gnPlural];
+               if (ConsumeAndEnd('person', [gnSingular]) or
+                   ConsumeAndEnd('human', [gnSingular]) or
+                   ConsumeAndEnd('persons', [gnPlural]) or
+                   ConsumeAndEnd('people', [gnPlural]) or
+                   ConsumeAndEnd('humans', [gnPlural])) then
+                  Exit;
             end;
          gRobot:
             begin
-               if ((Word = 'person') or (Word = 'robot') or (Word = 'bot')) then
-                  GrammaticalNumber := [gnSingular]
-               else
-               if ((Word = 'persons') or (Word = 'people') or (Word = 'robots') or (Word = 'bots')) then
-                  GrammaticalNumber := [gnPlural];
+               if (ConsumeAndEnd('person', [gnSingular]) or
+                   ConsumeAndEnd('robot', [gnSingular]) or
+                   ConsumeAndEnd('bot', [gnSingular]) or
+                   ConsumeAndEnd('persons', [gnPlural]) or
+                   ConsumeAndEnd('people', [gnPlural]) or
+                   ConsumeAndEnd('robots', [gnPlural]) or
+                   ConsumeAndEnd('bots', [gnPlural])) then
+                  Exit;
             end;
          gOrb:
             begin
-               if ((Word = 'person') or (Word = 'orb')) then
-                  GrammaticalNumber := [gnSingular]
-               else
-               if ((Word = 'persons') or (Word = 'people') or (Word = 'orbs')) then
-                  GrammaticalNumber := [gnPlural];
+               if (ConsumeAndEnd('orb', [gnSingular]) or
+                   ConsumeAndEnd('orbs', [gnPlural])) then
+                  Exit;
             end;
          gHive:
             begin
-               if (Word = 'hive') then
+               if (Consume('hive', ReachedEnd)) then
                begin
-                  if (Start + Count >= Length(Tokens)) then
+                  if (ReachedEnd) then
                   begin
                      GrammaticalNumber := [gnSingular];
+                     Exit;
                   end
                   else
                   begin
-                     Word := Tokens[Start+Count-1];
-                     if (Word = 'mind') then
+                     if (ConsumeAndEnd('minds', [gnPlural])) then
                      begin
-                        Inc(Count);
-                        GrammaticalNumber := [gnSingular]
+                        Exit;
                      end
                      else
-                     if (Word = 'minds') then
                      begin
-                        Inc(Count);
-                        GrammaticalNumber := [gnPlural];
-                     end
-                     else
                         GrammaticalNumber := [gnSingular];
+                        if (ConsumeAndEnd('mind')) then
+                           Exit;
+                     end;
                   end;
                end
                else
-               if (Word = 'hives') then
-                  GrammaticalNumber := [gnPlural]
-               else
-               if (Word = 'hive-mind') then
-                  GrammaticalNumber := [gnSingular]
-               else
-               if (Word = 'hive-minds') then
-                  GrammaticalNumber := [gnPlural];
+               if (ConsumeAndEnd('hives', [gnPlural]) or
+                   ConsumeAndEnd('hive-mind', [gnSingular]) or
+                   ConsumeAndEnd('hive-minds', [gnPlural])) then
+                  Exit;
             end;
         else
          Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
       end;
+      if (GrammaticalNumber <> [gnPlural]) then
+      begin
+         if (ConsumeAndEnd('player', [gnSingular]) or
+             ConsumeAndEnd('players', [gnPlural])) then
+            Exit;
+      end;
+      if (ConsumeNonTerminal('named', ReachedEnd)) then
+      begin
+         if (ConsumeAndEnd(Canonicalise(FName), [gnSingular])) then
+            Exit;
+      end;
    end;
+
+begin
+   GrammaticalNumber := [];
+   InternalParse();
    Result := GrammaticalNumber <> [];
 end;
 

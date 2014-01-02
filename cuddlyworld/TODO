@@ -48,7 +48,7 @@ WORLD
      - allow players to study tracks
    + if it's surrounded by non-forested, non-path areas, it's a field
  + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
- + Players should have PartOfs: eyes, hands, etc
+ + Players should have PartOfs: eyes, hands, etc; gender-dependent...
  + Players should have Implicits: "you", "time" ("take time"), etc
  + "harvest forest": I don't understand how to "harvest".
  + "chop down forest": I don't understand how to "chop".
@@ -90,6 +90,7 @@ PLAYER INTERACTION
  + should support commands that end with a full stop ('l n.' => 'I don't understand how to look north ".".')
  + "i,d" doesn't work, but "i;d" does
  + similarly, "enter hole, look up, look down, exit hole" doesn't parse right
+ + "put bag on me" works... not sure exactly what to do with that
 
 THINGS
  + "except"
@@ -132,8 +133,12 @@ THINGS
  + "take all again"
  + "take leaves with spade"
  + "put x under y" should say (by putting y on x) (first taking y)
- + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find".
+ + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find"
+ + "find" uses the LongDefiniteName now, but it really should only do so when the DefiniteName is ambiguous
  + support finding multiple things?
+ + "find rim" with many players around: "Which rim do you mean, the rim of the bag of holding, the rim of the bag of holding, or the rim of the bag of holding?"
+ + if you're in some thing X (or on something in some thing X), and you find X, it tells you about X's parent, which you can't reference.
+   It should instead say something like "you're in the X" or some such.
  + "look on" should list what's on something (maybe including things like engravings?)
  + things claim to be "part of the ground" when they are partOf the ground and you try to take them, which looks weird.
  + need to support the idea of an arch being over something
