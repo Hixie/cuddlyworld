@@ -5,7 +5,7 @@ unit broadcast;
 interface
 
 uses
-   world, grammarian;
+   physics, grammarian;
 
 type
    TMessageCallback = function (): AnsiString;
@@ -47,7 +47,7 @@ procedure DoBroadcast(Perspective: TAvatar; MessageParts: array of PMessagePart)
 implementation
 
 uses
-   sysutils, lists;
+   sysutils, lists, player;
 
 function SP(): PMessagePart; inline;
 begin
@@ -162,24 +162,24 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar;
    end;
 
 var
-   CurrentAvatar: TAvatar;
-   Avatars: TAvatarList;
+   CurrentPlayer: TThing;
+   Players: TThingList;
    Index: Cardinal;
    FromOutside: Boolean;
 begin
    Assert(Length(NotificationTargets) > 0, 'Don''t call DoBroadcast with nobody to broadcast to!');
    Assert(Length(MessageParts) > 0, 'Don''t call DoBroadcast with nothing to broadcast!');
    try
-      Avatars := TAvatarList.Create([slDropDuplicates]);
+      Players := TThingList.Create([slDropDuplicates]);
       try
          Assert(Length(NotificationTargets) > 0);
          for Index := Low(NotificationTargets) to High(NotificationTargets) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
-            NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetAvatars(Avatars, FromOutside);
-         for CurrentAvatar in Avatars do
-            if (CurrentAvatar <> Perspective) then
-               CurrentAvatar.AvatarBroadcast(Assemble(MessageParts, CurrentAvatar));
+            NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetNearbyThingsByClass(Players, FromOutside, TPlayer);
+         for CurrentPlayer in Players do
+            if (CurrentPlayer <> Perspective) then
+               (CurrentPlayer as TPlayer).AvatarBroadcast(Assemble(MessageParts, CurrentPlayer as TPlayer));
       finally
-         Avatars.Free();
+         Players.Free();
       end;
    finally
       Assert(Length(MessageParts) > 0);

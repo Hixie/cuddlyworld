@@ -4,8 +4,8 @@ program cuddlyworld;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, baseunix, client, corenetwork, exceptions,
-   storable, world, locations,
-   {$IFDEF DEBUG} player, {$ENDIF}
+   storable, 
+   physics, world, locations, {$IFDEF DEBUG} player, {$ENDIF}
    cuddlycamp;
 
 type
@@ -132,7 +132,7 @@ begin
    repeat
       FServer.Select(timeoutForever);
       FWorld.CheckForDisconnectedPlayers();
-      FWorld.CheckDisposalQueue();
+      EmptyDisposalQueue();
       if (FWorld.Dirty) then
          SaveWorld();
    until Aborted;
@@ -196,7 +196,7 @@ begin
       Write('> ');
       Readln(S);
       FPlayer.Perform(S);
-      FWorld.CheckDisposalQueue();
+      EmptyDisposalQueue();
       SaveWorld();
    until Aborted;
 end;

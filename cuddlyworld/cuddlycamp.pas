@@ -5,7 +5,7 @@ unit cuddlycamp;
 interface
 
 uses
-   world;
+   physics, world;
 
 const
    kWorldFileName = 'map.dat';
@@ -16,7 +16,7 @@ function InitEden: TWorld; { create the initial locations }
 implementation
 
 uses
-   storable, grammarian, locations, thingdim, things, player, broadcast, sysutils, threshold;
+   storable, grammarian, locations, things, player, sysutils, threshold;
 
 type
    TCuddlyWorld = class(TWorld) // @RegisterStorableClass
@@ -26,7 +26,7 @@ type
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure AddPlayer(Avatar: TAvatar); override;
+      procedure AddPlayer(Player: TPlayer); override;
       property StartingLocation: TAtom read FStartingLocation write FStartingLocation;
       property StartingPosition: TThingPosition read FStartingPosition write FStartingPosition;
    end;
@@ -45,12 +45,12 @@ begin
    Stream.WriteCardinal(Cardinal(FStartingPosition));
 end;
 
-procedure TCuddlyWorld.AddPlayer(Avatar: TAvatar);
+procedure TCuddlyWorld.AddPlayer(Player: TPlayer);
 begin
    Assert(Assigned(FStartingLocation));
    Assert(FStartingPosition >= Low(TThingPosition));
    Assert(FStartingPosition <= High(TThingPosition));
-   FStartingLocation.Add(Avatar, FStartingPosition);
+   FStartingLocation.Add(Player, FStartingPosition);
    inherited;
 end;
 
