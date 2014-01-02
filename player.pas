@@ -5,7 +5,7 @@ unit player;
 interface
 
 uses
-   storable, world, grammarian, thingdim, thingseeker;
+   storable, physics, grammarian, thingdim, thingseeker, lists;
 
 const
    MaxCarryMass = tmPonderous; { not inclusive }
@@ -104,6 +104,8 @@ type
       property Gender: TGender read FGender write FGender;
       property ReportFailedCommands: Boolean read FReportFailedCommands write FReportFailedCommands;
    end;
+
+   TPlayerList = specialize TStorableList<TPlayer>; // @RegisterStorableClass
 
 {$IFDEF DEBUG}
 type
@@ -408,8 +410,7 @@ end;
 
 procedure TPlayer.DoQuit();
 begin
-   { From 2001... }
-   AvatarMessage('Look ' + Capitalise(FName) + ', I can see you''re really upset about this. I honestly think you ought to sit down calmly, take a stress pill, and think things over.');
+   AvatarMessage(':-(');
 end;
 
 procedure TPlayer.SetContext(Context: AnsiString);
@@ -471,7 +472,7 @@ begin
    if (Perspective = Self) then
       Result := 'you'
    else
-      Result := 'other player named ' + GetName(Perspective); // "robot"
+      Result := 'other player named ' + GetName(Perspective);
 end;
 
 function TPlayer.GetIndefiniteName(Perspective: TAvatar): AnsiString;
@@ -505,7 +506,7 @@ begin
    if (Perspective = Self) then
       Result := 'you'
    else
-      Result := 'the other player named ' + GetDefiniteName(Perspective); // "robot"
+      Result := 'the other player named ' + GetDefiniteName(Perspective);
 end;
 
 function TPlayer.GetSubjectPronoun(Perspective: TAvatar): AnsiString;
@@ -1569,7 +1570,8 @@ begin
       begin
          Masses := Masses + Child.GetMassManifest();
          Sizes := Sizes + Child.GetOutsideSizeManifest();
-         Count := Count + 1;
+         Assert(Count < High(Count)); // this would be a ludicrous number of objects
+         Count := Count + 1; // $R-
       end;
    end;
    while ((Masses > MaxCarryMass) or (Sizes > MaxCarrySize) or (Count > MaxCarryCount)) do
@@ -1591,7 +1593,8 @@ begin
       Assert(Assigned(Candidate));
       Masses := Masses - CandidateMass;
       Sizes := Sizes - CandidateSize;
-      Count := Count - 1;
+      Assert(MaxCarryCount >= 0);
+      Count := Count - 1; // can't go negative since Count > MaxCarryCount and MaxCarryCount >= 0 // $R-
       DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
       FParent.Put(Candidate, tpOn, False, Self);
    end;

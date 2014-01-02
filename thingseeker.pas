@@ -8,7 +8,7 @@ unit thingseeker;
 interface
 
 uses
-   world, grammarian;
+   physics, grammarian;
 
 type
    TEndingClauseKind = (eckNormal, eckIn, eckOn);

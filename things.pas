@@ -5,7 +5,7 @@ unit things;
 interface
 
 uses
-   storable, world, thingdim, grammarian, matcher;
+   storable, physics, thingdim, grammarian, matcher;
 
 type
    TNamedThing = class(TThing)
@@ -1197,7 +1197,7 @@ begin
       for Index := 1 to High(PluralIngredients) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
          Pattern := Pattern + ' ' + PluralIngredients[Index];
    Pattern := Pattern + ')@)?)';
-   for Index := Low(SingularIngredients) to High(SingularIngredients) do // High() won't return -ve since Length(SingularIngredients) > 0
+   for Index := Low(SingularIngredients) to High(SingularIngredients) do // High() won't return -ve since Length(SingularIngredients) > 0 // $R-
    begin
       {$IFDEF DEBUG} Assert(not HasPatternChars(SingularIngredients[Index])); {$ENDIF}
       {$IFDEF DEBUG} Assert(not HasPatternChars(PluralIngredients[Index])); {$ENDIF}

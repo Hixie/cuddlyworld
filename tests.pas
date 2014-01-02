@@ -7,7 +7,7 @@
 program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
-   sysutils, storable, matcher, lists, world, player, locations, things, thingdim, grammarian, cuddlycamp,
+   sysutils, storable, matcher, lists, physics, player, locations, things, thingdim, grammarian, cuddlycamp, world,
    base64encoder;
 
 procedure TestBase64Encoder();
@@ -339,12 +339,12 @@ end;
 type
    TTestWorld = class(TWorld)
      FStartLocation: TLocation;
-     procedure AddPlayer(Avatar: TAvatar); override;
+     procedure AddPlayer(Player: TPlayer); override;
    end;
 
-procedure TTestWorld.AddPlayer(Avatar: TAvatar);
+procedure TTestWorld.AddPlayer(Player: TPlayer);
 begin
-   FStartLocation.GetSurface().Add(Avatar, tpOn);
+   FStartLocation.GetSurface().Add(Player, tpOn);
    inherited;
 end;
 
@@ -2158,7 +2158,7 @@ begin
       end;
    finally
       try
-         TestWorld.CheckDisposalQueue();
+         EmptyDisposalQueue();
          TestWorld.Free();
          Proxy.Free();
       except
@@ -2235,7 +2235,7 @@ begin
       Proxy.ExpectDone();
       Proxy.ExpectDisconnect(True);
    finally
-      TestWorld.CheckDisposalQueue();
+      EmptyDisposalQueue();
       TestWorld.Free();
       Proxy.Free();
    end;

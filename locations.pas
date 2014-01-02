@@ -5,7 +5,7 @@ unit locations;
 interface
 
 uses
-   storable, world, grammarian, thingdim;
+   storable, physics, grammarian, thingdim;
 
 type
    TNamedLocation = class(TLocation)

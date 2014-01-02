@@ -252,7 +252,7 @@ begin
    Assert(High(MasterList) <= High(Integer));
    Assert(Length(MasterList) = Length(SlaveList));
    if (Length(MasterList) > 1) then
-      DualQuickSort(MasterList, SlaveList, Low(MasterList), High(MasterList));
+      DualQuickSort(MasterList, SlaveList, Low(MasterList), High(MasterList)); // $R-
 end;
 
 procedure DualQuickSort(var MasterList, SlaveList: TTokens; L, R: Integer);
@@ -267,9 +267,9 @@ begin
       P := MasterList[(L + R) div 2];
       repeat
          while (P > MasterList[I]) do
-            I := I + 1;
+            I := I + 1; // $R-
          while (P < MasterList[J]) do
-            J := J - 1;
+            J := J - 1; // $R-
          if (I <= J) then
          begin
             Q := MasterList[I];
@@ -278,8 +278,8 @@ begin
             Q := SlaveList[I];
             SlaveList[I] := SlaveList[J];
             SlaveList[J] := Q;
-            I := I + 1;
-            J := J - 1;
+            I := I + 1; // $R-
+            J := J - 1; // $R-
          end;
       until (I > J);
       if (L < J) then
@@ -338,14 +338,15 @@ end;
 procedure NewPattern(out Pattern: PCompiledPattern; Length: TByteCode); inline;
 begin
    Assert(Length > 0);
+   Assert(Length < High(PtrUInt) div SizeOf(TByteCode));
    Pattern := nil; { not strictly necessary }
-   GetMem(Pattern, Length*SizeOf(TByteCode));
+   GetMem(Pattern, Length*SizeOf(TByteCode)); // $R-
 end;
 
 procedure DisposePattern(var Pattern: PCompiledPattern; Length: TByteCode); inline;
 begin
    Assert(Assigned(Pattern));
-   FreeMem(Pattern, Length*SizeOf(TByteCode));
+   FreeMem(Pattern, Length*SizeOf(TByteCode)); // $R-
    Pattern := nil;
 end;
 
@@ -411,7 +412,7 @@ begin
    Assert(Length(Children) > 0);
    inherited Create();
    SetLength(FChildren, Length(Children));
-   for Index := 0 to Length(Children)-1 do
+   for Index := 0 to Length(Children)-1 do // $R-
       FChildren[Index] := Children[Index];
 end;
 
@@ -419,7 +420,8 @@ destructor TChildrenPatternNode.Destroy();
 var
    Index: Cardinal;
 begin
-   for Index := Low(FChildren) to High(FChildren) do
+   Assert(Length(FChildren) > 0);
+   for Index := Low(FChildren) to High(FChildren) do // $R-
       FChildren[Index].Free();
 end;
 
@@ -427,7 +429,8 @@ procedure TChildrenPatternNode.ReportTokens(Callback: TTokenReporterCallback);
 var
    Index: Cardinal;
 begin
-   for Index := Low(FChildren) to High(FChildren) do
+   Assert(Length(FChildren) > 0);
+   for Index := Low(FChildren) to High(FChildren) do // $R-
       FChildren[Index].ReportTokens(Callback);
 end;
 
@@ -435,7 +438,8 @@ procedure TChildrenPatternNode.FixTokenIDs(Callback: TTokenFinderCallback);
 var
    Index: Cardinal;
 begin
-   for Index := Low(FChildren) to High(FChildren) do
+   Assert(Length(FChildren) > 0);
+   for Index := Low(FChildren) to High(FChildren) do // $R-
       FChildren[Index].FixTokenIDs(Callback);
 end;
 
@@ -449,7 +453,7 @@ begin
    }
    CurrentState := StartState;
    if (Length(FChildren) > 1) then
-      for Index := Low(FChildren) to High(FChildren)-1 do
+      for Index := Low(FChildren) to High(FChildren)-1 do // $R-
       begin
          NextState := GetNewState();
          FChildren[Index].HookStates(CurrentState, NextState, GetNewState, BlockDuplicates);
@@ -477,7 +481,7 @@ begin
       FirstState := StartState;
    CurrentState := FirstState;
    if (Length(FChildren) > 1) then
-      for Index := Low(FChildren) to High(FChildren)-1 do
+      for Index := Low(FChildren) to High(FChildren)-1 do // $R-
       begin
          NextState := GetNewState();
          FChildren[Index].HookStates(CurrentState, NextState, GetNewState, BlockDuplicates);
@@ -506,7 +510,7 @@ begin
       FirstState := StartState;
    CurrentState := FirstState;
    if (Length(FChildren) > 1) then
-      for Index := Low(FChildren) to High(FChildren)-1 do
+      for Index := Low(FChildren) to High(FChildren)-1 do // $R-
       begin
          NextState := GetNewState();
          FChildren[Index].HookStates(CurrentState, NextState, GetNewState, BlockDuplicates);
@@ -542,7 +546,8 @@ begin
    end
    else
       MiddleState := StartState;
-   for Index := Low(FChildren) to High(FChildren) do
+   Assert(Length(FChildren) > 0);
+   for Index := Low(FChildren) to High(FChildren) do // $R-
       FChildren[Index].HookStates(MiddleState, TargetState, GetNewState, BlockDuplicates);
 end;
 
@@ -563,7 +568,8 @@ begin
    }
    MiddleState := GetNewState();
    AddTransition(StartState, mtFollow, MiddleState, BlockDuplicates);
-   for Index := Low(FChildren) to High(FChildren) do
+   Assert(Length(FChildren) > 0);
+   for Index := Low(FChildren) to High(FChildren) do // $R-
       FChildren[Index].HookStates(MiddleState, MiddleState, GetNewState, True);
    AddTransition(MiddleState, mtFollow, TargetState, False);
 end;
@@ -589,7 +595,7 @@ begin
    else
       CurrentState := StartState;
    if (Length(FChildren) > 1) then
-      for Index := Low(FChildren) to High(FChildren)-1 do
+      for Index := Low(FChildren) to High(FChildren)-1 do // $R-
       begin
          NextState := GetNewState();
          FChildren[Index].HookStates(CurrentState, NextState, GetNewState);
@@ -612,7 +618,8 @@ begin
    MiddleState1 := GetNewState();
    MiddleState2 := GetNewState();
    AddTransition(StartState, mtFollow, MiddleState1, BlockDuplicates);
-   for Index := Low(FChildren) to High(FChildren) do
+   Assert(Length(FChildren) > 0);
+   for Index := Low(FChildren) to High(FChildren) do // $R-
       FChildren[Index].HookStates(MiddleState1, MiddleState2, GetNewState, True);
    AddTransition(MiddleState2, mtFollow, MiddleState1, False);
    AddTransition(MiddleState2, mtFollow, TargetState, False);
@@ -671,7 +678,7 @@ begin
       end;
       S2 := GetNewState();
       if (Length(FChildren) > 2) then
-         for Index := Low(FChildren) to High(FChildren)-2 do
+         for Index := Low(FChildren) to High(FChildren)-2 do // $R-
          begin
             S3 := GetNewState();
             S4 := GetNewState();
@@ -757,13 +764,14 @@ var
 begin
    Assert(Low(FTokens) >= 0);
    Assert(High(FTokens) <= mtMaxTrueToken);
+   Assert(Length(FTokens) > 0);
    Token := Canonicalise(Token);
    L := Low(FTokens);
-   R := High(FTokens);
+   R := High(FTokens); // $R-
    repeat
-      M := (R-L) div 2 + L;
+      M := (R-L) div 2 + L; // $R-
       if (FTokens[M] < Token) then
-         L := M+1
+         L := M+1 // $R-
       else
          R := M;
    until (L >= R);
@@ -916,7 +924,8 @@ begin
       if (StateNeedsSerialising(State)) then
       begin
 {$IFDEF DEBUG_PATTERN_COMPILER} Writeln('  minting state ', Index); {$ENDIF}
-         State^.Index := Index;
+         Assert(Index <= High(TByteCode));
+         State^.Index := Index; // $R-
          Inc(Index, 2 + State^.TransitionCount * 2);
          Assert(Index <= mpsMaxTrueTransition, 'Pattern too complicated.');
       end {$IFOPT C+} else State^.Index := mpsNotSerialised {$ENDIF};
@@ -924,7 +933,8 @@ begin
    until (State = FLastState);
    FLastState^.Index := mpsMatch;
    { Serialise the compiled pattern }
-   PatternLength := Index;
+   Assert(Index <= High(PatternLength));
+   PatternLength := Index; // $R-
    NewPattern(Pattern, PatternLength);
    Index := 0;
    State := FFirstState;
@@ -967,10 +977,11 @@ begin
             Inc(Index);
 {$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' for target state'); {$ENDIF}
             Assert(Assigned(Transition^.State));
+            Assert(Index <= High(Pattern^));
             if (Transition^.BlockDuplicates) then
-               Pattern^[Index] := Transition^.State^.Index or mpsPreventDuplicatesMask
+               Pattern^[Index] := Transition^.State^.Index or mpsPreventDuplicatesMask // $R-
             else
-               Pattern^[Index] := Transition^.State^.Index;
+               Pattern^[Index] := Transition^.State^.Index; // $R-
             Transition := Transition^.NextTransition;
          until (not Assigned(Transition));
 {$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' after transition loop'); {$ENDIF}
@@ -1033,7 +1044,8 @@ begin
    Assert(TokenCount <= High(TByteCode));
    SetLength(FTokens, TokenCount);
    SetLength(FOriginalTokens, TokenCount);
-   for Index := 0 to TokenCount-1 do
+   Assert(TokenCount > 0);
+   for Index := 0 to TokenCount-1 do // $R-
    begin
       FTokens[Index] := Stream.ReadAnsiString();
       FOriginalTokens[Index] := Stream.ReadAnsiString();
@@ -1048,7 +1060,8 @@ begin
    Stream.WriteByte(FPatternLength);
    Stream.WriteByteStream(FPattern^, FPatternLength);
    Stream.WriteCardinal(Length(FTokens));
-   for Index := 0 to Length(FTokens)-1 do
+   Assert(Length(FTokens) > 0);
+   for Index := 0 to Length(FTokens)-1 do // $R-
    begin
       Stream.WriteAnsiString(FTokens[Index]);
       Stream.WriteAnsiString(FOriginalTokens[Index]);
@@ -1064,11 +1077,11 @@ begin
    Assert(High(FTokens) <= High(TByteCode));
    Assert(Token = Canonicalise(Token));
    L := Low(FTokens);
-   R := High(FTokens);
+   R := High(FTokens); // $R-
    repeat
-      M := (R-L) div 2 + L;
+      M := (R-L) div 2 + L; // $R-
       if (FTokens[M] < Token) then
-         L := M+1
+         L := M+1 // $R-
       else
          R := M;
    until (L >= R);
@@ -1188,7 +1201,8 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
       while (Assigned(CurrentStateMachine)) do
       begin
          Assert(CurrentStateMachine^.Pattern^.Data^[CurrentStateMachine^.State] = msfNormal); { we could have other state flags some day }
-         CurrentTransition := CurrentStateMachine^.State + 1;
+         Assert(CurrentStateMachine^.State + 1 <= High(CurrentTransition));
+         CurrentTransition := CurrentStateMachine^.State + 1; // $R-
          repeat
             Assert(CurrentTransition < High(CurrentTransition));
             if (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = mtFollow) then
@@ -1196,7 +1210,8 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
                NextState := CurrentStateMachine^.Pattern^.Data^[CurrentTransition+1];
                if (NextState = mpsMatch) then
                begin
-                  MatchLength := Position - Start;
+                  Assert(Position >= Start);
+                  MatchLength := Position - Start; // $R-
                end
                else
                {$IFOPT C+}
@@ -1204,9 +1219,12 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
                {$ENDIF}
                begin
                   ChildStateMachine := AppendStateMachine(CurrentStateMachine);
-                  ChildStateMachine^.State := NextState and not mpsPreventDuplicatesMask;
+                  ChildStateMachine^.State := TByteCode(NextState and not mpsPreventDuplicatesMask);
                   if (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
-                     ObliterateTransition(ChildStateMachine^.Pattern, CurrentTransition+1);
+                  begin
+                     Assert(CurrentTransition < High(TByteCode));
+                     ObliterateTransition(ChildStateMachine^.Pattern, CurrentTransition+1); // $R-
+                  end;
                end
                {$IFOPT C+}
                else
@@ -1237,7 +1255,8 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
          end
          else
          begin
-            CurrentTransition := CurrentStateMachine^.State + 1;
+            Assert(CurrentStateMachine^.State < High(TByteCode));
+            CurrentTransition := CurrentStateMachine^.State + 1; // $R-
             Transitioned := False;
             repeat
                if (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = TokenID) then
@@ -1245,16 +1264,20 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
                   NextState := CurrentStateMachine^.Pattern^.Data^[CurrentTransition+1];
                   if (NextState = mpsMatch) then
                   begin
-                     MatchLength := Position - Start + 1;
+                     Assert(Position >= Start);
+                     MatchLength := Position - Start + 1; // $R-
                   end
                   else
                   {$IFOPT C+}
                   if (NextState <= mpsMaxTrueTransition) then
                   {$ENDIF}
                   begin
-                     CurrentStateMachine^.State := NextState and not mpsPreventDuplicatesMask;
+                     CurrentStateMachine^.State := TByteCode(NextState and not mpsPreventDuplicatesMask);
                      if (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
-                        ObliterateTransition(CurrentStateMachine^.Pattern, CurrentTransition+1);
+                     begin
+                        Assert(CurrentTransition < High(TByteCode));
+                        ObliterateTransition(CurrentStateMachine^.Pattern, CurrentTransition+1); // $R-
+                     end;
                      Transitioned := True;
                   end
                   {$IFOPT C+}
@@ -1291,7 +1314,8 @@ var
       CurrentIndex, NextState: TByteCode;
    begin
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   GetCanonicalBranch(', State, '); starting with "', Match, '"'); {$ENDIF}
-      CurrentIndex := State+1;
+      Assert(State < High(TByteCode));
+      CurrentIndex := State+1; // $R-
       repeat
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   trying transition ', CurrentIndex); {$ENDIF}
          NextState := Pattern^[CurrentIndex+1];
@@ -1315,7 +1339,7 @@ var
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   ...going to nest...'); {$ENDIF}
                if ((Pattern^[CurrentIndex] <= mtMaxTrueToken) or (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask)) then
                    Pattern^[CurrentIndex+1] := mpsBlocked;
-               if (GetCanonicalBranch(NextState and not mpsPreventDuplicatesMask {$IFDEF DEBUG_CANONICAL_MATCH}, Prefix + '  ' {$ENDIF})) then
+               if (GetCanonicalBranch(TByteCode(NextState and not mpsPreventDuplicatesMask) {$IFDEF DEBUG_CANONICAL_MATCH}, Prefix + '  ' {$ENDIF})) then
                begin
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   MATCH'); {$ENDIF}
                   Result := True;

@@ -5,7 +5,7 @@ unit threshold;
 interface
 
 uses
-   locations, things, grammarian, storable, world;
+   locations, things, grammarian, storable, physics;
 
 type
    TThresholdThing = class(TScenery) // @RegisterStorableClass
