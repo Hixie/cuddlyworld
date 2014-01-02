@@ -49,6 +49,10 @@ type
                     tfCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- e.g. holes can have things pushed onto them }
                     tfCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
    TThingFeatures = set of TThingFeature;
+   TFindMatchingThingsOption = (foIncludePerspectiveChildren, // e.g. not used by "take all"
+                                foIncludeNonImplicits, // e.g. usd by "debug things" to make the avatars be included in the list; not used by "take all" so that avatars aren't picked up
+                                foFromOutside);
+   TFindMatchingThingsOptions = set of TFindMatchingThingsOption;
 
 const
    tfEverything = []; { an empty TThingFeatures set, because thing features _limit_ what can be returned }
@@ -77,7 +81,7 @@ type
       {$IFOPT C+} procedure AssertChildPositionOk(Thing: TThing; Position: TThingPosition); virtual; {$ENDIF}
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
-      procedure ProxiedFindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
+      procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
     public
       constructor Create();
       destructor Destroy(); override;
@@ -124,7 +128,7 @@ type
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; virtual; abstract; // used by locations to include their loAutoDescribe landmarks in their Here description
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract; // used for things like "look north"
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
-      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
+      procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
       function GetDefaultAtom(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
@@ -189,7 +193,7 @@ type
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
       function GetDescriptionWriting(Perspective: TAvatar): AnsiString; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
+      procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract; // compares Tokens to FName, essentially
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
       procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
@@ -299,7 +303,7 @@ type
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); virtual;
-      procedure FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
+      procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; override;
    end;
 
@@ -884,18 +888,18 @@ begin
    Result := True;
 end;
 
-procedure TAtom.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+procedure TAtom.FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 var
    Child: TThing;
 begin
    for Child in FChildren do
-      if (((IncludePerspectiveChildren) or (Child <> Perspective)) and (IsChildTraversable(Child, Perspective, FromOutside))) then
-         Child.FindMatchingThings(Perspective, True, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
+      if (((foIncludePerspectiveChildren in Options) or (Child <> Perspective)) and (IsChildTraversable(Child, Perspective, foFromOutside in Options))) then
+         Child.FindMatchingThings(Perspective, Options + [foFromOutside], PositionFilter, PropertyFilter, List);
 end;
 
-procedure TAtom.ProxiedFindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+procedure TAtom.ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 begin
-   FindMatchingThings(Perspective, FromOutside, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
+   FindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
 end;
 
 function TAtom.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean;
@@ -1474,12 +1478,12 @@ begin
       Result := Capitalise(ThingPositionToString(FPosition)) + ' ' + FParent.GetDefiniteName(Perspective) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + '.'
    else
    if (Mode = psTheThingIsOnThatThing) then
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.'
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetLongDefiniteName(Perspective) + '.'
    else
    if (Mode = psOnThatSpecialThing) then
    begin
       if (FParent is TThing) then
-         Result := ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective)
+         Result := ThingPositionToString(FPosition) + ' ' + FParent.GetLongDefiniteName(Perspective)
       else
          Result := '';
    end
@@ -1579,10 +1583,10 @@ begin
    Result := True;
 end;
 
-procedure TThing.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+procedure TThing.FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 begin
    Assert(Assigned(FParent));
-   if ((FPosition in PositionFilter) and IsImplicitlyReferenceable(Perspective, PropertyFilter)) then
+   if ((FPosition in PositionFilter) and ((foIncludeNonImplicits in Options) or IsImplicitlyReferenceable(Perspective, PropertyFilter))) then
       List.AppendItem(Self);
    inherited;
 end;
@@ -2061,11 +2065,11 @@ begin
       Result := True;
 end;
 
-procedure TLocation.FindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+procedure TLocation.FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 var
    Index: Cardinal;
 begin
-   Assert(FromOutside = True);
+   Assert(foFromOutside in Options);
    inherited;
    if (Length(FImportantLandmarks) > 0) then
       for Index := Low(FImportantLandmarks) to High(FImportantLandmarks) do
@@ -2075,7 +2079,7 @@ begin
          if (loThreshold in FImportantLandmarks[Index]^.Options) then
          begin
             Assert(Assigned(FImportantLandmarks[Index]^.Atom));
-            FImportantLandmarks[Index]^.Atom.ProxiedFindMatchingThings(Perspective, FromOutside, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
+            FImportantLandmarks[Index]^.Atom.ProxiedFindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
          end;
       end;
 end;

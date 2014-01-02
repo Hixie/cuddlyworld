@@ -5,14 +5,14 @@ unit client;
 interface
 
 uses
-   network, websocket, world, player;
+   corenetwork, corewebsocket, world, player;
 
 type
    TCuddlyWorldClient = class(TWebSocket)
     protected
       FPlayer: TPlayer;
       FWorld: TWorld;
-      function HandleMessage(Message: AnsiString): Boolean; override;
+      procedure HandleMessage(Message: AnsiString); override;
       procedure HandleAvatarMessage(Message: AnsiString);
       procedure HandleForceDisconnect();
       procedure TryLogin(Message: AnsiString);
@@ -51,13 +51,12 @@ begin
    inherited;
 end;
 
-function TCuddlyWorldClient.HandleMessage(Message: AnsiString): Boolean;
+procedure TCuddlyWorldClient.HandleMessage(Message: AnsiString);
 begin
    if (not Assigned(FPlayer)) then
       TryLogin(Message)
    else
       TryCommand(Message);
-   Result := True;
 end;
 
 procedure TCuddlyWorldClient.TryLogin(Message: AnsiString);

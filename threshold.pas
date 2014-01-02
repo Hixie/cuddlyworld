@@ -29,7 +29,7 @@ type
    TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
     protected
       FThreshold: TThresholdThing;
-      procedure ProxiedFindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
+      procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
     public
       constructor Create(Landmark: TThresholdThing; Surface: TThing);
@@ -143,9 +143,9 @@ begin
    Result := FThreshold.FindThingTraverser(Thing, Perspective, FromOutside);
 end;
 
-procedure TThresholdLocation.ProxiedFindMatchingThings(Perspective: TAvatar; FromOutside: Boolean; IncludePerspectiveChildren: Boolean; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+procedure TThresholdLocation.ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 begin
-   FThreshold.FindMatchingThings(Perspective, FromOutside, IncludePerspectiveChildren, PositionFilter, PropertyFilter, List);
+   FThreshold.FindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
 end;
 
 function TThresholdLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;

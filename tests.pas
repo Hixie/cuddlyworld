@@ -1409,15 +1409,15 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('shake fork in bag on table');
 
-         Proxy.ExpectString('The stainless steel fork is on the desk.');
+         Proxy.ExpectString('The stainless steel fork is on the non-descript desk.');
          Proxy.ExpectString('');
          TestPlayer.Perform('find steel fork');
 
-         Proxy.ExpectString('The silver fork is in the bag of holding.');
+         Proxy.ExpectString('The silver fork is in the embroidered bag of holding labeled Tester.');
          Proxy.ExpectString('');
          TestPlayer.Perform('find silver fork');
 
-         Proxy.ExpectString('The plastic fork is in the brown sack.');
+         Proxy.ExpectString('The plastic fork is in the elongated brown sack.');
          Proxy.ExpectString('');
          TestPlayer.Perform('find plastic fork');
 
@@ -2028,7 +2028,7 @@ begin
          Proxy.ExpectString('');
          TestPlayer.Perform('find opening');
 
-         Proxy.ExpectString('The sun is above, in the sky.');
+         Proxy.ExpectString('The sun is above, in the blue sky.');
          Proxy.ExpectString('');
          TestPlayer.Perform('find sun');
 
@@ -2199,7 +2199,7 @@ begin
 
          { Starting room test }
          Proxy.Test('Starting location');
-         Proxy.ExpectString('On the stone pedestal (at the arrivals circle)');
+         Proxy.ExpectString('Room');
          Proxy.WaitUntilString('');
          TestPlayer.Perform('look');
          Proxy.ExpectDone();
@@ -2208,88 +2208,6 @@ begin
          Proxy.ExpectString('You already have that.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all, and bag');
-
-         Proxy.ExpectString('I don''t know how to examine multiple things at once.');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('examine all that is pink and that is arch');
-
-         Proxy.ExpectString('The diamonds are part of the south archway.');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('take diamonds from arch');
-
-         Proxy.ExpectSubstring('Which arch do you mean, ');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('take diamonds from the arch');
-
-         Proxy.ExpectString('(the gold inlay and the diamonds)');
-         Proxy.ExpectSubstring('Gold inlay: ');
-         Proxy.ExpectSubstring('Diamonds: ');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('shake all from one of the arches that is not the north arch');
-
-         Proxy.ExpectSubstring('Small white geometric shapes: ');
-         Proxy.ExpectSubstring('Wood: ');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('shake all from one of the arches that is the north arch');
-
-         Proxy.ExpectSubstring('Small white geometric shapes: ');
-         Proxy.ExpectSubstring('Wood: ');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('shake all from one of the arches that is the north arch and is wood');
-
-         Proxy.ExpectString('You used the term "and that are" in a way I don''t understand.');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('shake all from one of the arches that is an arch and are pink');
-
-         Proxy.ExpectString('Which diamond from one of the arches that is an arch and that is pink do you mean, the diamond-studded gold inlay of the south archway or the circle-and-cross diamonds of the south archway?');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('shake the one diamond from one of the arches that is an arch and is pink');
-
-         Proxy.ExpectString('(through the north archway)');
-         Proxy.ExpectString('You become a man.');
-         Proxy.ExpectString('Male Path');
-         Proxy.ExpectSubstring('meanders');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('n');
-
-         Proxy.ExpectString('(through the north archway)');
-         Proxy.ExpectString('Arrivals Circle');
-         Proxy.ExpectString('The arrivals circle is where all the visitors to Cuddly World first appear. Well-worn paths lead to the north and south under decorated archways; a well-paved, but less worn, path leads to the east under a similar archway. Large signs staked into the ground point elaborately to the north and south paths. A large stone serves as a sign next to the east archway. To the west, a smaller sign is staked into the middle of some weeds next to an apparently abandoned archway. To the southwest are another sign and archway, the sign in an even more dilapidated state. Beyond, in all directions, you see an impenetrable forest. There is a stone pedestal here.');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('s');
-
-         Proxy.ExpectString('(through the south archway)');
-         Proxy.ExpectString('You become a woman.');
-         Proxy.ExpectString('Female Path');
-         Proxy.ExpectSubstring('meanders');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('s');
-
-         Proxy.ExpectString('(through the south archway)');
-         Proxy.ExpectString('Arrivals Circle');
-         Proxy.ExpectSubstring('The arrivals circle');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('n');
-
-         Proxy.ExpectString('(through the north archway)');
-         Proxy.ExpectString('You become a man.');
-         Proxy.ExpectString('Male Path');
-         Proxy.ExpectSubstring('meanders');
-         Proxy.ExpectString('');
-         TestPlayer.Perform('n');
-
-         Proxy.ExpectString('Male Clearing');
-         Proxy.ExpectSubstring('The forest thins out, leaving a circular clearing.'); // XXX this should expect a hole
-         Proxy.ExpectString('');
-         TestPlayer.Perform('w');
-
-{XXX
-         Proxy.ExpectString('(through the hole in the ground)');
-         Proxy.SkipLine(); // name of destination, but we don't have one yet
-         Proxy.SkipLine(); // destination description
-         Proxy.ExpectString('');
-         TestPlayer.Perform('d');
-}
 
          { test round-tripping }
          Proxy.Test('Round-tripping');

@@ -887,13 +887,13 @@ begin
       begin
          if (Mode = psTheThingIsOnThatThing) then
          begin
-            Result := 'There ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child.GetDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
+            Result := 'There ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' under ' + Child.GetLongDefiniteName(Perspective) + { ', ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + } '.';
             Exit;
          end
          else
          if (Mode = psOnThatSpecialThing) then
          begin
-            Result := 'under ' + Child.GetDefiniteName(Perspective);
+            Result := 'under ' + Child.GetLongDefiniteName(Perspective);
             Exit;
          end
          else
