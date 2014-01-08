@@ -5,7 +5,7 @@ unit locations;
 interface
 
 uses
-   storable, physics, grammarian, thingdim;
+   storable, physics, grammarian, thingdim, messages;
 
 type
    TNamedLocation = class(TLocation)
@@ -56,7 +56,7 @@ type
     public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar); override;
    end;
 
@@ -189,7 +189,7 @@ begin
    Result := CanSurfaceHold(Manifest);
 end;
 
-function TAirLocation.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TAirLocation.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if (ThingPosition in [tpOn, tpIn]) then
       Result := GetBelow().CanPut(Thing, tpOn, Perspective, Message)
@@ -203,7 +203,9 @@ var
 begin
    Below := GetBelow();
    Assert(Assigned(Below));
-   Perspective.AvatarMessage(Capitalise(Thing.GetDefiniteName(Perspective)) + ' falls to ' + Below.GetDefiniteName(Perspective) + '.');
+   Perspective.AvatarMessage(TMessage.Create(mkEffect, '_ falls to _.', 
+                                                       [Capitalise(Thing.GetDefiniteName(Perspective)),
+                                                        Below.GetDefiniteName(Perspective)]));
    Below.Put(Thing, Position, False, Perspective);
 end;
 

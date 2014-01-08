@@ -5,7 +5,7 @@ unit things;
 interface
 
 uses
-   storable, physics, thingdim, grammarian, matcher;
+   storable, physics, messages, thingdim, grammarian, matcher;
 
 type
    TNamedThing = class(TThing)
@@ -49,7 +49,7 @@ type
    TFeature = class(TStaticThing) // @RegisterStorableClass
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
    // Things that never change and don't even ever move and are typically gigantic
@@ -64,7 +64,7 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function IsOpen(): Boolean; override;
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       property UnderDescription: AnsiString read FUnderDescription write FUnderDescription;
@@ -82,7 +82,7 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; override;
-      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function IsOpen(): Boolean; override;
    end;
@@ -90,11 +90,11 @@ type
    TOpening = class(TLocationProxy) // @RegisterStorableClass
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; ASize: TThingSize);
-      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetFeatures(): TThingFeatures; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
    end;
@@ -103,7 +103,7 @@ type
    TSurface = class(TStaticThing) // @RegisterStorableClass
     public
       constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetDefaultAtom(): TAtom; override;
    end;
@@ -121,7 +121,7 @@ type
       function GetLookIn(Perspective: TAvatar): AnsiString; override;
       function GetLookUnder(Perspective: TAvatar): AnsiString; override;
       function GetFeatures(): TThingFeatures; override;
-      function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetDescriptionClosed(Perspective: TAvatar): AnsiString; override;
@@ -141,7 +141,7 @@ type
     public
       constructor Create();
       function GetFeatures(): TThingFeatures; override;
-      function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
    TSign = class(TScenery) // @RegisterStorableClass
@@ -201,10 +201,10 @@ type
       function GetIntrinsicSize(): TThingSize; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function IsOpen(): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
@@ -230,7 +230,7 @@ type
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; override;
       function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString; override;
       function GetDescriptionEmpty(Perspective: TAvatar): AnsiString; override;
-      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; override;
+      function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
@@ -404,10 +404,14 @@ begin
    inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
 end;
 
-function TFeature.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TFeature.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
-   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
+   Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ _ _.',
+                                                           [Capitalise(GetDefiniteName(Perspective)),
+                                                            IsAre(IsPlural(Perspective)),
+                                                            ThingPositionToString(FPosition),
+                                                            FParent.GetDefiniteName(Perspective)]);
 end;
 
 
@@ -440,19 +444,23 @@ begin
    Result := FOpened;
 end;
 
-function TScenery.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TScenery.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
    if (Length(FCannotMoveExcuse) > 0) then
-      Message := FCannotMoveExcuse
+      Message := TMessage.Create(mkCannotMoveBecauseCustom, FCannotMoveExcuse)
    else
    if (FPosition = tpPartOfImplicit) then
-      Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' part of ' + FParent.GetDefiniteName(Perspective) + '.'
+      Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ part of _.',
+                                                              [Capitalise(GetDefiniteName(Perspective)),
+                                                               IsAre(IsPlural(Perspective)),
+                                                               FParent.GetDefiniteName(Perspective)])
    else
    if (FPosition in tpOpening) then
-      Message := 'Moving ' + GetIndefiniteName(Perspective) + ' doesn''t even make sense.'
+      Message := TMessage.Create(mkBogus, 'Moving _ doesn''t even make sense.', [GetIndefiniteName(Perspective)])
    else
-      Message := Capitalise(GetDefiniteName(Perspective)) + ' cannot be moved.';
+      Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot be moved',
+                                                              [Capitalise(GetDefiniteName(Perspective))]);
 end;
 
 function TScenery.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
@@ -501,7 +509,7 @@ begin
    Result := Capitalise(GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('leads', 'lead', IsPlural(Perspective)) + ' ' + CardinalDirectionToString(Direction) + '.';
 end;
 
-function TLocationProxy.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TLocationProxy.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
    DisambiguationOpening := Self;       
    Result := inherited;
@@ -529,13 +537,16 @@ begin
    inherited Create(Name, Pattern, Description, Destination, tmLudicrous, ASize);
 end;
 
-function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
    Assert(Assigned(Traveller));
    if (not CanInsideHold(Traveller.GetOutsideSizeManifest())) then
    begin
       Result := nil;
-      Message := Capitalise(Traveller.GetDefiniteName(Perspective)) + ' ' + IsAre(Traveller.IsPlural(Perspective)) + ' too big to fit in ' + GetDefiniteName(Perspective) + '.';
+      Message := TMessage.Create(mkTooBig, '_ _ too big to fit in _.',
+                                           [Capitalise(Traveller.GetDefiniteName(Perspective)),
+                                            IsAre(Traveller.IsPlural(Perspective)),
+                                            GetDefiniteName(Perspective)]);
    end
    else
       Result := inherited; // defers to GetInside(); TLocation.GetInside() gets the FDestination surface
@@ -546,22 +557,28 @@ begin
    Result := GetLookIn(Perspective);
 end;
 
-function TOpening.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TOpening.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
-   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot move ' + GetIndefiniteName(Perspective) + '. That does not make sense.');
+   Message := TMessage.Create(mkBogus, '_ cannot move _. That does not make sense.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        GetIndefiniteName(Perspective)]);
 end;
 
-function TOpening.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TOpening.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
-   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot physically pick up ' + GetIndefiniteName(Perspective) + '. That is ludicrous.');
+   Message := TMessage.Create(mkBogus, '_ cannot physically pick up _. That is ludicrous.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        GetIndefiniteName(Perspective)]);
 end;
 
-function TOpening.CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TOpening.CanShake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
-   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot shake ' + GetIndefiniteName(Perspective) + '. That is just silly.');
+   Message := TMessage.Create(mkBogus, '_ cannot shake _. That is just silly.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        GetIndefiniteName(Perspective)]);
 end;
 
 function TOpening.GetFeatures(): TThingFeatures;
@@ -582,11 +599,14 @@ begin
    inherited;
 end;
 
-function TSurface.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TSurface.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Assert(Assigned(FParent));
    Result := False;
-   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' part of ' + FParent.GetDefiniteName(Perspective) + '.';
+   Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ part of _.',
+                                                           [Capitalise(GetDefiniteName(Perspective)),
+                                                            IsAre(IsPlural(Perspective)),
+                                                            FParent.GetDefiniteName(Perspective)]);
 end;
 
 procedure TSurface.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
@@ -669,7 +689,7 @@ begin
    Result := Result + [tfDiggable];
 end;
 
-function TEarthGround.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TEarthGround.Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean;
 const
    HoleSize = tsGigantic;
 var
@@ -681,11 +701,12 @@ begin
       Result := False;
       if (FHole.IsOpen()) then
       begin
-         Message := 'There is already a hole here.';
+         Message := TMessage.Create(mkDuplicate, 'There is already a hole here.');
       end
       else
       begin
-         Message := 'There''s not really much room here to dig a hole. In particular, ' + FHole.GetBiggestCoverer().GetDefiniteName(Perspective) + ' takes up a lot of room.';
+         Message := TMessage.Create(mkTooBig, 'There''s not really much room here to dig a hole. In particular, _ takes up a lot of room.',
+                                              [FHole.GetBiggestCoverer().GetDefiniteName(Perspective)]);
       end;
    end
    else
@@ -708,7 +729,8 @@ begin
       Add(FHole, tpSurfaceOpening);
       Add(Pile, tpOn);
       Result := True;
-      Message := 'With much effort, ' + Perspective.GetDefiniteName(Perspective) + ' dig a huge hole.';
+      Message := TMessage.Create(mkSuccess, 'With much effort, _ dig a huge hole.',
+                                            [Perspective.GetDefiniteName(Perspective)]);
    end;
 end;
 
@@ -772,7 +794,7 @@ begin
    Result := inherited GetFeatures() + [tfCanDig];
 end;
 
-function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := True;
 end;
@@ -998,25 +1020,31 @@ begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
 
-function THole.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function THole.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
-   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot move ' + GetIndefiniteName(Perspective) + '. That does not make sense. Maybe try filling this hole in and digging a new one in the new location.');
+   Message := TMessage.Create(mkBogus, '_ cannot move _. That does not make sense. Maybe try filling this hole in and digging a new one in the new location.', 
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        GetIndefiniteName(Perspective)]);
 end;
 
-function THole.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function THole.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
-   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot physically pick up ' + GetIndefiniteName(Perspective) + '. That is ludicrous.');
+   Message := TMessage.Create(mkBogus, '_ cannot physically pick up a _. That is ludicrous.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        GetIndefiniteName(Perspective)]);
 end;
 
-function THole.CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function THole.CanShake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := False;
-   Message := Capitalise(Perspective.GetDefiniteName(Perspective) + ' cannot shake ' + GetIndefiniteName(Perspective) + '. That is just silly.');
+   Message := TMessage.Create(mkBogus, '_ cannot shake _. That is just silly.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        GetIndefiniteName(Perspective)]);
 end;
 
-function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if (ThingPosition = tpOn) then
    begin
@@ -1029,7 +1057,9 @@ begin
       begin
          { can't cover hole if it's already covered }
          Result := False;
-         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' already covered.';
+         Message := TMessage.Create(mkDuplicate, '_ _ already covered.',
+                                                 [Capitalise(GetDefiniteName(Perspective)),
+                                                  IsAre(IsPlural(Perspective))]);
       end;
    end
    else
@@ -1043,7 +1073,9 @@ begin
       else
       begin
          Result := False;
-         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' already full to overflowing.';
+         Message := TMessage.Create(mkDuplicate, '_ _ already full to overflowing.',
+                                                 [Capitalise(GetDefiniteName(Perspective)),
+                                                  IsAre(IsPlural(Perspective))]);
       end;
    end
    else
@@ -1162,7 +1194,7 @@ begin
    case Direction of
      cdUp, cdOut: DoNavigation(Self, FParent.GetDefaultAtom(), cdUp, Perspective);
     else
-      Perspective.AvatarMessage('You''re in a hole.');
+      Perspective.AvatarMessage(TMessage.Create(mkInHole, 'You''re in a hole.'));
    end;
 end;
 
@@ -1275,9 +1307,11 @@ begin
    Result := 'A thorough search through ' + GetDefiniteName(Perspective) + ' reveals only a lot of ' + FIngredient + '.';
 end;
 
-function TPile.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TPile.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
-   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('slips', 'slip', IsPlural(Perspective)) + ' through your fingers.';
+   Message := TMessage.Create(mkCannotTakeBecausePile, '_ _ through your fingers.',
+                                                       [Capitalise(GetDefiniteName(Perspective)),
+                                                        TernaryConditional('slips', 'slip', IsPlural(Perspective))]);
    Result := False;
 end;
 

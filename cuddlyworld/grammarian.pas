@@ -128,8 +128,8 @@ begin
           case S[Index] of
            ' ', #9: begin end;
            ',', ';', ':', '.', '?', '!', '+', '&': begin PushToken(S[Index]); end; { if you change this also change the serialiser }
-           '''': begin Start := Index+1; TokeniserState := tsQuoted; end;
-           '"': begin Start := Index+1; TokeniserState := tsDoubleQuoted; end;
+           '''': begin Start := Index+1; TokeniserState := tsQuoted; end; // $R-
+           '"': begin Start := Index+1; TokeniserState := tsDoubleQuoted; end; // $R-
           else
            Start := Index;
            TokeniserState := tsWordBody;
@@ -138,7 +138,7 @@ begin
           case S[Index] of
            ' ', #9: begin PushToken(Canonicaliser(S[Start..Index-1])); TokeniserState := tsWordStart; end;
            ',', ';', ':', '.', '?', '!', '+', '&': begin PushToken(Canonicaliser(S[Start..Index-1])); PushToken(S[Index]); TokeniserState := tsWordStart; end;
-           '"': begin PushToken(Canonicaliser(S[Start..Index-1])); Start := Index+1; TokeniserState := tsDoubleQuoted; end;
+           '"': begin PushToken(Canonicaliser(S[Start..Index-1])); Start := Index+1; TokeniserState := tsDoubleQuoted; end; // $R-
           end;
        tsQuoted:
           case S[Index] of
@@ -341,7 +341,7 @@ begin
    Result := Tokens[Start];
    if (Count > 1) then
    begin
-      for Index := Start+1 to Start+Count-1 do
+      for Index := Start+1 to Start+Count-1 do // $R-
       begin
          { if you change this also update the tokeniser }
          if ((Tokens[Index] = ',') or

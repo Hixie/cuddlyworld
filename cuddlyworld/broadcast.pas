@@ -41,6 +41,8 @@ function MPP(const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inli
 
 procedure ClearMessagePart(MessagePart: PMessagePart);
 
+// DoBroadcast skips Perspective - use Perspective.AvatarMessage() if you need the Perspective to get it
+// XXX NPCs don't get broadcasts either currently
 procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar; MessageParts: array of PMessagePart);
 procedure DoBroadcast(Perspective: TAvatar; MessageParts: array of PMessagePart);
 
@@ -177,7 +179,7 @@ begin
             NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetNearbyThingsByClass(Players, FromOutside, TPlayer);
          for CurrentPlayer in Players do
             if (CurrentPlayer <> Perspective) then
-               (CurrentPlayer as TPlayer).AvatarBroadcast(Assemble(MessageParts, CurrentPlayer as TPlayer));
+               (CurrentPlayer as TPlayer).SendRawMessage(Assemble(MessageParts, CurrentPlayer as TPlayer));
       finally
          Players.Free();
       end;
