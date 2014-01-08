@@ -104,7 +104,7 @@ begin
    for Index := Low(TThingDimension) to Pred(High(TThingDimension)) do
    begin
       Inc(A[Succ(Index)], A[Index] div kDimensionScaleFactor);
-      A[Index] := A[Index] mod kDimensionScaleFactor;
+      A[Index] := A[Index] mod kDimensionScaleFactor; // $R-
    end;
 end;
 
@@ -154,7 +154,7 @@ begin
    {$IFOPT C+} AssertIsRational(A); {$ENDIF}
    {$IFOPT C+} AssertIsRational(B); {$ENDIF}
    for Index := Low(TThingDimension) to High(TThingDimension) do
-      Result[Index] := A[Index] + B[Index];
+      Result[Index] := A[Index] + B[Index]; // This could overflow if you had a lot of things...
    Rationalise(Result);
 end;
 
@@ -181,7 +181,7 @@ begin
          begin
             if (A[Subindex] > 0) then
             begin
-               A[Subindex] := A[SubIndex] - 1;
+               A[Subindex] := A[SubIndex] - 1; // $R-
                if (Pred(Subindex) >= Succ(Index)) then
                begin
                   for Subsubindex := Pred(Subindex) downto Succ(Index) do
@@ -190,13 +190,13 @@ begin
                      A[Subsubindex] := kDimensionScaleFactor - 1;
                   end;
                end;
-               A[Index] := A[Index] + kDimensionScaleFactor;
+               A[Index] := A[Index] + kDimensionScaleFactor; // at a glance, not sure if this could overflow; needs testing
                break;
             end;
          end;
       end;
       Assert(A[Index] >= B[Index]);
-      Result[Index] := A[Index] - B[Index];
+      Result[Index] := A[Index] - B[Index]; // $R-
    end;
    {$IFOPT C+} AssertIsRational(Result); {$ENDIF}
 end;

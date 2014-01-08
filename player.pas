@@ -5,7 +5,7 @@ unit player;
 interface
 
 uses
-   storable, physics, grammarian, thingdim, thingseeker, lists;
+   storable, physics, grammarian, messages, thingdim, thingseeker, lists;
 
 const
    MaxCarryMass = tmPonderous; { not inclusive }
@@ -29,7 +29,7 @@ type
       FName, FPassword: AnsiString;
       FGender: TGender;
       FReportFailedCommands: Boolean;
-      FOnAvatarMessage: TMessageEvent; { transient }
+      FOnMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: AnsiString; { transient }
       procedure DoFind(Subject: TThing);
@@ -53,10 +53,10 @@ type
       {$ENDIF}
       procedure DoHelp();
       procedure DoQuit();
-      function CanCarryThing(Thing: TThing; var Message: AnsiString): Boolean;
-      function CanPushThing(Thing: TThing; var Message: AnsiString): Boolean;
-      function CanShakeThing(Thing: TThing; var Message: AnsiString): Boolean;
-      function Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
+      function CanCarryThing(Thing: TThing; var Message: TMessage): Boolean;
+      function CanPushThing(Thing: TThing; var Message: TMessage): Boolean;
+      function CanShakeThing(Thing: TThing; var Message: TMessage): Boolean;
+      function Reachable(Subject: TAtom; out Message: TMessage): Boolean;
       function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
       procedure SetContext(Context: AnsiString);
       procedure ResetContext();
@@ -68,8 +68,9 @@ type
       procedure Perform(Command: AnsiString); virtual;
       procedure DoLook(); override;
       procedure DoInventory();
-      procedure AvatarMessage(Message: AnsiString); override;
-      procedure AvatarBroadcast(Message: AnsiString); override;
+      procedure AvatarMessage(Message: TMessage); override;
+      procedure SendRawMessage(Message: AnsiString);
+      procedure SendMessage(Message: AnsiString);
       procedure AutoDisambiguated(Message: AnsiString); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
@@ -97,9 +98,9 @@ type
       function IsReadyForRemoval(): Boolean; override;
       procedure RemoveFromWorld(); override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
-      function GetUsername(): AnsiString; override;
+      function GetUsername(): AnsiString;
       function GetPassword(): AnsiString;
-      procedure Adopt(AOnAvatarMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
+      procedure Adopt(AOnMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
       property Gender: TGender read FGender write FGender;
       property ReportFailedCommands: Boolean read FReportFailedCommands write FReportFailedCommands;
@@ -109,7 +110,7 @@ type
 
 {$IFDEF DEBUG}
 type
-   TStatusReportProc = procedure (Perspective: TAvatar) of object;
+   TStatusReportProc = procedure (Perspective: TPlayer) of object;
 var
    StatusReport: TStatusReportProc = nil;
 {$ENDIF}
@@ -219,12 +220,12 @@ var
    begin
       case Action.Verb of
        avLook: DoLook();
-       avLookDirectional: AvatarMessage(FParent.GetDefaultAtom().GetLookTowardsDirection(Self, Action.LookDirection));
-       avLookAt: AvatarMessage(Action.LookAtSubject.GetLookAt(Self));
-       avExamine: AvatarMessage(Action.ExamineSubject.GetExamine(Self));
-       avRead: AvatarMessage(Action.ReadSubject.GetDescriptionWriting(Self));
+       avLookDirectional: SendMessage(FParent.GetDefaultAtom().GetLookTowardsDirection(Self, Action.LookDirection));
+       avLookAt: SendMessage(Action.LookAtSubject.GetLookAt(Self));
+       avExamine: SendMessage(Action.ExamineSubject.GetExamine(Self));
+       avRead: SendMessage(Action.ReadSubject.GetDescriptionWriting(Self));
        avLookUnder: DoLookUnder(Action.LookUnder);
-       avLookIn: AvatarMessage(Action.LookIn.GetLookIn(Self));
+       avLookIn: SendMessage(Action.LookIn.GetLookIn(Self));
        avInventory: DoInventory();
        avFind: DoFind(Action.FindSubject);
        avGo: FParent.Navigate(Action.GoDirection, Self);
@@ -293,7 +294,8 @@ begin
              {$ENDIF}
             end;
          end;
-         AvatarMessage('');
+         Assert(FContext = '');
+         SendRawMessage('');
       until not More;
    except
       on E: EParseError do
@@ -315,15 +317,16 @@ begin
          end;
          if (FReportFailedCommands) then
             Writeln(FailedCommandLog, '"', Command, '" for ' + Location + ': ', E.Message);
-         AvatarMessage(E.Message);
-         AvatarMessage('');
+         SendRawMessage(E.Message);
+         SendRawMessage('');
+         Assert(FContext = '');
       end;
    end;
 end;
 
 procedure TPlayer.DoLook();
 begin
-   AvatarMessage(FParent.GetDefaultAtom().GetLook(Self));
+   SendMessage(FParent.GetDefaultAtom().GetLook(Self));
 end;
 
 procedure TPlayer.DoInventory();
@@ -333,13 +336,13 @@ begin
    Contents := GetInventory(Self);
    if (Length(Contents) = 0) then
       Contents := 'You are not carrying anything.';
-   AvatarMessage(Contents);
+   SendMessage(Contents);
 end;
 
 {$IFDEF DEBUG}
 procedure TPlayer.DoDebugStatus();
 begin
-   AvatarMessage('Debug build.');
+   SendMessage('Debug build.');
    if (Assigned(StatusReport)) then
       StatusReport(Self);
 end;
@@ -365,7 +368,7 @@ begin
       end;
       Assert(Things.Length > 0);
       for Thing in Things do
-         AvatarMessage(Thing.GetName(Self) + ': ' + Thing.GetLongDefiniteName(Self));
+         SendMessage(Thing.GetName(Self) + ': ' + Thing.GetLongDefiniteName(Self));
    finally
       if (Collect) then
          Things.Free();
@@ -374,7 +377,7 @@ end;
 
 procedure TPlayer.DoDebugThing(Thing: TThing);
 begin
-   AvatarMessage(Thing.Debug());
+   SendMessage(Thing.Debug());
 end;
 
 procedure TPlayer.DoDebugTeleport(Target: TAtom);
@@ -386,7 +389,7 @@ begin
       Ancestor := (Ancestor as TThing).Parent;
    if (Ancestor = Self) then
    begin
-      AvatarMessage('Can''t teleport an actor onto the actor itself or any of its descendants.');
+      SendMessage('Can''t teleport an actor onto the actor itself or any of its descendants.');
    end
    else
    begin
@@ -400,7 +403,7 @@ end;
 
 procedure TPlayer.DoHelp();
 begin
-   AvatarMessage('Welcome to CuddlyWorld!'+ #10 +
+   SendMessage('Welcome to CuddlyWorld!'+ #10 +
                  'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
                  'More elaborate constructions are also possible. You can "take something", or "put something in something else", for instance.' + #10 +
                  'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
@@ -410,7 +413,7 @@ end;
 
 procedure TPlayer.DoQuit();
 begin
-   AvatarMessage(':-(');
+   SendMessage(':-(');
 end;
 
 procedure TPlayer.SetContext(Context: AnsiString);
@@ -423,9 +426,20 @@ begin
    FContext := '';
 end;
 
-procedure TPlayer.AvatarMessage(Message: AnsiString);
+procedure TPlayer.AvatarMessage(Message: TMessage);
 begin
-   if (Assigned(FOnAvatarMessage)) then
+   SendMessage(Message.AsText);
+end;
+
+procedure TPlayer.SendRawMessage(Message: AnsiString);
+begin
+   if (Assigned(FOnMessage)) then
+      FOnMessage(Message);
+end;
+
+procedure TPlayer.SendMessage(Message: AnsiString);
+begin
+   if (Assigned(FOnMessage)) then
    begin
       if (FContext <> '') then
       begin
@@ -434,19 +448,13 @@ begin
          else
             Message := FContext + ': ' + Message;
       end;
-      FOnAvatarMessage(Message);
+      FOnMessage(Message);
    end;
-end;
-
-procedure TPlayer.AvatarBroadcast(Message: AnsiString);
-begin
-   if (Assigned(FOnAvatarMessage)) then
-      FOnAvatarMessage(Message);
 end;
 
 procedure TPlayer.AutoDisambiguated(Message: AnsiString);
 begin
-   AvatarMessage('(' + Message + ')');
+   SendMessage('(' + Message + ')');
 end;
 
 function TPlayer.GetIntrinsicMass(): TThingMass;
@@ -730,10 +738,10 @@ begin
       if (ExtraMessage <> '') then
          Message := Message + ', ' + ExtraMessage;
       Message := Message + '.';
-      AvatarMessage(Message);
+      SendMessage(Message);
    end
    else
-      AvatarMessage(Subject.GetPresenceStatement(Self, psTheThingIsOnThatThing));
+      SendMessage(Subject.GetPresenceStatement(Self, psTheThingIsOnThatThing));
 end;
 
 procedure TPlayer.DoLookUnder(Subject: TThing);
@@ -747,17 +755,17 @@ begin
    {$IFOPT C+} Assert(Found); {$ENDIF}
    if (SubjectiveInformation.Directions = [cdUp]) then
    begin
-      AvatarMessage('You are under ' + Subject.GetDefiniteName(Self) + '.');
+      SendMessage('You are under ' + Subject.GetDefiniteName(Self) + '.');
    end
    else
-      AvatarMessage(Subject.GetLookUnder(Self));
+      SendMessage(Subject.GetLookUnder(Self));
 end;
 
 procedure TPlayer.DoTake(Subject: TThingList);
 var
    Multiple: Boolean;
    Success: Boolean;
-   Message: AnsiString;
+   Message: TMessage;
    Ancestor: TAtom;
    CurrentSubject: TThing;
 begin
@@ -769,20 +777,21 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         Message := '';
+         Message := TMessage.Create(mkSuccess, '');
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          if (CurrentSubject.Parent = Self) then
          begin
-            AvatarMessage('You already have that.');
+            SendMessage('You already have that.');
          end
          else
          if (CurrentSubject = Self) then
          begin
-            AvatarMessage('You try to pick yourself up but end up on ' + FParent.GetSurface().GetDefiniteName(Self) + '.');
+            SendMessage('You try to pick yourself up but end up on ' + FParent.GetSurface().GetDefiniteName(Self) + '.');
          end
          else
          begin
@@ -795,13 +804,14 @@ begin
             if (Ancestor = CurrentSubject) then
             begin
                { we're (possibly indirectly) standing on it }
-               AvatarMessage('Given your current position, that would be quite difficult.');
+               SendMessage('Given your current position, that would be quite difficult.');
             end
             else
             begin
-               Message := 'Taken.';
+               Message := TMessage.Create(mkSuccess, 'Taken.');
                Success := CanCarryThing(CurrentSubject, Message);
-               AvatarMessage(Message);
+               Assert((Message.AsKind = mkSuccess) = Success);
+               SendMessage(Message.AsText);
                if (Success) then
                   Self.Put(CurrentSubject, tpCarried, True, Self);
             end;
@@ -816,7 +826,8 @@ end;
 procedure TPlayer.DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
 var
    Multiple, Success: Boolean;
-   Message: AnsiString;
+   MessageText: AnsiString;
+   Message: TMessage;
    SingleThingList: TThingList;
    Ancestor: TAtom;
    CurrentSubject: TThing;
@@ -831,22 +842,27 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
+         Message := TMessage.Create(mkSuccess, '');
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          if (not Reachable(Target, Message)) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          if (Target = CurrentSubject) then
          begin
-            AvatarMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
+            SendMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
          end
          else
          begin
+            Assert(Message.AsKind = mkSuccess);
+            Assert(Message.AsText = '');
             Ancestor := Target;
             repeat
                Assert(Ancestor is TThing);
@@ -858,18 +874,17 @@ begin
                { the target is on the thing }
                Assert(Target is TThing);
                Assert(Assigned((Target as TThing).Parent));
-               Message := (Target as TThing).GetDefiniteName(Self) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + ThingPositionToString((Target as TThing).Position) + ' ';
+               MessageText := (Target as TThing).GetDefiniteName(Self) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + ThingPositionToString((Target as TThing).Position) + ' ';
                Ancestor := (Target as TThing).Parent;
                while (Ancestor <> CurrentSubject) do
                begin
                   Assert(Ancestor is TThing);
                   Assert(Assigned((Ancestor as TThing).Parent));
-                  Message := Message + Ancestor.GetDefiniteName(Self) + ', which ' + IsAre(Ancestor.IsPlural(Self)) + ' ' + ThingPositionToString((Ancestor as TThing).Position) + ' ';
+                  MessageText := MessageText + Ancestor.GetDefiniteName(Self) + ', which ' + IsAre(Ancestor.IsPlural(Self)) + ' ' + ThingPositionToString((Ancestor as TThing).Position) + ' ';
                   Ancestor := (Ancestor as TThing).Parent;
                end;
                Assert(Ancestor = CurrentSubject);
-               Message := Message + Ancestor.GetDefiniteName(Self);
-               AvatarMessage('That would be difficult, since ' + Message + '.');
+               SendMessage('That would be difficult, since ' + MessageText + Ancestor.GetDefiniteName(Self) + '.');
             end
             else
             begin
@@ -885,17 +900,20 @@ begin
                   end;
                   if (not Reachable(CurrentSubject, Message)) then
                   begin
-                     AvatarMessage(Message);
+                     Assert(Message.AsKind <> mkSuccess);
+                     SendMessage(Message.AsText);
                      Success := False;
                   end
                   else
                   if (not Reachable(Target, Message)) then
                   begin
-                     AvatarMessage(Message);
+                     Assert(Message.AsKind <> mkSuccess);
+                     SendMessage(Message.AsText);
                      Success := False;
                   end
                   else
                   begin
+                     Assert(Message.AsKind = mkSuccess);
                      Success := CurrentSubject.Parent = Self;
                   end;
                end
@@ -906,14 +924,16 @@ begin
                if (Success) then
                begin
                   if (PutCarefully) then
-                     Message := 'Placed'
+                     MessageText := 'Placed'
                   else
-                     Message := 'Dropped';
+                     MessageText := 'Dropped';
                   if (Target <> FParent.GetSurface()) then
-                     Message := Message + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
-                  Message := Message + '.';
+                     MessageText := MessageText + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
+                  MessageText := MessageText + '.';
+                  Message := TMessage.Create(mkSuccess, MessageText);
                   Success := Target.CanPut(CurrentSubject, ThingPosition, Self, Message);
-                  AvatarMessage(Message);
+                  Assert((Message.AsKind = mkSuccess) = Success);
+                  SendMessage(Message.AsText);
                   if (Success) then
                      Target.Put(CurrentSubject, ThingPosition, PutCarefully, Self);
                end;
@@ -1003,7 +1023,7 @@ var
    Ancestor, SurrogateTarget, LocationSurface: TAtom;
    CurrentSubject: TThing;
    {$IFOPT C+} PreviousParent: TAtom; {$ENDIF}
-   Message: AnsiString;
+   Message: TMessage;
 begin
    Assert(Assigned(Subject));
    Assert(Subject.Length > 0);
@@ -1015,6 +1035,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
+         Message := TMessage.Create(mkSuccess, '');
          if (CurrentSubject.Parent = Self) then
          begin
             SingleThingList := TThingList.Create();
@@ -1041,12 +1062,14 @@ begin
          else
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          if (Assigned(Target) and (not Reachable(Target, Message))) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          begin
@@ -1056,7 +1079,7 @@ begin
             if (Ancestor = CurrentSubject) then
             begin
                { we're (possibly indirectly) standing on it }
-               AvatarMessage('Given your current position, that would be quite difficult.');
+               SendMessage('Given your current position, that would be quite difficult.');
             end
             else
             begin
@@ -1103,7 +1126,7 @@ begin
                   end
                   else
                   begin
-                     AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' already ' + ThingPositionToString(CurrentSubject.Position) + ' ' + Target.GetDefiniteName(Self) + '.'));
+                     SendMessage(Capitalise(CurrentSubject.GetDefiniteName(Self) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' already ' + ThingPositionToString(CurrentSubject.Position) + ' ' + Target.GetDefiniteName(Self) + '.'));
                   end;
                end
                else
@@ -1126,14 +1149,17 @@ begin
                else
                if (SurrogateTarget = CurrentSubject) then
                begin
-                  AvatarMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
+                  SendMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
                end
                else
                begin
                   { if we get here then we have a target that makes sense }
-                  Message := 'Moved ' + ThingPositionToDirectionString(ThingPosition) + ' ' + SurrogateTarget.GetDefiniteName(Self) + '.';
+                  Message := TMessage.Create(mkSuccess, 'Moved _ _.',
+                                                        [ThingPositionToDirectionString(ThingPosition),
+                                                         SurrogateTarget.GetDefiniteName(Self)]);
                   Success := CanPushThing(CurrentSubject, Message) and SurrogateTarget.CanPut(CurrentSubject, ThingPosition, Self, Message);
-                  AvatarMessage(Message);
+                  Assert((Message.AsKind = mkSuccess) = Success);
+                  SendMessage(Message.AsText);
                   if (Success) then
                      SurrogateTarget.Put(CurrentSubject, ThingPosition, True, Self);
                end;
@@ -1159,7 +1185,7 @@ var
    Destination, CurrentNotifiee: TAtom;
    Location: TLocation;
    ThingPosition: TThingPosition;
-   Message: AnsiString;
+   Message: TMessage;
    NotificationList: TAtomList;
 begin
    Assert(Assigned(Subject));
@@ -1170,18 +1196,22 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
+         Message := TMessage.Create(mkSuccess, '');
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          begin
             Assert(Assigned(CurrentSubject.Parent));
             Destination := CurrentSubject.Parent.GetDefaultAtom();
-            Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' immovable.';
+            Message := TMessage.Create(mkImmovable, '_ _ immovable.',
+                                                    [Capitalise(CurrentSubject.GetDefiniteName(Self)),
+                                                     IsAre(CurrentSubject.IsPlural(Self))]);
             if (CurrentSubject = Self) then
             begin
-               AvatarMessage('You try to push yourself but find that a closed system cannot have any unbalanced internal forces.');
+               SendMessage('You try to push yourself but find that a closed system cannot have any unbalanced internal forces.');
             end
             else
             if (Destination is TLocation) then
@@ -1196,17 +1226,19 @@ begin
                begin
                   ThingPosition := tpOn;
                   DisambiguationOpening := nil;
-                  Message := 'Pushed.';
+                  Message := TMessage.Create(mkSuccess, 'Pushed.');
                   NotificationList := TAtomList.Create();
                   try
                      Destination := Destination.GetEntrance(CurrentSubject, Direction, Self, ThingPosition, DisambiguationOpening, Message, NotificationList);
                      if (Assigned(Destination)) then
                      begin
+                        Assert(Message.AsKind = mkSuccess);
                         if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
                            AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Self));
                         Success := CanPushThing(CurrentSubject, Message) and
                                    Destination.CanPut(CurrentSubject, ThingPosition, Self, Message);
-                        AvatarMessage(Message);
+                        Assert((Message.AsKind = mkSuccess) = Success);
+                        SendMessage(Message.AsText);
                         if (Success) then
                         begin
                            for CurrentNotifiee in NotificationList do
@@ -1216,7 +1248,7 @@ begin
                      end
                      else
                      begin
-                        AvatarMessage(Message);
+                        SendMessage(Message.AsText);
                      end;
                   finally
                      NotificationList.Free();
@@ -1226,16 +1258,16 @@ begin
             else
             if (CurrentSubject.Position = tpOn) then
             begin
-               AvatarMessage('You would have to push ' + CurrentSubject.GetDefiniteName(Self) + ' off ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
+               SendMessage('You would have to push ' + CurrentSubject.GetDefiniteName(Self) + ' off ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
             end
             else
             if (CurrentSubject.Position = tpIn) then
             begin
-               AvatarMessage('You would have to move ' + CurrentSubject.GetDefiniteName(Self) + ' out of ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
+               SendMessage('You would have to move ' + CurrentSubject.GetDefiniteName(Self) + ' out of ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
             end
             else
             begin
-               AvatarMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
+               SendMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' and cannot be moved.');
             end;
          end;
       end;
@@ -1251,9 +1283,10 @@ var
    Destination, Ancestor: TAtom;
    DestinationPosition: TThingPosition;
    SingleThingList: TThingList;
-   Message: AnsiString;
+   Message: TMessage;
    CurrentSubject: TThing;
 begin
+   // this is for "move flowers off table" and the like
    Assert(Assigned(Subject));
    Assert(Subject.Length > 0);
    Assert((RequiredPosition = tpOn) or (RequiredPosition = tpIn));
@@ -1265,27 +1298,43 @@ begin
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
          Assert(Assigned(CurrentSubject.Parent));
          Denied := True;
-         Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' immovable.';
+         Message := TMessage.Create(mkImmovable, '_ _ immovable.',
+                                                 [Capitalise(CurrentSubject.GetDefiniteName(Self)),
+                                                  IsAre(CurrentSubject.IsPlural(Self))]);
          if (not Reachable(CurrentSubject, Message)) then
          begin
+            Assert(Message.AsKind <> mkSuccess);
             // Message set
          end
          else
          if (Assigned(RequiredParent) and (not Reachable(RequiredParent, Message))) then
          begin
+            Assert(Message.AsKind <> mkSuccess);
             // Message set
          end
          else
          if (CurrentSubject = Self) then
          begin
-            Message := 'You can''t just remove yourself from somewhere... where do you want to go instead?';
+            Message := TMessage.Create(mkBogus, 'You can''t just remove yourself from somewhere... where do you want to go instead?');
          end
          else
          begin
+            Assert(Message.AsKind = mkSuccess);
+            Assert(Denied);
+            // let's make these consistent now...
             if (Assigned(RequiredParent)) then
             begin
                if ((CurrentSubject.Parent <> RequiredParent) or (CurrentSubject.Position <> RequiredPosition)) then
-                  Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' ' + RequiredParent.GetDefiniteName(Self) + ', ' + CurrentSubject.GetSubjectPronoun(Self) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '.'
+                  // "The subject is not on the required parent, it is on the subject's parent."
+                  Message := TMessage.Create(mkBogus, '_ _ not _ _, _ _ _ _.',
+                                                      [Capitalise(CurrentSubject.GetDefiniteName(Self)),
+                                                       IsAre(CurrentSubject.IsPlural(Self)),
+                                                       ThingPositionToString(RequiredPosition), 
+                                                       RequiredParent.GetDefiniteName(Self),
+                                                       CurrentSubject.GetSubjectPronoun(Self),
+                                                       IsAre(CurrentSubject.IsPlural(Self)),
+                                                       ThingPositionToString(CurrentSubject.Position),
+                                                       CurrentSubject.Parent.GetDefiniteName(Self)])
                else
                   Denied := False;
             end
@@ -1293,7 +1342,15 @@ begin
             begin
                if (CurrentSubject.Position <> RequiredPosition) then
                begin
-                  Message := Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' not ' + ThingPositionToString(RequiredPosition) + ' anything, ' + CurrentSubject.GetSubjectPronoun(Self) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '.';
+                  // "The subject is not on anything, the subject is in the pot."
+                  Message := TMessage.Create(mkBogus, '_ _ not _ anything, _ _ _ _.',
+                                                      [Capitalise(CurrentSubject.GetDefiniteName(Self)),
+                                                       IsAre(CurrentSubject.IsPlural(Self)),
+                                                       ThingPositionToString(RequiredPosition),
+                                                       CurrentSubject.GetSubjectPronoun(Self),
+                                                       IsAre(CurrentSubject.IsPlural(Self)),
+                                                       ThingPositionToString(CurrentSubject.Position),
+                                                       CurrentSubject.Parent.GetDefiniteName(Self)]);
                end
                else
                begin
@@ -1307,13 +1364,16 @@ begin
                      AutoDisambiguated('off ' + CurrentSubject.Parent.GetDefiniteName(Self));
                   end;
                   Denied := False;
+                  Assert(Message.AsKind = mkSuccess);
                end;
             end;
+            Assert(((Message.AsKind <> mkSuccess) and (Denied)) or (Message.AsKind = mkSuccess));
             Denied := (not CanPushThing(CurrentSubject, Message)) or Denied;
+            Assert(((Message.AsKind <> mkSuccess) and (Denied)) or (Message.AsKind = mkSuccess));
          end;
          if (Denied) then
          begin
-            AvatarMessage(Message);
+            SendMessage(Message.AsText);
          end
          else
          begin
@@ -1341,7 +1401,7 @@ begin
                if (Ancestor = CurrentSubject) then
                begin
                   { we're (possibly indirectly) standing on it }
-                  AvatarMessage('Given your current position, that would be quite difficult.');
+                  SendMessage('Given your current position, that would be quite difficult.');
                end
                else
                begin
@@ -1356,10 +1416,13 @@ begin
                      Destination := (CurrentSubject.Parent as TThing).Parent.GetSurface();
                      DestinationPosition := tpOn;
                   end;
-                  Message := 'Moved ' + ThingPositionToDirectionString(DestinationPosition) + ' ' + Destination.GetDefiniteName(Self) + '.';
+                  Message := TMessage.Create(mkSuccess, 'Moved _ _.',
+                                                        [ThingPositionToDirectionString(DestinationPosition),
+                                                         Destination.GetDefiniteName(Self)]);
                   // XXX should check that it's possible to slide the thing to the given position
                   Success := Destination.CanPut(CurrentSubject, DestinationPosition, Self, Message);
-                  AvatarMessage(Message);
+                  Assert((Message.AsKind = mkSuccess) = Success);
+                  SendMessage(Message.AsText);
                   if (Success) then
                      Destination.Put(CurrentSubject, DestinationPosition, True, Self);
                end;
@@ -1376,7 +1439,7 @@ procedure TPlayer.DoPress(Subject: TThingList);
 var
    Multiple: Boolean;
    CurrentSubject: TThing;
-   Message: AnsiString;
+   Message: TMessage;
 begin
    Assert(Assigned(Subject));
    Assert(Subject.Length > 0);
@@ -1386,9 +1449,11 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
+         Message := TMessage.Create(mkSuccess, '');
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          if (CurrentSubject = Self) then
@@ -1411,7 +1476,7 @@ end;
 procedure TPlayer.DoShake(Subject: TThingList);
 var
    Multiple: Boolean;
-   Message: AnsiString;
+   Message: TMessage;
    CurrentSubject: TThing;
 begin
    Assert(Assigned(Subject));
@@ -1422,29 +1487,32 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
+         Message := TMessage.Create(mkSuccess, '');
          if (not Reachable(CurrentSubject, Message)) then
          begin
-            AvatarMessage(Message);
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
          end
          else
          if (CurrentSubject = Self) then
          begin
             DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@GetReflexivePronoun), M('.')]);
-            AvatarMessage('You shake yourself.');
+            SendMessage('You shake yourself.');
          end
          else
          begin
-            Message := 'You can''t shake ' + CurrentSubject.GetDefiniteName(Self) + '.';
+            Message := TMessage.Create(mkImmovable, 'You can''t shake _.', [CurrentSubject.GetDefiniteName(Self)]);
             if (CanShakeThing(CurrentSubject, Message)) then
             begin
                { have to do broadcast as well as avatar message because broadcast won't get the context }
                DoBroadcast([CurrentSubject, Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@CurrentSubject.GetDefiniteName), M('.')]);
-               AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional('shakes', 'shake', IsPlural(Self)) + ' ' + CurrentSubject.GetDefiniteName(Self) + '.');
+               SendMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional('shakes', 'shake', IsPlural(Self)) + ' ' + CurrentSubject.GetDefiniteName(Self) + '.');
                CurrentSubject.Shake(Self);
             end
             else
             begin
-               AvatarMessage(Message);
+               Assert(Message.AsKind <> mkSuccess);
+               SendMessage(Message.AsText);
             end;
          end;
       end;
@@ -1458,7 +1526,7 @@ procedure TPlayer.DoDig(Target: TThing; Spade: TThing);
 var
    SingleThingList: TThingList;
    Success: Boolean;
-   Message: AnsiString;
+   Message: TMessage;
 begin
    Assert(Assigned(Spade));
    Assert(Assigned(Spade.Parent));
@@ -1476,11 +1544,12 @@ begin
    end;
    if (Spade.Parent = Self) then
    begin
-      Message := 'Dug.';
+      Message := TMessage.Create(mkSuccess, 'Dug.');
       Success := Spade.CanDig(Target, Self, Message) and Target.Dig(Spade, Self, Message);
+      Assert((Message.AsKind = mkSuccess) = Success);
       if (Success) then
          Spade.Dug(Target, Self, Message);
-      AvatarMessage(Message);
+      SendMessage(Message.AsText);
    end;
 end;
 
@@ -1508,7 +1577,7 @@ begin
       end
       else
       begin
-         AvatarMessage('You cannot dig ' + Destination.GetDefiniteName(Self) + '.'); // XXX "from here", maybe?
+         SendMessage('You cannot dig ' + Destination.GetDefiniteName(Self) + '.'); // XXX "from here", maybe?
       end;
    end
    else
@@ -1516,7 +1585,7 @@ begin
       if ((Direction = cdDown) and (FParent is TThing)) then
          DoDig(FParent as TThing, Spade)
       else
-         AvatarMessage('You cannot dig ' + CardinalDirectionToString(Direction) + ' while you are ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Self) + '.');
+         SendMessage('You cannot dig ' + CardinalDirectionToString(Direction) + ' while you are ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Self) + '.');
    end;
 end;
 
@@ -1534,17 +1603,18 @@ begin
    end;
    if (Assigned(Target)) then
    begin
+      // XXX notify NPCs
       if (Volume <> tvWhispering) then
          DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M(' to '), M(@Target.GetDefiniteName), M('.')])
       else
-      if (Target is TAvatar) then
-         (Target as TAvatar).AvatarMessage(Capitalise(GetDefiniteName(Target as TAvatar)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Target as TAvatar)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Target as TAvatar) + '.');
-      AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Self) + '.')
+      if (Target is TPlayer) then
+         (Target as TPlayer).SendMessage(Capitalise(GetDefiniteName(Target as TAvatar)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Target as TAvatar)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Target as TAvatar) + '.');
+      SendMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Self) + '.')
    end
    else
    begin
       DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M('.')]);
-      AvatarMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + '.');
+      SendMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + '.');
    end;
 end;
 
@@ -1600,7 +1670,7 @@ begin
    end;
 end;
 
-function TPlayer.CanCarryThing(Thing: TThing; var Message: AnsiString): Boolean;
+function TPlayer.CanCarryThing(Thing: TThing; var Message: TMessage): Boolean;
 begin
    if (not Thing.CanTake(Self, Message)) then
    begin
@@ -1610,19 +1680,25 @@ begin
    if (Thing.GetMassManifest() > MaxCarryMass) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too heavy.';
+      Message := TMessage.Create(mkTooHeavy, '_ _ far too heavy.',
+                                             [Capitalise(Thing.GetDefiniteName(Self)),
+                                              IsAre(Thing.IsPlural(Self))]);
    end
    else
    if (Thing.GetOutsideSizeManifest() > MaxCarrySize) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too big.';
+      Message := TMessage.Create(mkTooBig, '_ _ far too big.',
+                                           [Capitalise(Thing.GetDefiniteName(Self)),
+                                            IsAre(Thing.IsPlural(Self))]);
    end
    else
+   begin
       Result := True;
+   end;
 end;
 
-function TPlayer.CanPushThing(Thing: TThing; var Message: AnsiString): Boolean;
+function TPlayer.CanPushThing(Thing: TThing; var Message: TMessage): Boolean;
 begin
    if (not Thing.CanMove(Self, Message)) then
    begin
@@ -1632,19 +1708,23 @@ begin
    if (Thing.GetMassManifest() >= MaxPushMass) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too heavy.';
+      Message := TMessage.Create(mkTooHeavy, '_ _ far too heavy.',
+                                             [Capitalise(Thing.GetDefiniteName(Self)),
+                                              IsAre(Thing.IsPlural(Self))]);
    end
    else
    if (Thing.GetOutsideSizeManifest() >= MaxPushSize) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too big.';
+      Message := TMessage.Create(mkTooBig, '_ _ far too big.',
+                                           [Capitalise(Thing.GetDefiniteName(Self)),
+                                            IsAre(Thing.IsPlural(Self))]);
    end
    else
       Result := True;
 end;
 
-function TPlayer.CanShakeThing(Thing: TThing; var Message: AnsiString): Boolean;
+function TPlayer.CanShakeThing(Thing: TThing; var Message: TMessage): Boolean;
 begin
    if (not Thing.CanShake(Self, Message)) then
    begin
@@ -1654,19 +1734,23 @@ begin
    if (Thing.GetMassManifest() >= MaxShakeMass) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too heavy.';
+      Message := TMessage.Create(mkTooHeavy, '_ _ far too heavy.',
+                                             [Capitalise(Thing.GetDefiniteName(Self)),
+                                              IsAre(Thing.IsPlural(Self))]);
    end
    else
    if (Thing.GetOutsideSizeManifest() >= MaxShakeSize) then
    begin
       Result := False;
-      Message := Capitalise(Thing.GetDefiniteName(Self)) + ' ' + IsAre(Thing.IsPlural(Self)) + ' far too big.';
+      Message := TMessage.Create(mkTooBig, '_ _ far too big',
+                                           [Capitalise(Thing.GetDefiniteName(Self)),
+                                            IsAre(Thing.IsPlural(Self))]);
    end
    else
       Result := True;
 end;
 
-function TPlayer.Reachable(Subject: TAtom; out Message: AnsiString): Boolean;
+function TPlayer.Reachable(Subject: TAtom; out Message: TMessage): Boolean;
 
    function GetRootFor(Atom: TAtom): TAtom;
    begin
@@ -1691,8 +1775,16 @@ begin
       // XXX can this branch ever be taken?
       Assert(False, 'There''s a comment here you need to remove... (its answer is apparently yes!)');
       Result := SelfRoot = Subject;
-      if (not Result) then
-         Message := 'You aren''t at ' + Subject.GetDefiniteName(Self) + ' anymore.'; // "at" might not work, e.g. "You aren't in Kansas anymore." needs "in" not "at"; but "The Bathroom" or "Whole Foods" wants "at"...
+      if (Result) then
+      begin
+         Message := TMessage.Create(mkSuccess, '');
+      end
+      else
+      begin
+         // "at" might not work, e.g. "You aren't in Kansas anymore." needs "in" not "at"; but "The Beach" or
+         // "Whole Foods" wants "at"...
+         Message := TMessage.Create(mkNotReachable, 'You aren''t at _ anymore.', [Subject.GetDefiniteName(Self)]);
+      end;
    end
    else
    if (Subject is TThing) then
@@ -1700,34 +1792,39 @@ begin
       Result := SelfRoot.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
       if (not Result) then
       begin
-         Message := 'You can''t see ' + Subject.GetDefiniteName(Self) + ' anymore.';
+         Message := TMessage.Create(mkNotReachable, 'You can''t see _ anymore.', [Subject.GetDefiniteName(Self)]);
+      end
+      else
+      if (not (rpReachable in SubjectiveInformation.Reachable)) then
+      begin
+         Assert(GetRootFor(Self) <> GetRootFor(Subject));
+         Result := False;
+         DirectionMessage := '';
+         for Direction := Low(SubjectiveInformation.Directions) to High(SubjectiveInformation.Directions) do
+         begin
+            if (Direction in SubjectiveInformation.Directions) then
+            begin
+               if (DirectionMessage <> '') then
+               begin
+                  // it's in more than one direction, give up trying to explain where it is
+                  DirectionMessage := '';
+                  Break;
+               end;
+               DirectionMessage := ' (' + CardinalDirectionToDirectionString(Direction) + ')';
+            end;
+         end;
+         Message := TMessage.Create(mkNotReachable, '_ _ too far away_.',
+                                                    [Capitalise(Subject.GetDefiniteName(Self)),
+                                                     IsAre(Subject.IsPlural(Self)),
+                                                     DirectionMessage]);
+         // SelfRoot := GetRootFor(Self);
+         // SubjectRoot := GetRootFor(Subject);
+         // '... You are in _ but _ is in _.',
+         // [..., SelfRoot.GetDefiniteName(Self), Subject.GetDefiniteName(Self), SubjectRoot.GetDefiniteName(Self)]
       end
       else
       begin
-         if (not (rpReachable in SubjectiveInformation.Reachable)) then
-         begin
-            Assert(GetRootFor(Self) <> GetRootFor(Subject));
-            Result := False;
-            Message := Capitalise(Subject.GetDefiniteName(Self)) + ' ' + IsAre(Subject.IsPlural(Self)) + ' too far away';
-            DirectionMessage := '';
-            for Direction := Low(SubjectiveInformation.Directions) to High(SubjectiveInformation.Directions) do
-            begin
-               if (Direction in SubjectiveInformation.Directions) then
-               begin
-                  if (DirectionMessage <> '') then
-                  begin
-                     // it's in more than one direction, give up trying to explain where it is
-                     DirectionMessage := '';
-                     Break;
-                  end;
-                  DirectionMessage := ' (' + CardinalDirectionToDirectionString(Direction) + ')';
-               end;
-            end;
-            Message := Message + DirectionMessage + '.';
-            // SelfRoot := GetRootFor(Self);
-            // SubjectRoot := GetRootFor(Subject);
-            // Message := Message + ' You are in ' + SelfRoot.GetDefiniteName(Self) + ' but ' + Subject.GetDefiniteName(Self) + ' is in ' + SubjectRoot.GetDefiniteName(Self) + '.';
-         end;
+         Message := TMessage.Create(mkSuccess, '');
       end;
    end
    else
@@ -1776,8 +1873,8 @@ end;
 
 function TPlayer.HasConnectedPlayer(): Boolean;
 begin
-   Assert(Assigned(FOnAvatarMessage) = Assigned(FOnForceDisconnect));
-   Result := Assigned(FOnAvatarMessage);
+   Assert(Assigned(FOnMessage) = Assigned(FOnForceDisconnect));
+   Result := Assigned(FOnMessage);
 end;
 
 function TPlayer.IsReadyForRemoval(): Boolean;
@@ -2014,22 +2111,22 @@ begin
    Result := FPassword;
 end;
 
-procedure TPlayer.Adopt(AOnAvatarMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
+procedure TPlayer.Adopt(AOnMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
 begin
-   Assert(Assigned(AOnAvatarMessage));
+   Assert(Assigned(AOnMessage));
    Assert(Assigned(AOnForceDisconnect));
    if (HasConnectedPlayer()) then
    begin
       Assert(Assigned(FOnForceDisconnect));
       FOnForceDisconnect();
    end;
-   FOnAvatarMessage := AOnAvatarMessage;
+   FOnMessage := AOnMessage;
    FOnForceDisconnect := AOnForceDisconnect;
 end;
 
 procedure TPlayer.Abandon();
 begin
-   FOnAvatarMessage := nil;
+   FOnMessage := nil;
    FOnForceDisconnect := nil;
 end;
 

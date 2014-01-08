@@ -990,7 +990,7 @@ var
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Process() on a ', ClassName, ' -- ', Length(FVictims), ' victims follow') {$ENDIF};
    Assert(Length(FVictims) > 0);
-   for Index := Low(FVictims) to High(FVictims) do
+   for Index := Low(FVictims) to High(FVictims) do // $R-
    begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Process() on a ', ClassName, ' -- victim ', Index, ':') {$ENDIF};
       Filter(FVictims[Index]);
@@ -1546,7 +1546,7 @@ begin
    begin
       Include(FFlags, cfDisambiguateAnyLoneResult);
       Assert(Length(FRegisteredJoins) > 0);
-      for Index := High(FRegisteredJoins) downto Low(FRegisteredJoins) do
+      for Index := High(FRegisteredJoins) downto Low(FRegisteredJoins) do // $R-
          FThings.AdoptList(FRegisteredJoins[Index].FThings);
    end;
 end;
@@ -2174,7 +2174,7 @@ var
    {$IFDEF DEBUG} OldHeapInfo: THeapInfo; {$ENDIF}
 begin
    {$IFDEF DEBUG}
-   OldHeapInfo := SetHeapInfo('ThingSeeker: "' + Copy(Serialise(OriginalTokens, 0, Length(OriginalTokens)), 1, HeapInfoSize - 20) + '"');
+   OldHeapInfo := SetHeapInfo('ThingSeeker: "' + Copy(Serialise(OriginalTokens, 0, Length(OriginalTokens)), 1, HeapInfoSize - 20) + '"'); // $R-
    try
    {$ENDIF}
 {$IFDEF DEBUG_SEEKER} Writeln('collecting for: "' + Serialise(OriginalTokens, Start, 1) + '" of "' + Serialise(OriginalTokens, 0, Length(OriginalTokens)) + '"'); {$ENDIF}

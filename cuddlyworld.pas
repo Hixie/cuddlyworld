@@ -20,7 +20,7 @@ type
       procedure InitialiseWorld();
       procedure SaveWorld();
       {$IFDEF DEBUG}
-      procedure ReportStatus(Perspective: TAvatar);
+      procedure ReportStatus(Perspective: TPlayer);
       {$ENDIF}
    end;
 
@@ -107,9 +107,9 @@ begin
 end;
 
 {$IFDEF DEBUG}
-procedure TMain.ReportStatus(Perspective: TAvatar);
+procedure TMain.ReportStatus(Perspective: TPlayer);
 begin
-   Perspective.AvatarMessage('Players: ' + IntToStr(FWorld.GetPlayerCount()));
+   Perspective.SendRawMessage('Players: ' + IntToStr(FWorld.GetPlayerCount()));
 end;
 {$ENDIF}
 

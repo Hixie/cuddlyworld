@@ -5,7 +5,7 @@ unit physics;
 interface
 
 uses
-   storable, lists, grammarian, thingdim;
+   storable, lists, grammarian, thingdim, messages;
 
 type
    TAtom = class;
@@ -91,7 +91,7 @@ type
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
       procedure Remove(Thing: TThingList.TEnumerator);
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
       procedure Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar); virtual;
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { external size of the object (e.g. to decide if it fits inside another): self and children that are tpOutside; add tpContained children if container is flexible }
@@ -136,7 +136,7 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
       function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetDefaultAtom) }
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
-      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; virtual; abstract;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
       {$IFDEF DEBUG} function Debug(): AnsiString; virtual; {$ENDIF}
@@ -156,16 +156,16 @@ type
       procedure Write(Stream: TWriteStream); override;
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); override;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; override;
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean; override;
-      function CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
-      function CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
-      function CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
+      function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
+      function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
       function GetIntrinsicMass(): TThingMass; virtual; abstract;
       function GetIntrinsicSize(): TThingSize; virtual; abstract;
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetSummaryName(Perspective: TAvatar): AnsiString; override;
       function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
       function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
@@ -200,9 +200,9 @@ type
       procedure Shake(Perspective: TAvatar); virtual;
       procedure Press(Perspective: TAvatar); virtual;
       function GetFeatures(): TThingFeatures; virtual;
-      function CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
-      function Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean; virtual;
-      procedure Dug(Target: TThing; Perspective: TAvatar; var Message: AnsiString); virtual;
+      function CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
+      function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
+      procedure Dug(Target: TThing; Perspective: TAvatar; var Message: TMessage); virtual;
       function IsOpen(): Boolean; virtual;
       {$IFDEF DEBUG} function Debug(): AnsiString; override; {$ENDIF}
       property Parent: TAtom read FParent;
@@ -215,8 +215,7 @@ type
       function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean; override;
     public
       procedure DoLook(); virtual; abstract;
-      procedure AvatarMessage(Message: AnsiString); virtual; abstract;
-      procedure AvatarBroadcast(Message: AnsiString); virtual; abstract;
+      procedure AvatarMessage(Message: TMessage); virtual; abstract;
       procedure AnnounceAppearance(); virtual; abstract;
       procedure AnnounceDisappearance(); virtual; abstract;
       procedure AnnounceDeparture(Destination: TAtom; Direction: TCardinalDirection); virtual; abstract;
@@ -227,7 +226,6 @@ type
       function HasConnectedPlayer(): Boolean; virtual; abstract;
       function IsReadyForRemoval(): Boolean; virtual; abstract;
       procedure RemoveFromWorld(); virtual;
-      function GetUsername(): AnsiString; virtual;
    end;
 
    {$IFDEF DEBUG} // used by AssertDirectionHasDestination()
@@ -241,8 +239,7 @@ type
       function GetIntrinsicSize(): TThingSize; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
       procedure DoLook(); override;
-      procedure AvatarMessage(Message: AnsiString); override;
-      procedure AvatarBroadcast(Message: AnsiString); override;
+      procedure AvatarMessage(Message: TMessage); override;
       procedure AnnounceAppearance(); override;
       procedure AnnounceDisappearance(); override;
       procedure AnnounceDeparture(Destination: TAtom; Direction: TCardinalDirection); override;
@@ -298,7 +295,7 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
-      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); virtual;
@@ -342,7 +339,7 @@ end;
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 var
    Destination: TAtom;
-   Message: AnsiString;
+   Message: TMessage;
    Position: TThingPosition;
    NotificationList: TAtomList;
    NotificationTarget: TAtom;
@@ -353,7 +350,7 @@ begin
    Assert(Assigned(Perspective));
    Position := tpOn;
    DisambiguationOpening := nil;
-   Message := '';
+   Message := TMessage.Create(mkSuccess, '');
    NotificationList := TAtomList.Create();
    try
       Destination := ATo.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
@@ -370,7 +367,10 @@ begin
       end
       else
       begin
-         Perspective.AvatarMessage(Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot go ' + CardinalDirectionToString(Direction) + '. ' + Message);
+         Message.PrefaceFailureTopic('_ cannot go _.',
+                                    [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                     CardinalDirectionToString(Direction)]);
+         Perspective.AvatarMessage(Message);
       end;
    finally
       NotificationList.Free();
@@ -380,7 +380,7 @@ end;
 procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);
 var
    Destination: TAtom;
-   Message: AnsiString;
+   Message: TMessage;
    Success: Boolean;
    Ancestor: TAtom;
    NotificationList: TAtomList;
@@ -397,7 +397,10 @@ begin
       Ancestor := (Ancestor as TThing).Parent;
    if (Ancestor = Perspective) then
    begin
-      Perspective.AvatarMessage('That would prove rather challenging given where ' + ATo.GetDefiniteName(Perspective) + ' ' + IsAre(ATo.IsPlural(Perspective)) + ' relative to yourself.');
+      Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseLocation, 'That would prove rather challenging given where _ _ relative to _.',
+                                                [ATo.GetDefiniteName(Perspective),
+                                                 IsAre(ATo.IsPlural(Perspective)),
+                                                 Perspective.GetReflexivePronoun(Perspective)]));
    end
    else
    if (Position = tpOn) then
@@ -406,7 +409,7 @@ begin
       Assert(Assigned(ATo));
       Assert(ATo is TThing);
       DisambiguationOpening := nil;
-      Message := '';
+      Message := TMessage.Create(mkSuccess, '');
       Success := (ATo as TThing).CanPut(Perspective, Position, Perspective, Message);
       if (Success) then
       begin
@@ -415,7 +418,10 @@ begin
       end
       else
       begin
-         Perspective.AvatarMessage(Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot get onto ' + ATo.GetDefiniteName(Perspective) + '. ' + Message);
+         Message.PrefaceFailureTopic('_ cannot get onto _.', 
+                                     [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                      ATo.GetDefiniteName(Perspective)]);
+         Perspective.AvatarMessage(Message);
       end;
    end
    else
@@ -423,7 +429,7 @@ begin
    begin
       Assert(ATo is TThing);
       DisambiguationOpening := nil;
-      Message := '';
+      Message := TMessage.Create(mkSuccess, '');
       NotificationList := TAtomList.Create();
       try
          Ancestor := AFrom;
@@ -447,7 +453,10 @@ begin
          end
          else
          begin
-            Perspective.AvatarMessage(Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot enter ' + ATo.GetDefiniteName(Perspective) + '. ' + Message);
+            Message.PrefaceFailureTopic('_ cannot enter _.',
+                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                         ATo.GetDefiniteName(Perspective)]);
+            Perspective.AvatarMessage(Message);
          end;
       finally
          NotificationList.Free();
@@ -590,13 +599,15 @@ procedure TAtom.Removed(Thing: TThing);
 begin
 end;
 
-function TAtom.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TAtom.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if (ThingPosition = tpOn) then
    begin
       Result := CanSurfaceHold(Thing.GetIntrinsicSize());
       if (not Result) then
-         Message := 'There is not enough room on ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetDefiniteName(Perspective) + '.';
+         Message := TMessage.Create(mkTooBig, 'There is not enough room on _ for _.',
+                                              [GetDefiniteName(Perspective),
+                                               Thing.GetDefiniteName(Perspective)]);
    end
    else
    if (ThingPosition = tpIn) then
@@ -605,9 +616,13 @@ begin
       if (not Result) then
       begin
          if ((not Assigned(GetInside(ThingPosition))) and (Self is TThing)) then
-            Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('does', 'do', IsPlural(Perspective)) + ' not appear to have an opening.'
+            Message := TMessage.Create(mkNoOpening, '_ _ not appear to have an opening.',
+                                                    [Capitalise(GetDefiniteName(Perspective)),
+                                                     TernaryConditional('does', 'do', IsPlural(Perspective))])
          else
-            Message := 'There is not enough room in ' + GetDefiniteName(Perspective) + ' for ' + Thing.GetDefiniteName(Perspective) + '.';
+            Message := TMessage.Create(mkTooBig, 'There is not enough room in _ for _.',
+                                                 [GetDefiniteName(Perspective),
+                                                  Thing.GetDefiniteName(Perspective)]);;
       end;
    end
    else
@@ -1053,9 +1068,10 @@ begin
       Result := (GetSurfaceSizeManifest() + Manifest) <= (GetIntrinsicSize());
 end;
 
-function TThing.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TThing.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 var
    Child: TThing;
+   RawMessage: AnsiString;
 begin
    // first, look for an opening we can use as the entrance, and defer to it if we have one
    Assert(Assigned(FChildren));
@@ -1088,15 +1104,22 @@ begin
    begin
       // no entrance, no inside, but the thing is too small anyway
       // "You are bigger than the apple."
-      Message := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' ' + IsAre(Perspective.IsPlural(Perspective)) + ' bigger than ' + GetDefiniteName(Perspective) + '.';
+      Message := TMessage.Create(mkTooBig, '_ _ bigger than _.',
+                                           [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                            IsAre(Perspective.IsPlural(Perspective)),
+                                            GetDefiniteName(Perspective)]);
    end
    else
    begin
       // no entrance, no inside
       // try to give a message along the lines of "the bottle is closed", but failing that, the default below
-      Message := GetDescriptionState(Perspective);
-      if (Length(Message) = 0) then
-         Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('has', 'have', IsPlural(Perspective)) + ' no discernible entrance.';
+      RawMessage := GetDescriptionState(Perspective);
+      if (RawMessage <> '') then
+         Message := TMessage.Create(mkNoOpening, RawMessage)
+      else
+         Message := TMessage.Create(mkNoOpening, '_ _ no discernible entrance.',
+                                                 [Capitalise(GetDefiniteName(Perspective)),
+                                                  TernaryConditional('has', 'have', IsPlural(Perspective))]);
    end;
 end;
 
@@ -1476,12 +1499,12 @@ begin
    Result := 'There is no discernible writing on ' + GetDefiniteName(Perspective) + '.';
 end;
 
-function TThing.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TThing.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if ((ThingPosition = tpIn) and (not IsOpen())) then
    begin
       Result := False;
-      Message := GetDescriptionClosed(Perspective);
+      Message := TMessage.Create(mkClosed, GetDescriptionClosed(Perspective));
    end
    else
    begin
@@ -1489,17 +1512,17 @@ begin
    end;
 end;
 
-function TThing.CanMove(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TThing.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := True;
 end;
 
-function TThing.CanTake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TThing.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := CanMove(Perspective, Message);
 end;
 
-function TThing.CanShake(Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TThing.CanShake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Result := CanTake(Perspective, Message);
 end;
@@ -1513,7 +1536,13 @@ procedure TThing.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
       if (FPosition in tpDeferNavigationToParent) then
          FParent.Navigate(Direction, Perspective)
       else
-         Perspective.AvatarMessage(Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot go ' + CardinalDirectionToString(Direction) + '; you''re ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.');
+         Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot go _; _ _ _ _.',
+                                                                                [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                                                                 CardinalDirectionToString(Direction),
+                                                                                 Perspective.GetSubjectPronoun(Perspective),
+                                                                                 TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)),
+                                                                                 ThingPositionToString(FPosition),
+                                                                                 FParent.GetDefiniteName(Perspective)]));
    end;
 
 var
@@ -1533,13 +1562,19 @@ begin
             DoNavigation(Self, FParent, EquivalentPosition, Perspective)
          end
          else
-            Perspective.AvatarMessage(GetDescriptionClosed(Perspective));
+            Perspective.AvatarMessage(TMessage.Create(mkClosed, GetDescriptionClosed(Perspective)));
       end
       else
       if (Perspective.Position in tpDeferNavigationToParent) then
          DeferToParent()
       else
-         Perspective.AvatarMessage(Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot go ' + CardinalDirectionToString(Direction) + '; you''re ' + ThingPositionToString(Perspective.Position) + ' ' + GetDefiniteName(Perspective) + '.');
+         Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot go _; _ _ _ _.',
+                                                                                [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                                                                 CardinalDirectionToString(Direction),
+                                                                                 Perspective.GetSubjectPronoun(Perspective),
+                                                                                 TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)),
+                                                                                 ThingPositionToString(Perspective.Position),
+                                                                                 GetDefiniteName(Perspective)]));
    end
    else
    begin
@@ -1601,7 +1636,7 @@ end;
 
 procedure TThing.Press(Perspective: TAvatar);
 begin
-   Perspective.AvatarMessage('Nothing happens.');
+   Perspective.AvatarMessage(TMessage.Create(mkNoOp, 'Nothing happens.'));
 end;
 
 function TThing.GetFeatures(): TThingFeatures;
@@ -1609,19 +1644,23 @@ begin
    Result := [];
 end;
 
-function TThing.CanDig(Target: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TThing.CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
-   Message := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('does', 'do', IsPlural(Perspective)) + ' not make a good digging tool.';
+   Message := TMessage.Create(mkInappropriateTool, '_ _ not make a good digging tool.',
+                                                   [Capitalise(GetDefiniteName(Perspective)),
+                                                    TernaryConditional('does', 'do', IsPlural(Perspective))]);
    Result := False;
 end;
 
-function TThing.Dig(Spade: TThing; Perspective: TAvatar; var Message: AnsiString): Boolean;
+function TThing.Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
-   Message := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot dig ' + GetDefiniteName(Perspective) + '.';
+   Message := TMessage.Create(mkBogus, '_ cannot dig _.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        GetDefiniteName(Perspective)]);
    Result := False;
 end;
 
-procedure TThing.Dug(Target: TThing; Perspective: TAvatar; var Message: AnsiString);
+procedure TThing.Dug(Target: TThing; Perspective: TAvatar; var Message: TMessage);
 begin
 end;
 
@@ -1655,11 +1694,6 @@ end;
 procedure TAvatar.RemoveFromWorld();
 begin
    FParent.Remove(Self);
-end;
-
-function TAvatar.GetUsername(): AnsiString;
-begin
-   Result := '';
 end;
 
 {$IFDEF DEBUG}
@@ -1702,11 +1736,7 @@ procedure TDummyAvatar.DoLook();
 begin
 end;
 
-procedure TDummyAvatar.AvatarMessage(Message: AnsiString);
-begin
-end;
-
-procedure TDummyAvatar.AvatarBroadcast(Message: AnsiString);
+procedure TDummyAvatar.AvatarMessage(Message: TMessage);
 begin
 end;
 
@@ -1851,7 +1881,7 @@ procedure TLocation.AssertDirectionHasDestination(Direction: TCardinalDirection;
 var
    PositionOverride: TThingPosition;
    DisambiguationOpening: TThing;
-   Message: AnsiString;
+   Message: TMessage;
    ActualDestination, DesiredDestination: TAtom;
    NotificationList: TAtomList;
    Traveller: TAvatar;
@@ -1867,12 +1897,14 @@ begin
       try
          PositionOverride := tpOn;
          DisambiguationOpening := nil;
-         Message := '';
+         Message := TMessage.Create(mkSuccess, '');
          ActualDestination := FDirectionalLandmarks[Direction][0].Atom.GetEntrance(Traveller, Direction, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
+         Assert(Message.AsKind = mkSuccess);
          PositionOverride := tpOn;
          DisambiguationOpening := nil;
-         Message := '';
+         Message := TMessage.Create(mkSuccess, '');
          DesiredDestination := Atom.GetEntrance(Traveller, Direction, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
+         Assert(Message.AsKind = mkSuccess);
          Assert(Assigned(ActualDestination));
          Assert(Assigned(DesiredDestination));
          Assert(ActualDestination = DesiredDestination);
@@ -2019,10 +2051,12 @@ end;
 
 procedure TLocation.FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar);
 begin
-   Perspective.AvatarMessage(Capitalise(Perspective.GetDefiniteName(Perspective)) + ' can''t go ' + CardinalDirectionToString(Direction) + ' from here.');
+   Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseCustom, '_ can''t go _ from here.',
+                                                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                                                         CardinalDirectionToString(Direction)]));
 end;
 
-function TLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: AnsiString; NotificationList: TAtomList): TAtom;
+function TLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
    Result := GetSurface();
 end;
