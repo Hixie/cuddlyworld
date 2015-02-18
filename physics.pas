@@ -414,6 +414,7 @@ begin
       if (Success) then
       begin
          ATo.Add(Perspective, Position);
+         // XXX announcements
          Perspective.DoLook();
       end
       else

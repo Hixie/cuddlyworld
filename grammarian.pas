@@ -118,6 +118,7 @@ type
 var
    TokeniserState: TTokeniserState;
 begin
+   SetLength(Result, 0);
    Start := 1;
    Index := Start;
    TokeniserState := tsWordStart;
