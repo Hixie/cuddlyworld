@@ -1,4 +1,4 @@
-# fpc test.pas -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -g -gt -gl -gh -Sa -OoDFA -veiwnhb -FE../bin/ -Fulib -Filib && ../bin/test; exit
+#rm -rf ../bin/*; fpc test.pas -B -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -g -gt -gl -gh -Sa -OoDFA -veiwnhb -FE../bin/ -Fulib -Filib && ../bin/test; exit
 
 # Generate helper files
 perl -w regen.pl &&
@@ -11,10 +11,10 @@ fpc tests.pas       -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -g -gt -gl -gh -Sa -OoDF
 echo &&
 ../bin/tests &&
 echo &&
-echo &&
-# rm -f world.dat &&
-# ../bin/genesis &&
-echo &&
+#echo &&
+#rm -f world.dat &&
+#../bin/genesis &&
+#echo &&
 echo &&
 ../bin/cuddlyworld
 

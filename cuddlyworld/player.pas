@@ -264,6 +264,7 @@ begin
    try
       OriginalTokens := Tokenise(Command);
       Tokens := TokeniseCanonically(Command);
+      Assert(Length(OriginalTokens) = Length(Tokens));
       if (Length(Tokens) = 0) then
          Exit;
       CurrentToken := 0;
