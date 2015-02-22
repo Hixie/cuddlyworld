@@ -3,7 +3,7 @@
 
 {$IF SUPERCLASS=TNamedLocation}
  {$DEFINE SUBCLASS:=TSurfaceNamedLocation}
- {$DEFINE CONSTRUCTORARGUMENTDECLARATIONS:=Name, DefiniteName, IndefiniteName, Description: AnsiString;}
+ {$DEFINE CONSTRUCTORARGUMENTDECLARATIONS:=Name, DefiniteName, IndefiniteName, Description: UTF8String;}
  {$DEFINE CONSTRUCTORARGUMENTNAMES:=Name, DefiniteName, IndefiniteName, Description}
 {$ELSEIF SUPERCLASS=TSlavedLocation}
  {$DEFINE SUBCLASS:=TSurfaceSlavedLocation}

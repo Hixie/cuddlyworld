@@ -32,7 +32,7 @@ type
     public
       constructor Create();
       destructor Destroy(); override;
-      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; Options: TThingCollectionOptions; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
+      function Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; Options: TThingCollectionOptions; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: UTF8String): Boolean;
       function GetTokenCount(): Cardinal;
       function GetDisambiguate(): Boolean;
       function GetThingList(): TThingList; { must be called exactly once after Collect() returns true }
@@ -58,16 +58,16 @@ type
       FNumber: Cardinal;
       FSelectionMechanism: TThingSelectionMechanism;
       FThings: TThingList;
-      FInputFragment, FFilterFragments: AnsiString;
+      FInputFragment, FFilterFragments: UTF8String;
       FNext: TAbstractClause;
       FPrevious: TAbstractClause;
       procedure Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); virtual;
       function IsPlainClause(): Boolean; virtual;
       function GetPreviousOpenClause(): TAbstractClause; virtual;
-      function GetArticle(NounPhrase: AnsiString = ''): String; virtual;
-      procedure AddFilterFragment(Fragment: AnsiString);
+      function GetArticle(NounPhrase: UTF8String = ''): UTF8String; virtual;
+      procedure AddFilterFragment(Fragment: UTF8String);
      public
-      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: TThingList; InputFragment: AnsiString); virtual;
+      constructor Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: TThingList; InputFragment: UTF8String); virtual;
       destructor Destroy(); override;
       procedure CheckContext(); virtual;
       function AcceptsJoins(Peer: TAbstractClause): Boolean; virtual; abstract;
@@ -79,8 +79,8 @@ type
       procedure Add(Next: TAbstractClause);
       class function GetPreferredGrammaticalNumber(DefaultGrammaticalNumber: TGrammaticalNumber): TGrammaticalNumber; virtual;
       class function CanFail(): Boolean; virtual; { return True if the clause could also be a preposition or action join (e.g. "from", "and") }
-      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString); virtual;
-      function GetFragment(): AnsiString;
+      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String); virtual;
+      function GetFragment(): UTF8String;
    end;
    TAbstractClauseClass = class of TAbstractClause;
 
@@ -90,8 +90,8 @@ type
       procedure Preselect(Target: TAbstractClause; var Count: Cardinal; var SelectionMechanism: TThingSelectionMechanism); override;
       function IsPlainClause(): Boolean; override;
       function GetPreviousOpenClause(): TAbstractClause; override;
-      function GetFragmentAnnotation(): AnsiString; virtual;
-      function GetClausePrefix(): AnsiString; virtual; abstract;
+      function GetFragmentAnnotation(): UTF8String; virtual;
+      function GetClausePrefix(): UTF8String; virtual; abstract;
      public
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); override;
@@ -103,13 +103,13 @@ type
    end;
    TAndClause = class(TAbstractPlainJoiningClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
       class function CanFail(): Boolean; override;
    end;
    TPlusClause = class(TAbstractPlainJoiningClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
    end;
    TAbstractJoiningPreconditionFilterClause = class(TAbstractJoiningClause)
      protected
@@ -121,23 +121,23 @@ type
    TAndFromClause = class(TAbstractJoiningPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
-      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString); override;
+      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String); override;
    end;
    TAndInClause = class(TAbstractJoiningPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
-      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString); override;
+      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String); override;
    end;
    TAndOnClause = class(TAbstractJoiningPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
-      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString); override;
+      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String); override;
    end;
 
    TJoinableClause = class(TAbstractClause)
@@ -157,8 +157,8 @@ type
       function KeepMatches(): Boolean; virtual; abstract;
       procedure Victimise(Clause: TAbstractClause); virtual;
       function GetIsMatch(Target: TAbstractClause): TIsMatchFunction; virtual;
-      function GetFragmentAnnotation(): AnsiString; virtual;
-      function GetClausePrefix(): AnsiString; virtual; abstract;
+      function GetFragmentAnnotation(): UTF8String; virtual;
+      function GetClausePrefix(): UTF8String; virtual; abstract;
      public
       procedure CheckContext(); override;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
@@ -190,11 +190,11 @@ type
    end;
    TThatIsClause = class(TAbstractThatIsClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
    end;
    TAndThatIsClause = class(TAbstractThatIsClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
    end;
@@ -208,11 +208,11 @@ type
    end;
    TThatAreClause = class(TAbstractThatAreClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
    end;
    TAndThatAreClause = class(TAbstractThatAreClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
    end;
@@ -228,20 +228,20 @@ type
    TFromClause = class(TAbstractPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
    end;
    TInClause = class(TAbstractPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
    end;
    TOnClause = class(TAbstractPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
      public
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
    end;
 
    TExclusionFilteringClause = class(TAbstractFilteringClause)
@@ -266,11 +266,11 @@ type
    end;
    TThatIsNotClause = class(TAbstractThatIsNotClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
    end;
    TAndThatIsNotClause = class(TAbstractThatIsNotClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
    end;
@@ -283,11 +283,11 @@ type
    end;
    TThatAreNotClause = class(TAbstractThatAreNotClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
    end;
    TAndThatAreNotClause = class(TAbstractThatAreNotClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
      public
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
    end;
@@ -300,7 +300,7 @@ type
    end;
    TButClause = class(TAbstractButClause)
      protected
-      function GetClausePrefix(): AnsiString; override;
+      function GetClausePrefix(): UTF8String; override;
    end;
 
    TStartClause = class(TJoinableClause)
@@ -308,31 +308,31 @@ type
       function IsPlainClause(): Boolean; override;
      public
       procedure CheckContext(); override;
-      procedure PreCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
-      procedure PostCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
+      procedure PreCheckNoMultiples(Perspective: TAvatar; const Verb: UTF8String);
+      procedure PostCheckNoMultiples(Perspective: TAvatar; const Verb: UTF8String);
       function AcceptsJoins(Peer: TAbstractClause): Boolean; override;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
       procedure Process(); override;
       procedure Bank(Perspective: TAvatar; var Things: TThingList; var Disambiguate: Boolean);
-      {$IFDEF DEBUG_SEEKER} function GetCompleteFragment(): AnsiString; {$ENDIF}
+      {$IFDEF DEBUG_SEEKER} function GetCompleteFragment(): UTF8String; {$ENDIF}
       class function CanFail(): Boolean; override;
-      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString); override;
+      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String); override;
    end;
 
    EMatcherException = class
       FClause: TAbstractClause;
       constructor Create(Clause: TAbstractClause);
-      function Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString; virtual; abstract;
+      function Message(Perspective: TAvatar; const Input, Verb: UTF8String): UTF8String; virtual; abstract;
    end;
    ECountWrong = class(EMatcherException)
       FWanted, FGot: Cardinal;
       constructor Create(Clause: TAbstractClause; Wanted, Got: Cardinal);
    end;
    ESelectNotEnough = class(ECountWrong)
-      function Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString; override;
+      function Message(Perspective: TAvatar; const Input, Verb: UTF8String): UTF8String; override;
    end;
    ESelectTooMany = class(ECountWrong)
-      function Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString; override;
+      function Message(Perspective: TAvatar; const Input, Verb: UTF8String): UTF8String; override;
    end;
 
 constructor EMatcherException.Create(Clause: TAbstractClause);
@@ -348,7 +348,7 @@ begin
    FGot := Got;
 end;
 
-function ESelectNotEnough.Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString;
+function ESelectNotEnough.Message(Perspective: TAvatar; const Input, Verb: UTF8String): UTF8String;
 begin
    Assert(Length(Input) > 0);
    Assert(FGot > 0);
@@ -356,7 +356,7 @@ begin
    Result := 'About the ' + NumberToEnglish(FWanted) + ' ' + Input + '... I can only find ' + NumberToEnglish(FGot) + ': ' + FClause.FThings.GetLongDefiniteString(Perspective, 'and') + '.';
 end;
 
-function ESelectTooMany.Message(Perspective: TAvatar; const Input, Verb: AnsiString): AnsiString;
+function ESelectTooMany.Message(Perspective: TAvatar; const Input, Verb: UTF8String): UTF8String;
 begin
    Assert(Length(Input) > 0);
    Assert(FGot > FWanted);
@@ -370,7 +370,7 @@ begin
 end;
 
 
-constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: TThingList; InputFragment: AnsiString);
+constructor TAbstractClause.Create(Number: Cardinal; SelectionMechanism: TThingSelectionMechanism; Flags: TClauseFlags; Things: TThingList; InputFragment: UTF8String);
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Create() constructing a ', ClassName, ' with Number=', Number, '; SelectionMechanism=', SelectionMechanism, '; Things=', Things.GetDefiniteString(nil, 'and'), '; InputFragment="', InputFragment, '"'); {$ENDIF}
    Assert((cfSingular in Flags) or (cfPlural in Flags));
@@ -447,7 +447,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
-function TAbstractClause.GetArticle(NounPhrase: AnsiString = ''): AnsiString;
+function TAbstractClause.GetArticle(NounPhrase: UTF8String = ''): UTF8String;
 begin
    if (cfHadArticle in FFlags) then
    begin
@@ -524,7 +524,8 @@ begin
               Result := '';
            end;
        else
-        Assert(False, 'unknown TThingSelectionMechanism');
+         Assert(False, 'unknown TThingSelectionMechanism');
+         Result := '<error>';
       end;
    end
    else
@@ -589,7 +590,7 @@ begin
              if (Count > 8) then
                 SelectN(7)
              else
-                SelectN((Count div 2) + 1); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+                SelectN((Count div 2) + 1); // $R-
              Result := True;
           end;
        end;
@@ -604,7 +605,8 @@ begin
           Result := False;
        end;
     else
-       Assert(False, 'unknown thing selection mechanism');
+      Assert(False, 'unknown thing selection mechanism');
+      Result := False;
    end;
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' ended with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Result=', Result); {$ENDIF}
 end;
@@ -661,13 +663,13 @@ begin
    Result := False;
 end;
 
-class procedure TAbstractClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString);
+class procedure TAbstractClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String);
 begin
    Assert(ClauseStart <> CurrentToken);
-   Fail('I was with you until you said "' + Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart + 1) + '".'); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+   Fail('I was with you until you said "' + Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart + 1) + '".'); // $R-
 end;
 
-procedure TAbstractClause.AddFilterFragment(Fragment: AnsiString);
+procedure TAbstractClause.AddFilterFragment(Fragment: UTF8String);
 begin
    if (FFilterFragments <> '') then
       FFilterFragments := Fragment + ' ' + FFilterFragments
@@ -675,7 +677,7 @@ begin
       FFilterFragments := Fragment;
 end;
 
-function TAbstractClause.GetFragment(): AnsiString;
+function TAbstractClause.GetFragment(): UTF8String;
 begin
    Result := FInputFragment;
    if (FFilterFragments <> '') then
@@ -721,9 +723,9 @@ begin
    Result := FJoinedTo;
 end;
 
-function TAbstractJoiningClause.GetFragmentAnnotation(): AnsiString;
+function TAbstractJoiningClause.GetFragmentAnnotation(): UTF8String;
 var
-   Article: AnsiString;
+   Article: UTF8String;
 begin
    Article := GetArticle();
    if (Article <> '') then
@@ -747,7 +749,7 @@ begin
    FJoinedTo := EarlierClause;
 end;
 
-function TAndClause.GetClausePrefix(): AnsiString;
+function TAndClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and';
 end;
@@ -758,7 +760,7 @@ begin
 end;
 
 
-function TPlusClause.GetClausePrefix(): AnsiString;
+function TPlusClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'plus';
 end;
@@ -797,12 +799,12 @@ begin
    Result := TFromClause.IsMatch(Candidate, Condition);
 end;
 
-function TAndFromClause.GetClausePrefix(): AnsiString;
+function TAndFromClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and from';
 end;
 
-class procedure TAndFromClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString);
+class procedure TAndFromClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String);
 begin
    Fail('I don''t see any "' + Tokens[CurrentToken] + '".');
 end;
@@ -813,12 +815,12 @@ begin
    Result := TInClause.IsMatch(Candidate, Condition);
 end;
 
-function TAndInClause.GetClausePrefix(): AnsiString;
+function TAndInClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and in';
 end;
 
-class procedure TAndInClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString);
+class procedure TAndInClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String);
 begin
    Fail('I don''t see any "' + Tokens[CurrentToken] + '" for anything to be in.');
 end;
@@ -829,12 +831,12 @@ begin
    Result := TOnClause.IsMatch(Candidate, Condition);
 end;
 
-function TAndOnClause.GetClausePrefix(): AnsiString;
+function TAndOnClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and on';
 end;
 
-class procedure TAndOnClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString);
+class procedure TAndOnClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String);
 begin
    Fail('I don''t see any "' + Tokens[CurrentToken] + '" for anything to be on.');
 end;
@@ -893,7 +895,7 @@ var
    Done, Found: Boolean;
    NextRegisteredJoin: Cardinal;
    CurrentIsMatch: TIsMatchFunction;
-   NewFilterFragment: AnsiString;
+   NewFilterFragment: UTF8String;
 begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractFilteringClause.Filter() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Victim=', Victim.ClassName, '; Victim.FThings=', Victim.FThings.GetDefiniteString(nil, 'and')); {$ENDIF}
    VictimEnumerator := Victim.FThings.GetEnumerator();
@@ -1003,9 +1005,9 @@ begin
    Result := gnAmbiguous;
 end;
 
-function TAbstractFilteringClause.GetFragmentAnnotation(): AnsiString;
+function TAbstractFilteringClause.GetFragmentAnnotation(): UTF8String;
 var
-   Article: AnsiString;
+   Article: UTF8String;
 begin
    Article := GetArticle();
    if (Article <> '') then
@@ -1086,7 +1088,7 @@ begin
 end;
 
 
-function TThatIsClause.GetClausePrefix(): AnsiString;
+function TThatIsClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'that is';
 end;
@@ -1104,7 +1106,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
-function TAndThatIsClause.GetClausePrefix(): AnsiString;
+function TAndThatIsClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and that is';
 end;
@@ -1146,7 +1148,7 @@ begin
 end;
 
 
-function TThatAreClause.GetClausePrefix(): AnsiString;
+function TThatAreClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'that are';
 end;
@@ -1164,7 +1166,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
-function TAndThatAreClause.GetClausePrefix(): AnsiString;
+function TAndThatAreClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and that are';
 end;
@@ -1314,7 +1316,7 @@ begin
    Result := Candidate.Parent = Condition;
 end;
 
-function TFromClause.GetClausePrefix(): AnsiString;
+function TFromClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'from';
 end;
@@ -1328,7 +1330,7 @@ begin
    Result := (Candidate.Parent = Condition) and (Candidate.Position in tpArguablyInside);
 end;
 
-function TInClause.GetClausePrefix(): AnsiString;
+function TInClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'in';
 end;
@@ -1342,7 +1344,7 @@ begin
    Result := (Candidate.Parent = Condition) and (Candidate.Position in tpArguablyOn);
 end;
 
-function TOnClause.GetClausePrefix(): AnsiString;
+function TOnClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'on';
 end;
@@ -1401,7 +1403,7 @@ begin
 end;
 
 
-function TThatIsNotClause.GetClausePrefix(): AnsiString;
+function TThatIsNotClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'that is not';
 end;
@@ -1419,7 +1421,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
-function TAndThatIsNotClause.GetClausePrefix(): AnsiString;
+function TAndThatIsNotClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and that is not';
 end;
@@ -1447,7 +1449,7 @@ begin
 end;
 
 
-function TThatAreNotClause.GetClausePrefix(): AnsiString;
+function TThatAreNotClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'that are not';
 end;
@@ -1465,7 +1467,7 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('Result=', Result, ' CanContinue=', CanContinue); {$ENDIF}
 end;
 
-function TAndThatAreNotClause.GetClausePrefix(): AnsiString;
+function TAndThatAreNotClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'and that are not';
 end;
@@ -1482,7 +1484,7 @@ begin
 end;
 
 
-function TButClause.GetClausePrefix(): AnsiString;
+function TButClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'but';
 end;
@@ -1494,7 +1496,7 @@ begin
    Assert(not Assigned(FPrevious));
 end;
 
-procedure TStartClause.PreCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
+procedure TStartClause.PreCheckNoMultiples(Perspective: TAvatar; const Verb: UTF8String);
 begin
    if ((FSelectionMechanism = tsmPickAll) and (cfAllowExceptions in FFlags)) then
       Fail('I don''t know how to ' + Verb + ' multiple things at once.'); { "all of the..." }
@@ -1504,7 +1506,7 @@ begin
       Fail('I don''t know how to ' + Verb + ' ' + NumberToEnglish(FNumber) + ' things at once.'); { "the two..." }
 end;
 
-procedure TStartClause.PostCheckNoMultiples(Perspective: TAvatar; const Verb: AnsiString);
+procedure TStartClause.PostCheckNoMultiples(Perspective: TAvatar; const Verb: UTF8String);
 begin
    if (Length(FRegisteredJoins) > 0) then
       Fail('I don''t know how to ' + Verb + ' multiple things at once.');
@@ -1563,9 +1565,9 @@ begin
 end;
 
 {$IFDEF DEBUG_SEEKER}
-function TStartClause.GetCompleteFragment(): AnsiString;
+function TStartClause.GetCompleteFragment(): UTF8String;
 var
-   Article: AnsiString;
+   Article: UTF8String;
    Index: Cardinal;
 begin
    Result := GetFragment();
@@ -1594,7 +1596,7 @@ begin
    Result := True;
 end;
 
-class procedure TStartClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: AnsiString);
+class procedure TStartClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String);
 begin
    Fail('I can''t see any "' + Tokens[CurrentToken] + '" here to ' + Verb + '.')
 end;
@@ -1772,7 +1774,7 @@ begin
    // *** this would be a place to remember stuff about Thing, e.g. what direction it was in, in case we need that later
 end;
 
-function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; Options: TThingCollectionOptions; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: AnsiString): Boolean;
+function TThingCollector.Collect(Perspective: TAvatar; Tokens, OriginalTokens: TTokens; Start: Cardinal; Options: TThingCollectionOptions; Scope: TAllImpliedScope; Ends: TEndingClauseKinds; Verb: UTF8String): Boolean;
 var
    CurrentToken: Cardinal;
    PreferredGrammaticalNumber: TGrammaticalNumber;
@@ -1861,7 +1863,7 @@ var
       var
          FromOutside: Boolean;
          Start, Index: Cardinal;
-         Message: AnsiString;
+         Message: UTF8String;
       begin
          Assert((ExplicitGrammaticalNumber <> []));
          Start := CurrentToken;
@@ -1908,7 +1910,7 @@ var
                      Include(Flags, cfSingular)
                   else
                      Include(Flags, cfDisambiguateSingularLoneResult);
-                  AppendClause(ClauseClass.Create(Number, PluralThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+                  AppendClause(ClauseClass.Create(Number, PluralThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))); // $R-
                   Result := True;
                end
                else { take apple }
@@ -1916,7 +1918,7 @@ var
                   Assert(gnSingular in FCurrentBestGrammaticalNumber);
                   Assert(Assigned(FCurrentBestThingList));
                   Include(Flags, cfSingular);
-                  AppendClause(ClauseClass.Create(Number, SingularThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+                  AppendClause(ClauseClass.Create(Number, SingularThingSelectionMechanism, Flags, FCurrentBestThingList, Serialise(OriginalTokens, Start, CurrentToken - Start))); // $R-
                   Result := True;
                end;
                FCurrentBestThingList := nil;
@@ -1932,8 +1934,8 @@ var
          end
          else
          begin
-            Message := Capitalise(Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart)) + ' what?'; {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
-            for Index := ClauseStart to CurrentToken-1 do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+            Message := Capitalise(Serialise(Tokens, ClauseStart, CurrentToken - ClauseStart)) + ' what?'; // $R-
+            for Index := ClauseStart to CurrentToken-1 do // $R-
             begin
                { these are, more or less by definition, guaranteed to be keywords we have hard-coded below }
                if (Tokens[Index] = ',') then
@@ -2064,7 +2066,7 @@ var
    const
       MaxTokensInClause = 5;
 
-      function TryClause(CandidateTokens: array of AnsiString; out NextClauseLength: Cardinal): Boolean;
+      function TryClause(CandidateTokens: array of UTF8String; out NextClauseLength: Cardinal): Boolean;
       begin
          Assert(CandidateTokens[MaxTokensInClause] = '');
          Assert(CandidateTokens[0] <> '');
@@ -2081,7 +2083,7 @@ var
 
    type
       TClauseConfiguration = record
-         Tokens: array[0..MaxTokensInClause] of AnsiString;
+         Tokens: array[0..MaxTokensInClause] of UTF8String;
          ClauseClass: TAbstractClauseClass;
          EndingClauseKind: TEndingClauseKind;
       end;
@@ -2216,7 +2218,7 @@ begin
             Assert(Assigned(FirstClause));
             try
                Collapse(FirstClause, FThingList, FDisambiguate);
-               FTokenCount := CurrentToken - Start; {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+               FTokenCount := CurrentToken - Start; // $R-
             except
                FTokenCount := 0;
                FDisambiguate := False;

@@ -12,11 +12,11 @@ type
     protected
       FPlayer: TPlayer;
       FWorld: TWorld;
-      procedure HandleMessage(Message: AnsiString); override;
-      procedure HandleAvatarMessage(Message: AnsiString);
+      procedure HandleMessage(Message: UTF8String); override;
+      procedure HandleAvatarMessage(Message: UTF8String);
       procedure HandleForceDisconnect();
-      procedure TryLogin(Message: AnsiString);
-      procedure TryCommand(Message: AnsiString);
+      procedure TryLogin(Message: UTF8String);
+      procedure TryCommand(Message: UTF8String);
     public
       constructor Create(AListener: TListenerSocket; AWorld: TWorld);
       destructor Destroy(); override;
@@ -24,9 +24,9 @@ type
 
    TCuddlyWorldServer = class(TNetworkServer)
     protected
-      FOrigin: AnsiString;
-      FHostName: AnsiString;
-      FResource: AnsiString;
+      FOrigin: UTF8String;
+      FHostName: UTF8String;
+      FResource: UTF8String;
       FWorld: TWorld;
       function CreateNetworkSocket(AListenerSocket: TListenerSocket): TNetworkSocket; override;
     public
@@ -51,7 +51,7 @@ begin
    inherited;
 end;
 
-procedure TCuddlyWorldClient.HandleMessage(Message: AnsiString);
+procedure TCuddlyWorldClient.HandleMessage(Message: UTF8String);
 begin
    if (not Assigned(FPlayer)) then
       TryLogin(Message)
@@ -59,11 +59,11 @@ begin
       TryCommand(Message);
 end;
 
-procedure TCuddlyWorldClient.TryLogin(Message: AnsiString);
+procedure TCuddlyWorldClient.TryLogin(Message: UTF8String);
 var
    PotentialPlayer: TPlayer;
    Index: Cardinal;
-   Username, Password: AnsiString;
+   Username, Password: UTF8String;
 begin
    Index := Pos(' ', Message); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
    if (Index = 0) then
@@ -120,7 +120,7 @@ begin
    end;
 end;
 
-procedure TCuddlyWorldClient.TryCommand(Message: AnsiString);
+procedure TCuddlyWorldClient.TryCommand(Message: UTF8String);
 begin
    WriteFrame('> ' + Message);
    try
@@ -139,7 +139,7 @@ begin
    end;
 end;
 
-procedure TCuddlyWorldClient.HandleAvatarMessage(Message: AnsiString);
+procedure TCuddlyWorldClient.HandleAvatarMessage(Message: UTF8String);
 begin
    WriteFrame(Message);
 end;

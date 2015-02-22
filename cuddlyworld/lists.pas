@@ -124,9 +124,11 @@ begin
    begin
       Assert(Assigned(FCurrentListNode));
       case FDirection of
-       tdForward: Result := Assigned(FCurrentListNode^.Next);
-       tdReverse: Result := Assigned(FCurrentListNode^.Previous);
-       else Assert(False, 'unknown direction');
+        tdForward: Result := Assigned(FCurrentListNode^.Next);
+        tdReverse: Result := Assigned(FCurrentListNode^.Previous);
+       else       
+         Assert(False, 'unknown direction');
+         Result := False;
       end;
    end;
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
@@ -298,7 +300,7 @@ begin
       {$IFOPT C+} Inc(WriteLength); {$ENDIF}
    end;
    Stream.WriteSentinel();
-   Assert(WriteLength = FLength);
+   {$IFOPT C+} Assert(WriteLength = FLength); {$ENDIF}
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
 
@@ -442,12 +444,12 @@ begin
    begin
       if (slOwner in FFlags) then
       begin
-         for Index := 0 to ReadLength-1 do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         for Index := 0 to ReadLength-1 do // $R-
             AppendItem(TItem(Stream.ReadObject()));
       end
       else
       begin
-         for Index := 0 to ReadLength-1 do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         for Index := 0 to ReadLength-1 do // $R-
          begin
             AppendItem(nil);
             Assert(Assigned(FFirstNode));
@@ -735,9 +737,11 @@ function TStorableList.GetEnumerator(const Direction: TTraversalDirection = tdFo
 begin
    {$IFOPT C+} CheckLength(); {$ENDIF}
    case Direction of
-    tdForward: Result := TEnumerator.Create(Self, FFirstNode, Direction);
-    tdReverse: Result := TEnumerator.Create(Self, FLastNode, Direction);
-    else Assert(False, 'unknown direction');
+     tdForward: Result := TEnumerator.Create(Self, FFirstNode, Direction);
+     tdReverse: Result := TEnumerator.Create(Self, FLastNode, Direction);
+    else
+      Assert(False, 'unknown direction');
+      Result := nil;
    end;
 end;
 

@@ -8,19 +8,19 @@ uses
    physics, grammarian;
 
 type
-   TMessageCallback = function (): AnsiString;
-   TMessageCallbackPerspective = function (Perspective: TAvatar): AnsiString;
-   TMessageCallbackMethod = function (): AnsiString of object;
-   TMessageCallbackPerspectiveMethod = function (Perspective: TAvatar): AnsiString of object;
+   TMessageCallback = function (): UTF8String;
+   TMessageCallbackPerspective = function (Perspective: TAvatar): UTF8String;
+   TMessageCallbackMethod = function (): UTF8String of object;
+   TMessageCallbackPerspectiveMethod = function (Perspective: TAvatar): UTF8String of object;
 
-   TMessageKind = (mkSpace, mkEmpty, mkCapitalise, mkAnsiString, mkCallback, mkCallbackPerspective, mkCallbackMethod, mkCallbackPerspectiveMethod, mkPluralCheck, mkPerspectivePluralCheck);
+   TMessageKind = (mkSpace, mkEmpty, mkCapitalise, mkUTF8String, mkCallback, mkCallbackPerspective, mkCallbackMethod, mkCallbackPerspectiveMethod, mkPluralCheck, mkPerspectivePluralCheck);
    PMessagePart = ^TMessagePart;
    TMessagePart = record
       case Kind: TMessageKind of
        mkEmpty: ();
        mkSpace: ();
        mkCapitalise: (DataCapitalisePart: PMessagePart);
-       mkAnsiString: (DataString: Pointer);
+       mkUTF8String: (DataString: Pointer);
        mkCallback: (DataCallback: TMessageCallback);
        mkCallbackPerspective: (DataCallbackPerspective: TMessageCallbackPerspective);
        mkCallbackMethod: (DataCallbackMethod: TMessageCallbackMethod);
@@ -31,7 +31,7 @@ type
 
 function SP(): PMessagePart; inline; { SPace }
 function C(const M: PMessagePart): PMessagePart; inline; { Capitalise }
-function M(const V: AnsiString): PMessagePart; inline; { Message part }
+function M(const V: UTF8String): PMessagePart; inline; { Message part }
 function M(const V: TMessageCallback): PMessagePart; inline; { Message part }
 function M(const V: TMessageCallbackPerspective): PMessagePart; inline; { Message part }
 function M(const V: TMessageCallbackMethod): PMessagePart; inline; { Message part }
@@ -64,12 +64,12 @@ begin
    Result^.DataCapitalisePart := M;
 end;
 
-function M(const V: AnsiString): PMessagePart; inline;
+function M(const V: UTF8String): PMessagePart; inline;
 begin
    New(Result);
-   Result^.Kind := mkAnsiString;
+   Result^.Kind := mkUTF8String;
    Result^.DataString := nil;
-   AnsiString(Result^.DataString) := V;
+   UTF8String(Result^.DataString) := V;
 end;
 
 function M(const V: TMessageCallback): PMessagePart; inline;
@@ -121,7 +121,7 @@ procedure ClearMessagePart(MessagePart: PMessagePart);
 begin
    case MessagePart^.Kind of
     mkCapitalise: ClearMessagePart(MessagePart^.DataCapitalisePart);
-    mkAnsiString: AnsiString(MessagePart^.DataString) := '';
+    mkUTF8String: UTF8String(MessagePart^.DataString) := '';
     mkPluralCheck: begin ClearMessagePart(MessagePart^.DataPluralSingularPart); ClearMessagePart(MessagePart^.DataPluralPluralPart); end;
     mkPerspectivePluralCheck: begin ClearMessagePart(MessagePart^.DataPerspectivePluralSingularPart); ClearMessagePart(MessagePart^.DataPerspectivePluralPluralPart); end;
    end;
@@ -135,14 +135,14 @@ end;
 
 procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar; MessageParts: array of PMessagePart);
 
-   function Assemble(MessageParts: array of PMessagePart; Perspective: TAvatar): AnsiString;
+   function Assemble(MessageParts: array of PMessagePart; Perspective: TAvatar): UTF8String;
 
-      function GetPart(Part: PMessagePart): AnsiString; inline;
+      function GetPart(Part: PMessagePart): UTF8String; inline;
       begin
          case Part^.Kind of
            mkSpace: Result := ' ';
-           mkCapitalise: Result := Result + Capitalise(GetPart(Part^.DataCapitalisePart));
-           mkAnsiString: Result := AnsiString(Part^.DataString);
+           mkCapitalise: Result := Capitalise(GetPart(Part^.DataCapitalisePart));
+           mkUTF8String: Result := UTF8String(Part^.DataString);
            mkCallback: Result := Part^.DataCallback();
            mkCallbackPerspective: Result := Part^.DataCallbackPerspective(Perspective);
            mkCallbackMethod: Result := Part^.DataCallbackMethod();
@@ -151,6 +151,7 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar;
            mkPerspectivePluralCheck: if (Perspective.IsPlural(Perspective)) then Result := GetPart(Part^.DataPerspectivePluralPluralPart) else Result := GetPart(Part^.DataPerspectivePluralSingularPart);
           else
             Assert(False, 'Failed to assemble broadcast message - unexpected type ' + IntToStr(Cardinal(Part^.Kind)));
+            Result := '<error>';
          end;
       end;
 

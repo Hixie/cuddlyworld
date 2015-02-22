@@ -22,7 +22,7 @@ type
       procedure AddLocation(Location: TLocation); { World will free these }
       procedure AddGlobalThing(GlobalThing: TThing); { World will free these }
       procedure AddPlayer(Player: TPlayer); virtual; { these must added to the world before this method is called (derived classes can override this method to do that) }
-      function GetPlayer(Name: AnsiString): TPlayer;
+      function GetPlayer(Name: UTF8String): TPlayer;
       function GetPlayerCount(): Cardinal;
       procedure CheckForDisconnectedPlayers();
       procedure SetDirty();
@@ -83,7 +83,7 @@ begin
    FPlayers.AppendItem(Player);
 end;
 
-function TWorld.GetPlayer(Name: AnsiString): TPlayer;
+function TWorld.GetPlayer(Name: UTF8String): TPlayer;
 var
    Item: TPlayer;
 begin

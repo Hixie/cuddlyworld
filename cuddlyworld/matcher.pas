@@ -18,19 +18,19 @@ type
       FOriginalTokens: TTokens; { must be stored in the same order as FTokens }
       FPattern: PCompiledPattern;
       FPatternLength: TByteCode;
-      function GetTokenID(Token: AnsiString): TByteCode; { argument must be lowercase }
+      function GetTokenID(Token: UTF8String): TByteCode; { argument must be lowercase }
     public
       constructor Create(Tokens, OriginalTokens: TTokens; Pattern: PCompiledPattern; PatternLength: TByteCode); { tokens are case-aware }
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function Matches(Tokens: TTokens; Start: Cardinal): Cardinal; { case-insensitive, but tokens must be lowercase already }
-      function GetCanonicalMatch(Separator: AnsiString): AnsiString;
-      {$IFDEF DEBUG} function GetPatternDescription(): AnsiString; {$ENDIF}
-      {$IFDEF DEBUG} function GetPatternDotFileLabels(): AnsiString; {$ENDIF}
+      function GetCanonicalMatch(Separator: UTF8String): UTF8String;
+      {$IFDEF DEBUG} function GetPatternDescription(): UTF8String; {$ENDIF}
+      {$IFDEF DEBUG} function GetPatternDotFileLabels(): UTF8String; {$ENDIF}
    end;
 
-procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMatcher);
+procedure CompilePattern(S: UTF8String; out Singular: TMatcher; out Plural: TMatcher);
 
 {
 
@@ -64,8 +64,8 @@ procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMat
 }
 
 {$IFDEF DEBUG}
-function HasPatternChars(S: AnsiString): Boolean;
-function HasSingularVsPluralAnnotation(S: AnsiString): Boolean;
+function HasPatternChars(S: UTF8String): Boolean;
+function HasSingularVsPluralAnnotation(S: UTF8String): Boolean;
 {$ENDIF}
 
 implementation
@@ -174,8 +174,8 @@ type
 
    TGetStateCallback = function (): PState of object;
 
-   TTokenReporterCallback = procedure (Token: AnsiString) of object;
-   TTokenFinderCallback = function (Token: AnsiString): TByteCode of object;
+   TTokenReporterCallback = procedure (Token: UTF8String) of object;
+   TTokenFinderCallback = function (Token: UTF8String): TByteCode of object;
 
    TPatternNode = class
     protected
@@ -188,13 +188,13 @@ type
    end;
    TTokenNode = class(TPatternNode)
     protected
-     FToken: AnsiString;
+     FToken: UTF8String;
      FTokenID: TByteCode;
      procedure ReportTokens(Callback: TTokenReporterCallback); override;
      procedure FixTokenIDs(Callback: TTokenFinderCallback); override;
      procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
     public
-     constructor Create(Token: AnsiString);
+     constructor Create(Token: UTF8String);
    end;
    TRepeatableTokenNode = class(TTokenNode)
     protected
@@ -259,7 +259,7 @@ procedure DualQuickSort(var MasterList, SlaveList: TTokens; L, R: Integer);
 { based on QuickSort in rtl/objpas/classes/lists.inc }
 var
    I, J : Integer;
-   P, Q : AnsiString;
+   P, Q : UTF8String;
 begin
    repeat
       I := L;
@@ -292,7 +292,7 @@ procedure DualRemoveDuplicates(var MasterList, SlaveList: TTokens);
 var
    Index, Count: Cardinal;
    NewMasterList, NewSlaveList: TTokens;
-   Last: AnsiString;
+   Last: UTF8String;
 begin
    Assert(Length(MasterList) = Length(SlaveList));
    Assert(Length(MasterList) > 0);
@@ -362,7 +362,7 @@ begin
 end;
 
 
-constructor TTokenNode.Create(Token: AnsiString);
+constructor TTokenNode.Create(Token: UTF8String);
 begin
    inherited Create();
    FToken := Token;
@@ -708,8 +708,8 @@ type
      FTokens, FOriginalTokens: TTokens;
      FFirstState, FLastState: PState;
      function GetNewState(): PState;
-     procedure TokenCollector(Token: AnsiString);
-     function GetTokenID(Token: AnsiString): TByteCode; { case-sensitive }
+     procedure TokenCollector(Token: UTF8String);
+     function GetTokenID(Token: UTF8String): TByteCode; { case-sensitive }
     public
      constructor Create(Root: TPatternNode);
      destructor Destroy(); override;
@@ -750,7 +750,7 @@ begin
    FLastState^.PreviousState := Result;
 end;
 
-procedure TPatternCompiler.TokenCollector(Token: AnsiString);
+procedure TPatternCompiler.TokenCollector(Token: UTF8String);
 begin
    SetLength(FTokens, Length(FTokens)+1);
    FTokens[High(FTokens)] := Canonicalise(Token);
@@ -758,7 +758,7 @@ begin
    FOriginalTokens[High(FOriginalTokens)] := Token;
 end;
 
-function TPatternCompiler.GetTokenID(Token: AnsiString): TByteCode;
+function TPatternCompiler.GetTokenID(Token: UTF8String): TByteCode;
 var
    L, R, M: TByteCode;
 begin
@@ -1047,8 +1047,8 @@ begin
    Assert(TokenCount > 0);
    for Index := 0 to TokenCount-1 do // $R-
    begin
-      FTokens[Index] := Stream.ReadAnsiString();
-      FOriginalTokens[Index] := Stream.ReadAnsiString();
+      FTokens[Index] := Stream.ReadString();
+      FOriginalTokens[Index] := Stream.ReadString();
    end;
 end;
 
@@ -1063,12 +1063,12 @@ begin
    Assert(Length(FTokens) > 0);
    for Index := 0 to Length(FTokens)-1 do // $R-
    begin
-      Stream.WriteAnsiString(FTokens[Index]);
-      Stream.WriteAnsiString(FOriginalTokens[Index]);
+      Stream.WriteString(FTokens[Index]);
+      Stream.WriteString(FOriginalTokens[Index]);
    end;
 end;
 
-function TMatcher.GetTokenID(Token: AnsiString): TByteCode;
+function TMatcher.GetTokenID(Token: UTF8String): TByteCode;
 var
    L, R, M: TByteCode;
 begin
@@ -1302,14 +1302,14 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
    Result := MatchLength;
 end;
 
-function TMatcher.GetCanonicalMatch(Separator: AnsiString): AnsiString;
+function TMatcher.GetCanonicalMatch(Separator: UTF8String): UTF8String;
 var
    Pattern: PCompiledPattern;
-   Match: AnsiString;
+   Match: UTF8String;
 
 //{$DEFINE DEBUG_CANONICAL_MATCH}
 
-   function GetCanonicalBranch(State: TByteCode {$IFDEF DEBUG_CANONICAL_MATCH}; Prefix: AnsiString = '' {$ENDIF}): Boolean;
+   function GetCanonicalBranch(State: TByteCode {$IFDEF DEBUG_CANONICAL_MATCH}; Prefix: UTF8String = '' {$ENDIF}): Boolean;
    var
       CurrentIndex, NextState: TByteCode;
    begin
@@ -1369,7 +1369,7 @@ begin
 end;
 
 {$IFDEF DEBUG}
-function TMatcher.GetPatternDescription(): AnsiString;
+function TMatcher.GetPatternDescription(): UTF8String;
 var
    Index: TByteCode;
 begin
@@ -1402,10 +1402,10 @@ end;
 
 {$IFDEF DEBUG}
 { using labels }
-function TMatcher.GetPatternDotFileLabels(): AnsiString;
+function TMatcher.GetPatternDotFileLabels(): UTF8String;
 var
    Index, State: TByteCode;
-   S: AnsiString;
+   S: UTF8String;
    NeedLoop: Boolean;
 begin
    Result := 'digraph pattern { graph [ rankdir="LR" ];' + #10;
@@ -1465,13 +1465,13 @@ begin
 end;
 {$ENDIF}
 
-function CompilePatternVersion(S: AnsiString; Version: Cardinal): TMatcher;
+function CompilePatternVersion(S: UTF8String; Version: Cardinal): TMatcher;
 
    function Parse(var Index: Cardinal): TPatternNode;
    type
       TParseMode = (pmToken, pmEscape, pmListType);
    var
-      Token: AnsiString;
+      Token: UTF8String;
       CurrentVersion: Cardinal;
       Mode: TParseMode;
       List: array of TPatternNode;
@@ -1494,6 +1494,7 @@ function CompilePatternVersion(S: AnsiString; Version: Cardinal): TMatcher;
       Token := '';
       CurrentVersion := 0;
       Mode := pmToken;
+      SetLength(List, 0);
       Assert(Index >= Low(S));
       while (Index <= Length(S)) do
       begin
@@ -1642,7 +1643,7 @@ begin
    Result := TMatcher.Create(Tokens, OriginalTokens, CompiledPattern, PatternLength);
 end;
 
-procedure CompilePattern(S: AnsiString; out Singular: TMatcher; out Plural: TMatcher);
+procedure CompilePattern(S: UTF8String; out Singular: TMatcher; out Plural: TMatcher);
 {$IFDEF DEBUG}
 var
    OldHeapInfo: THeapInfo;
@@ -1657,7 +1658,7 @@ begin
 end;
 
 {$IFDEF DEBUG}
-function HasPatternChars(S: AnsiString): Boolean;
+function HasPatternChars(S: UTF8String): Boolean;
 begin
    Result := (Pos('+', S) > 0) or
              (Pos('?', S) > 0) or
@@ -1672,7 +1673,7 @@ begin
              (Pos('&', S) > 0);
 end;
 
-function HasSingularVsPluralAnnotation(S: AnsiString): Boolean;
+function HasSingularVsPluralAnnotation(S: UTF8String): Boolean;
 begin
    Result := (Pos('/', S) > 0);
 end;

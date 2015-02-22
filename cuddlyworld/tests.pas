@@ -8,13 +8,13 @@ program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, lists, physics, player, locations, things, thingdim, grammarian, cuddlycamp, world,
-   base64encoder;
+   base64encoder, client; // client is used just to make sure it gets compiled when compiling tests
 
 procedure TestBase64Encoder();
 var
    Failed: Boolean = False;
 
-   procedure CheckBase64(S1, S2: AnsiString);
+   procedure CheckBase64(S1, S2: UTF8String);
    begin
       if (Base64(S1) <> S2) then
       begin
@@ -42,7 +42,7 @@ type
    PExpectation = ^TExpectation;
    TExpectation = record
       Kind: TExpectationKind;
-      Target: AnsiString;
+      Target: UTF8String;
       AdvanceWhenFound: Boolean;
       SkipUntilFound: Boolean;
       AlsoCheckNext: Boolean;
@@ -53,29 +53,29 @@ type
       FPosition: Cardinal;
       FExpectations: array of TExpectation;
       FRecording: Boolean;
-      FTest: AnsiString;
+      FTest: UTF8String;
       function AddExpectation(): PExpectation;
       procedure Next();
-      procedure HandleAnything(Debug: AnsiString);
-      procedure HandleLine(Message: AnsiString);
+      procedure HandleAnything(Debug: UTF8String);
+      procedure HandleLine(Message: UTF8String);
     public
-      procedure WaitUntilString(Message: AnsiString);
-      procedure WaitUntilSubstring(Message: AnsiString);
+      procedure WaitUntilString(Message: UTF8String);
+      procedure WaitUntilSubstring(Message: UTF8String);
       procedure SkipLine();
       procedure SkipEverything();
       procedure StopSkipping();
-      procedure ExpectString(Message: AnsiString);
-      procedure ExpectSubstring(Message: AnsiString);
-      procedure ExpectNoSubstring(Message: AnsiString);
+      procedure ExpectString(Message: UTF8String);
+      procedure ExpectSubstring(Message: UTF8String);
+      procedure ExpectNoSubstring(Message: UTF8String);
       procedure ExpectDisconnect(Eventually: Boolean);
       procedure AndAlso();
       procedure StartRecording();
       procedure ExpectRecorded();
-      procedure HandleAvatarMessage(Message: AnsiString);
+      procedure HandleAvatarMessage(Message: UTF8String);
       procedure HandleForceDisconnect();
       procedure ExpectDone();
       procedure Clear();
-      procedure Test(Name: AnsiString);
+      procedure Test(Name: UTF8String);
    end;
 
    ETestError = class(Exception)
@@ -103,16 +103,16 @@ begin
    end;
 end;
 
-procedure TTestProxy.HandleAnything(Debug: AnsiString);
+procedure TTestProxy.HandleAnything(Debug: UTF8String);
 begin
    if (FPosition >= Length(FExpectations)) then
       raise ETestError.Create('Failed in test ' + FTest + ': expected nothing but got ' + Debug + '.');
 end;
 
-procedure TTestProxy.HandleLine(Message: AnsiString);
+procedure TTestProxy.HandleLine(Message: UTF8String);
 var
    Found, Done: Boolean;
-   Error: AnsiString;
+   Error: UTF8String;
 begin
 {$IFDEF VERBOSE}   Writeln('# ' + Message); {$ENDIF}
    repeat
@@ -158,7 +158,7 @@ begin
    until Done;
 end;
 
-procedure TTestProxy.WaitUntilString(Message: AnsiString);
+procedure TTestProxy.WaitUntilString(Message: UTF8String);
 begin
    with AddExpectation()^ do
    begin
@@ -167,7 +167,7 @@ begin
    end;
 end;
 
-procedure TTestProxy.WaitUntilSubstring(Message: AnsiString);
+procedure TTestProxy.WaitUntilSubstring(Message: UTF8String);
 begin
    with AddExpectation()^ do
    begin
@@ -210,7 +210,7 @@ begin
    Next();
 end;
 
-procedure TTestProxy.ExpectString(Message: AnsiString);
+procedure TTestProxy.ExpectString(Message: UTF8String);
 begin
    with AddExpectation()^ do
    begin
@@ -218,7 +218,7 @@ begin
    end;
 end;
 
-procedure TTestProxy.ExpectSubstring(Message: AnsiString);
+procedure TTestProxy.ExpectSubstring(Message: UTF8String);
 begin
    with AddExpectation()^ do
    begin
@@ -227,7 +227,7 @@ begin
    end;
 end;
 
-procedure TTestProxy.ExpectNoSubstring(Message: AnsiString);
+procedure TTestProxy.ExpectNoSubstring(Message: UTF8String);
 begin
    with AddExpectation()^ do
    begin
@@ -274,17 +274,17 @@ begin
    Next();
 end;
 
-procedure TTestProxy.HandleAvatarMessage(Message: AnsiString);
+procedure TTestProxy.HandleAvatarMessage(Message: UTF8String);
 var
    A, B: Cardinal;
 begin
    A := 1;
-   for B := 1 to Length(Message) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+   for B := 1 to Length(Message) do // $R-
    begin
       if (Message[B] = #10) then
       begin
          HandleLine(Message[A..B-1]);
-         A := B+1; {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         A := B+1; // $R-
       end;
    end;
    if (A <= Length(Message)) then
@@ -317,7 +317,7 @@ begin
    FPosition := 0;
 end;
 
-procedure TTestProxy.Test(Name: AnsiString);
+procedure TTestProxy.Test(Name: UTF8String);
 begin
    FTest := Name;
 {$IFDEF VERBOSE}   Writeln('* ' + FTest); {$ENDIF}
@@ -326,10 +326,10 @@ end;
 
 type
    TTestPlayer = class(TPlayer)
-     procedure Perform(Message: AnsiString); override;
+     procedure Perform(Message: UTF8String); override;
    end;
 
-procedure TTestPlayer.Perform(Message: AnsiString);
+procedure TTestPlayer.Perform(Message: UTF8String);
 begin
 {$IFDEF VERBOSE}   Writeln('# > ' + Message); {$ENDIF}
    inherited;
@@ -2264,9 +2264,9 @@ var
       end;
    end;
 
-   procedure RunCanonicalMatchTest(TestMatcher: TMatcher; Pass: AnsiString);
+   procedure RunCanonicalMatchTest(TestMatcher: TMatcher; Pass: UTF8String);
    var
-      Result: AnsiString;
+      Result: UTF8String;
    begin
       Inc(TestID);
       Result := TestMatcher.GetCanonicalMatch(' ');
@@ -2444,7 +2444,7 @@ var
    Failed: Boolean;
    TestCount: Cardinal;
 
-   procedure Check(Success: Boolean; S: AnsiString);
+   procedure Check(Success: Boolean; S: UTF8String);
    begin
       Inc(TestCount);
       if (not Success) then

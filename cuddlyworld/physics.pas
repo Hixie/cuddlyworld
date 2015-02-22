@@ -20,20 +20,20 @@ type
 type
    PAtomList = ^TAtomList;
    TAtomList = class(TInternalAtomList) // @RegisterStorableClass
-      function GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
-      function GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
-      function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+      function GetIndefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+      function GetDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+      function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
    end;
 
    TThingList = class(TInternalThingList) // @RegisterStorableClass
-      function GetIndefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
-      function GetDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
-      function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+      function GetIndefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+      function GetDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+      function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
    end;
 
-function GetIndefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
-function GetDefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
-function GetLongDefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+function GetIndefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+function GetDefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+function GetLongDefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
 
 type
    TReachablePosition = (rpReachable, rpNotReachable);
@@ -100,33 +100,33 @@ type
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); virtual;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
       function IsPlural(Perspective: TAvatar): Boolean; virtual; abstract;
-      function GetName(Perspective: TAvatar): AnsiString; virtual; abstract;
-      function GetSummaryName(Perspective: TAvatar): AnsiString; virtual;
-      function GetLongName(Perspective: TAvatar): AnsiString; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
-      function GetIndefiniteName(Perspective: TAvatar): AnsiString; virtual; abstract;
-      function GetDefiniteName(Perspective: TAvatar): AnsiString; virtual;
-      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; virtual;
-      function GetSubjectPronoun(Perspective: TAvatar): AnsiString; virtual; // I
-      function GetObjectPronoun(Perspective: TAvatar): AnsiString; virtual; // me
-      function GetReflexivePronoun(Perspective: TAvatar): AnsiString; virtual; // myself
-      function GetPossessivePronoun(Perspective: TAvatar): AnsiString; virtual; // mine
-      function GetPossessiveAdjective(Perspective: TAvatar): AnsiString; virtual; // my
-      function GetTitle(Perspective: TAvatar): AnsiString; virtual;
-      function GetContext(Perspective: TAvatar): AnsiString; virtual;
-      function GetLook(Perspective: TAvatar): AnsiString; virtual;
-      function GetLookAt(Perspective: TAvatar): AnsiString; virtual;
-      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract;
-      function GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString; virtual;
-      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString; virtual;
-      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString; virtual;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; virtual; abstract;
-      function GetDescriptionState(Perspective: TAvatar): AnsiString; virtual; { e.g. 'The bottle is open.' }
-      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString; virtual; abstract;
-      function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): AnsiString;
-      function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: AnsiString): AnsiString; virtual;
-      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString; virtual;
-      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; virtual; abstract; // used by locations to include their loAutoDescribe landmarks in their Here description
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual; abstract; // used for things like "look north"
+      function GetName(Perspective: TAvatar): UTF8String; virtual; abstract;
+      function GetSummaryName(Perspective: TAvatar): UTF8String; virtual;
+      function GetLongName(Perspective: TAvatar): UTF8String; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
+      function GetIndefiniteName(Perspective: TAvatar): UTF8String; virtual; abstract;
+      function GetDefiniteName(Perspective: TAvatar): UTF8String; virtual;
+      function GetLongDefiniteName(Perspective: TAvatar): UTF8String; virtual;
+      function GetSubjectPronoun(Perspective: TAvatar): UTF8String; virtual; // I
+      function GetObjectPronoun(Perspective: TAvatar): UTF8String; virtual; // me
+      function GetReflexivePronoun(Perspective: TAvatar): UTF8String; virtual; // myself
+      function GetPossessivePronoun(Perspective: TAvatar): UTF8String; virtual; // mine
+      function GetPossessiveAdjective(Perspective: TAvatar): UTF8String; virtual; // my
+      function GetTitle(Perspective: TAvatar): UTF8String; virtual;
+      function GetContext(Perspective: TAvatar): UTF8String; virtual;
+      function GetLook(Perspective: TAvatar): UTF8String; virtual;
+      function GetLookAt(Perspective: TAvatar): UTF8String; virtual;
+      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual; abstract;
+      function GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; virtual;
+      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; virtual;
+      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; virtual;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; virtual; abstract;
+      function GetDescriptionState(Perspective: TAvatar): UTF8String; virtual; { e.g. 'The bottle is open.' }
+      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; virtual; abstract;
+      function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): UTF8String;
+      function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: UTF8String): UTF8String; virtual;
+      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; virtual;
+      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; virtual; abstract; // used by locations to include their loAutoDescribe landmarks in their Here description
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual; abstract; // used for things like "look north"
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
@@ -139,7 +139,7 @@ type
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
-      {$IFDEF DEBUG} function Debug(): AnsiString; virtual; {$ENDIF}
+      {$IFDEF DEBUG} function Debug(): UTF8String; virtual; {$ENDIF}
    end;
 
    PThing = ^TThing;
@@ -166,32 +166,32 @@ type
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
-      function GetSummaryName(Perspective: TAvatar): AnsiString; override;
-      function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
+      function GetSummaryName(Perspective: TAvatar): UTF8String; override;
+      function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetLongDefiniteName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
-      function GetTitle(Perspective: TAvatar): AnsiString; override;
-      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString; override;
-      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString; override;
-      function GetExamine(Perspective: TAvatar): AnsiString; virtual;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; virtual;
-      function GetLookIn(Perspective: TAvatar): AnsiString; virtual;
-      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
-      function GetInventory(Perspective: TAvatar): AnsiString; virtual;
-      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString; override;
-      function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; virtual;
-      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString; override;
-      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
-      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString; virtual;
-      function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString; virtual;
-      function GetDescriptionEmpty(Perspective: TAvatar): AnsiString; virtual; { only called for optThorough searches }
-      function GetDescriptionClosed(Perspective: TAvatar): AnsiString; virtual; { used both from inside and outside }
-      function GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: AnsiString = ''): AnsiString; virtual;
-      function GetDescriptionCarriedTitle(Perspective: TAvatar; DeepCarried: Boolean): AnsiString; virtual;
-      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; virtual;
-      function GetDescriptionWriting(Perspective: TAvatar): AnsiString; virtual;
+      function GetTitle(Perspective: TAvatar): UTF8String; override;
+      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; override;
+      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; override;
+      function GetExamine(Perspective: TAvatar): UTF8String; virtual;
+      function GetLookUnder(Perspective: TAvatar): UTF8String; virtual;
+      function GetLookIn(Perspective: TAvatar): UTF8String; virtual;
+      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+      function GetInventory(Perspective: TAvatar): UTF8String; virtual;
+      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override;
+      function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; virtual;
+      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; override;
+      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; virtual;
+      function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String; virtual;
+      function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; virtual; { only called for optThorough searches }
+      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; virtual; { used both from inside and outside }
+      function GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: UTF8String = ''): UTF8String; virtual;
+      function GetDescriptionCarriedTitle(Perspective: TAvatar; DeepCarried: Boolean): UTF8String; virtual;
+      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; virtual;
+      function GetDescriptionWriting(Perspective: TAvatar): UTF8String; virtual;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract; // compares Tokens to FName, essentially
@@ -204,7 +204,7 @@ type
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
       procedure Dug(Target: TThing; Perspective: TAvatar; var Message: TMessage); virtual;
       function IsOpen(): Boolean; virtual;
-      {$IFDEF DEBUG} function Debug(): AnsiString; override; {$ENDIF}
+      {$IFDEF DEBUG} function Debug(): UTF8String; override; {$ENDIF}
       property Parent: TAtom read FParent;
       property Position: TThingPosition read FPosition write FPosition;
    end;
@@ -222,18 +222,18 @@ type
       procedure AnnounceDeparture(Destination: TAtom); virtual; abstract;
       procedure AnnounceArrival(Source: TAtom); virtual; abstract;
       procedure AnnounceArrival(Source: TAtom; Direction: TCardinalDirection); virtual; abstract;
-      procedure AutoDisambiguated(Message: AnsiString); virtual; abstract;
+      procedure AutoDisambiguated(Message: UTF8String); virtual; abstract;
       function HasConnectedPlayer(): Boolean; virtual; abstract;
       function IsReadyForRemoval(): Boolean; virtual; abstract;
       procedure RemoveFromWorld(); virtual;
    end;
 
    {$IFDEF DEBUG} // used by AssertDirectionHasDestination()
-   TDummyAvatar = class(TAvatar) // @RegisterStorableClass
+   TDummyAvatar = class(TAvatar) // @RegisterStorableClass IFDEF DEBUG
     public
       function IsPlural(Perspective: TAvatar): Boolean; override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetName(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
@@ -246,7 +246,7 @@ type
       procedure AnnounceDeparture(Destination: TAtom); override;
       procedure AnnounceArrival(Source: TAtom); override;
       procedure AnnounceArrival(Source: TAtom; Direction: TCardinalDirection); override;
-      procedure AutoDisambiguated(Message: AnsiString); override;
+      procedure AutoDisambiguated(Message: UTF8String); override;
       function HasConnectedPlayer(): Boolean; override;
       function IsReadyForRemoval(): Boolean; override;
    end;
@@ -287,12 +287,12 @@ type
       procedure AddSurroundings(Atom: TAtom; const Directions: TCardinalDirectionSet = cdCompasDirection);
       function GetAtomForDirectionalNavigation(Direction: TCardinalDirection): TAtom;
       function IsPlural(Perspective: TAvatar): Boolean; override;
-      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
-      function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; virtual;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString; override;
-      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+      function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override;
+      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
@@ -627,7 +627,10 @@ begin
       end;
    end
    else
+   begin
       Assert(False, 'Unexpected position ' + IntToStr(Cardinal(ThingPosition)));
+      Result := False;
+   end;
 end;
 
 procedure TAtom.Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
@@ -714,54 +717,54 @@ begin
    FromOutside := True;
 end;
 
-function TAtom.GetSummaryName(Perspective: TAvatar): AnsiString;
+function TAtom.GetSummaryName(Perspective: TAvatar): UTF8String;
 begin
    Result := GetName(Perspective);
 end;
 
-function TAtom.GetLongName(Perspective: TAvatar): AnsiString;
+function TAtom.GetLongName(Perspective: TAvatar): UTF8String;
 begin
    Result := GetName(Perspective);
 end;
 
-function TAtom.GetDefiniteName(Perspective: TAvatar): AnsiString;
+function TAtom.GetDefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := 'the ' + GetName(Perspective);
 end;
 
-function TAtom.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+function TAtom.GetLongDefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := 'the ' + GetLongName(Perspective);
 end;
 
-function TAtom.GetSubjectPronoun(Perspective: TAvatar): AnsiString;
+function TAtom.GetSubjectPronoun(Perspective: TAvatar): UTF8String;
 begin
    Result := 'it';
 end;
 
-function TAtom.GetObjectPronoun(Perspective: TAvatar): AnsiString;
+function TAtom.GetObjectPronoun(Perspective: TAvatar): UTF8String;
 begin
    Result := 'it';
 end;
 
-function TAtom.GetReflexivePronoun(Perspective: TAvatar): AnsiString;
+function TAtom.GetReflexivePronoun(Perspective: TAvatar): UTF8String;
 begin
    Result := 'itself';
 end;
 
-function TAtom.GetPossessivePronoun(Perspective: TAvatar): AnsiString;
+function TAtom.GetPossessivePronoun(Perspective: TAvatar): UTF8String;
 begin
    Result := 'its';
 end;
 
-function TAtom.GetPossessiveAdjective(Perspective: TAvatar): AnsiString;
+function TAtom.GetPossessiveAdjective(Perspective: TAvatar): UTF8String;
 begin
    Result := 'its';
 end;
 
-function TAtom.GetTitle(Perspective: TAvatar): AnsiString;
+function TAtom.GetTitle(Perspective: TAvatar): UTF8String;
 var
-   Additional: AnsiString;
+   Additional: UTF8String;
 begin
    Result := GetName(Perspective);
    Additional := GetContext(Perspective);
@@ -769,7 +772,7 @@ begin
       Result := Result + ' (' + Additional + ')';
 end;
 
-function TAtom.GetContext(Perspective: TAvatar): AnsiString;
+function TAtom.GetContext(Perspective: TAvatar): UTF8String;
 var
    Thing: TThing;
    Atom: TAtom;
@@ -793,7 +796,7 @@ begin
    end;
 end;
 
-function TAtom.GetLook(Perspective: TAvatar): AnsiString;
+function TAtom.GetLook(Perspective: TAvatar): UTF8String;
 begin
    Result := Capitalise(GetTitle(Perspective)) + #10 +
              GetBasicDescription(Perspective, psThereIsAThingHere) +
@@ -802,41 +805,41 @@ begin
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optOmitPerspective]));
 end;
 
-function TAtom.GetLookAt(Perspective: TAvatar): AnsiString;
+function TAtom.GetLookAt(Perspective: TAvatar): UTF8String;
 begin
    Result := GetBasicDescription(Perspective, psThereIsAThingHere) +
              WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn, optPrecise])) +
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren]));
 end;
 
-function TAtom.GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString;
+function TAtom.GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String;
 begin
    Result := GetDescriptionSelf(Perspective) +
              WithSpaceIfNotEmpty(GetDescriptionState(Perspective)) +
              WithSpaceIfNotEmpty(GetDescriptionHere(Perspective, Mode, Context));
 end;
 
-function TAtom.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString;
+function TAtom.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String;
 begin
    Result := '';
 end;
 
-function TAtom.GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString;
+function TAtom.GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String;
 begin
    Result := GetBasicDescription(Perspective, psThereIsAThingHere, Context);
 end;
 
-function TAtom.GetDescriptionState(Perspective: TAvatar): AnsiString; { e.g. 'The bottle is open.' }
+function TAtom.GetDescriptionState(Perspective: TAvatar): UTF8String; { e.g. 'The bottle is open.' }
 begin
    Result := '';
 end;
 
-function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): AnsiString;
+function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): UTF8String;
 begin
    Result := GetDescriptionOn(Perspective, Options, '');
 end;
 
-function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: AnsiString): AnsiString;
+function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: UTF8String): UTF8String;
 
    procedure ProcessBatch(Children: TThingList);
    var
@@ -872,7 +875,7 @@ begin
       ProcessBatch(GetSurface().FChildren);
 end;
 
-function TAtom.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString;
+function TAtom.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String;
 begin
    Result := '';
 end;
@@ -982,10 +985,10 @@ begin
 end;
 
 {$IFDEF DEBUG}
-function TAtom.Debug(): AnsiString;
+function TAtom.Debug(): UTF8String;
 var
    Child: TThing;
-   ChildResult: AnsiString;
+   ChildResult: UTF8String;
 begin
    Result := GetName(nil) + #10 +
              'Long Name: ' + GetLongDefiniteName(nil) + #10 +
@@ -1072,7 +1075,7 @@ end;
 function TThing.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 var
    Child: TThing;
-   RawMessage: AnsiString;
+   RawMessage: UTF8String;
 begin
    // first, look for an opening we can use as the entrance, and defer to it if we have one
    Assert(Assigned(FChildren));
@@ -1124,7 +1127,7 @@ begin
    end;
 end;
 
-function TThing.GetSummaryName(Perspective: TAvatar): AnsiString;
+function TThing.GetSummaryName(Perspective: TAvatar): UTF8String;
 var
    Context: TAtom;
 begin
@@ -1137,14 +1140,14 @@ begin
       end;
 end;
 
-function TThing.GetIndefiniteName(Perspective: TAvatar): AnsiString;
+function TThing.GetIndefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := GetName(Perspective);
    if (not IsPlural(Perspective)) then
       Result := IndefiniteArticle(Result) + ' ' + Result;
 end;
 
-function TThing.GetDefiniteName(Perspective: TAvatar): AnsiString;
+function TThing.GetDefiniteName(Perspective: TAvatar): UTF8String;
 var
    Context: TAtom;
 begin
@@ -1157,7 +1160,7 @@ begin
       end;
 end;
 
-function TThing.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+function TThing.GetLongDefiniteName(Perspective: TAvatar): UTF8String;
 var
    Context: TAtom;
 begin
@@ -1178,7 +1181,7 @@ begin
    Result := False;
 end;
 
-function TThing.GetTitle(Perspective: TAvatar): AnsiString;
+function TThing.GetTitle(Perspective: TAvatar): UTF8String;
 begin
    Assert(Assigned(FParent));
    if (Perspective.Parent = Self) then
@@ -1187,7 +1190,7 @@ begin
       Result := inherited;
 end;
 
-function TThing.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): AnsiString;
+function TThing.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String;
 begin
    if (((Perspective.Parent = Self) and (Perspective.Position in tpContained)) or (FPosition in tpContained)) then
       Result := inherited
@@ -1195,9 +1198,9 @@ begin
       Result := FParent.GetDescriptionForHorizon(Perspective, Context);
 end;
 
-function TThing.GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): AnsiString;
+function TThing.GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String;
 var
-   Part1, Part2: AnsiString;
+   Part1, Part2: UTF8String;
 begin
    Assert(Assigned(FParent));
    if (FParent.GetSurface() <> Self) then
@@ -1211,9 +1214,9 @@ begin
       Result := Part1 + Part2;
 end;
 
-function TThing.GetExamine(Perspective: TAvatar): AnsiString;
+function TThing.GetExamine(Perspective: TAvatar): UTF8String;
 var
-   Writing: AnsiString;
+   Writing: UTF8String;
 begin
    if (tfExaminingReads in GetFeatures()) then
       Writing := GetDescriptionWriting(Perspective)
@@ -1225,16 +1228,16 @@ begin
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optDeepChildren, optThorough]));
 end;
 
-function TThing.GetLookUnder(Perspective: TAvatar): AnsiString;
+function TThing.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
    // Consider actually looking cdDown from here, somehow
 end;
 
-function TThing.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TThing.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 { see also Navigate() }
 
-   function DeferToParent(): AnsiString;
+   function DeferToParent(): UTF8String;
    begin
       Assert(Assigned(FParent));
       if (FPosition in tpDeferNavigationToParent) then
@@ -1269,11 +1272,11 @@ begin
       Result := DeferToParent();
 end;
 
-function TThing.GetLookIn(Perspective: TAvatar): AnsiString;
+function TThing.GetLookIn(Perspective: TAvatar): UTF8String;
 var
    PositionOverride: TThingPosition;
    Inside: TAtom;
-   Contents: AnsiString;
+   Contents: UTF8String;
 begin
    if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
    begin
@@ -1297,12 +1300,12 @@ begin
    end;
 end;
 
-function TThing.GetDescriptionEmpty(Perspective: TAvatar): AnsiString;
+function TThing.GetDescriptionEmpty(Perspective: TAvatar): UTF8String;
 begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' empty.';
 end;
 
-function TThing.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
+function TThing.GetDescriptionClosed(Perspective: TAvatar): UTF8String;
 var
    PositionOverride: TThingPosition;
    Inside: TAtom;
@@ -1316,14 +1319,14 @@ begin
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' closed.';
 end;
 
-function TThing.GetInventory(Perspective: TAvatar): AnsiString;
+function TThing.GetInventory(Perspective: TAvatar): UTF8String;
 begin
    Result := GetDescriptionCarried(Perspective, True);
    if (Result = '') then
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' not carrying anything.';
 end;
 
-function TThing.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString;
+function TThing.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String;
 var
    Child: TThing;
 begin
@@ -1340,14 +1343,14 @@ begin
    end;
 end;
 
-function TThing.GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString;
+function TThing.GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
 begin
    Result := Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + '.' + WithSpaceIfNotEmpty(GetDescriptionState(Perspective));
 end;
 
-function TThing.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString;
+function TThing.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String): UTF8String;
 var
-   Additional: AnsiString;
+   Additional: UTF8String;
 begin
    if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
       Result := GetDescriptionIn(Perspective, Options, Prefix)
@@ -1359,10 +1362,10 @@ begin
    Result := Result + Additional;
 end;
 
-function TThing.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString;
+function TThing.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
 var
    Child: TThing;
-   S: AnsiString;
+   S: UTF8String;
 begin
    if (Position in tpAutoDescribeDirectional) then
       Result := GetDescriptionDirectional(Perspective, Mode, Direction)
@@ -1381,13 +1384,13 @@ begin
    end;
 end;
 
-function TThing.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TThing.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    Result := 'Looking ' + CardinalDirectionToString(Direction) + ', you see ' + GetIndefiniteName(Perspective) + '. ' +
              GetBasicDescription(Perspective, psThereIsAThingThere);
 end;
 
-function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString = ''): AnsiString;
+function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String;
 
    procedure ProcessBatch(Children: TThingList; ExpectedPositionFilter: TThingPositionFilter);
    var
@@ -1431,12 +1434,12 @@ begin
       Result := Prefix + GetDescriptionInTitle(Perspective, Options) + #10 + Result;
 end;
 
-function TThing.GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
+function TThing.GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String;
 begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('contains', 'contain', IsPlural(Perspective)) + ':';
 end;
 
-function TThing.GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: AnsiString = ''): AnsiString;
+function TThing.GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: UTF8String = ''): UTF8String;
 
    procedure ProcessBatch(Children: TThingList);
    var
@@ -1465,12 +1468,12 @@ begin
       Result := Prefix + GetDescriptionCarriedTitle(Perspective, DeepCarried) + #10 + Result;
 end;
 
-function TThing.GetDescriptionCarriedTitle(Perspective: TAvatar; DeepCarried: Boolean): AnsiString;
+function TThing.GetDescriptionCarriedTitle(Perspective: TAvatar; DeepCarried: Boolean): UTF8String;
 begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is carrying', 'are carrying', IsPlural(Perspective)) + ':';
 end;
 
-function TThing.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
+function TThing.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String;
 begin
    if (Mode = psThereIsAThingHere) then
       Result := 'There ' + IsAre(IsPlural(Perspective)) + ' ' + GetIndefiniteName(Perspective) + ' here.'
@@ -1492,10 +1495,13 @@ begin
          Result := '';
    end
    else
+   begin
       Assert(False, 'unknown mode');
+      Result := '<error>';
+   end;
 end;
 
-function TThing.GetDescriptionWriting(Perspective: TAvatar): AnsiString;
+function TThing.GetDescriptionWriting(Perspective: TAvatar): UTF8String;
 begin
    Result := 'There is no discernible writing on ' + GetDefiniteName(Perspective) + '.';
 end;
@@ -1671,15 +1677,15 @@ begin
 end;
 
 {$IFDEF DEBUG}
-function TThing.Debug(): AnsiString;
+function TThing.Debug(): UTF8String;
 begin
    Result := inherited;
    Result := Result + #10 +
              'IsPlural: ' + TernaryConditional('singular', 'plural', IsPlural(nil)) + #10 +
              'Position: ' + ThingPositionToString(FPosition) + ' ' + FParent.GetName(nil) + #10 +
              'IsOpen: ' + TernaryConditional('closed', 'open', IsOpen()) + #10 +
-             'GetIntrinsicSize(): ' + AnsiString(GetIntrinsicSize()) + #10 +
-             'GetSurfaceSizeManifest(): ' + AnsiString(GetSurfaceSizeManifest()) + #10;
+             'GetIntrinsicSize(): ' + UTF8String(GetIntrinsicSize()) + #10 +
+             'GetSurfaceSizeManifest(): ' + UTF8String(GetSurfaceSizeManifest()) + #10;
 end;
 {$ENDIF}
 
@@ -1703,12 +1709,12 @@ begin
    Result := False;
 end;
 
-function TDummyAvatar.GetName(Perspective: TAvatar): AnsiString;
+function TDummyAvatar.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := '';
 end;
 
-function TDummyAvatar.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TDummyAvatar.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := '';
 end;
@@ -1765,7 +1771,7 @@ procedure TDummyAvatar.AnnounceArrival(Source: TAtom; Direction: TCardinalDirect
 begin
 end;
 
-procedure TDummyAvatar.AutoDisambiguated(Message: AnsiString);
+procedure TDummyAvatar.AutoDisambiguated(Message: UTF8String);
 begin
 end;
 
@@ -1925,7 +1931,7 @@ begin
    // (needed for things like "_The Everglades_ are out of reach." in response to "take everglades" from a nearby room)
 end;
 
-function TLocation.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TLocation.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 var
    Index: Cardinal;
 begin
@@ -1935,7 +1941,7 @@ begin
       if (Length(FDirectionalLandmarks[Direction]) > 1) then
       begin
          Result := Result + ' Beyond that, you can see ';
-         for Index := 1 to High(FDirectionalLandmarks[Direction]) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         for Index := 1 to High(FDirectionalLandmarks[Direction]) do // $R-
          begin
             if (Index > 1) then
             begin
@@ -1956,17 +1962,17 @@ begin
       Result := GetLookTowardsDirectionDefault(Perspective, Direction);
 end;
 
-function TLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    Result := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' ' + TernaryConditional('sees', 'see', Perspective.IsPlural(Perspective)) + ' nothing noteworthy when looking ' + CardinalDirectionToString(Direction) + '.';
 end;
 
-function TLocation.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TLocation.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := '';
 end;
 
-function TLocation.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): AnsiString;
+function TLocation.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String;
 
    procedure ProcessBatch(Children: TThingList);
    var
@@ -1989,7 +1995,7 @@ function TLocation.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceSt
 var
    Index: Cardinal;
    Atom: TAtom;
-   S: AnsiString;
+   S: UTF8String;
 begin
    Assert(Mode in [psThereIsAThingThere, // look north
                    psThereIsAThingHere]); // look
@@ -2016,14 +2022,14 @@ begin
       ProcessBatch(GetSurface().FChildren);
 end;
 
-function TLocation.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString;
+function TLocation.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
 begin
    Assert(Mode in [psThereIsAThingThere, // look north (called indirectly from TLocation.GetDescriptionRemoteDetailed() below)
                    psThereIsAThingHere]); // if we're an autodescribed thing to the north of where the player is
    Result := Capitalise(CardinalDirectionToDirectionString(Direction)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + GetDefiniteName(Perspective) + '.';
 end;
 
-function TLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    Result := 'Looking ' + CardinalDirectionToString(Direction) + ', you see:' + #10 +
              Capitalise(GetName(Perspective)) + #10 +
@@ -2131,7 +2137,7 @@ function TLocation.FindThingDirectionalTraverser(Thing: TThing; Perspective: TAv
       CandidateOptions: TLandmarkOptions;
    begin
       if ((Length(FDirectionalLandmarks[CurrentDirection]) > 0) and (Distance < High(Distance))) then
-         for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do // $R-
          begin
             CandidateOptions := FDirectionalLandmarks[CurrentDirection][Index].Options;
             if ((not (loThreshold in CandidateOptions)) and
@@ -2152,7 +2158,7 @@ function TLocation.FindThingDirectionalTraverser(Thing: TThing; Perspective: TAv
                else
                if (CandidateAtom is TLocation) then
                begin
-                  if ((CandidateAtom as TLocation).FindThingDirectionalTraverser(Thing, Perspective, Distance+1, CurrentDirection, SubjectiveInformation)) then {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+                  if ((CandidateAtom as TLocation).FindThingDirectionalTraverser(Thing, Perspective, Distance+1, CurrentDirection, SubjectiveInformation)) then // $R-
                      Result := True;
                end
                else
@@ -2211,7 +2217,7 @@ procedure TLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; St
       ShouldInclude: Boolean;
    begin
       if ((Length(FDirectionalLandmarks[CurrentDirection]) > 0) and (Distance < High(Distance))) then
-         for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do // $R-
          begin
             CandidateOptions := FDirectionalLandmarks[CurrentDirection][Index].Options;
             if ((not (loThreshold in CandidateOptions)) and
@@ -2222,7 +2228,7 @@ procedure TLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; St
                Assert(Assigned(CandidateAtom));
                if (CandidateAtom is TLocation) then
                begin
-                  (CandidateAtom as TLocation).AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, Distance+1, CurrentDirection, Reporter); {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+                  (CandidateAtom as TLocation).AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, Distance+1, CurrentDirection, Reporter); // $R-
                end
                else
                if (CandidateAtom is TThing) then

@@ -11,13 +11,18 @@ sub regenRegistrations() {
         my $line = 0;
         foreach (<INFILE>) {
             $line += 1;
-            m/\@(Register[A-Za-z0-9_]+)/os && do {
+            m/\@(Register[A-Za-z0-9_]+)( IFDEF DEBUG)?/os && do {
                 my $func = $1;
+                my $debugOnly = $2;
                 m/^ *(T[A-Za-z0-9_]+) *= *class\b/os or
                     m/^ *(T[A-Za-z0-9_]+) *= *specialize\b/os or
                         die "$0: $filename: $line: cannot find class name\n";
                 my $class = $1;
-                push(@registrations, "   $func($class);\n");
+                if ($debugOnly) {
+                    push(@registrations, "   {\$IFDEF DEBUG} $func($class); {\$ENDIF}\n");
+                } else {
+                    push(@registrations, "   $func($class);\n");
+                }
                 next;
             };
             m/{\$INCLUDE $include}/s && do {
@@ -58,7 +63,7 @@ sub regenAtomLists {
         my($class, $method) = @_;
         return <<EOM;
 
-function T${class}List.Get${method}String(Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+function T${class}List.Get${method}String(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
 var
    Count: Cardinal;
    E: T${class}List.TEnumerator;
@@ -93,7 +98,7 @@ EOM
         my($method) = @_;
         return <<EOM;
 
-function Get${method}String(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: AnsiString): AnsiString;
+function Get${method}String(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
 var
    Index: Cardinal;
 begin

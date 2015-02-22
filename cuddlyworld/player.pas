@@ -21,17 +21,17 @@ type
 
    TTalkVolume = (tvWhispering, tvSpeaking, tvShouting);
 
-   TMessageEvent = procedure (Message: AnsiString) of object;
+   TMessageEvent = procedure (Message: UTF8String) of object;
    TForceDisconnectEvent = procedure () of object;
 
    TPlayer = class(TAvatar) // @RegisterStorableClass
     protected
-      FName, FPassword: AnsiString;
+      FName, FPassword: UTF8String;
       FGender: TGender;
       FReportFailedCommands: Boolean;
       FOnMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
-      FContext: AnsiString; { transient }
+      FContext: UTF8String; { transient }
       procedure DoFind(Subject: TThing);
       procedure DoLookUnder(Subject: TThing);
       procedure DoTake(Subject: TThingList);
@@ -43,7 +43,7 @@ type
       procedure DoShake(Subject: TThingList);
       procedure DoDig(Target: TThing; Spade: TThing);
       procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
-      procedure DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
+      procedure DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
       procedure DoDance(); unimplemented;
       {$IFDEF DEBUG}
       procedure DoDebugStatus();
@@ -58,35 +58,35 @@ type
       function CanShakeThing(Thing: TThing; var Message: TMessage): Boolean;
       function Reachable(Subject: TAtom; out Message: TMessage): Boolean;
       function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
-      procedure SetContext(Context: AnsiString);
+      procedure SetContext(Context: UTF8String);
       procedure ResetContext();
     public
-      constructor Create(AName: AnsiString; APassword: AnsiString; AGender: TGender);
+      constructor Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure Perform(Command: AnsiString); virtual;
+      procedure Perform(Command: UTF8String); virtual;
       procedure DoLook(); override;
       procedure DoInventory();
       procedure AvatarMessage(Message: TMessage); override;
-      procedure SendRawMessage(Message: AnsiString);
-      procedure SendMessage(Message: AnsiString);
-      procedure AutoDisambiguated(Message: AnsiString); override;
+      procedure SendRawMessage(Message: UTF8String);
+      procedure SendMessage(Message: UTF8String);
+      procedure AutoDisambiguated(Message: UTF8String); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
-      function GetLongName(Perspective: TAvatar): AnsiString; override;
-      function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetLongDefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetSubjectPronoun(Perspective: TAvatar): AnsiString; override; // I
-      function GetObjectPronoun(Perspective: TAvatar): AnsiString; override; // me
-      function GetReflexivePronoun(Perspective: TAvatar): AnsiString; override; // myself
-      function GetPossessivePronoun(Perspective: TAvatar): AnsiString; override; // mine
-      function GetPossessiveAdjective(Perspective: TAvatar): AnsiString; override; // my
+      function GetName(Perspective: TAvatar): UTF8String; override;
+      function GetLongName(Perspective: TAvatar): UTF8String; override;
+      function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetLongDefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetSubjectPronoun(Perspective: TAvatar): UTF8String; override; // I
+      function GetObjectPronoun(Perspective: TAvatar): UTF8String; override; // me
+      function GetReflexivePronoun(Perspective: TAvatar): UTF8String; override; // myself
+      function GetPossessivePronoun(Perspective: TAvatar): UTF8String; override; // mine
+      function GetPossessiveAdjective(Perspective: TAvatar): UTF8String; override; // my
       function IsPlural(Perspective: TAvatar): Boolean; override;
-      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       procedure AnnounceAppearance(); override;
       procedure AnnounceDisappearance(); override;
       procedure AnnounceDeparture(Destination: TAtom; Direction: TCardinalDirection); override;
@@ -98,8 +98,8 @@ type
       function IsReadyForRemoval(): Boolean; override;
       procedure RemoveFromWorld(); override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
-      function GetUsername(): AnsiString;
-      function GetPassword(): AnsiString;
+      function GetUsername(): UTF8String;
+      function GetPassword(): UTF8String;
       procedure Adopt(AOnMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
       property Gender: TGender read FGender write FGender;
@@ -131,7 +131,7 @@ type
 
    PTalkMessage = ^TTalkMessage;
    TTalkMessage = record
-      Message: AnsiString;
+      Message: UTF8String;
    end;
 
    TAction = record
@@ -173,7 +173,7 @@ var
    FailedCommandLog: Text;
    GlobalThingCollector: TThingCollector; // used in parser.inc
 
-constructor TPlayer.Create(AName: AnsiString; APassword: AnsiString; AGender: TGender);
+constructor TPlayer.Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
 var
    Bag: TBag;
 begin
@@ -196,20 +196,20 @@ end;
 constructor TPlayer.Read(Stream: TReadStream);
 begin
    inherited;
-   FName := Stream.ReadAnsiString();
-   FPassword := Stream.ReadAnsiString();
+   FName := Stream.ReadString();
+   FPassword := Stream.ReadString();
    FGender := TGender(Stream.ReadCardinal());
 end;
 
 procedure TPlayer.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FName);
-   Stream.WriteAnsiString(FPassword);
+   Stream.WriteString(FName);
+   Stream.WriteString(FPassword);
    Stream.WriteCardinal(Cardinal(FGender));
 end;
 
-procedure TPlayer.Perform(Command: AnsiString);
+procedure TPlayer.Perform(Command: UTF8String);
 var
    Tokens, OriginalTokens: TTokens;
    CurrentToken: Cardinal;
@@ -259,7 +259,7 @@ var
    Action: TAction;
    More: Boolean;
    Atom: TAtom;
-   Location: AnsiString;
+   Location: UTF8String;
 begin
    try
       OriginalTokens := Tokenise(Command);
@@ -332,7 +332,7 @@ end;
 
 procedure TPlayer.DoInventory();
 var
-   Contents: AnsiString;
+   Contents: UTF8String;
 begin
    Contents := GetInventory(Self);
    if (Length(Contents) = 0) then
@@ -417,7 +417,7 @@ begin
    SendMessage(':-(');
 end;
 
-procedure TPlayer.SetContext(Context: AnsiString);
+procedure TPlayer.SetContext(Context: UTF8String);
 begin
    FContext := Context;
 end;
@@ -432,13 +432,13 @@ begin
    SendMessage(Message.AsText);
 end;
 
-procedure TPlayer.SendRawMessage(Message: AnsiString);
+procedure TPlayer.SendRawMessage(Message: UTF8String);
 begin
    if (Assigned(FOnMessage)) then
       FOnMessage(Message);
 end;
 
-procedure TPlayer.SendMessage(Message: AnsiString);
+procedure TPlayer.SendMessage(Message: UTF8String);
 begin
    if (Assigned(FOnMessage)) then
    begin
@@ -453,7 +453,7 @@ begin
    end;
 end;
 
-procedure TPlayer.AutoDisambiguated(Message: AnsiString);
+procedure TPlayer.AutoDisambiguated(Message: UTF8String);
 begin
    SendMessage('(' + Message + ')');
 end;
@@ -468,7 +468,7 @@ begin
    Result := tsMassive;
 end;
 
-function TPlayer.GetName(Perspective: TAvatar): AnsiString;
+function TPlayer.GetName(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'you'
@@ -476,7 +476,7 @@ begin
       Result := Capitalise(FName);
 end;
 
-function TPlayer.GetLongName(Perspective: TAvatar): AnsiString;
+function TPlayer.GetLongName(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'you'
@@ -484,7 +484,7 @@ begin
       Result := 'other player named ' + GetName(Perspective);
 end;
 
-function TPlayer.GetIndefiniteName(Perspective: TAvatar): AnsiString;
+function TPlayer.GetIndefiniteName(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'you'
@@ -494,10 +494,11 @@ begin
      gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
     else
       Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Result := '<error>';
    end;
 end;
 
-function TPlayer.GetDefiniteName(Perspective: TAvatar): AnsiString;
+function TPlayer.GetDefiniteName(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'you'
@@ -507,10 +508,11 @@ begin
      gHive: Result := 'The ' + Capitalise(FName);
     else
       Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Result := '<error>';
    end;
 end;
 
-function TPlayer.GetLongDefiniteName(Perspective: TAvatar): AnsiString;
+function TPlayer.GetLongDefiniteName(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'you'
@@ -518,7 +520,7 @@ begin
       Result := 'the other player named ' + GetDefiniteName(Perspective);
 end;
 
-function TPlayer.GetSubjectPronoun(Perspective: TAvatar): AnsiString;
+function TPlayer.GetSubjectPronoun(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'you'
@@ -531,10 +533,11 @@ begin
      gHive: Result := 'they';
     else
       Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Result := '<error>';
    end;
 end;
 
-function TPlayer.GetObjectPronoun(Perspective: TAvatar): AnsiString;
+function TPlayer.GetObjectPronoun(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'you'
@@ -547,10 +550,11 @@ begin
      gHive: Result := 'them';
     else
       Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Result := '<error>';
    end;
 end;
 
-function TPlayer.GetReflexivePronoun(Perspective: TAvatar): AnsiString;
+function TPlayer.GetReflexivePronoun(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'yourself'
@@ -563,10 +567,11 @@ begin
      gHive: Result := 'themselves';
     else
       Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Result := '<error>';
    end;
 end;
 
-function TPlayer.GetPossessivePronoun(Perspective: TAvatar): AnsiString;
+function TPlayer.GetPossessivePronoun(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'yours'
@@ -579,10 +584,11 @@ begin
      gHive: Result := 'theirs';
     else
       Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Result := '<error>';
    end;
 end;
 
-function TPlayer.GetPossessiveAdjective(Perspective: TAvatar): AnsiString;
+function TPlayer.GetPossessiveAdjective(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
       Result := 'your'
@@ -595,6 +601,7 @@ begin
      gHive: Result := 'their';
     else
       Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+      Result := '<error>';
    end;
 end;
 
@@ -606,7 +613,7 @@ begin
       Result := FGender in [gHive];
 end;
 
-function TPlayer.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
+function TPlayer.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String;
 begin
    if (Mode = psThereIsAThingHere) then
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' here.'
@@ -621,7 +628,7 @@ begin
       Result := inherited;
 end;
 
-function TPlayer.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TPlayer.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    if (Perspective = Self) then
    begin
@@ -634,6 +641,7 @@ begin
         gHive: Result := 'You are quite the hive, ' + FName + '.';
        else
          Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+         Result := '<error>';
       end;
    end
    else
@@ -647,6 +655,7 @@ begin
         gHive: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a hive mind of no consequence.';
        else
          Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
+         Result := '<error>';
       end;
       if (not HasConnectedPlayer) then
       begin
@@ -701,7 +710,7 @@ procedure TPlayer.DoFind(Subject: TThing);
 var
    Root: TAtom;
    SubjectiveInformation: TSubjectiveInformation;
-   Message, ExtraMessage: AnsiString;
+   Message, ExtraMessage: UTF8String;
    {$IFOPT C+} Found, {$ENDIF} FromOutside, UseCommas: Boolean;
    Count, Index: Cardinal;
    Direction: TCardinalDirection;
@@ -827,7 +836,7 @@ end;
 procedure TPlayer.DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
 var
    Multiple, Success: Boolean;
-   MessageText: AnsiString;
+   MessageText: UTF8String;
    Message: TMessage;
    SingleThingList: TThingList;
    Ancestor: TAtom;
@@ -1590,9 +1599,9 @@ begin
    end;
 end;
 
-procedure TPlayer.DoTalk(Target: TThing; Message: AnsiString; Volume: TTalkVolume);
+procedure TPlayer.DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
 var
-   SingularVerb, PluralVerb: AnsiString;
+   SingularVerb, PluralVerb: UTF8String;
 begin
    Assert(Assigned(FParent));
    case Volume of
@@ -1765,7 +1774,7 @@ var
    FromOutside: Boolean;
    SubjectiveInformation: TSubjectiveInformation;
    Direction: TCardinalDirection;
-   DirectionMessage: AnsiString;
+   DirectionMessage: UTF8String;
 begin
    Assert(Assigned(Subject));
    Assert(Assigned(FParent));
@@ -1902,9 +1911,9 @@ end;
 
 function TPlayer.IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean;
 var
-   Word: AnsiString;
+   Word: UTF8String;
 
-   function Consume(const Candidate: AnsiString; out Aborted: Boolean): Boolean;
+   function Consume(const Candidate: UTF8String; out Aborted: Boolean): Boolean;
    begin
       Result := False;
       Aborted := False;
@@ -1923,18 +1932,18 @@ var
       end;
    end;
 
-   function ConsumeAndEnd(const Candidate: AnsiString): Boolean;
+   function ConsumeAndEnd(const Candidate: UTF8String): Boolean;
    begin
       Consume(Candidate, Result);
    end;
 
-   function ConsumeAndEnd(const Candidate: AnsiString; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
+   function ConsumeAndEnd(const Candidate: UTF8String; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
    begin
       if (Consume(Candidate, Result)) then
          GrammaticalNumber := WouldBeGrammaticalNumber;
    end;
 
-   function ConsumeTerminal(const Candidate: AnsiString; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
+   function ConsumeTerminal(const Candidate: UTF8String; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
    begin
       if (Word = Candidate) then
       begin
@@ -1946,7 +1955,7 @@ var
          Result := False;
    end;
 
-   function ConsumeNonTerminal(const Candidate: AnsiString; out Aborted: Boolean): Boolean;
+   function ConsumeNonTerminal(const Candidate: UTF8String; out Aborted: Boolean): Boolean;
    begin
       Result := False;
       if (Start + Count + 1 >= Length(Tokens)) then
@@ -2102,12 +2111,12 @@ begin
    Result := GrammaticalNumber <> [];
 end;
 
-function TPlayer.GetUsername(): AnsiString;
+function TPlayer.GetUsername(): UTF8String;
 begin
    Result := FName;
 end;
 
-function TPlayer.GetPassword(): AnsiString;
+function TPlayer.GetPassword(): UTF8String;
 begin
    Result := FPassword;
 end;
