@@ -11,11 +11,11 @@ type
    EParseError = class(Exception)
    end;
 
-procedure Fail(Message: AnsiString); inline;
+procedure Fail(Message: UTF8String); inline;
 
 type
    TGrammaticalNumber = set of (gnSingular, gnPlural);
-   TTokens = array of AnsiString;
+   TTokens = array of UTF8String;
 
 const
    gnBoth = [gnSingular, gnPlural];
@@ -58,56 +58,56 @@ const
    tpSurface = [tpPlantedInImplicit, tpOn, tpPlantedIn]; { things that count towards SurfaceSizeManifest }
    tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
 
-function Tokenise(const S: AnsiString): TTokens;
-function TokeniseCanonically(const S: AnsiString): TTokens;
-function TryMatch(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString): Boolean;
-function TryMatchWithLookahead(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; LookAheadPattern: array of AnsiString): Boolean;
-function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; out Number: Cardinal): Boolean; { '#' in the pattern is the number -- only matches numbers in the range 2..999,999,999}
-function Serialise(const Tokens: TTokens; const Start, Count: Cardinal; const Separator: AnsiString = ' '): AnsiString;
-function Canonicalise(const S: AnsiString): AnsiString;
-function IndefiniteArticle(Noun: AnsiString): AnsiString; inline;
-function Capitalise(Phrase: AnsiString): AnsiString; inline;
-function TernaryConditional(FalseResult, TrueResult: AnsiString; Condition: Boolean): AnsiString; inline;
-function WithSpaceIfNotEmpty(S: AnsiString): AnsiString; inline;
-function WithNewlineIfNotEmpty(S: AnsiString): AnsiString; inline;
+function Tokenise(const S: UTF8String): TTokens;
+function TokeniseCanonically(const S: UTF8String): TTokens;
+function TryMatch(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of UTF8String): Boolean;
+function TryMatchWithLookahead(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of UTF8String; LookAheadPattern: array of UTF8String): Boolean;
+function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of UTF8String; out Number: Cardinal): Boolean; { '#' in the pattern is the number -- only matches numbers in the range 2..999,999,999}
+function Serialise(const Tokens: TTokens; const Start, Count: Cardinal; const Separator: UTF8String = ' '): UTF8String;
+function Canonicalise(const S: UTF8String): UTF8String;
+function IndefiniteArticle(Noun: UTF8String): UTF8String; inline;
+function Capitalise(Phrase: UTF8String): UTF8String; inline;
+function TernaryConditional(FalseResult, TrueResult: UTF8String; Condition: Boolean): UTF8String; inline;
+function WithSpaceIfNotEmpty(S: UTF8String): UTF8String; inline;
+function WithNewlineIfNotEmpty(S: UTF8String): UTF8String; inline;
 
 {$IFOPT C+}
-function GrammaticalNumberToString(GrammaticalNumber: TGrammaticalNumber): AnsiString;
+function GrammaticalNumberToString(GrammaticalNumber: TGrammaticalNumber): UTF8String;
 {$ENDIF}
 
-function CardinalDirectionToString(CardinalDirection: TCardinalDirection): AnsiString; { 'north', 'up' }
-function CardinalDirectionToDefiniteString(CardinalDirection: TCardinalDirection): AnsiString; { 'the north', 'above' }
-function CardinalDirectionToDirectionString(CardinalDirection: TCardinalDirection): AnsiString; { 'to the north', 'above' - non-physical directions not allowed }
+function CardinalDirectionToString(CardinalDirection: TCardinalDirection): UTF8String; { 'north', 'up' }
+function CardinalDirectionToDefiniteString(CardinalDirection: TCardinalDirection): UTF8String; { 'the north', 'above' }
+function CardinalDirectionToDirectionString(CardinalDirection: TCardinalDirection): UTF8String; { 'to the north', 'above' - non-physical directions not allowed }
 function ReverseCardinalDirection(CardinalDirection: TCardinalDirection): TCardinalDirection; { cdSouth, cdDown }
 
-function ThingPositionToString(Position: TThingPosition): AnsiString;
-function ThingPositionToDirectionString(Position: TThingPosition): AnsiString;
+function ThingPositionToString(Position: TThingPosition): UTF8String;
+function ThingPositionToDirectionString(Position: TThingPosition): UTF8String;
 
-function NumberToEnglish(Number: Cardinal): AnsiString;
+function NumberToEnglish(Number: Cardinal): UTF8String;
 
-function IsAre(const IsPlural: Boolean): AnsiString; inline;
+function IsAre(const IsPlural: Boolean): UTF8String; inline;
 
 implementation
 
-procedure Fail(Message: AnsiString);
+procedure Fail(Message: UTF8String);
 begin
    raise EParseError.Create(Message);
 end;
 
 type
-   TStringFilter = function (const S: AnsiString): AnsiString;
+   TStringFilter = function (const S: UTF8String): UTF8String;
 
-function Identity(const S: AnsiString): AnsiString;
+function Identity(const S: UTF8String): UTF8String;
 begin
    Result := S;
 end;        
 
-function InternalTokenise(const S: AnsiString; const Canonicaliser: TStringFilter): TTokens;
+function InternalTokenise(const S: UTF8String; const Canonicaliser: TStringFilter): TTokens;
 var
    Start: Cardinal;
    Index: Cardinal;
 
-   procedure PushToken(t: AnsiString);
+   procedure PushToken(t: UTF8String);
    begin
       SetLength(Result, Length(Result)+1);
       Result[Length(Result)-1] := t;
@@ -145,7 +145,7 @@ begin
           case S[Index] of
            '''': begin
               if (Start < Index) then
-                 PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+                 PushToken('"' + UTF8String(S[Start..Index-1]) + '"')
               else
                  PushToken('""');
               TokeniserState := tsWordStart;
@@ -155,7 +155,7 @@ begin
           case S[Index] of
            '"': begin
               if (Start < Index) then
-                 PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+                 PushToken('"' + UTF8String(S[Start..Index-1]) + '"')
               else
                  PushToken('""');
               TokeniserState := tsWordStart;
@@ -171,13 +171,13 @@ begin
     tsWordBody: PushToken(Canonicaliser(S[Start..Index-1]));
     tsQuoted: begin
         if (Start < Index) then
-           PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+           PushToken('"' + UTF8String(S[Start..Index-1]) + '"')
         else
            PushToken('""')
      end;
     tsDoubleQuoted: begin
         if (Start < Index) then
-           PushToken('"' + AnsiString(S[Start..Index-1]) + '"')
+           PushToken('"' + UTF8String(S[Start..Index-1]) + '"')
         else
            PushToken('""')
      end;
@@ -186,17 +186,17 @@ begin
    end;
 end;
 
-function Tokenise(const S: AnsiString): TTokens;
+function Tokenise(const S: UTF8String): TTokens;
 begin
    Result := InternalTokenise(S, @Identity);
 end;
 
-function TokeniseCanonically(const S: AnsiString): TTokens;
+function TokeniseCanonically(const S: UTF8String): TTokens;
 begin
    Result := InternalTokenise(S, @Canonicalise);
 end;
 
-function TryMatch(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString): Boolean;
+function TryMatch(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of UTF8String): Boolean;
 var
    Index: Cardinal;
 begin
@@ -216,7 +216,7 @@ begin
    end;
 end;
 
-function TryMatchWithLookahead(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; LookAheadPattern: array of AnsiString): Boolean;
+function TryMatchWithLookahead(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of UTF8String; LookAheadPattern: array of UTF8String): Boolean;
 var
    Index, LookAheadIndex: Cardinal;
 begin
@@ -244,7 +244,7 @@ begin
    end;
 end;
 
-function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of AnsiString; out Number: Cardinal): Boolean;
+function TryMatchWithNumber(var CurrentToken: Cardinal; const Tokens: TTokens; Pattern: array of UTF8String; out Number: Cardinal): Boolean;
 // would be good to extend this to supprot "a dozen" "one dozen" etc
 // (if you add dozen here, also add it to NumberToEnglish)
 var
@@ -333,7 +333,7 @@ begin
    end;
 end;
 
-function Serialise(const Tokens: TTokens; const Start, Count: Cardinal; const Separator: AnsiString = ' '): AnsiString;
+function Serialise(const Tokens: TTokens; const Start, Count: Cardinal; const Separator: UTF8String = ' '): UTF8String;
 var
    Index: Cardinal;
 begin
@@ -358,7 +358,7 @@ begin
    end;
 end;
 
-function IndefiniteArticle(Noun: AnsiString): AnsiString;
+function IndefiniteArticle(Noun: UTF8String): UTF8String;
 begin
    Assert(Length(Noun) > 0);
    case Noun[1] of
@@ -367,18 +367,18 @@ begin
    end;
 end;
 
-function Capitalise(Phrase: AnsiString): AnsiString;
+function Capitalise(Phrase: UTF8String): UTF8String;
 begin
    Result := Phrase;
    Result[1] := UpperCase(Result[1])[1];
 end;
 
-function Canonicalise(const S: AnsiString): AnsiString;
+function Canonicalise(const S: UTF8String): UTF8String;
 begin
    Result := LowerCase(S);
 end;        
 
-function TernaryConditional(FalseResult, TrueResult: AnsiString; Condition: Boolean): AnsiString;
+function TernaryConditional(FalseResult, TrueResult: UTF8String; Condition: Boolean): UTF8String;
 begin
    if (Condition) then
       Result := TrueResult
@@ -386,7 +386,7 @@ begin
       Result := FalseResult;
 end;
 
-function WithSpaceIfNotEmpty(S: AnsiString): AnsiString;
+function WithSpaceIfNotEmpty(S: UTF8String): UTF8String;
 begin
    if (S = '') then
       Result := ''
@@ -394,7 +394,7 @@ begin
       Result := ' ' + S;
 end;
 
-function WithNewlineIfNotEmpty(S: AnsiString): AnsiString;
+function WithNewlineIfNotEmpty(S: UTF8String): UTF8String;
 begin
    if (S = '') then
       Result := ''
@@ -403,7 +403,7 @@ begin
 end;
 
 {$IFOPT C+}
-function GrammaticalNumberToString(GrammaticalNumber: TGrammaticalNumber): AnsiString;
+function GrammaticalNumberToString(GrammaticalNumber: TGrammaticalNumber): UTF8String;
 begin
    if (GrammaticalNumber = gnBoth) then
       Result := 'ambiguous'
@@ -421,7 +421,7 @@ begin
 end;
 {$ENDIF}
 
-function CardinalDirectionToString(CardinalDirection: TCardinalDirection): AnsiString;
+function CardinalDirectionToString(CardinalDirection: TCardinalDirection): UTF8String;
 begin
    case CardinalDirection of
      cdNorth: Result := 'north';
@@ -438,10 +438,11 @@ begin
      cdIn: Result := 'in';
     else
       Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Result := '<error>';
    end;
 end;
 
-function CardinalDirectionToDefiniteString(CardinalDirection: TCardinalDirection): AnsiString;
+function CardinalDirectionToDefiniteString(CardinalDirection: TCardinalDirection): UTF8String;
 begin
    case CardinalDirection of
      cdNorth: Result := 'the north';
@@ -458,10 +459,11 @@ begin
      cdIn: Result := 'inside';
     else
       Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Result := '<error>';
    end;
 end;
 
-function CardinalDirectionToDirectionString(CardinalDirection: TCardinalDirection): AnsiString;
+function CardinalDirectionToDirectionString(CardinalDirection: TCardinalDirection): UTF8String;
 begin
    { ...is a mountain. }
    { The mountain is... }
@@ -480,6 +482,7 @@ begin
      cdIn: Result := 'inside'; // probably doesn't make much sense
     else
       Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Result := '<error>';
    end;
 end;
 
@@ -500,10 +503,11 @@ begin
      cdIn: Result := cdOut;
     else
       Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
+      Result := cdOut;
    end;
 end;
 
-function ThingPositionToString(Position: TThingPosition): AnsiString;
+function ThingPositionToString(Position: TThingPosition): UTF8String;
 begin
    { as in "the foo is ... the floor" }
    case Position of
@@ -515,11 +519,12 @@ begin
      tpCarried: Result := 'being carried by';
      tpPlantedInImplicit, tpPlantedIn: Result := 'planted in';
     else
-     Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
+      Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
+      Result := '<error>';
    end;
 end;
 
-function ThingPositionToDirectionString(Position: TThingPosition): AnsiString;
+function ThingPositionToDirectionString(Position: TThingPosition): UTF8String;
 begin
    { as in "moved ... the floor" }
    case Position of
@@ -534,11 +539,12 @@ begin
      tpCarried: Result := 'so that it is carried by'; // assert instead?
      tpPlantedInImplicit, tpPlantedIn: Result := 'so that it is planted in';
     else
-     Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
+      Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
+      Result := '<error>';
    end;
 end;
 
-function NumberToEnglish(Number: Cardinal): AnsiString;
+function NumberToEnglish(Number: Cardinal): UTF8String;
 begin
    case Number of
     0: Result := 'zero';
@@ -555,7 +561,7 @@ begin
    end;
 end;
 
-function IsAre(const IsPlural: Boolean): AnsiString;
+function IsAre(const IsPlural: Boolean): UTF8String;
 begin
    if (IsPlural) then
       Result := 'are'
@@ -581,7 +587,7 @@ end;
 procedure QuickSort(var List: TTokens; L, R: Integer); // based on QuickSort in rtl/objpas/classes/lists.inc
 var
    I, J : Integer;
-   P, Q : AnsiString;
+   P, Q : UTF8String;
 begin
    repeat
       I := L;

@@ -65,8 +65,8 @@ end.
 procedure Zero(out A: TThingDimensionManifest); inline;
 operator := (const A: TThingDimension): TThingDimensionManifest; inline;
 {$IFDEF DEBUG}
-operator := (const A: TThingDimension): AnsiString;
-operator := (const A: TThingDimensionManifest): AnsiString;
+operator := (const A: TThingDimension): UTF8String;
+operator := (const A: TThingDimensionManifest): UTF8String;
 {$ENDIF}
 operator + (const A, B: TThingDimensionManifest): TThingDimensionManifest; inline;
 operator + (const A: TThingDimensionManifest; const B: TThingDimension): TThingDimensionManifest; inline;
@@ -115,7 +115,7 @@ begin
 end;
 
 {$IFDEF DEBUG}
-operator := (const A: TThingDimension): AnsiString;
+operator := (const A: TThingDimension): UTF8String;
 var
    Index: TThingDimension;
 begin
@@ -132,7 +132,7 @@ begin
    Result := Result + ')';
 end;
 
-operator := (const A: TThingDimensionManifest): AnsiString;
+operator := (const A: TThingDimensionManifest): UTF8String;
 var
    Index: TThingDimension;
 begin

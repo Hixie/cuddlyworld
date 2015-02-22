@@ -199,7 +199,7 @@
          Dec(CurrentToken);
    end;
 
-   function TryPrepositionDirection(Preposition: AnsiString; out Direction: TCardinalDirection): Boolean;
+   function TryPrepositionDirection(Preposition: UTF8String; out Direction: TCardinalDirection): Boolean;
    begin
       Result := False;
       if (Tokens[CurrentToken] = Preposition) then
@@ -214,7 +214,7 @@
 
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
-   function GetThing(out Thing: TThing; EndingClauses: TEndingClauseKinds; VerbString: AnsiString): Boolean;
+   function GetThing(out Thing: TThing; EndingClauses: TEndingClauseKinds; VerbString: UTF8String): Boolean;
    var
       Things: TThingList;
       Disambiguate: Boolean;
@@ -244,7 +244,7 @@
 
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
-   function GetThing(out Thing: TAtom; EndingClauses: TEndingClauseKinds; VerbString: AnsiString): Boolean;
+   function GetThing(out Thing: TAtom; EndingClauses: TEndingClauseKinds; VerbString: UTF8String): Boolean;
    var
       ActualThing: TThing;
    begin
@@ -254,7 +254,7 @@
 
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
-   function GetThings(out Things: TThingList; AllImpliedScope: TAllImpliedScope; EndingClauses: TEndingClauseKinds; VerbString: AnsiString; NothingFail: AnsiString = ''): Boolean;
+   function GetThings(out Things: TThingList; AllImpliedScope: TAllImpliedScope; EndingClauses: TEndingClauseKinds; VerbString: UTF8String; NothingFail: UTF8String = ''): Boolean;
    var
       Disambiguate: Boolean;
       Count: Cardinal;
@@ -291,7 +291,7 @@
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetCompoundPrepositionThing(Prepositions: array of AnsiString; EndingClauses: TEndingClauseKinds; VerbString, PrepositionString: AnsiString; out Thing: TThing): Boolean;
+   function GetCompoundPrepositionThing(Prepositions: array of UTF8String; EndingClauses: TEndingClauseKinds; VerbString, PrepositionString: UTF8String; out Thing: TThing): Boolean;
    var
       Direction: TCardinalDirection;
       Index: Cardinal;
@@ -299,7 +299,7 @@
       Assert(Length(Prepositions) > 0);
       if (CurrentToken + Length(Prepositions) <= Length(Tokens)) then
       begin
-         for Index := Low(Prepositions) to High(Prepositions) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         for Index := Low(Prepositions) to High(Prepositions) do // $R-
          begin
 {$IFDEF DEBUG_PARSER} Writeln('GetCompoundPrepositionThing() comparing "', Tokens[CurrentToken+Index], '" to "', Prepositions[Index], '"'); {$ENDIF}
             if (Tokens[CurrentToken+Index] <> Prepositions[Index]) then
@@ -327,7 +327,7 @@
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetCompoundPrepositionThing(Prepositions: array of AnsiString; EndingClauses: TEndingClauseKinds; VerbString, PrepositionString: AnsiString; out Thing: TAtom): Boolean;
+   function GetCompoundPrepositionThing(Prepositions: array of UTF8String; EndingClauses: TEndingClauseKinds; VerbString, PrepositionString: UTF8String; out Thing: TAtom): Boolean;
    var
       ActualThing: TThing;
    begin
@@ -336,13 +336,13 @@
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetPrepositionThing(Preposition: AnsiString; EndingClauses: TEndingClauseKinds; VerbString: AnsiString; out Thing: TAtom): Boolean;
+   function GetPrepositionThing(Preposition: UTF8String; EndingClauses: TEndingClauseKinds; VerbString: UTF8String; out Thing: TAtom): Boolean;
    begin
       Result := GetCompoundPrepositionThing([Preposition], EndingClauses, VerbString, Preposition, Thing);
    end;
 
    { You can assume EnsureNoPunctuation() has been called just before this returns }
-   function GetPrepositionThing(Preposition: AnsiString; EndingClauses: TEndingClauseKinds; VerbString: AnsiString; out Thing: TThing): Boolean;
+   function GetPrepositionThing(Preposition: UTF8String; EndingClauses: TEndingClauseKinds; VerbString: UTF8String; out Thing: TThing): Boolean;
    begin
       Result := GetCompoundPrepositionThing([Preposition], EndingClauses, VerbString, Preposition, Thing);
    end;
@@ -589,7 +589,7 @@
 
    function GetLeave(var Action: TAction): Boolean;
    var
-      Verb: AnsiString;
+      Verb: UTF8String;
    begin
       if ((Tokens[CurrentToken] = 'leave') or (Tokens[CurrentToken] = 'exit')) then
       begin
@@ -660,7 +660,7 @@
    function GetPut(var Action: TAction): Boolean;
    var
       Direction: TCardinalDirection;
-      Verb, WhatQ, DirectionQ: AnsiString;
+      Verb, WhatQ, DirectionQ: UTF8String;
    begin
       if (Tokens[CurrentToken] = 'put') then
       begin
@@ -773,6 +773,7 @@
             Action.Verb := avClimbOn;
             if (not CanEnd()) then
                Fail('I don''t understand how to move onto things "' + OriginalTokens[CurrentToken] + '".');
+            Result := True;
          end
          else
          if (GetPrepositionThing('into', [], 'move', Action.EnterSubject) or
@@ -781,6 +782,7 @@
             Action.Verb := avEnter;
             if (not CanEnd()) then
                Fail('I don''t understand how to move into things "' + OriginalTokens[CurrentToken] + '".');
+            Result := True;
          end
          else
          if (GetThings(Action.MoveSubject, [aisSurroundings, aisSelf], [eckIn, eckOn], 'move')) then
@@ -1025,7 +1027,7 @@
 
    function GetDig(var Action: TAction): Boolean;
    var
-      Message: AnsiString;
+      Message: UTF8String;
       GotThing: Boolean;
    begin
       if (Tokens[CurrentToken] = 'dig') then

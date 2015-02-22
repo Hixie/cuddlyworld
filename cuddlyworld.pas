@@ -5,7 +5,7 @@ uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, baseunix, client, corenetwork, exceptions,
    storable, 
-   physics, world, locations, {$IFDEF DEBUG} player, {$ENDIF}
+   physics, world, locations, player,
    cuddlycamp;
 
 type
@@ -33,11 +33,11 @@ type
    end;
 
    TCommandLineMain = class(TMain)
-      constructor Create(Username, Password: AnsiString);
+      constructor Create(Username, Password: UTF8String);
       destructor Destroy(); override;
       procedure Run(); override;
       procedure HandleForceDisconnect();
-      procedure HandleAvatarMessage(Message: AnsiString);
+      procedure HandleAvatarMessage(Message: UTF8String);
     protected
       FPlayer: TPlayer;
    end;
@@ -140,7 +140,7 @@ begin
 end;
 
 
-constructor TCommandLineMain.Create(Username, Password: AnsiString);
+constructor TCommandLineMain.Create(Username, Password: UTF8String);
 begin
    inherited Create();
    FPlayer := FWorld.GetPlayer(Username) as TPlayer;
@@ -173,7 +173,7 @@ begin
    end;
 end;
 
-procedure TCommandLineMain.HandleAvatarMessage(Message: AnsiString);
+procedure TCommandLineMain.HandleAvatarMessage(Message: UTF8String);
 begin
    Writeln(Message);
 end;
@@ -190,7 +190,7 @@ end;
 
 procedure TCommandLineMain.Run();
 var
-   S: AnsiString;
+   S: UTF8String;
 begin
    repeat
       Write('> ');

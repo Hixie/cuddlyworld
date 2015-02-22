@@ -10,37 +10,37 @@ uses
 type
    TNamedThing = class(TThing)
     protected
-      FName, FLongName: AnsiString;
+      FName, FLongName: UTF8String;
       FSingularPattern, FPluralPattern: TMatcher;
       FPlural: Boolean;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString);
+      constructor Create(Name: UTF8String; Pattern: UTF8String);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
-      function GetSummaryName(Perspective: TAvatar): AnsiString; override;
-      function GetLongName(Perspective: TAvatar): AnsiString; override;
+      function GetName(Perspective: TAvatar): UTF8String; override;
+      function GetSummaryName(Perspective: TAvatar): UTF8String; override;
+      function GetLongName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
-      {$IFDEF DEBUG} function Debug(): AnsiString; override; {$ENDIF}
-      property LongName: AnsiString read FLongName write FLongName;
+      {$IFDEF DEBUG} function Debug(): UTF8String; override; {$ENDIF}
+      property LongName: UTF8String read FLongName write FLongName;
       property Plural: Boolean read FPlural write FPlural;
    end;
 
    // Things that never change: MacGuffins, set pieces, and other non-interactive nouns
    TStaticThing = class(TNamedThing) // @RegisterStorableClass
     protected
-      FDescription: AnsiString;
+      FDescription: UTF8String;
       FMass: TThingMass;
       FSize: TThingSize;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       property Mass: TThingMass read FMass write FMass;
       property Size: TThingSize read FSize write FSize;
    end;
@@ -48,28 +48,28 @@ type
    // Things that are really just aspects of other things
    TFeature = class(TStaticThing) // @RegisterStorableClass
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
    // Things that never change and don't even ever move and are typically gigantic
    TScenery = class(TStaticThing) // @RegisterStorableClass
     protected
-      FUnderDescription: AnsiString;
-      FFindDescription: AnsiString;
-      FCannotMoveExcuse: AnsiString;
+      FUnderDescription: UTF8String;
+      FFindDescription: UTF8String;
+      FCannotMoveExcuse: UTF8String;
       FOpened: Boolean;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function IsOpen(): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
-      property UnderDescription: AnsiString read FUnderDescription write FUnderDescription;
-      property FindDescription: AnsiString read FFindDescription write FFindDescription;
-      property CannotMoveExcuse: AnsiString read FCannotMoveExcuse write FCannotMoveExcuse;
+      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; override;
+      function GetLookUnder(Perspective: TAvatar): UTF8String; override;
+      property UnderDescription: UTF8String read FUnderDescription write FUnderDescription;
+      property FindDescription: UTF8String read FFindDescription write FFindDescription;
+      property CannotMoveExcuse: UTF8String read FCannotMoveExcuse write FCannotMoveExcuse;
       property Opened: Boolean read FOpened write FOpened;
    end;
 
@@ -78,10 +78,10 @@ type
     protected
       FDestination: TLocation;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString; override;
+      function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function IsOpen(): Boolean; override;
@@ -89,9 +89,9 @@ type
 
    TOpening = class(TLocationProxy) // @RegisterStorableClass
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; ASize: TThingSize);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
+      function GetLookUnder(Perspective: TAvatar): UTF8String; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -102,7 +102,7 @@ type
    // The ground, mainly
    TSurface = class(TStaticThing) // @RegisterStorableClass
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       function GetDefaultAtom(): TAtom; override;
@@ -117,14 +117,14 @@ type
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
-      function GetLookIn(Perspective: TAvatar): AnsiString; override;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+      function GetLookIn(Perspective: TAvatar): UTF8String; override;
+      function GetLookUnder(Perspective: TAvatar): UTF8String; override;
       function GetFeatures(): TThingFeatures; override;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function GetDescriptionClosed(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override;
       procedure Removed(Thing: TThing); override;
    end;
 
@@ -146,13 +146,13 @@ type
 
    TSign = class(TScenery) // @RegisterStorableClass
     protected
-      FWriting: AnsiString;
+      FWriting: UTF8String;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; AMass: TThingMass; ASize: TThingSize);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Writing: UTF8String; AMass: TThingMass; ASize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetFeatures(): TThingFeatures; override;
-      function GetDescriptionWriting(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionWriting(Perspective: TAvatar): UTF8String; override;
    end;
 
    TTree = class(TScenery) // @RegisterStorableClass
@@ -163,16 +163,16 @@ type
 
    TBag = class(TNamedThing) // @RegisterStorableClass
     protected
-      FDescription: AnsiString;
+      FDescription: UTF8String;
       FMaxSize: TThingSize;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; MaxSize: TThingSize);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; MaxSize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
@@ -183,20 +183,20 @@ type
 
    THole = class(TNamedThing) // @RegisterStorableClass
     protected
-      FDescription: AnsiString;
+      FDescription: UTF8String;
       FSize: TThingSize;
       FPileClass: TPileClass;
     public
-      constructor Create(Description: AnsiString; Size: TThingSize; PileClass: TPileClass);
+      constructor Create(Description: UTF8String; Size: TThingSize; PileClass: TPileClass);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetTitle(Perspective: TAvatar): AnsiString; override;
-      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionState(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionClosed(Perspective: TAvatar): AnsiString; override;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
-      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetTitle(Perspective: TAvatar): UTF8String; override;
+      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionState(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override;
+      function GetLookUnder(Perspective: TAvatar): UTF8String; override;
+      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
@@ -214,22 +214,22 @@ type
 
    TPile = class(TNamedThing) // @RegisterStorableClass
     protected
-      FIngredient: AnsiString;
-      FDescription: AnsiString;
+      FIngredient: UTF8String;
+      FDescription: UTF8String;
       FMass: TThingMass;
       FSize: TThingSize;
     public
-      constructor Create(SingularIngredients: array of AnsiString; PluralIngredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize); { ingredient must be canonical plural form }
+      constructor Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize); { ingredient must be canonical plural form }
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
-      function GetLookUnder(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString; override;
-      function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString; override;
-      function GetDescriptionEmpty(Perspective: TAvatar): AnsiString; override;
+      function GetLookUnder(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String): UTF8String; override;
+      function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String; override;
+      function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
@@ -246,7 +246,7 @@ implementation
 uses
    sysutils, broadcast;
 
-constructor TNamedThing.Create(Name: AnsiString; Pattern: AnsiString);
+constructor TNamedThing.Create(Name: UTF8String; Pattern: UTF8String);
 var
    TokenisedName: TTokens;
    NameIsSingular: Boolean;
@@ -254,7 +254,7 @@ var
 begin
    inherited Create();
    FName := Name;
-   Assert(HasSingularVsPluralAnnotation(Pattern), 'The ' + Name + ' needs explicit singular and plural patterns (no slashes found in "' + Pattern + '").');
+   {$IFOPT C+} Assert(HasSingularVsPluralAnnotation(Pattern), 'The ' + Name + ' needs explicit singular and plural patterns (no slashes found in "' + Pattern + '").'); {$ENDIF}
    CompilePattern(Pattern, FSingularPattern, FPluralPattern);
    TokenisedName := TokeniseCanonically(Name);
    NameIsSingular := FSingularPattern.Matches(TokenisedName, 0) = Length(TokenisedName);
@@ -280,8 +280,8 @@ end;
 constructor TNamedThing.Read(Stream: TReadStream);
 begin
    inherited;
-   FName := Stream.ReadAnsiString();
-   FLongName := Stream.ReadAnsiString();
+   FName := Stream.ReadString();
+   FLongName := Stream.ReadString();
    FSingularPattern := Stream.ReadObject() as TMatcher;
    FPluralPattern := Stream.ReadObject() as TMatcher;
    FPlural := Stream.ReadBoolean();
@@ -290,19 +290,19 @@ end;
 procedure TNamedThing.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FName);
-   Stream.WriteAnsiString(FLongName);
+   Stream.WriteString(FName);
+   Stream.WriteString(FLongName);
    Stream.WriteObject(FSingularPattern);
    Stream.WriteObject(FPluralPattern);
    Stream.WriteBoolean(FPlural);
 end;
 
-function TNamedThing.GetName(Perspective: TAvatar): AnsiString;
+function TNamedThing.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := FName;
 end;
 
-function TNamedThing.GetSummaryName(Perspective: TAvatar): AnsiString;
+function TNamedThing.GetSummaryName(Perspective: TAvatar): UTF8String;
 begin
    Result := FName;
    Assert(Assigned(FParent));
@@ -311,7 +311,7 @@ begin
    end;
 end;
 
-function TNamedThing.GetLongName(Perspective: TAvatar): AnsiString;
+function TNamedThing.GetLongName(Perspective: TAvatar): UTF8String;
 begin
    Result := FLongName;
 end;
@@ -350,7 +350,7 @@ begin
 end;
 
 {$IFDEF DEBUG}
-function TNamedThing.Debug(): AnsiString;
+function TNamedThing.Debug(): UTF8String;
 begin
    Result := inherited;
    Result := Result + #10 +
@@ -359,7 +359,7 @@ end;
 {$ENDIF}
 
 
-constructor TStaticThing.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+constructor TStaticThing.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize);
 begin
    inherited Create(Name, Pattern);
    FDescription := Description;
@@ -370,7 +370,7 @@ end;
 constructor TStaticThing.Read(Stream: TReadStream);
 begin
    inherited;
-   FDescription := Stream.ReadAnsiString();
+   FDescription := Stream.ReadString();
    FMass := TThingMass(Stream.ReadCardinal());
    FSize := TThingSize(Stream.ReadCardinal());
 end;
@@ -378,7 +378,7 @@ end;
 procedure TStaticThing.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FDescription);
+   Stream.WriteString(FDescription);
    Stream.WriteCardinal(Cardinal(FMass));
    Stream.WriteCardinal(Cardinal(FSize));
 end;
@@ -393,13 +393,13 @@ begin
    Result := FSize;
 end;
 
-function TStaticThing.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TStaticThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
 end;
 
 
-constructor TFeature.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString);
+constructor TFeature.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
 begin
    inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
 end;
@@ -415,7 +415,7 @@ begin
 end;
 
 
-constructor TScenery.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
+constructor TScenery.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
@@ -424,18 +424,18 @@ end;
 constructor TScenery.Read(Stream: TReadStream);
 begin
    inherited;
-   FUnderDescription := Stream.ReadAnsiString();
-   FFindDescription := Stream.ReadAnsiString();
-   FCannotMoveExcuse := Stream.ReadAnsiString();
+   FUnderDescription := Stream.ReadString();
+   FFindDescription := Stream.ReadString();
+   FCannotMoveExcuse := Stream.ReadString();
    FOpened := Stream.ReadBoolean();
 end;
 
 procedure TScenery.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FUnderDescription);
-   Stream.WriteAnsiString(FFindDescription);
-   Stream.WriteAnsiString(FCannotMoveExcuse);
+   Stream.WriteString(FUnderDescription);
+   Stream.WriteString(FFindDescription);
+   Stream.WriteString(FCannotMoveExcuse);
    Stream.WriteBoolean(FOpened);
 end;
 
@@ -463,7 +463,7 @@ begin
                                                               [Capitalise(GetDefiniteName(Perspective))]);
 end;
 
-function TScenery.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
+function TScenery.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String;
 begin
    if ((Mode = psTheThingIsOnThatThing) and (Length(FFindDescription) > 0)) then
       Result := FFindDescription
@@ -471,7 +471,7 @@ begin
       Result := inherited;
 end;
 
-function TScenery.GetLookUnder(Perspective: TAvatar): AnsiString;
+function TScenery.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    if (FPosition in tpScenery) then
    begin
@@ -485,7 +485,7 @@ begin
 end;
 
 
-constructor TLocationProxy.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
+constructor TLocationProxy.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
 begin
    Assert(Assigned(Destination));
    inherited Create(Name, Pattern, Description, AMass, ASize);
@@ -504,7 +504,7 @@ begin
    Stream.WriteReference(FDestination);
 end;
 
-function TLocationProxy.GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): AnsiString;
+function TLocationProxy.GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
 begin
    Result := Capitalise(GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('leads', 'lead', IsPlural(Perspective)) + ' ' + CardinalDirectionToString(Direction) + '.';
 end;
@@ -532,7 +532,7 @@ begin
 end;
 
 
-constructor TOpening.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Destination: TLocation; ASize: TThingSize);
+constructor TOpening.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
 begin
    inherited Create(Name, Pattern, Description, Destination, tmLudicrous, ASize);
 end;
@@ -552,7 +552,7 @@ begin
       Result := inherited; // defers to GetInside(); TLocation.GetInside() gets the FDestination surface
 end;
 
-function TOpening.GetLookUnder(Perspective: TAvatar): AnsiString;
+function TOpening.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    Result := GetLookIn(Perspective);
 end;
@@ -593,7 +593,7 @@ begin
 end;
 
 
-constructor TSurface.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
+constructor TSurface.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
 begin
    { needed for default values }
    inherited;
@@ -651,7 +651,7 @@ begin
 end;
 {$ENDIF}
 
-function TEarthGround.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TEarthGround.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    // we intentionally override seeing the ground if there's a hole, because we want to see what's in the hole
    if ((Direction = cdDown) and (Assigned(FHole)) and (FHole.IsOpen())) then
@@ -660,9 +660,9 @@ begin
       Result := inherited;
 end;
 
-function TEarthGround.GetLookIn(Perspective: TAvatar): AnsiString;
+function TEarthGround.GetLookIn(Perspective: TAvatar): UTF8String;
 var
-   Contents: AnsiString;
+   Contents: UTF8String;
 begin
    if (Assigned(FHole) and (FHole.IsOpen())) then
    begin
@@ -675,7 +675,7 @@ begin
       Result := 'To look in ' + GetDefiniteName(Perspective) + ', you first need to dig a hole in it.';
 end;
 
-function TEarthGround.GetLookUnder(Perspective: TAvatar): AnsiString;
+function TEarthGround.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    if (Assigned(FHole) and (FHole.IsOpen())) then
       Result := 'If the hole is any guide, there is a lot of earth under ' + GetDefiniteName(Perspective) + '.'
@@ -750,7 +750,7 @@ begin
       Result := False;
 end;
 
-function TEarthGround.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
+function TEarthGround.GetDescriptionClosed(Perspective: TAvatar): UTF8String;
 begin
    Result := 'To put things in ' + GetDefiniteName(Perspective) + ', you''ll have to dig a hole to put them in.';
 end;
@@ -800,7 +800,7 @@ begin
 end;
 
 
-constructor TBag.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; MaxSize: TThingSize);
+constructor TBag.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; MaxSize: TThingSize);
 begin
    inherited Create(Name, Pattern);
    FDescription := Description;
@@ -810,14 +810,14 @@ end;
 constructor TBag.Read(Stream: TReadStream);
 begin
    inherited;
-   FDescription := Stream.ReadAnsiString();
+   FDescription := Stream.ReadString();
    FMaxSize := TThingSize(Stream.ReadCardinal());
 end;
 
 procedure TBag.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FDescription);
+   Stream.WriteString(FDescription);
    Stream.WriteCardinal(Cardinal(FMaxSize));
 end;
 
@@ -836,7 +836,7 @@ begin
    Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
 end;
 
-function TBag.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TBag.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
 end;
@@ -863,7 +863,7 @@ begin
 end;
 
 
-constructor THole.Create(Description: AnsiString; Size: TThingSize; PileClass: TPileClass);
+constructor THole.Create(Description: UTF8String; Size: TThingSize; PileClass: TPileClass);
 begin
    inherited Create('hole', 'hole/holes');
    FDescription := Description;
@@ -876,7 +876,7 @@ var
    PileClass: TClass;
 begin
    inherited;
-   FDescription := Stream.ReadAnsiString();
+   FDescription := Stream.ReadString();
    FSize := TThingSize(Stream.ReadCardinal());
    {$IFOPT C-} {$HINT This could be optimised further in non-debug builds.} {$ENDIF}
    PileClass := Stream.ReadClass();
@@ -887,17 +887,17 @@ end;
 procedure THole.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FDescription);
+   Stream.WriteString(FDescription);
    Stream.WriteCardinal(Cardinal(FSize));
    Stream.WriteClass(FPileClass);
 end;
 
-function THole.GetTitle(Perspective: TAvatar): AnsiString;
+function THole.GetTitle(Perspective: TAvatar): UTF8String;
 begin
    Result := 'hole in ' + FParent.GetDefiniteName(Perspective);
 end;
 
-function THole.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): AnsiString;
+function THole.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String;
 var
    Child: TThing;
 begin
@@ -930,12 +930,12 @@ begin
       Result := inherited;
 end;
 
-function THole.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function THole.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
 end;
 
-function THole.GetDescriptionState(Perspective: TAvatar): AnsiString;
+function THole.GetDescriptionState(Perspective: TAvatar): UTF8String;
 var
    Child: TThing;
    ContentsSize: TThingSizeManifest;
@@ -974,7 +974,7 @@ begin
    end;
 end;
 
-function THole.GetDescriptionClosed(Perspective: TAvatar): AnsiString;
+function THole.GetDescriptionClosed(Perspective: TAvatar): UTF8String;
 var
    Cover: TThing;
 begin
@@ -984,12 +984,12 @@ begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' covered by ' + Cover.GetIndefiniteName(Perspective) + '.';
 end;
 
-function THole.GetLookUnder(Perspective: TAvatar): AnsiString;
+function THole.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    Result := 'To look under ' + GetDefiniteName(Perspective) + ', you first need to get below it.';
 end;
 
-function THole.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function THole.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    if (Direction = cdUp) then
    begin
@@ -1217,16 +1217,16 @@ begin
 end;
 
 
-constructor TPile.Create(SingularIngredients: array of AnsiString; PluralIngredients: array of AnsiString; Description: AnsiString; Mass: TThingMass; Size: TThingSize);
+constructor TPile.Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize);
 var
    Index: Cardinal;
-   Pattern: AnsiString;
+   Pattern: UTF8String;
 begin
    Assert(Length(SingularIngredients) > 0);
    Assert(Length(PluralIngredients) = Length(SingularIngredients));
    Pattern := '((pile/piles (of (' + PluralIngredients[0];
    if (Length(PluralIngredients) > 1) then
-      for Index := 1 to High(PluralIngredients) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+      for Index := 1 to High(PluralIngredients) do // $R-
          Pattern := Pattern + ' ' + PluralIngredients[Index];
    Pattern := Pattern + ')@)?)';
    for Index := Low(SingularIngredients) to High(SingularIngredients) do // High() won't return -ve since Length(SingularIngredients) > 0 // $R-
@@ -1246,8 +1246,8 @@ end;
 constructor TPile.Read(Stream: TReadStream);
 begin
    inherited;
-   FIngredient := Stream.ReadAnsiString();
-   FDescription := Stream.ReadAnsiString();
+   FIngredient := Stream.ReadString();
+   FDescription := Stream.ReadString();
    FMass := TThingMass(Stream.ReadCardinal());
    FSize := TThingSize(Stream.ReadCardinal());
 end;
@@ -1255,8 +1255,8 @@ end;
 procedure TPile.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FIngredient);
-   Stream.WriteAnsiString(FDescription);
+   Stream.WriteString(FIngredient);
+   Stream.WriteString(FDescription);
    Stream.WriteCardinal(Cardinal(TThingMass(FMass)));
    Stream.WriteCardinal(Cardinal(TThingSize(FSize)));
 end;
@@ -1276,17 +1276,17 @@ begin
    Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
 end;
 
-function TPile.GetLookUnder(Perspective: TAvatar): AnsiString;
+function TPile.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    Result := 'Digging through ' + GetDefiniteName(Perspective) + ' to the bottom, you find ' + FParent.GetIndefiniteName(Perspective) + '.';
 end;
 
-function TPile.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TPile.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
 end;
 
-function TPile.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: AnsiString): AnsiString;
+function TPile.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String): UTF8String;
 begin
    if (optThorough in Options) then
       Result := inherited
@@ -1294,7 +1294,7 @@ begin
       Result := '';
 end;
 
-function TPile.GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): AnsiString;
+function TPile.GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String;
 begin
    if (optThorough in Options) then
       Result := 'A thorough search through ' + GetDefiniteName(Perspective) + ' reveals:'
@@ -1302,7 +1302,7 @@ begin
       Result := 'Scatterered amongst the ' + FIngredient + ' one can see:';
 end;
 
-function TPile.GetDescriptionEmpty(Perspective: TAvatar): AnsiString;
+function TPile.GetDescriptionEmpty(Perspective: TAvatar): UTF8String;
 begin
    Result := 'A thorough search through ' + GetDefiniteName(Perspective) + ' reveals only a lot of ' + FIngredient + '.';
 end;
@@ -1337,7 +1337,7 @@ begin
 end;
 
 
-constructor TSign.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; Writing: AnsiString; AMass: TThingMass; ASize: TThingSize);
+constructor TSign.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Writing: UTF8String; AMass: TThingMass; ASize: TThingSize);
 begin
    inherited Create(Name, Pattern, Description, AMass, ASize);
    FWriting := Writing;
@@ -1346,13 +1346,13 @@ end;
 constructor TSign.Read(Stream: TReadStream);
 begin
    inherited;
-   FWriting := Stream.ReadAnsiString();
+   FWriting := Stream.ReadString();
 end;
 
 procedure TSign.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FWriting);
+   Stream.WriteString(FWriting);
 end;
 
 function TSign.GetFeatures(): TThingFeatures;
@@ -1361,7 +1361,7 @@ begin
    Result := Result + [tfExaminingReads];
 end;
 
-function TSign.GetDescriptionWriting(Perspective: TAvatar): AnsiString;
+function TSign.GetDescriptionWriting(Perspective: TAvatar): UTF8String;
 begin
    Result := 'On ' + GetDefiniteName(Perspective) + ' is written "' + FWriting + '".';
 end;

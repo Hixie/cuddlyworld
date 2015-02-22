@@ -11,16 +11,16 @@ type
    TThresholdThing = class(TScenery) // @RegisterStorableClass
     protected
       FFrontSideFacesDirection: TCardinalDirection;
-      FFrontSideDescription: AnsiString;
-      FBackSideDescription: AnsiString;
+      FFrontSideDescription: UTF8String;
+      FBackSideDescription: UTF8String;
     public
-      constructor Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; FrontFacesDirection: TCardinalDirection);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       property FrontSideFacesDirection: TCardinalDirection read FFrontSideFacesDirection write FFrontSideFacesDirection;
-      property FrontSideDescription: AnsiString read FFrontSideDescription write FFrontSideDescription;
-      property BackSideDescription: AnsiString read FBackSideDescription write FBackSideDescription;
+      property FrontSideDescription: UTF8String read FFrontSideDescription write FFrontSideDescription;
+      property BackSideDescription: UTF8String read FBackSideDescription write FBackSideDescription;
    end;
 
    // Should seriously consider factoring out the Landmark stuff in
@@ -35,9 +35,9 @@ type
       constructor Create(Landmark: TThresholdThing; Surface: TThing);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       // GetDescriptionDirectional?
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
       // XXX make this give the landmark thing's description when the place is examined
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
@@ -60,7 +60,7 @@ begin
    Result.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], BackLocation, [loAutoDescribe, loPermissibleNavigationTarget]);
 end;
 
-constructor TThresholdThing.Create(Name: AnsiString; Pattern: AnsiString; Description: AnsiString; FrontFacesDirection: TCardinalDirection);
+constructor TThresholdThing.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection);
 begin
    inherited Create(Name, Pattern, Description, tmPonderous, tsMassive);
    FFrontSideFacesDirection := FrontFacesDirection;
@@ -70,19 +70,19 @@ constructor TThresholdThing.Read(Stream: TReadStream);
 begin
    inherited;
    FFrontSideFacesDirection := TCardinalDirection(Stream.ReadCardinal());
-   FFrontSideDescription := Stream.ReadAnsiString();
-   FBackSideDescription := Stream.ReadAnsiString();
+   FFrontSideDescription := Stream.ReadString();
+   FBackSideDescription := Stream.ReadString();
 end;
 
 procedure TThresholdThing.Write(Stream: TWriteStream);
 begin
    inherited;
    Stream.WriteCardinal(Cardinal(FFrontSideFacesDirection));
-   Stream.WriteAnsiString(FFrontSideDescription);
-   Stream.WriteAnsiString(FBackSideDescription);
+   Stream.WriteString(FFrontSideDescription);
+   Stream.WriteString(FBackSideDescription);
 end;
 
-function TThresholdThing.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TThresholdThing.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    Assert(Direction in [FFrontSideFacesDirection, cdReverse[FFrontSideFacesDirection]]);
    Result := 'Looking ' + CardinalDirectionToString(Direction) + ', you see ' + GetIndefiniteName(Perspective) + '. ';
@@ -121,12 +121,12 @@ begin
    Stream.WriteReference(FThreshold);
 end;
 
-function TThresholdLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TThresholdLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    Result := FThreshold.GetPresenceStatement(Perspective, psThereIsAThingThere);
 end;
 
-function TThresholdLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): AnsiString;
+function TThresholdLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    Result := FThreshold.GetDescriptionRemoteDetailed(Perspective, Direction);
 end;

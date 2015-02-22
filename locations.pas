@@ -10,18 +10,18 @@ uses
 type
    TNamedLocation = class(TLocation)
     protected
-      FName: AnsiString;
-      FDefiniteName: AnsiString;
-      FIndefiniteName: AnsiString;
-      FDescription: AnsiString;
+      FName: UTF8String;
+      FDefiniteName: UTF8String;
+      FIndefiniteName: UTF8String;
+      FDescription: UTF8String;
     public
-      constructor Create(Name, DefiniteName, IndefiniteName, Description: AnsiString);
+      constructor Create(Name, DefiniteName, IndefiniteName, Description: UTF8String);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
-      function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetName(Perspective: TAvatar): UTF8String; override;
+      function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
    end;
 
    TSlavedLocation = class(TLocation)
@@ -31,10 +31,10 @@ type
       constructor Create(Master: TThing; Position: TThingPosition);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetName(Perspective: TAvatar): AnsiString; override;
-      function GetDefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetIndefiniteName(Perspective: TAvatar): AnsiString; override;
-      function GetDescriptionSelf(Perspective: TAvatar): AnsiString; override;
+      function GetName(Perspective: TAvatar): UTF8String; override;
+      function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
    end;
 
@@ -75,7 +75,7 @@ implementation
 uses
    things;
 
-constructor TNamedLocation.Create(Name, DefiniteName, IndefiniteName, Description: AnsiString);
+constructor TNamedLocation.Create(Name, DefiniteName, IndefiniteName, Description: UTF8String);
 begin
    inherited Create();
    FName := Name;
@@ -87,37 +87,37 @@ end;
 constructor TNamedLocation.Read(Stream: TReadStream);
 begin
    inherited;
-   FName := Stream.ReadAnsiString();
-   FDefiniteName := Stream.ReadAnsiString();
-   FIndefiniteName := Stream.ReadAnsiString();
-   FDescription := Stream.ReadAnsiString();
+   FName := Stream.ReadString();
+   FDefiniteName := Stream.ReadString();
+   FIndefiniteName := Stream.ReadString();
+   FDescription := Stream.ReadString();
 end;
 
 procedure TNamedLocation.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteAnsiString(FName);
-   Stream.WriteAnsiString(FDefiniteName);
-   Stream.WriteAnsiString(FIndefiniteName);
-   Stream.WriteAnsiString(FDescription);
+   Stream.WriteString(FName);
+   Stream.WriteString(FDefiniteName);
+   Stream.WriteString(FIndefiniteName);
+   Stream.WriteString(FDescription);
 end;
 
-function TNamedLocation.GetName(Perspective: TAvatar): AnsiString;
+function TNamedLocation.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := FName;
 end;
 
-function TNamedLocation.GetDefiniteName(Perspective: TAvatar): AnsiString;
+function TNamedLocation.GetDefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := FDefiniteName;
 end;
 
-function TNamedLocation.GetIndefiniteName(Perspective: TAvatar): AnsiString;
+function TNamedLocation.GetIndefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := FIndefiniteName;
 end;
 
-function TNamedLocation.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TNamedLocation.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
 end;
@@ -142,22 +142,22 @@ begin
    Stream.WriteReference(FMaster);
 end;
 
-function TSlavedLocation.GetName(Perspective: TAvatar): AnsiString;
+function TSlavedLocation.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := FMaster.GetName(Perspective);
 end;
 
-function TSlavedLocation.GetDefiniteName(Perspective: TAvatar): AnsiString;
+function TSlavedLocation.GetDefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := FMaster.GetDefiniteName(Perspective);
 end;
 
-function TSlavedLocation.GetIndefiniteName(Perspective: TAvatar): AnsiString;
+function TSlavedLocation.GetIndefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := FMaster.GetIndefiniteName(Perspective);
 end;
 
-function TSlavedLocation.GetDescriptionSelf(Perspective: TAvatar): AnsiString;
+function TSlavedLocation.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FMaster.GetDescriptionSelf(Perspective);
 end;
