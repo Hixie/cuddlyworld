@@ -28,6 +28,7 @@ type
       constructor Create(Landmark: TThresholdThing; Surface: TThing);
       function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override;
+      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
       // XXX make this give the landmark thing's description when the place is examined
@@ -37,6 +38,7 @@ type
    end;
 
 function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing; Flags: TLocation.TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
+// if you omit loAutoDescribe from the last argument, then the threshold won't be mentioned in descriptions of rooms that contain it
 
 implementation
 
@@ -114,6 +116,11 @@ begin
       Result := FMaster.GetDescriptionSelf(Perspective) + WithNewlineIfMultiline(inherited)
    else
       Result := inherited;
+end;
+
+function TThresholdLocation.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
+begin
+   Result := FMaster.GetDescriptionDirectional(Perspective, Mode, Direction);
 end;
 
 function TThresholdLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
