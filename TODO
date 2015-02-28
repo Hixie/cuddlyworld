@@ -1,10 +1,4 @@
 BUGS
- + if you're at an archway, you get:
-     Archway
-     To the north is a back room. To the south is a room. There is an archway here.
-   ...which is missing "The archway has no notable features." and has the extraneous "There is an archway here".
-   We should make the archway a landmark that gets autodescribed deeply and not include it in the here list.
-
  + why is the north archway not given in the main room description??
 
  + > debug teleport sun
