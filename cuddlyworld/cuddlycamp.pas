@@ -59,8 +59,9 @@ end;
 function InitEden: TWorld;
 var
    World: TCuddlyWorld;
-   SkyBox, Room: TLocation;
+   SkyBox, Room1, Room2, ArchwayLocation: TLocation;
    Sky, Sun: TThing;
+   Archway: TThresholdThing;
 begin
    World := TCuddlyWorld.Create();
 
@@ -71,11 +72,21 @@ begin
    SkyBox := TBackdrop.Create(Sky, tpAtImplicit);
    World.AddLocation(SkyBox);
 
-   Room := TGroundLocation.Create('Room', 'a room', 'the room', 'Nothing is particularly noteworthy about this location.', CreateEarthSurface());
-   Room.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+   Archway := TThresholdThing.Create('archway', 'unnotable? (arch/arches archway/archways)@', 'The archway has no notable features.', cdSouth);
 
-   World.AddLocation(Room);
-   World.StartingLocation := Room.GetSurface();
+   Room1 := TGroundLocation.Create('Room', 'a room', 'the room', 'Nothing is particularly noteworthy about this location.', CreateEarthSurface());
+   Room1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+
+   Room2 := TGroundLocation.Create('Back Room', 'a back room', 'the back room', 'Nothing is particularly noteworthy about this second location.', CreateEarthSurface());
+   Room2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+
+   ArchwayLocation := ConnectThreshold(Room1, Room2, Archway, CreateEarthSurface(), []);
+   ArchwayLocation.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+
+   World.AddLocation(Room1);
+   World.AddLocation(Room2);
+   World.AddLocation(ArchwayLocation);
+   World.StartingLocation := Room1.GetSurface();
    World.StartingPosition := tpOn;
 
    Result := World;

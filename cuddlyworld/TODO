@@ -1,3 +1,27 @@
+BUGS
+ + if you're at an archway, you get:
+     Archway
+     To the north is a back room. To the south is a room. There is an archway here.
+   ...which is missing "The archway has no notable features." and has the extraneous "There is an archway here".
+   We should make the archway a landmark that gets autodescribed deeply and not include it in the here list.
+
+ + why is the north archway not given in the main room description??
+
+ + > take archway
+   The archway cannot be moved
+   - no punctuation.
+
+ + > debug teleport sun
+   On the sun (in the sky, at the sky)
+                           ^^^^^^^^^^
+
+ + "On the archway (at the archway)"
+   should be "On the archway (between the room and the back room)"
+
+ + > exit
+   You cannot enter the sky. The sky has no discernible entrance.
+
+
 NAVIGATION
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
@@ -129,6 +153,7 @@ THINGS
  + 'look' when inside an object that usually hides its contents (e.g. a pile) still hides its contents when in the pile - do we need FromOutside for GetDescriptionIn()?
  + "look closer" should ask what part you want to look closer at ("look closer" "what do you want to look closer at?" "look closer at tree" "do you want to examine the leaf, or the branch?"
  + "look through opening"
+ + "look in bag" tells you you see a bag. maybe we need a different method for looking at the inside of something than the outside of something. See also the TODO regarding whether things like bags should have surfaces.
  + "take all there is"
  + "take all again"
  + "take leaves with spade"
