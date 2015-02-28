@@ -68,8 +68,10 @@ function Canonicalise(const S: UTF8String): UTF8String;
 function IndefiniteArticle(Noun: UTF8String): UTF8String; inline;
 function Capitalise(Phrase: UTF8String): UTF8String; inline;
 function TernaryConditional(FalseResult, TrueResult: UTF8String; Condition: Boolean): UTF8String; inline;
-function WithSpaceIfNotEmpty(S: UTF8String): UTF8String; inline;
-function WithNewlineIfNotEmpty(S: UTF8String): UTF8String; inline;
+function WithSpaces(const Sentences: array of UTF8String): UTF8String;
+function WithSpaceIfNotEmpty(const S: UTF8String): UTF8String; inline;
+function WithNewlineIfNotEmpty(const S: UTF8String): UTF8String; inline;
+function WithNewlineIfMultiline(const S: UTF8String): UTF8String; inline; // prefaces with a space if not multiline, a newline if multiline
 
 {$IFOPT C+}
 function GrammaticalNumberToString(GrammaticalNumber: TGrammaticalNumber): UTF8String;
@@ -386,7 +388,22 @@ begin
       Result := FalseResult;
 end;
 
-function WithSpaceIfNotEmpty(S: UTF8String): UTF8String;
+function WithSpaces(const Sentences: array of UTF8String): UTF8String;
+var
+   S: UTF8String;
+begin
+   Result := '';
+   for S in Sentences do
+      if (S <> '') then
+      begin
+         if (Result <> '') then
+            Result := Result + ' ' + S
+         else
+            Result := S;
+      end;
+end;
+
+function WithSpaceIfNotEmpty(const S: UTF8String): UTF8String;
 begin
    if (S = '') then
       Result := ''
@@ -394,10 +411,18 @@ begin
       Result := ' ' + S;
 end;
 
-function WithNewlineIfNotEmpty(S: UTF8String): UTF8String;
+function WithNewlineIfNotEmpty(const S: UTF8String): UTF8String;
 begin
    if (S = '') then
       Result := ''
+   else
+      Result := #10 + S;
+end;
+
+function WithNewlineIfMultiline(const S: UTF8String): UTF8String;
+begin
+   if (Pos(#10, S) = 0) then
+      Result := ' ' + S
    else
       Result := #10 + S;
 end;

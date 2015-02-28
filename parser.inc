@@ -1183,6 +1183,18 @@
                end;
             end
             else
+            if (Tokens[CurrentToken] = 'location') then
+            begin
+               Inc(CurrentToken);
+               Result := True;
+               Action.Verb := avDebugLocation;
+               if (not CanEnd()) then
+               begin
+                  EnsureNoPunctuation();
+                  Fail('Syntax: "debug location"');
+               end;
+            end
+            else
             if (Tokens[CurrentToken] = 'things') then
             begin
                Inc(CurrentToken);
@@ -1231,7 +1243,7 @@
             end;
          end
          else
-            Fail('Syntax: "debug <command>", where <command> is one of "status", "things", "thing <thing>", "teleport <thing>".');
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "location", "things [<things>]", "thing <thing>", "teleport <thing>".');
       end
       else
       {$ENDIF}

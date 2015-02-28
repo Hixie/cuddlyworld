@@ -116,12 +116,12 @@ type
       function GetLook(Perspective: TAvatar): UTF8String; virtual;
       function GetLookAt(Perspective: TAvatar): UTF8String; virtual;
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual; abstract;
-      function GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; virtual;
-      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; virtual;
-      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; virtual;
+      function GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; virtual; // see note [context]
+      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; virtual; // see note [context]
+      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; virtual; // see note [context]
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; virtual; abstract;
       function GetDescriptionState(Perspective: TAvatar): UTF8String; virtual; { e.g. 'The bottle is open.' }
-      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; virtual; abstract;
+      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; virtual; abstract; // see note [context]
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): UTF8String;
       function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: UTF8String): UTF8String; virtual;
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; virtual;
@@ -172,14 +172,14 @@ type
       function GetLongDefiniteName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
-      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; override;
-      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; override;
+      function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
+      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
       function GetExamine(Perspective: TAvatar): UTF8String; virtual;
       function GetLookUnder(Perspective: TAvatar): UTF8String; virtual;
       function GetLookIn(Perspective: TAvatar): UTF8String; virtual;
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetInventory(Perspective: TAvatar): UTF8String; virtual;
-      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override;
+      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override; // see note [context]
       function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; virtual;
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
@@ -290,7 +290,7 @@ type
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
-      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override;
+      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override; // see note [context]
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
@@ -316,6 +316,18 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Persp
       TThing.GetEntrance() looks for the child that is a tpOpening and defers to it, else defers to GetInside()
       TLocation.GetEntrance() calls GetSurface().
       TThresholdLocation.GetEntrance() fast-forwards you to the other side.
+}
+
+{ Note [context]: 
+    Several of the description methods have a Context argument.
+    This represents the object from which we are getting a
+    description. For example, if you are next to a pedestal and you
+    look around, and the pedestal is a key factor in the description
+    of the surrounding area, then it may be included in the room's
+    description as a key point. However, if you are on the pedestal,
+    then the pedestal will talk about itself and it's important that
+    the pedestal not be mentioned again by the room when the room
+    gives its "horizon" description.
 }
 
 procedure QueueForDisposal(Atom: TAtom);
@@ -814,9 +826,9 @@ end;
 
 function TAtom.GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String;
 begin
-   Result := GetDescriptionSelf(Perspective) +
-             WithSpaceIfNotEmpty(GetDescriptionState(Perspective)) +
-             WithSpaceIfNotEmpty(GetDescriptionHere(Perspective, Mode, Context));
+   Result := WithSpaces([GetDescriptionSelf(Perspective),
+                         GetDescriptionState(Perspective),
+                         GetDescriptionHere(Perspective, Mode, Context)]);
 end;
 
 function TAtom.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String;

@@ -34,7 +34,6 @@ type
       function GetName(Perspective: TAvatar): UTF8String; override;
       function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
-      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
    end;
 
@@ -155,11 +154,6 @@ end;
 function TSlavedLocation.GetIndefiniteName(Perspective: TAvatar): UTF8String;
 begin
    Result := FMaster.GetIndefiniteName(Perspective);
-end;
-
-function TSlavedLocation.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
-begin
-   Result := FMaster.GetDescriptionSelf(Perspective);
 end;
 
 function TSlavedLocation.IsPlural(Perspective: TAvatar): Boolean;

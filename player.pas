@@ -47,6 +47,7 @@ type
       procedure DoDance(); unimplemented;
       {$IFDEF DEBUG}
       procedure DoDebugStatus();
+      procedure DoDebugLocation();
       procedure DoDebugThings(Things: TThingList);
       procedure DoDebugThing(Thing: TThing);
       procedure DoDebugTeleport(Target: TAtom);
@@ -126,7 +127,7 @@ type
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection,
                   avTalk, avDance,
-                  {$IFDEF DEBUG} avDebugStatus, avDebugThings, avDebugThing, avDebugTeleport, {$ENDIF}
+                  {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugThings, avDebugThing, avDebugTeleport, {$ENDIF}
                   avHelp, avQuit);
 
    PTalkMessage = ^TTalkMessage;
@@ -161,6 +162,7 @@ type
       avDance: ();
       {$IFDEF DEBUG}
       avDebugStatus: ();
+      avDebugLocation: ();
       avDebugThings: (DebugThings: TThingList);
       avDebugThing: (DebugThing: TThing);
       avDebugTeleport: (DebugTarget: TAtom);
@@ -244,6 +246,7 @@ var
        avDance: DoDance();
        {$IFDEF DEBUG}
        avDebugStatus: DoDebugStatus();
+       avDebugLocation: DoDebugLocation();
        avDebugThings: DoDebugThings(Action.DebugThings);
        avDebugThing: DoDebugThing(Action.DebugThing);
        avDebugTeleport: DoDebugTeleport(Action.DebugTarget);
@@ -346,6 +349,68 @@ begin
    SendMessage('Debug build.');
    if (Assigned(StatusReport)) then
       StatusReport(Self);
+end;
+
+procedure TPlayer.DoDebugLocation();
+
+   function PresenceModeToString(const PresenceMode: TGetPresenceStatementMode): UTF8String;
+   begin
+      case (PresenceMode) of
+         psThereIsAThingHere { look }: Result := 'psThereIsAThingHere';
+         psThereIsAThingThere { look north }: Result := 'psThereIsAThingThere';
+         psOnThatThingIsAThing { nested look }: Result := 'psOnThatThingIsAThing';
+         psTheThingIsOnThatThing { find }: Result := 'psTheThingIsOnThatThing';
+         psOnThatSpecialThing { find (something far away) -- only if parent is TThing, not TLocation }: Result := 'psOnThatSpecialThing';
+       else
+         Assert(False);
+         Result := '<error>';
+      end;
+   end;
+
+var
+   Location: TAtom;
+   Direction: TCardinalDirection;
+   PresenceMode: TGetPresenceStatementMode;
+begin
+   Location := Self;
+   while (Assigned(Location) and (Location is TThing)) do
+      Location := (Location as TThing).Parent;
+   if (not Assigned(Location)) then
+   begin
+      SendMessage('Player is in an orphan TThing tree!');
+      exit;
+   end;
+   if (not (Location is TLocation)) then
+   begin
+      SendMessage('Player is in a TThing tree that is not rooted by a TLocation!');
+      exit;
+   end;
+   SendMessage('GetLook:' + WithNewlineIfMultiline(Location.GetLook(Self)));
+   SendMessage('GetLookAt:' + WithNewlineIfMultiline(Location.GetLookAt(Self)));
+   SendMessage('GetLookTowardsDirection:');
+   for Direction in TCardinalDirection do
+     SendMessage('  ' + CardinalDirectionToString(Direction) + ':' + WithNewlineIfMultiline(Location.GetLookTowardsDirection(Self, Direction)));
+   SendMessage('GetBasicDescription:');
+   for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do
+     SendMessage('  ' + PresenceModeToString(PresenceMode) + ':' + WithNewlineIfMultiline(Location.GetBasicDescription(Self, PresenceMode)));
+   SendMessage('GetHorizonDescription:' + WithNewlineIfMultiline(Location.GetHorizonDescription(Self, nil)));
+   SendMessage('GetDescriptionForHorizon:' + WithNewlineIfMultiline(Location.GetDescriptionForHorizon(Self, nil)));
+   SendMessage('GetDescriptionSelf:' + WithNewlineIfMultiline(Location.GetDescriptionSelf(Self)));
+   SendMessage('GetDescriptionState:' + WithNewlineIfMultiline(Location.GetDescriptionState(Self)));
+   SendMessage('GetDescriptionHere:');
+   for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do
+     SendMessage('  ' + PresenceModeToString(PresenceMode) + ':' + WithNewlineIfMultiline( Location.GetDescriptionHere(Self, PresenceMode)));
+   SendMessage('GetDescriptionOn:');
+   SendMessage('  []:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [])));
+   SendMessage('  [optDeepOn]:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [optDeepOn])));
+   SendMessage('  [optPrecise]:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [optPrecise])));
+   SendMessage('  [optDeepOn, optPrecise]:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [optDeepOn, optPrecise])));
+   SendMessage('GetDescriptionChildren (all options enabled):' + WithNewlineIfMultiline(Location.GetDescriptionChildren(Self, [optDeepChildren, optFar, optThorough, optOmitPerspective])));
+   // these are commented out because some locations only have defined remote descriptions for certain directions
+   // SendMessage('GetDescriptionRemoteBrief:');
+   // for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do
+   //   SendMessage('  ' + PresenceModeToString(PresenceMode) + ':' + WithNewlineIfMultiline(Location.GetDescriptionRemoteBrief(Self, PresenceMode, cdIn)));
+   // SendMessage('GetDescriptionRemoteDetailed:' + WithNewlineIfMultiline(Location.GetDescriptionRemoteDetailed(Self, cdIn)));
 end;
 
 procedure TPlayer.DoDebugThings(Things: TThingList);
