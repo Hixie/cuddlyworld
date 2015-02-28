@@ -459,7 +459,7 @@ begin
    if (FPosition in tpOpening) then
       Message := TMessage.Create(mkBogus, 'Moving _ doesn''t even make sense.', [GetIndefiniteName(Perspective)])
    else
-      Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot be moved',
+      Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot be moved.',
                                                               [Capitalise(GetDefiniteName(Perspective))]);
 end;
 
