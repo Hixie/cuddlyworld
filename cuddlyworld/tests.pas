@@ -2211,11 +2211,11 @@ procedure TestMechanics2();
 
       { Locations }
       EastRoom := TGroundLocation.Create('East Room', 'the East room', 'an East room', 'This is the room on the east side of the door frame.', CreateStoneSurface());
-      WestRoom := TGroundLocation.Create('West Room', 'the West room', 'an West room', 'This is the room on the west side of the door frame.', CreateStoneSurface());
+      WestRoom := TGroundLocation.Create('West Room', 'the West room', 'a West room', 'This is the room on the west side of the door frame.', CreateStoneSurface());
 
       { The Door }
       DoorFrame := TThresholdThing.Create('door frame', '((door frame/frames?) door/doors)@', 'The door frame is a frame around where a door would go.', cdEast);
-      Doorway := ConnectThreshold(EastRoom, WestRoom, DoorFrame, CreateStoneSurface(), []);
+      Doorway := ConnectThreshold(EastRoom, WestRoom, DoorFrame, CreateStoneSurface());
 
       { World }
       World.AddLocation(EastRoom);
@@ -2241,6 +2241,12 @@ procedure TestMechanics2();
       Proxy.ExpectString('The door frame is a frame around where a door would go. To the east is the East room. To the west is the West room.');
       Proxy.ExpectString('');
       TestPlayer.Perform('exit');
+      Proxy.ExpectDone();
+
+      Proxy.ExpectString('West Room');
+      Proxy.ExpectString('This is the room on the west side of the door frame. To the east is a door frame.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('west');
       Proxy.ExpectDone();
    end;
 

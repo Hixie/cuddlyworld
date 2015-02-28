@@ -80,7 +80,7 @@ begin
    Room2 := TGroundLocation.Create('Back Room', 'a back room', 'the back room', 'Nothing is particularly noteworthy about this second location.', CreateEarthSurface());
    Room2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
-   ArchwayLocation := ConnectThreshold(Room1, Room2, Archway, CreateEarthSurface(), []);
+   ArchwayLocation := ConnectThreshold(Room1, Room2, Archway, CreateEarthSurface());
    ArchwayLocation.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
    World.AddLocation(Room1);
