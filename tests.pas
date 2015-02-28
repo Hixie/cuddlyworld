@@ -875,6 +875,12 @@ begin
          Proxy.ExpectDone();
 
          { complex parsing }
+         Proxy.Test('TScenery');
+         Proxy.ExpectString('The camp cannot be moved.');
+         Proxy.ExpectString('');
+         TestPlayer.Perform('move camp');
+
+         { complex parsing }
          Proxy.Test('Thing Seeker');
          Proxy.ExpectString('Which balloon do you mean, the large pink balloon, the large grey balloon, the large black balloon, the large white balloon, the large violet balloon, the large blue balloon, the large green balloon, the large yellow balloon, the large orange balloon, or the large red balloon?');
          Proxy.ExpectString('');
