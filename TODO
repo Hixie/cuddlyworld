@@ -10,6 +10,11 @@ BUGS
    You cannot enter the sky. The sky has no discernible entrance.
 
 
+ + Rename GetDefaultAtom to GetResponsibleAtom or GetAmbassador or GetPressSecretary or something
+
+ + add delphi-mode everywhere
+
+
 NAVIGATION
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
