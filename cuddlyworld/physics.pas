@@ -171,6 +171,7 @@ type
       function GetLongDefiniteName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
+      function GetContextFragment(Perspective: TAvatar; out PertinentParent: TAtom): UTF8String; virtual;
       function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
       function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
       function GetExamine(Perspective: TAvatar): UTF8String; virtual;
@@ -775,37 +776,27 @@ begin
 end;
 
 function TAtom.GetTitle(Perspective: TAvatar): UTF8String;
-var
-   Additional: UTF8String;
 begin
-   Result := GetName(Perspective);
-   Additional := GetContext(Perspective);
-   if (Length(Additional) > 0) then
-      Result := Result + ' (' + Additional + ')';
+   Result := GetName(Perspective) + WithSpaceIfNotEmpty(GetContext(Perspective));
 end;
 
 function TAtom.GetContext(Perspective: TAvatar): UTF8String;
 var
-   Thing: TThing;
-   Atom: TAtom;
-   Position: TThingPosition;
+   {$IFOPT C+} Last, {$ENDIF} Current: TAtom;
 begin
    Result := '';
-   Atom := Self;
-   while (Atom is TThing) do
+   {$IFOPT C+} Last := nil; {$ENDIF}
+   Current := Self;
+   while (Current is TThing) do
    begin
-      Thing := Atom as TThing;
-      Atom := Thing.Parent;
-      Position := Thing.Position;
-      if (Atom.GetDefaultAtom() <> Atom) then
-      begin
-         Atom := Atom.GetDefaultAtom();
-         Position := tpAt;
-      end;
       if (Length(Result) > 0) then
          Result := Result + ', ';
-      Result := Result + ThingPositionToString(Position) + ' ' + Atom.GetDefiniteName(Perspective);
+      {$IFOPT C+} Last := Current; {$ENDIF}
+      Result := Result + (Current as TThing).GetContextFragment(Perspective, Current);
+      {$IFOPT C+} Assert(Current <> Last); {$ENDIF}
    end;
+   if (Length(Result) > 0) then
+      Result := '(' + Result + ')';
 end;
 
 function TAtom.GetLook(Perspective: TAvatar): UTF8String;
@@ -1197,9 +1188,29 @@ function TThing.GetTitle(Perspective: TAvatar): UTF8String;
 begin
    Assert(Assigned(FParent));
    if (Perspective.Parent = Self) then
-      Result := Capitalise(ThingPositionToString(Perspective.Position)) + ' ' + GetDefiniteName(Perspective) + ' (' + GetContext(Perspective) + ')'
+      Result := Capitalise(ThingPositionToString(Perspective.Position)) + ' ' + GetDefiniteName(Perspective) + WithSpaceIfNotEmpty(GetContext(Perspective))
    else
       Result := inherited;
+end;
+
+function TThing.GetContextFragment(Perspective: TAvatar; out PertinentParent: TAtom): UTF8String;
+var
+   PertinentPosition: TThingPosition;
+begin
+   Assert(Assigned(FParent));
+   if (FParent.GetDefaultAtom() <> FParent) then
+   begin
+      // a surface's GetDefaultAtom() is the TLocation
+      // this is why we refer to a room rather than the ground
+      PertinentParent := FParent.GetDefaultAtom();
+      PertinentPosition := tpAt;
+   end
+   else
+   begin
+      PertinentParent := FParent;
+      PertinentPosition := FPosition;
+   end;
+   Result := ThingPositionToString(PertinentPosition) + ' ' + PertinentParent.GetDefiniteName(Perspective);
 end;
 
 function TThing.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String;
