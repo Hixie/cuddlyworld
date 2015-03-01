@@ -1,4 +1,4 @@
-{$MODE OBJFPC} { -*- text -*- }
+{$MODE OBJFPC} { -*- delphi -*- }
 
 {$DEFINE VERBOSE}
 //{$DEFINE PLAY_IN_TEST_EDEN}

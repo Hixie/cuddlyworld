@@ -1,4 +1,4 @@
-{$IFNDEF PART} { -*- text -*- }
+{$IFNDEF PART} { -*- delphi -*- }
 {$MODE OBJFPC}
 {$INCLUDE settings.inc}
 
