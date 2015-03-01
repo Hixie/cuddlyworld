@@ -10,11 +10,6 @@ BUGS
    You cannot enter the sky. The sky has no discernible entrance.
 
 
- + Rename GetDefaultAtom to GetResponsibleAtom or GetAmbassador or GetPressSecretary or something
-
- + add delphi-mode everywhere
-
-
 NAVIGATION
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
@@ -32,7 +27,7 @@ NAVIGATION
  + "move off", "move off pile", "move me off pile" when standing on the pile of leaves
  + "off" and "get off" should be required to be used instead of "out" when on an object
  + announce when a player disconnects or reconnects
- + "look out" while on something on the ground talks about the ground. It should use the GetDefaultAtom() for the thing it's looking at
+ + "look out" while on something on the ground talks about the ground. It should use the GetRepresentative() for the thing it's looking at
  + "exits"
  + seriously consider making it impossible for a TAvatar to be anything but tpOn
     - this would mean that any object that can be entered would have to have a separate surface inside

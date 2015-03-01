@@ -105,7 +105,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      function GetDefaultAtom(): TAtom; override;
+      function GetRepresentative(): TAtom; override;
    end;
 
    THole = class;
@@ -616,7 +616,7 @@ begin
    FParent.Navigate(Direction, Perspective);
 end;
 
-function TSurface.GetDefaultAtom(): TAtom;
+function TSurface.GetRepresentative(): TAtom;
 begin
    Assert(Assigned(FParent));
    Result := FParent;
@@ -1113,7 +1113,7 @@ begin
             // { Check all descendants for TAvatars, to avoid burying them alive }
             // for Child in Descendants do
             //    if Child is TAvatar do
-            //       DoNavigation(Avatar.FParent, FParent.GetDefaultAtom(), cdOut, Avatar);
+            //       DoNavigation(Avatar.FParent, FParent.GetRepresentative(), cdOut, Avatar);
             { Fill hole and bury treasure }
             DoBroadcast([FParent], nil, [C(M(@Blame.GetDefiniteName)), SP, MP(Blame, M('fills'), M('fill')), SP, M(@GetDefiniteName), M(' with '), M(@Thing.GetDefiniteName), M('.')]);
             OldParent := FParent;
@@ -1192,7 +1192,7 @@ procedure THole.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
 begin
    Assert(FParent is TEarthGround);
    case Direction of
-     cdUp, cdOut: DoNavigation(Self, FParent.GetDefaultAtom(), cdUp, Perspective);
+     cdUp, cdOut: DoNavigation(Self, FParent.GetRepresentative(), cdUp, Perspective);
     else
       Perspective.AvatarMessage(TMessage.Create(mkInHole, 'You''re in a hole.'));
    end;

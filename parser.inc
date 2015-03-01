@@ -709,7 +709,7 @@
                else
                begin
                   Action.PutPosition := tpOn;
-                  Action.PutTarget := FParent.GetDefaultAtom().GetSurface();
+                  Action.PutTarget := FParent.GetRepresentative().GetSurface();
                end;
                Assert(Assigned(Action.PutTarget));
                if (Action.PutCarefully) then
