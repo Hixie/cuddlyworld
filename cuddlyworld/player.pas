@@ -222,7 +222,7 @@ var
    begin
       case Action.Verb of
        avLook: DoLook();
-       avLookDirectional: SendMessage(FParent.GetDefaultAtom().GetLookTowardsDirection(Self, Action.LookDirection));
+       avLookDirectional: SendMessage(FParent.GetRepresentative().GetLookTowardsDirection(Self, Action.LookDirection));
        avLookAt: SendMessage(Action.LookAtSubject.GetLookAt(Self));
        avExamine: SendMessage(Action.ExamineSubject.GetExamine(Self));
        avRead: SendMessage(Action.ReadSubject.GetDescriptionWriting(Self));
@@ -330,7 +330,7 @@ end;
 
 procedure TPlayer.DoLook();
 begin
-   SendMessage(FParent.GetDefaultAtom().GetLook(Self));
+   SendMessage(FParent.GetRepresentative().GetLook(Self));
 end;
 
 procedure TPlayer.DoInventory();
@@ -1280,7 +1280,7 @@ begin
          else
          begin
             Assert(Assigned(CurrentSubject.Parent));
-            Destination := CurrentSubject.Parent.GetDefaultAtom();
+            Destination := CurrentSubject.Parent.GetRepresentative();
             Message := TMessage.Create(mkImmovable, '_ _ immovable.',
                                                     [Capitalise(CurrentSubject.GetDefiniteName(Self)),
                                                      IsAre(CurrentSubject.IsPlural(Self))]);
@@ -1635,7 +1635,7 @@ var
 begin
    Assert(Assigned(Spade));
    Assert(Assigned(FParent));
-   DefaultParent := FParent.GetDefaultAtom();
+   DefaultParent := FParent.GetRepresentative();
    if (DefaultParent is TLocation) then
    begin
       CurrentLocation := DefaultParent as TLocation;

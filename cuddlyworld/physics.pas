@@ -131,11 +131,11 @@ type
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
-      function GetDefaultAtom(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
+      function GetRepresentative(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
+      function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetRepresentative) }
+      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
       function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
-      function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetDefaultAtom) }
-      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; virtual; abstract;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
@@ -375,7 +375,7 @@ begin
          for NotificationTarget in NotificationList do
             NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
          Destination.Add(Perspective, Position);
-         Perspective.AnnounceArrival(AFrom.GetDefaultAtom(), ReverseCardinalDirection(Direction));
+         Perspective.AnnounceArrival(AFrom.GetRepresentative(), ReverseCardinalDirection(Direction));
          Perspective.DoLook();
       end
       else
@@ -462,7 +462,7 @@ begin
             for NotificationTarget in NotificationList do
                NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
             Destination.Add(Perspective, Position);
-            Perspective.AnnounceArrival(AFrom.GetDefaultAtom());
+            Perspective.AnnounceArrival(AFrom.GetRepresentative());
             Perspective.DoLook();
          end
          else
@@ -938,7 +938,7 @@ begin
          Child.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
 end;
 
-function TAtom.GetDefaultAtom(): TAtom;
+function TAtom.GetRepresentative(): TAtom;
 begin
    Result := Self;
 end;
@@ -1136,7 +1136,7 @@ var
 begin
    Result := inherited;
    Assert(Assigned(FParent));
-   Context := FParent.GetDefaultAtom();
+   Context := FParent.GetRepresentative();
    if (Context is TThing) then
       case FPosition of
        tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetSummaryName(Perspective);
@@ -1156,7 +1156,7 @@ var
 begin
    Result := inherited;
    Assert(Assigned(FParent));
-   Context := FParent.GetDefaultAtom();
+   Context := FParent.GetRepresentative();
    if (Context is TThing) then
       case FPosition of
        tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetDefiniteName(Perspective);
@@ -1169,7 +1169,7 @@ var
 begin
    Result := inherited;
    Assert(Assigned(FParent));
-   Context := FParent.GetDefaultAtom();
+   Context := FParent.GetRepresentative();
    if (Context is TThing) then
       case FPosition of
        tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetDefiniteName(Perspective);
@@ -1198,11 +1198,11 @@ var
    PertinentPosition: TThingPosition;
 begin
    Assert(Assigned(FParent));
-   if (FParent.GetDefaultAtom() <> FParent) then
+   if (FParent.GetRepresentative() <> FParent) then
    begin
-      // a surface's GetDefaultAtom() is the TLocation
+      // a surface's GetRepresentative() is the TLocation
       // this is why we refer to a room rather than the ground
-      PertinentParent := FParent.GetDefaultAtom();
+      PertinentParent := FParent.GetRepresentative();
       PertinentPosition := tpAt;
    end
    else
@@ -1279,7 +1279,7 @@ begin
          if ((Perspective.Position in tpContained) and (not IsOpen())) then
             Result := GetDescriptionClosed(Perspective)
          else
-            Result := FParent.GetDefaultAtom().GetDescriptionRemoteDetailed(Perspective, Direction);
+            Result := FParent.GetRepresentative().GetDescriptionRemoteDetailed(Perspective, Direction);
       end
       else
       if (Perspective.Position in tpDeferNavigationToParent) then
@@ -1306,7 +1306,7 @@ begin
       PositionOverride := tpIn;
       Inside := GetInside(PositionOverride);
       if (Assigned(Inside)) then
-         Result := Inside.GetDefaultAtom().GetDescriptionRemoteDetailed(Perspective, cdIn)
+         Result := Inside.GetRepresentative().GetDescriptionRemoteDetailed(Perspective, cdIn)
       else
          Result := '';
       Contents := GetDescriptionIn(Perspective, [optDeepChildren, optThorough, optFar]);
