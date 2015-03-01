@@ -1,4 +1,4 @@
-{$MODE OBJFPC} { -*- text -*- }
+{$MODE OBJFPC} { -*- delphi -*- }
 {$INCLUDE settings.inc}
 unit physics;
 

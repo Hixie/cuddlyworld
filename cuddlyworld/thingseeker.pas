@@ -1,9 +1,8 @@
-{$MODE OBJFPC} { -*- text -*- }
-
-//{$DEFINE DEBUG_SEEKER}
-
+{$MODE OBJFPC} { -*- delphi -*- }
 {$INCLUDE settings.inc}
 unit thingseeker;
+
+//{$DEFINE DEBUG_SEEKER}
 
 interface
 
