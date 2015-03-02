@@ -40,9 +40,9 @@ type
 
 {$DEFINE PART:=Interface}
 {$DEFINE SUPERCLASS:=TNamedLocation}
-{$INCLUDE surfacelocations.inc}
+{$INCLUDE surfacelocations.inc} // defines TSurfaceNamedLocation
 {$DEFINE SUPERCLASS:=TSlavedLocation}
-{$INCLUDE surfacelocations.inc}
+{$INCLUDE surfacelocations.inc} // defines TSurfaceSlavedLocation
 {$UNDEF SUPERCLASS}
 {$UNDEF PART}
 
@@ -61,7 +61,7 @@ type
    end;
 
    TBackdrop = class(TSlavedLocation) // @RegisterStorableClass
-    // XXX should assert that nobody can enter this one
+    // XXX should assert that nobody can enter this one except using 'debug teleport'
     public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
    end;
