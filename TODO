@@ -1,8 +1,23 @@
 BUGS
  + > debug teleport sun; exit
    You cannot enter the sky. The sky has no discernible entrance.
- + > debug teleport sky; exit
-   You feel a disturbance in the force that whispers "Assertion failed on line 423 of physics.pas".
+
+ + > debug teleport archway; exit; l n
+   Looking north, you see:
+   Back Room
+   Nothing is particularly noteworthy about this second location. To the south is an archway.
+   => we should exclude the reverse direction, so it doesn't mention the archway where we already are!
+
+ + > debug teleport archway; find me; d
+   On the archway (between a back room and a room)
+   The archway has no notable features.
+   To the north is a back room. To the south is a room.
+
+   You are on the unnotable arch.
+
+   You cannot go down. To put things in the ground, you'll have to dig a hole to put them in.
+   => why not go down? i'm on the fricking archway!
+
 
 NAVIGATION
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"

@@ -420,10 +420,10 @@ begin
    begin
       ATo := ATo.GetSurface();
       Assert(Assigned(ATo));
-      Assert(ATo is TThing);
+      //Assert(ATo is TThing, 'if you want to be "on" a TLocation, give it a surface available from GetSurface()');
       DisambiguationOpening := nil;
       Message := TMessage.Create(mkSuccess, '');
-      Success := (ATo as TThing).CanPut(Perspective, Position, Perspective, Message);
+      Success := ATo.CanPut(Perspective, Position, Perspective, Message);
       if (Success) then
       begin
          ATo.Add(Perspective, Position);
@@ -820,8 +820,8 @@ end;
 
 function TAtom.GetLook(Perspective: TAvatar): UTF8String;
 begin
-   Result := Capitalise(GetTitle(Perspective)) + #10 +
-             GetBasicDescription(Perspective, psThereIsAThingHere) +
+   Result := Capitalise(GetTitle(Perspective)) +
+             WithNewlineIfNotEmpty(GetBasicDescription(Perspective, psThereIsAThingHere)) +
              WithNewlineIfNotEmpty(GetHorizonDescription(Perspective, Self)) +
              WithNewlineIfNotEmpty(GetDescriptionOn(Perspective, [optDeepOn])) +
              WithNewlineIfNotEmpty(GetDescriptionChildren(Perspective, [optOmitPerspective]));
@@ -2054,8 +2054,8 @@ end;
 function TLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
    Result := 'Looking ' + CardinalDirectionToString(Direction) + ', you see:' + #10 +
-             Capitalise(GetName(Perspective)) + #10 +
-             GetBasicDescription(Perspective, psThereIsAThingThere);
+             Capitalise(GetName(Perspective)) +
+             WithNewlineIfNotEmpty(GetBasicDescription(Perspective, psThereIsAThingThere));
 end;
 
 function TLocation.GetAtomForDirectionalNavigation(Direction: TCardinalDirection): TAtom;
