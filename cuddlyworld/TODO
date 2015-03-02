@@ -1,11 +1,8 @@
 BUGS
- + > debug teleport sun
-   On the sun (in the sky, at the sky)
-                           ^^^^^^^^^^
-
- + > exit
+ + > debug teleport sun; exit
    You cannot enter the sky. The sky has no discernible entrance.
-
+ + > debug teleport sky; exit
+   You feel a disturbance in the force that whispers "Assertion failed on line 423 of physics.pas".
 
 NAVIGATION
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"

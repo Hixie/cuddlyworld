@@ -31,7 +31,7 @@ type
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
-      function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String; override;
+      function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; override;
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
       // XXX make this give the landmark thing's description when the place is examined
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
@@ -108,7 +108,7 @@ end;
 
 function TThresholdLocation.GetTitle(Perspective: TAvatar): UTF8String;
 begin
-   Result := GetName(Perspective) + WithSpaceIfNotEmpty(GetContextFragment(Perspective, tpAt));
+   Result := GetName(Perspective) + WithSpaceIfNotEmpty(GetContextFragment(Perspective, tpAt, nil));
 end;
 
 function TThresholdLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
@@ -135,7 +135,7 @@ begin
    Result := FMaster.GetDescriptionRemoteDetailed(Perspective, Direction);
 end;
 
-function TThresholdLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String;
+function TThresholdLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String;
 const
    kNecessaryOptions = [loAutoDescribe, loPermissibleNavigationTarget];
 var
@@ -143,12 +143,16 @@ var
    Index: Cardinal;
    List: TAtomList;
 begin
+   Assert(Context <> Self);
    List := TAtomList.Create([slDropDuplicates]);
    for Direction in TCardinalDirection do
       if (Length(FDirectionalLandmarks[Direction]) > 0) then
          for Index := Low(FDirectionalLandmarks[Direction]) to High(FDirectionalLandmarks[Direction]) do
+         begin
+            Assert(Context <> FDirectionalLandmarks[Direction][Index].Atom);
             if (FDirectionalLandmarks[Direction][Index].Options * kNecessaryOptions = kNecessaryOptions) then
                List.AppendItem(FDirectionalLandmarks[Direction][Index].Atom);
+         end;
    if (List.Length >= 2) then
       Result := 'between ' + List.GetDefiniteString(Perspective, 'and')
    else

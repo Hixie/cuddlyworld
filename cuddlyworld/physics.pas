@@ -110,7 +110,7 @@ type
       function GetPossessiveAdjective(Perspective: TAvatar): UTF8String; virtual; // my
       function GetTitle(Perspective: TAvatar): UTF8String; virtual;
       function GetContext(Perspective: TAvatar): UTF8String; virtual;
-      function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String; virtual;
+      function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; virtual; // see note [context]
       function GetLook(Perspective: TAvatar): UTF8String; virtual;
       function GetLookAt(Perspective: TAvatar): UTF8String; virtual;
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual; abstract;
@@ -800,7 +800,7 @@ begin
          Current := Representative;
          PertinentPosition := tpAt;
       end;
-      Fragment := Current.GetContextFragment(Perspective, PertinentPosition);
+      Fragment := Current.GetContextFragment(Perspective, PertinentPosition, Self);
       if (Length(Fragment) > 0) then
       begin
          if (Length(Result) > 0) then
@@ -812,8 +812,9 @@ begin
       Result := '(' + Result + ')';
 end;
 
-function TAtom.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String;
+function TAtom.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String;
 begin
+   Assert(Context <> Self);
    Result := ThingPositionToString(PertinentPosition) + ' ' + GetDefiniteName(Perspective);
 end;
 
