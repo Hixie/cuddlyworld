@@ -26,6 +26,7 @@ type
    TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
     public
       constructor Create(Landmark: TThresholdThing; Surface: TThing);
+      function GetTitle(Perspective: TAvatar): UTF8String; override;
       function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Context: TAtom = nil): UTF8String; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
@@ -103,6 +104,11 @@ end;
 constructor TThresholdLocation.Create(Landmark: TThresholdThing; Surface: TThing);
 begin
    inherited Create(Landmark, tpAtImplicit, Surface);
+end;
+
+function TThresholdLocation.GetTitle(Perspective: TAvatar): UTF8String;
+begin
+   Result := GetName(Perspective) + WithSpaceIfNotEmpty(GetContextFragment(Perspective, tpAt));
 end;
 
 function TThresholdLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
