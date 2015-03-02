@@ -2230,7 +2230,7 @@ procedure TestMechanics2();
    begin
       { and/then/etc tests }
       Proxy.Test('Looking at a threshold');
-      Proxy.ExpectString('On the door frame (at the door frame)'); // XXX this should say "On the door frame (between the East room and the West room)"
+      Proxy.ExpectString('On the door frame (between the East room and the West room)');
       Proxy.ExpectString('The door frame is a frame around where a door would go.');
       Proxy.ExpectString('To the east is the East room. To the west is the West room.');
       Proxy.ExpectString('');
