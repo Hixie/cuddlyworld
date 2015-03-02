@@ -34,7 +34,7 @@ type
       function GetName(Perspective: TAvatar): UTF8String; override;
       function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
-      function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String; override;
+      function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
    end;
 
@@ -162,8 +162,20 @@ begin
    Result := FMaster.IsPlural(Perspective);
 end;
 
-function TSlavedLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String;
+function TSlavedLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String;
+var
+   Ancestor: TAtom;
 begin
+   Ancestor := Context;
+   while (Ancestor is TThing) do
+   begin
+      if (Ancestor = FMaster) then
+      begin
+         Result := '';
+         exit;
+      end;
+      Ancestor := (Ancestor as TThing).Parent;
+   end;
    Result := inherited;
 end;
 
