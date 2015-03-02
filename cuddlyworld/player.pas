@@ -44,7 +44,7 @@ type
       procedure DoDig(Target: TThing; Spade: TThing);
       procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
       procedure DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
-      procedure DoDance(); unimplemented;
+      procedure DoDance();
       {$IFDEF DEBUG}
       procedure DoDebugStatus();
       procedure DoDebugLocation();
@@ -91,9 +91,9 @@ type
       procedure AnnounceAppearance(); override;
       procedure AnnounceDisappearance(); override;
       procedure AnnounceDeparture(Destination: TAtom; Direction: TCardinalDirection); override;
-      procedure AnnounceDeparture(Destination: TAtom); override;
-      procedure AnnounceArrival(Source: TAtom; Direction: TCardinalDirection); override;
-      procedure AnnounceArrival(Source: TAtom); override;
+      procedure AnnounceDeparture(Destination: TAtom); override; {BOGUS Hint: Value parameter "Destination" is assigned but never used}
+      procedure AnnounceArrival(Source: TAtom; Direction: TCardinalDirection); override; {BOGUS Hint: Value parameter "Source" is assigned but never used}
+      procedure AnnounceArrival(Source: TAtom); override; {BOGUS Hint: Value parameter "Source" is assigned but never used}
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function HasConnectedPlayer(): Boolean; override;
       function IsReadyForRemoval(): Boolean; override;
