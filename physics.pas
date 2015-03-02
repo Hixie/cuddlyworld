@@ -110,6 +110,7 @@ type
       function GetPossessiveAdjective(Perspective: TAvatar): UTF8String; virtual; // my
       function GetTitle(Perspective: TAvatar): UTF8String; virtual;
       function GetContext(Perspective: TAvatar): UTF8String; virtual;
+      function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String; virtual;
       function GetLook(Perspective: TAvatar): UTF8String; virtual;
       function GetLookAt(Perspective: TAvatar): UTF8String; virtual;
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual; abstract;
@@ -171,7 +172,6 @@ type
       function GetLongDefiniteName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
-      function GetContextFragment(Perspective: TAvatar; out PertinentParent: TAtom): UTF8String; virtual;
       function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
       function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
       function GetExamine(Perspective: TAvatar): UTF8String; virtual;
@@ -782,21 +782,39 @@ end;
 
 function TAtom.GetContext(Perspective: TAvatar): UTF8String;
 var
-   {$IFOPT C+} Last, {$ENDIF} Current: TAtom;
+   Current, Representative: TAtom;
+   PertinentPosition: TThingPosition;
+   Fragment: UTF8String;
 begin
    Result := '';
-   {$IFOPT C+} Last := nil; {$ENDIF}
    Current := Self;
    while (Current is TThing) do
    begin
-      if (Length(Result) > 0) then
-         Result := Result + ', ';
-      {$IFOPT C+} Last := Current; {$ENDIF}
-      Result := Result + (Current as TThing).GetContextFragment(Perspective, Current);
-      {$IFOPT C+} Assert(Current <> Last); {$ENDIF}
+      PertinentPosition := (Current as TThing).Position;
+      Current := (Current as TThing).FParent;
+      Assert(Assigned(Current));
+      Representative := Current.GetRepresentative();
+      if (Representative <> Current) then
+      begin
+         Assert(Assigned(Representative));
+         Current := Representative;
+         PertinentPosition := tpAt;
+      end;
+      Fragment := Current.GetContextFragment(Perspective, PertinentPosition);
+      if (Length(Fragment) > 0) then
+      begin
+         if (Length(Result) > 0) then
+            Result := Result + ', ';
+         Result := Result + Fragment;
+      end;
    end;
    if (Length(Result) > 0) then
       Result := '(' + Result + ')';
+end;
+
+function TAtom.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition): UTF8String;
+begin
+   Result := ThingPositionToString(PertinentPosition) + ' ' + GetDefiniteName(Perspective);
 end;
 
 function TAtom.GetLook(Perspective: TAvatar): UTF8String;
@@ -1191,26 +1209,6 @@ begin
       Result := Capitalise(ThingPositionToString(Perspective.Position)) + ' ' + GetDefiniteName(Perspective) + WithSpaceIfNotEmpty(GetContext(Perspective))
    else
       Result := inherited;
-end;
-
-function TThing.GetContextFragment(Perspective: TAvatar; out PertinentParent: TAtom): UTF8String;
-var
-   PertinentPosition: TThingPosition;
-begin
-   Assert(Assigned(FParent));
-   if (FParent.GetRepresentative() <> FParent) then
-   begin
-      // a surface's GetRepresentative() is the TLocation
-      // this is why we refer to a room rather than the ground
-      PertinentParent := FParent.GetRepresentative();
-      PertinentPosition := tpAt;
-   end
-   else
-   begin
-      PertinentParent := FParent;
-      PertinentPosition := FPosition;
-   end;
-   Result := ThingPositionToString(PertinentPosition) + ' ' + PertinentParent.GetDefiniteName(Perspective);
 end;
 
 function TThing.GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String;
