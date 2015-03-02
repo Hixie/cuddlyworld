@@ -2237,7 +2237,7 @@ procedure TestMechanics2();
       TestPlayer.Perform('look');
       Proxy.ExpectDone();
 
-      Proxy.ExpectString('Door frame'); // XXX this should say "At the door frame between the East room and the West room" or some such
+      Proxy.ExpectString('Door frame between the East room and the West room');
       Proxy.ExpectString('The door frame is a frame around where a door would go. To the east is the East room. To the west is the West room.');
       Proxy.ExpectString('');
       TestPlayer.Perform('exit');
