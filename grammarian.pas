@@ -22,12 +22,23 @@ const
    gnEither = gnBoth;
    gnAmbiguous = gnBoth;
 
+// The concept of "plural", in this system, is one of English
+// convenience: while singlular nouns are singular, and plural nouns
+// are plural, the term is also applied to the grammatical persons:
+// "you" (whether the singular or the plural), "we", and "they"
+// (whether the singular or the plural) are considered "plural", while
+// "he", "she", and "it" are considered "singular"; this allows the
+// concept of singular and plural to also be used for verb agreement
+// (you/we/they are, vs he/she/it is). The first person singular is
+// not used in this system and therefore can be conveniently ignored.
+
 type
    TCardinalDirection = (cdNorth, cdNorthEast, cdEast, cdSouthEast, cdSouth, cdSouthWest, cdWest, cdNorthWest, cdUp, cdDown,
                          cdOut, cdIn); { physical directions then logical directions }
    TCardinalDirectionSet = set of TCardinalDirection;
 
 const
+   cdAllDirections = [Low(TCardinalDirection) .. High(TCardinalDirection)];
    cdCompasDirection = [cdNorth .. cdNorthWest];
    cdPhysicalDirections = [cdNorth .. cdDown];
    cdReverse: array [TCardinalDirection] of TCardinalDirection = (cdSouth, cdSouthWest, cdWest, cdNorthWest, cdNorth, cdNorthEast, cdEast, cdSouthEast, cdDown, cdUp, cdIn, cdOut);

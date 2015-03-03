@@ -2237,6 +2237,13 @@ procedure TestMechanics2();
       TestPlayer.Perform('look');
       Proxy.ExpectDone();
 
+      Proxy.ExpectString('Looking east, you see:');
+      Proxy.ExpectString('East Room');
+      Proxy.ExpectString('This is the room on the east side of the door frame.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('look east');
+      Proxy.ExpectDone();
+
       Proxy.ExpectString('Door frame between the East room and the West room');
       Proxy.ExpectString('The door frame is a frame around where a door would go. To the east is the East room. To the west is the West room.');
       Proxy.ExpectString('');
