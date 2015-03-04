@@ -2255,6 +2255,43 @@ procedure TestMechanics2();
       Proxy.ExpectString('');
       TestPlayer.Perform('west');
       Proxy.ExpectDone();
+
+      Proxy.ExpectString('The west is to the west, obviously. I have a keen sense of direction that you can rely on.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('find west');
+      Proxy.ExpectDone();
+
+      Proxy.ExpectString('I don''t understand how to find things in a particular direction. It seems redundant.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('find west wing');
+      Proxy.ExpectDone();
+
+(*
+      Proxy.ExpectString('The west room is to the west.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('find west room');
+      Proxy.ExpectDone();
+
+      Proxy.ExpectString('You are in the east room.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('find east room');
+      Proxy.ExpectDone();
+*)
+
+(*
+      Proxy.ExpectString('Door frame between the East room and the West room');
+      Proxy.ExpectString('The door frame is a frame around where a door would go. To the east is the East room. To the west is the West room.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('go east and stop at door frame');
+      Proxy.ExpectDone();
+
+      Proxy.ExpectString('(by going east and stopping at the door frame)');
+      Proxy.ExpectString('Door frame between the East room and the West room');
+      Proxy.ExpectString('The door frame is a frame around where a door would go. To the east is the East room. To the west is the West room.');
+      Proxy.ExpectString('');
+      TestPlayer.Perform('go to door frame');
+      Proxy.ExpectDone();
+*)
    end;
 
 begin
