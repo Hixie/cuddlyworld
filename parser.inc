@@ -1,4 +1,4 @@
-//{$DEFINE DEBUG_PARSER}
+//{$DEFINE DEBUG_PARSER} // -*- delphi -*-
 
    function CanEnd(): Boolean;
    begin
@@ -508,16 +508,19 @@
          Action.Verb := avFind;
          if (CanEnd()) then
             Fail('What do you want to find?');
-         if (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompasDirection])) then
-            Fail(Capitalise(CardinalDirectionToDefiniteString(Direction)) + ' is ' + CardinalDirectionToDirectionString(Direction) + '.')
-         else
          if (not GetThing(Action.FindSubject, [], 'find')) then
          begin
-            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
-               Fail('I don''t understand how to find a direction.')
+            if (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompasDirection])) then
+            begin
+               if (CanEnd()) then
+                  Fail(Capitalise(CardinalDirectionToDefiniteString(Direction)) + ' is ' + CardinalDirectionToDirectionString(Direction) + ', obviously. I have a keen sense of direction that you can rely on.')
+               else
+                  Fail('I don''t understand how to find things in a particular direction. It seems redundant.');
+            end
             else
                Fail('I can''t find anything like ' + IndefiniteArticle(Tokens[CurrentToken]) + ' "' + OriginalTokens[CurrentToken] + '" here.');
-         end;
+         end
+         else
          if (not CanEnd()) then
             Fail('I don''t understand how to find things "' + OriginalTokens[CurrentToken] + '".');
       end

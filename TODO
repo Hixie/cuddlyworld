@@ -1,19 +1,30 @@
+CURRENT TASKS
+ + "find archway" when in the threshold room should use the room's context fragment
+ + "find <name of neighboring location>" doesn't work
+ + "go to <name of neighboring location>" doesn't work
+
 NAVIGATION
+ + no way to actually enter (and remain at) a threshold
+    - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
+    - make it possible to close and open a threshold door
+    - make sure it's possible to have doors with two distinct sides
+       - TThresholdLocation invokes its TDoubleSidedThing's AddExplicitlyReferencedThingsFromDirection()
+    - make it possible to take a door off its hinges, leaving the threshold
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
- + "visit third gender"
+ + "visit east archway"
+ + "move to north", "move to hut"
  + exit things by name
     - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
     - "exit hole"
     - "get out of pile": That's a direction, I don't know how to take it.
     - when doing this make sure that we can't escape closed containers
- + "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
- + "climb cliff": I don't understand how to "climb".
- + "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
- + "move to north", "move to hut"
- + "climb on pedestal", "climb up onto pedestal", "up onto pedestal", "up", "get on pedestal" should mean the same as "move onto pedestal"
  + "move off", "move off pile", "move me off pile" when standing on the pile of leaves
  + "off" and "get off" should be required to be used instead of "out" when on an object
+ + "climb [up]", "climb down" commands; "jump" command ("jump up", "jump on the spot", "jump off cliff"); "jump down" command; "up" should imply "climb"; "down" should imply "climb down" if there's something to climb with, otherwise "jump down"; climbing should only work if the relevant FUp/FDown is a TThing that is flagged as climbable
+ + "climb cliff": I don't understand how to "climb".
+ + "climb on pedestal", "climb up onto pedestal", "up onto pedestal", "up", "get on pedestal" should mean the same as "move onto pedestal"
+ + "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
  + announce when a player disconnects or reconnects
  + "look out" while on something on the ground talks about the ground. It should use the GetRepresentative() for the thing it's looking at
  + "exits"
@@ -22,12 +33,8 @@ NAVIGATION
     - this would dramatically simplify navigation and looking around
     - this might be necessary to make descriptions from inside a bag make as much sense as outside a bag, anyway
  + "enter e" when there are three matching things "e" should pick the right one and enter it
- + no way to actually enter (and remain at) a threshold
-    - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
-    - make it possible to close and open a threshold door
-    - make sure it's possible to have doors with two distinct sides
-       - TThresholdLocation invokes its TDoubleSidedThing's AddExplicitlyReferencedThingsFromDirection()
-    - make it possible to take a door off its hinges, leaving the threshold
+ + "[go] north until village", "[go] north and stop at village", "[go] north up to village", "north, stopping at village"
+    - this is hard in particular if the location in question is not visible right now...
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
@@ -49,13 +56,12 @@ WORLD
    + if it's surrounded by non-forested, non-path areas, it's a field
  + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
  + Players should have PartOfs: eyes, hands, etc; gender-dependent...
- + Players should have Implicits: "you", "time" ("take time"), etc
+ + World should have Implicits: "you", "time" ("take time"), etc
  + "harvest forest": I don't understand how to "harvest".
  + "chop down forest": I don't understand how to "chop".
  + "repair", "unbreak system": I don't understand how to "unbreak".
       
 PLOT
- + Archways shouldn't have "to the east", etc, 
  + plot
 
 WIZARDING

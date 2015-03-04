@@ -25,7 +25,7 @@ type
 
    TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
     public
-      constructor Create(Landmark: TThresholdThing; Surface: TThing);
+      constructor Create(Landmark: TThing; Surface: TThing);
       function GetTitle(Perspective: TAvatar): UTF8String; override;
       function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; override;
@@ -33,7 +33,6 @@ type
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; override;
       procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
-      // XXX make this give the landmark thing's description when the place is examined
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
@@ -101,7 +100,7 @@ begin
 end;
 
 
-constructor TThresholdLocation.Create(Landmark: TThresholdThing; Surface: TThing);
+constructor TThresholdLocation.Create(Landmark: TThing; Surface: TThing);
 begin
    inherited Create(Landmark, tpAtImplicit, Surface);
 end;

@@ -313,7 +313,7 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Persp
       Navigate() then typicially defers up until you reach the location.
       The TLocation.Navigate() method then looks in the appropriate direction.
       If that returns something, it calls the Direction-based DoNavigation().
-    Then, DoNavigate() calls GetSurface() (for ClimbOn) or GetEntrance() (for Enter and Go).
+    Then, DoNavigation() calls GetSurface() (for ClimbOn) or GetEntrance() (for Enter and Go).
       TThing.GetEntrance() looks for the child that is a tpOpening and defers to it, else defers to GetInside()
       TLocation.GetEntrance() calls GetSurface().
       TThresholdLocation.GetEntrance() fast-forwards you to the other side.
