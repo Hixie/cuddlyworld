@@ -2372,12 +2372,12 @@ var
    TestID: Cardinal;
    Failed: Boolean;
 
-   procedure RunMatcherTest(TestMatcher: TMatcher; Candidate: TTokens; Start: Cardinal; Pass: Cardinal);
+   procedure RunMatcherTest(TestMatcher: TMatcher; Candidate: TTokens; Start: Cardinal; Pass: Cardinal; Flags: TMatcherFlags = 0);
    var
       Result: Cardinal;
    begin
       Inc(TestID);
-      Result := TestMatcher.Matches(Candidate, Start);
+      Result := TestMatcher.Matches(Candidate, Start, Flags);
       if (Result <> Pass) then
       begin
          Writeln('FAILED matcher test ', TestID, '; expected to match ', Pass, ' tokens but matched ', Result);
@@ -2385,12 +2385,12 @@ var
       end;
    end;
 
-   procedure RunCanonicalMatchTest(TestMatcher: TMatcher; Pass: UTF8String);
+   procedure RunCanonicalMatchTest(TestMatcher: TMatcher; Pass: UTF8String; Flags: TMatcherFlags = 0);
    var
       Result: UTF8String;
    begin
       Inc(TestID);
-      Result := TestMatcher.GetCanonicalMatch(' ');
+      Result := TestMatcher.GetCanonicalMatch(' ', Flags);
       if (Result <> Pass) then
       begin
          Writeln('FAILED matcher test ', TestID, '; expected to find longest match "', Pass, '" but got "', Result, '"');
@@ -2544,6 +2544,29 @@ begin
    CompilePattern('((((navy blue)& (wooden wood)@)# ((archway/archways arch/arches)@ (to the (north n)@)?))& (((navy blue)& (wooden wood)@ (north northern n)@)# (archway/archways arch/arches)@)&)@', TestMatcher, OtherMatcher);
    RunCanonicalMatchTest(TestMatcher, 'navy blue wooden archway to the north');
    RunCanonicalMatchTest(OtherMatcher, 'navy blue wooden archways to the north');
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   SetLength(Strings, 3);
+   Strings[0] := 'burning';
+   Strings[1] := 'container';
+   Strings[2] := 'open';
+
+   CompilePattern('(burning:0 open:1 container/containers:2)#', TestMatcher, OtherMatcher);
+   RunCanonicalMatchTest(TestMatcher, 'burning container', 5); // flags 0 and 2 set
+   RunMatcherTest(TestMatcher, Strings, 0, 2, 5); // flags 0 and 2 set
+   RunMatcherTest(TestMatcher, Strings, 1, 1, 5); // flags 0 and 2 set
+   RunMatcherTest(TestMatcher, Strings, 2, 0, 5); // flags 0 and 2 set
+   RunMatcherTest(TestMatcher, Strings, 0, 0, 6); // flags 1 and 2 set
+   RunMatcherTest(TestMatcher, Strings, 1, 2, 6); // flags 1 and 2 set
+   RunMatcherTest(TestMatcher, Strings, 2, 1, 6); // flags 1 and 2 set
+   RunCanonicalMatchTest(OtherMatcher, 'burning containers', 5); // flags 0 and 2 set
+   RunMatcherTest(OtherMatcher, Strings, 0, 1, 5); // flags 0 and 2 set // test 86
+   RunMatcherTest(OtherMatcher, Strings, 1, 0, 5); // flags 0 and 2 set
+   RunMatcherTest(OtherMatcher, Strings, 2, 0, 5); // flags 0 and 2 set
+   RunMatcherTest(OtherMatcher, Strings, 0, 0, 6); // flags 1 and 2 set
+   RunMatcherTest(OtherMatcher, Strings, 1, 0, 6); // flags 1 and 2 set
+   RunMatcherTest(OtherMatcher, Strings, 2, 1, 6); // flags 1 and 2 set
    TestMatcher.Free();
    OtherMatcher.Free();
 
