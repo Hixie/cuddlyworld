@@ -8,6 +8,7 @@ uses
    storable, grammarian;
 
 type
+   TMatcherFlags = Cardinal;
    TByteCode = Byte;
    PCompiledPattern = ^TCompiledPattern;
    TCompiledPattern = packed array[TByteCode] of TByteCode;
@@ -24,8 +25,8 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function Matches(Tokens: TTokens; Start: Cardinal): Cardinal; { case-insensitive, but tokens must be lowercase already }
-      function GetCanonicalMatch(Separator: UTF8String): UTF8String;
+      function Matches(Tokens: TTokens; Start: Cardinal; Flags: TMatcherFlags = 0): Cardinal; { case-insensitive, but tokens must be lowercase already }
+      function GetCanonicalMatch(Separator: UTF8String; Flags: TMatcherFlags = 0): UTF8String;
       {$IFDEF DEBUG} function GetPatternDescription(): UTF8String; {$ENDIF}
       {$IFDEF DEBUG} function GetPatternDotFileLabels(): UTF8String; {$ENDIF}
    end;
@@ -47,6 +48,9 @@ procedure CompilePattern(S: UTF8String; out Singular: TMatcher; out Plural: TMat
      (a b c)%  - zero or more of the alternatives must appear, but they must be in the order given
      (a b c)&  - one or more of the alternatives must appear, but they must be in the order given
    Tokens and nested lists can be split with a "/" to indicate alternative singular/plural forms.
+   Tokens and nested lists can be suffixed (after the suffixes mentioned above) with ":" and an
+   integer in the range 0..31 to indicate a flag that must be matched for that token or list to be
+   considered.
    Special characters can be escaped using \.
 
    Examples:
@@ -58,8 +62,12 @@ procedure CompilePattern(S: UTF8String; out Singular: TMatcher; out Plural: TMat
          "the glowing green lantern", and all of those again without "the"
      ...and a plural matcher that matches the same but with "lanterns" instead of "lantern".
 
-     '(two beads)/bead' returns a matcher that matches "two beads" and
+     '(two beads)/bead' - returns a matcher that matches "two beads" and
      a matcher that matches "bead".
+
+     'the? burning:0 bush' - returns a matcher that matches either:
+       'the burning bush' and 'burning bush' when flag 0 is set
+       just 'the bush' and 'bush' when flag 0 is not set
 
 }
 
@@ -139,12 +147,15 @@ uses
    }
 
 const
+   kFlagCount = BitSizeOf(TMatcherFlags);
    { Magic State Flags }
    msfNormal = $00;
    { Magic Tokens }
    mtMaxTrueToken = $7F;
    mtNone = $80;
-   mtFollow = $FE;
+   mtFlagMin = $81;
+   mtFlagMax = mtFlagMin + kFlagCount - 1;
+   mtFollow = $FE; {$IF mtFollow <= mtFlagMin} {$ERROR TMatcherFlags is too wide} {$ENDIF}
    mtStateEnd = $FF;
    { Magic Pattern States }
    mpsMatch = $FF;
@@ -200,6 +211,17 @@ type
     protected
      procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
     public
+   end;
+   TFlagNode = class(TPatternNode)
+    protected
+     FFlag: TByteCode;
+     FSlaveNode: TPatternNode;
+     procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
+     procedure ReportTokens(Callback: TTokenReporterCallback); override;
+     procedure FixTokenIDs(Callback: TTokenFinderCallback); override;
+    public
+     constructor Create(Flag: TByteCode; SlaveNode: TPatternNode);
+     destructor Destroy(); override;
    end;
    TChildrenPatternNode = class(TPatternNode)
     protected
@@ -404,6 +426,45 @@ begin
    AddTransition(MiddleState2, mtFollow, MiddleState1, False);
    AddTransition(MiddleState2, mtFollow, TargetState, False);
 end;
+
+
+constructor TFlagNode.Create(Flag: TByteCode; SlaveNode: TPatternNode);
+begin
+   inherited Create();
+   Assert(Flag < kFlagCount);
+   FFlag := Flag;
+   Assert(Assigned(SlaveNode));
+   FSlaveNode := SlaveNode;
+end;
+
+destructor TFlagNode.Destroy(); 
+begin
+   FSlaveNode.Free();
+end;
+
+procedure TFlagNode.ReportTokens(Callback: TTokenReporterCallback);
+begin
+   FSlaveNode.ReportTokens(Callback);
+end;
+
+procedure TFlagNode.FixTokenIDs(Callback: TTokenFinderCallback);
+begin
+   FSlaveNode.FixTokenIDs(Callback);
+end;
+
+procedure TFlagNode.HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False);
+var
+   MiddleState: PState;
+begin
+   {
+            Flag
+       A=---------->O---[...]--->Z
+   }
+   MiddleState := GetNewState();
+   AddTransition(StartState, mtFlagMin + FFlag, MiddleState, BlockDuplicates); // $R-
+   FSlaveNode.HookStates(MiddleState, TargetState, GetNewState, BlockDuplicates); // XXX should BlockDuplicates be specified here?
+end;
+
 
 constructor TChildrenPatternNode.Create(Children: array of TPatternNode);
 var
@@ -1091,7 +1152,22 @@ begin
       Result := mtNone;
 end;
 
-function TMatcher.Matches(Tokens: TTokens; Start: Cardinal): Cardinal;
+//{$DEFINE VERBOSE_MATCHES}
+function TMatcher.Matches(Tokens: TTokens; Start: Cardinal; Flags: TMatcherFlags = 0): Cardinal;
+
+   function IsActiveFlag(TokenID: TByteCode): Boolean;
+   var
+      Flag: TByteCode;
+   begin
+      if ((TokenID < mtFlagMin) or (TokenID > mtFlagMax)) then
+      begin
+         Result := False;
+         exit;
+      end;
+      Flag := TokenID - mtFlagMin; // $R-
+      Result := (Flags and (1 shl Flag)) <> 0;
+   end;
+
 type
    PSharedCompiledPattern = ^TSharedCompiledPattern;
    TSharedCompiledPattern = record
@@ -1177,9 +1253,21 @@ var
    StateMachines: PStateMachine;
    Position, MatchLength, CurrentTransition: Cardinal;
    CurrentStateMachine, NextStateMachine, ChildStateMachine: PStateMachine;
-   NextState, TokenID: TByteCode;
+   NextState, TokenID, CandidateTokenID: TByteCode;
    Transitioned: Boolean;
 begin
+   {$IFDEF VERBOSE_MATCHES}
+      Writeln('Matches() starting...');
+      Writeln(' Tokens = ', Serialise(Tokens, 0, Length(Tokens))); // $R-
+      Writeln(' Start = ', Start);
+      Writeln(' Flags = ', Flags);
+      Writeln(' FTokens = ', Serialise(FTokens, 0, Length(FTokens))); // $R-
+      Writeln(' FOriginalTokens = ', Serialise(FOriginalTokens, 0, Length(FOriginalTokens))); // $R-
+      Writeln(' FPattern:');
+      Writeln('-------');
+      Writeln(GetPatternDescription());
+      Writeln('-------');
+   {$ENDIF}
    New(StateMachines);
    StateMachines^.State := 0;
    StateMachines^.Pattern := CreateSharedCompiledPattern(FPattern);
@@ -1188,24 +1276,20 @@ begin
    AppendStateMachine(StateMachines);
    MatchLength := 0;
    Position := Start;
-{
-Writeln('=MATCHES=');
-Writeln('FTokens = ', Serialise(FTokens, 0, Length(FTokens)));
-Writeln('FOriginalTokens = ', Serialise(FOriginalTokens, 0, Length(FOriginalTokens)));
-Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
-}
    while (Assigned(StateMachines^.Next)) do
    begin
-      { Follow mtFollow links first }
+      { Follow mtFollow links and flag-based links first }
       CurrentStateMachine := StateMachines^.Next;
       while (Assigned(CurrentStateMachine)) do
       begin
+         {$IFDEF VERBOSE_MATCHES} Writeln(' + State Machine ', IntToHex(PtrUInt(CurrentStateMachine), 8)); {$ENDIF}
          Assert(CurrentStateMachine^.Pattern^.Data^[CurrentStateMachine^.State] = msfNormal); { we could have other state flags some day }
          Assert(CurrentStateMachine^.State + 1 <= High(CurrentTransition));
          CurrentTransition := CurrentStateMachine^.State + 1; // $R-
          repeat
             Assert(CurrentTransition < High(CurrentTransition));
-            if (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = mtFollow) then
+            CandidateTokenID := CurrentStateMachine^.Pattern^.Data^[CurrentTransition];
+            if ((CandidateTokenID = mtFollow) or (IsActiveFlag(CandidateTokenID))) then
             begin
                NextState := CurrentStateMachine^.Pattern^.Data^[CurrentTransition+1];
                if (NextState = mpsMatch) then
@@ -1238,12 +1322,16 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
          CurrentStateMachine := CurrentStateMachine^.Next;
       end;
       { Now follow the links that match the token, removing any state machines that don't have a match }
-//Writeln('checking for ', Tokens[Position]);
       if (Position > High(Tokens)) then
+      begin
+         {$IFDEF VERBOSE_MATCHES} Writeln('   checking for mtNone'); {$ENDIF}
          TokenID := mtNone
+      end
       else
+      begin
          TokenID := GetTokenID(Tokens[Position]);
-//Writeln('Result: ', TokenID);
+         {$IFDEF VERBOSE_MATCHES} Writeln('   token "', Tokens[Position], '" has ID ', TokenID); {$ENDIF}
+      end;
       CurrentStateMachine := StateMachines^.Next;
       while (Assigned(CurrentStateMachine)) do
       begin
@@ -1259,8 +1347,11 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
             CurrentTransition := CurrentStateMachine^.State + 1; // $R-
             Transitioned := False;
             repeat
-               if (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = TokenID) then
+               CandidateTokenID := CurrentStateMachine^.Pattern^.Data^[CurrentTransition];
+               {$IFDEF VERBOSE_MATCHES} Writeln('    considering pattern entry with token ID: ', CandidateTokenID); {$ENDIF}
+               if (CandidateTokenID = TokenID) then
                begin
+                  {$IFDEF VERBOSE_MATCHES} Writeln('      matched!'); {$ENDIF}
                   NextState := CurrentStateMachine^.Pattern^.Data^[CurrentTransition+1];
                   if (NextState = mpsMatch) then
                   begin
@@ -1302,12 +1393,34 @@ Writeln('Tokens = ', Serialise(Tokens, 0, Length(Tokens)));
    Result := MatchLength;
 end;
 
-function TMatcher.GetCanonicalMatch(Separator: UTF8String): UTF8String;
+function TMatcher.GetCanonicalMatch(Separator: UTF8String; Flags: TMatcherFlags = 0): UTF8String;
 var
    Pattern: PCompiledPattern;
    Match: UTF8String;
 
 //{$DEFINE DEBUG_CANONICAL_MATCH}
+
+   function IsAcceptableBranch(TokenID: TByteCode {$IFDEF DEBUG_CANONICAL_MATCH}; Prefix: UTF8String {$ENDIF}): Boolean;
+   var
+      Flag: TByteCode;
+   begin
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   IsAcceptableBranch(', TokenID, '); with flags ', Flags); {$ENDIF}
+      if ((TokenID <= mtMaxTrueToken) or (TokenID = mtFollow)) then
+      begin
+         Result := True;
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '    = is true token'); {$ENDIF}
+         exit;
+      end;
+      if (TokenID in [mtFlagMin .. mtFlagMax]) then
+      begin
+         Flag := TokenID - mtFlagMin; // $R-
+         Result := (Flags and (1 shl Flag)) <> 0;
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '    = is flag ', Flag, ' which is: ', Result); {$ENDIF}
+         exit;
+      end;
+      Result := false;
+      Assert(False);
+   end;
 
    function GetCanonicalBranch(State: TByteCode {$IFDEF DEBUG_CANONICAL_MATCH}; Prefix: UTF8String = '' {$ENDIF}): Boolean;
    var
@@ -1318,35 +1431,38 @@ var
       CurrentIndex := State+1; // $R-
       repeat
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   trying transition ', CurrentIndex); {$ENDIF}
-         NextState := Pattern^[CurrentIndex+1];
-         if (NextState <> mpsBlocked) then 
+         if (IsAcceptableBranch(Pattern^[CurrentIndex] {$IFDEF DEBUG_CANONICAL_MATCH}, Prefix + ' | ' {$ENDIF})) then
          begin
-            if (Pattern^[CurrentIndex] <= mtMaxTrueToken) then
+            NextState := Pattern^[CurrentIndex+1];
+            if (NextState <> mpsBlocked) then 
             begin
-{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   ...for token ', FOriginalTokens[Pattern^[CurrentIndex]]); {$ENDIF}
-               if (Match <> '') then
-                  Match := Match + Separator;
-               Match := Match + FOriginalTokens[Pattern^[CurrentIndex]];
-            end;
-            if (NextState = mpsMatch) then
-            begin
-{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   MATCH'); {$ENDIF}
-               Result := True;
-               Exit;
-            end
-            else
-            begin
-{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   ...going to nest...'); {$ENDIF}
-               if ((Pattern^[CurrentIndex] <= mtMaxTrueToken) or (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask)) then
-                   Pattern^[CurrentIndex+1] := mpsBlocked;
-               if (GetCanonicalBranch(TByteCode(NextState and not mpsPreventDuplicatesMask) {$IFDEF DEBUG_CANONICAL_MATCH}, Prefix + '  ' {$ENDIF})) then
+               if (Pattern^[CurrentIndex] <= mtMaxTrueToken) then
                begin
-{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   MATCH'); {$ENDIF}
+   {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   ...for token ', FOriginalTokens[Pattern^[CurrentIndex]]); {$ENDIF}
+                  if (Match <> '') then
+                     Match := Match + Separator;
+                  Match := Match + FOriginalTokens[Pattern^[CurrentIndex]];
+               end;
+               if (NextState = mpsMatch) then
+               begin
+   {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   MATCH'); {$ENDIF}
                   Result := True;
                   Exit;
+               end
+               else
+               begin
+   {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   ...going to nest...'); {$ENDIF}
+                  if ((Pattern^[CurrentIndex] <= mtMaxTrueToken) or (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask)) then
+                      Pattern^[CurrentIndex+1] := mpsBlocked;
+                  if (GetCanonicalBranch(TByteCode(NextState and not mpsPreventDuplicatesMask) {$IFDEF DEBUG_CANONICAL_MATCH}, Prefix + '  ' {$ENDIF})) then
+                  begin
+   {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   MATCH'); {$ENDIF}
+                     Result := True;
+                     Exit;
+                  end;
+   {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   FAIL'); {$ENDIF}
+                  Pattern^[CurrentIndex+1] := NextState;
                end;
-{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   FAIL'); {$ENDIF}
-               Pattern^[CurrentIndex+1] := NextState;
             end;
          end;
          Inc(CurrentIndex, 2);
@@ -1383,6 +1499,9 @@ begin
          Result := Result + '   ';
          if (FPattern^[Index] = mtFollow) then
             Result := Result + 'ELSE'
+         else
+         if (FPattern^[Index] in [mtFlagMin .. mtFlagMax]) then
+            Result := Result + 'FLAG ' + IntToStr(1 shl (FPattern^[Index] - mtFlagMin))
          else
             Result := Result + IntToStr(FPattern^[Index]) + ':"' + FOriginalTokens[FPattern^[Index]] + '"';
          Result := Result + ' -> ';
@@ -1449,6 +1568,9 @@ begin
          if (FPattern^[Index] = mtFollow) then
             Result := Result + 'color="' + S + ':' + S + '" '
          else
+         if (FPattern^[Index] > mtMaxTrueToken) then
+            Result := Result + 'color="' + S + '" label="<flag ' + IntToStr(FPattern^[Index] - mtFlagMin) + '>" fontsize10 samehead="' + IntToStr(State) + '" '
+         else
             Result := Result + 'color="' + S + '" label="' + FOriginalTokens[FPattern^[Index]] + '" fontsize=10 samehead="' + IntToStr(State) + '" ';
          Result := Result + '];' + #10;
          Inc(Index, 2);
@@ -1466,15 +1588,18 @@ end;
 {$ENDIF}
 
 function CompilePatternVersion(S: UTF8String; Version: Cardinal): TMatcher;
+const
+   kVersionCount = 2;
 
    function Parse(var Index: Cardinal): TPatternNode;
    type
-      TParseMode = (pmToken, pmEscape, pmListType);
+      TParseMode = (pmToken, pmFlagIndex, pmEscape, pmListType);
    var
       Token: UTF8String;
       CurrentVersion: Cardinal;
       Mode: TParseMode;
       List: array of TPatternNode;
+      FlagIndex: TByteCode;
 
       procedure Push(Node: TPatternNode);
       begin
@@ -1537,6 +1662,18 @@ function CompilePatternVersion(S: UTF8String; Version: Cardinal): TMatcher;
                      SetLength(List, Length(List)-1);
                   end;
                   Inc(CurrentVersion);
+                  Assert(CurrentVersion < kVersionCount);
+               end;
+             ':':
+               begin
+                  if (Token <> '') then
+                  begin
+                     Push(TTokenNode.Create(Token));
+                     Token := '';
+                  end;
+                  Assert(Length(List) > 0);
+                  FlagIndex := 0;
+                  Mode := pmFlagIndex;
                end;
              '(':
                begin
@@ -1558,6 +1695,24 @@ function CompilePatternVersion(S: UTF8String; Version: Cardinal): TMatcher;
              '\': Mode := pmEscape;
              '@', '*', '#', '%', '&': EAssertionFailed.Create('List suffix used inappropriately.');
              else Token := Token + S[Index];
+            end;
+          pmFlagIndex:
+            begin
+               Assert(Length(List) > 0);
+               case S[Index] of
+                  '0'..'9':
+                     begin
+                        Assert(Cardinal(FlagIndex * 10 + Ord(S[Index]) - Ord('0')) < High(TByteCode));
+                        FlagIndex := FlagIndex * 10 + Ord(S[Index]) - Ord('0'); // $R-
+                        Assert(FlagIndex < kFlagCount);
+                     end;
+               else
+                 begin
+                    List[High(List)] := TFlagNode.Create(FlagIndex, List[High(List)]);
+                    Mode := pmToken;
+                    Dec(Index);
+                 end;
+               end;
             end;
           pmEscape:
             begin
@@ -1586,7 +1741,7 @@ function CompilePatternVersion(S: UTF8String; Version: Cardinal): TMatcher;
                   end;
                end;
 //Writeln('<<EXIT LIST');
-               Exit;
+               Exit; // '(' above calls Parse() re-entrantly, this brings us back to the caller level
             end;
           else
             Assert(False, 'unknown parse mode');
@@ -1634,6 +1789,7 @@ var
    CompiledPattern: PCompiledPattern;
    PatternLength: TByteCode;
 begin
+   Assert(Version < kVersionCount);
    PatternTreeRoot := Parse();
    Compiler := TPatternCompiler.Create(PatternTreeRoot);
    Tokens := Compiler.GetAtomisedTokens();
@@ -1663,6 +1819,7 @@ begin
    Result := (Pos('+', S) > 0) or
              (Pos('?', S) > 0) or
              (Pos('/', S) > 0) or
+             (Pos(':', S) > 0) or
              (Pos('(', S) > 0) or
              (Pos(')', S) > 0) or
              (Pos('\', S) > 0) or
@@ -1675,7 +1832,7 @@ end;
 
 function HasSingularVsPluralAnnotation(S: UTF8String): Boolean;
 begin
-   Result := (Pos('/', S) > 0);
+   Result := (Pos('/', S) > 0); // XXX should be better than that, I mean, consider '\/'...
 end;
 {$ENDIF}
 

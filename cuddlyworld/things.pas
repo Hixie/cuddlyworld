@@ -13,6 +13,7 @@ type
       FName, FLongName: UTF8String;
       FSingularPattern, FPluralPattern: TMatcher;
       FPlural: Boolean;
+      function GetMatcherFlags(): TMatcherFlags; virtual;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String);
       destructor Destroy(); override;
@@ -297,6 +298,11 @@ begin
    Stream.WriteBoolean(FPlural);
 end;
 
+function TNamedThing.GetMatcherFlags(): TMatcherFlags;
+begin
+   Result := 0;
+end;
+
 function TNamedThing.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := FName;
@@ -322,13 +328,13 @@ var
 begin
    Result := False;
    GrammaticalNumber := [];
-   Count := FSingularPattern.Matches(Tokens, Start);
+   Count := FSingularPattern.Matches(Tokens, Start, GetMatcherFlags());
    if (Count > 0) then
    begin
       Result := True;
       GrammaticalNumber := [gnSingular];
    end;
-   PossibleCount := FPluralPattern.Matches(Tokens, Start);
+   PossibleCount := FPluralPattern.Matches(Tokens, Start, GetMatcherFlags());
    if ((PossibleCount > 0) and (PossibleCount >= Count)) then
    begin
       if (Count = PossibleCount) then
