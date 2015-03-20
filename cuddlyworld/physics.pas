@@ -732,7 +732,7 @@ function TAtom.GetInside(var PositionOverride: TThingPosition): TAtom;
 var
    Child: TThing;
 begin
-   Assert(PositionOverride = tpIn);
+   Assert(PositionOverride = tpIn, 'GetInside() must be called with an argument preinitialised to tpIn');
    Result := nil;
    for Child in FChildren do
    begin
@@ -1118,6 +1118,7 @@ begin
    begin
       if (Child.Position in tpOpening) then
       begin
+         Assert(IsChildTraversable(Child, Perspective, True));
          DisambiguationOpening := Child;
          Result := Child.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList);
          Exit;
@@ -1312,9 +1313,15 @@ var
    PositionOverride: TThingPosition;
    Inside: TAtom;
    Contents: UTF8String;
+   {$IFOPT C+} Child: TThing; {$ENDIF}
 begin
    if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
    begin
+      {$IFOPT C+}
+         for Child in FChildren do
+            if (Child.Position in tpOpening) then
+               Assert(IsChildTraversable(Child, Perspective, True));
+      {$ENDIF}
       PositionOverride := tpIn;
       Inside := GetInside(PositionOverride);
       if (Assigned(Inside)) then
@@ -1364,12 +1371,14 @@ end;
 function TThing.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String;
 var
    Child: TThing;
+   FromOutside: Boolean;
 begin
+   FromOutside := ((Perspective.Parent = Self) and (Perspective.Position in tpContained));
    Result := '';
    for Child in FChildren do
    begin
       { we exclude context so that, e.g., we don't say "there's a pedestal here!" when you're on it }
-      if ((Child <> Context) and (Child.Position in tpAutoDescribe)) then
+      if ((Child <> Context) and (Child.Position in tpAutoDescribe) and IsChildTraversable(Child, Perspective, FromOutside)) then
       begin
          if (Length(Result) > 0) then
             Result := Result + ' ';
@@ -1408,7 +1417,7 @@ begin
       Result := '';
    for Child in FChildren do
    begin
-      if (not (Child.Position in tpContained)) then
+      if ((not (Child.Position in tpContained)) and (IsChildTraversable(Child, Perspective, True))) then
          S := Child.GetDescriptionRemoteBrief(Perspective, Mode, Direction);
       if (Length(S) > 0) then
       begin
