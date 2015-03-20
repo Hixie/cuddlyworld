@@ -84,6 +84,8 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+
+      // Moving things around
       procedure Add(Thing: TThing; Position: TThingPosition);
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
@@ -94,8 +96,27 @@ type
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { external size of the object (e.g. to decide if it fits inside another): self and children that are tpOutside; add tpContained children if container is flexible }
       function GetInsideSizeManifest(): TThingSizeManifest; virtual; { only children that are tpContained }
       function GetSurfaceSizeManifest(): TThingSizeManifest; virtual; { children that are tpSurface (e.g. to decide if something else can be added to the object's surface or if the surface is full already) }
+      function GetRepresentative(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
+      function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetRepresentative) }
+      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
+      function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
+      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
+      procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
+      procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
+      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; virtual; abstract;
+
+      // Finding things
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); virtual;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
+      procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
+      procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
+      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
+      function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
+      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
+      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
+
+      // Atom identity
       function IsPlural(Perspective: TAvatar): Boolean; virtual; abstract;
       function GetName(Perspective: TAvatar): UTF8String; virtual; abstract;
       function GetSummaryName(Perspective: TAvatar): UTF8String; virtual;
@@ -111,35 +132,23 @@ type
       function GetTitle(Perspective: TAvatar): UTF8String; virtual;
       function GetContext(Perspective: TAvatar): UTF8String; virtual;
       function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; virtual; // see note [context]
-      function GetLook(Perspective: TAvatar): UTF8String; virtual;
-      function GetLookAt(Perspective: TAvatar): UTF8String; virtual;
+
+      // Atom descriptions
+      // comment gives the default implementation, if it's not the empty string or abstract
+      function GetLook(Perspective: TAvatar): UTF8String; virtual; // title + basic + horizon + on + children
+      function GetLookAt(Perspective: TAvatar): UTF8String; virtual; // basic + on + children
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual; abstract;
-      function GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; virtual; // see note [context]
+      function GetBasicDescription(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; virtual; // self + state + here // see note [context]
       function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; virtual; // see note [context]
-      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; virtual; // see note [context]
+      function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; virtual; // basic // see note [context]
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; virtual; abstract;
       function GetDescriptionState(Perspective: TAvatar): UTF8String; virtual; { e.g. 'The bottle is open.' }
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; virtual; abstract; // see note [context]
-      function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): UTF8String;
-      function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: UTF8String): UTF8String; virtual;
+      function GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: UTF8String = ''): UTF8String; virtual; // presence + state for each child, plus on for each child if optDeepOn
       function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; virtual;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; virtual; abstract; // used by locations to include their loAutoDescribe landmarks in their Here description
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; virtual; abstract; // used for things like "look north"
-      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
-      procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
-      procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
-      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
-      function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
-      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
-      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
-      function GetRepresentative(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
-      function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetRepresentative) }
-      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
-      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; virtual; abstract;
-      procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
-      procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
+
       {$IFDEF DEBUG} function Debug(): UTF8String; virtual; {$ENDIF}
    end;
 
@@ -154,6 +163,8 @@ type
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+
+      // Moving things around
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); override;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -166,32 +177,38 @@ type
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
+
+      // Identification
       function GetSummaryName(Perspective: TAvatar): UTF8String; override;
       function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetLongDefiniteName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
+
+      // Descriptions
       function GetHorizonDescription(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
       function GetDescriptionForHorizon(Perspective: TAvatar; Context: TAtom): UTF8String; override; // see note [context]
-      function GetExamine(Perspective: TAvatar): UTF8String; virtual;
-      function GetLookUnder(Perspective: TAvatar): UTF8String; virtual;
-      function GetLookIn(Perspective: TAvatar): UTF8String; virtual;
-      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
-      function GetInventory(Perspective: TAvatar): UTF8String; virtual;
-      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; override; // see note [context]
-      function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; virtual;
-      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; override;
-      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
-      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; virtual;
-      function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String; virtual;
-      function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; virtual; { only called for optThorough searches }
-      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; virtual; { used both from inside and outside }
-      function GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: UTF8String = ''): UTF8String; virtual;
-      function GetDescriptionCarriedTitle(Perspective: TAvatar; DeepCarried: Boolean): UTF8String; virtual;
-      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; virtual;
-      function GetDescriptionWriting(Perspective: TAvatar): UTF8String; virtual;
+      function GetExamine(Perspective: TAvatar): UTF8String; virtual; // basic + writing + on + children
+      function GetLookUnder(Perspective: TAvatar): UTF8String; virtual; // parent name
+      function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override; // various
+      function GetLookIn(Perspective: TAvatar): UTF8String; virtual; // various
+      function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; virtual; // '...empty' { only called for optThorough searches }
+      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; virtual; // '...closed' { used both from inside and outside }
+      function GetInventory(Perspective: TAvatar): UTF8String; virtual; // carried
+      function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; override; // presence statement and state for each child // see note [context]
+      function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; virtual; // name + state
+      function GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; override; // in + carried
+      function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override; // various
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override; // basic
+      function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String; virtual; // in title, plus name and in of each child
+      function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String; virtual; // '...contains:'
+      function GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean; Prefix: UTF8String = ''): UTF8String; virtual; // carried title, plus name, on, children for each child
+      function GetDescriptionCarriedTitle(Perspective: TAvatar; DeepCarried: Boolean): UTF8String; virtual; // '...is carrying:'
+      function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; virtual; // various
+      function GetDescriptionWriting(Perspective: TAvatar): UTF8String; virtual; // 'there is no...'
+
+      // Misc (these should be moved up at some point)
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
@@ -227,6 +244,7 @@ type
       function HasConnectedPlayer(): Boolean; virtual; abstract;
       function IsReadyForRemoval(): Boolean; virtual; abstract;
       procedure RemoveFromWorld(); virtual;
+      function Locate(Thing: TThing): TSubjectiveInformation;
    end;
 
    {$IFDEF DEBUG} // used by AssertDirectionHasDestination()
@@ -705,6 +723,55 @@ begin
          Result := Result + Child.GetIntrinsicSize();
 end;
 
+function TAtom.GetRepresentative(): TAtom;
+begin
+   Result := Self;
+end;
+
+function TAtom.GetInside(var PositionOverride: TThingPosition): TAtom;
+var
+   Child: TThing;
+begin
+   Assert(PositionOverride = tpIn);
+   Result := nil;
+   for Child in FChildren do
+   begin
+      if (Child.Position in tpOpening) then
+      begin
+         Assert(not Assigned(Result));
+         Result := Child.GetInside(PositionOverride);
+         {$IFOPT C-} Exit; {$ENDIF} // no need to go through the list if not checking for assertions anyway
+      end;
+   end;
+end;
+
+function TAtom.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+var
+   Inside: TAtom;
+   Position: TThingPosition;
+begin
+   Position := tpIn;
+   Inside := GetInside(Position);
+   if (Assigned(Inside)) then
+   begin
+      Assert(Inside <> Self, 'If you make GetInside() return the element proper, then you must override CanInsideHold() also.');
+      if (Position = tpIn) then
+         Result := Inside.CanInsideHold(Manifest)
+      else
+      if (Position = tpOn) then
+         Result := Inside.CanSurfaceHold(Manifest)
+      else
+         raise Exception.Create('Unexpected or unknown overriding inside thing position ' + IntToStr(Cardinal(Position)));
+   end
+   else
+      Result := False;
+end;
+
+function TAtom.GetSurface(): TAtom;
+begin
+   Result := Self;
+end;
+
 procedure TAtom.HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar);
 begin
 end;
@@ -728,6 +795,56 @@ function TAtom.GetSurroundingsRoot(out FromOutside: Boolean): TAtom;
 begin
    Result := Self;
    FromOutside := True;
+end;
+
+procedure TAtom.FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+var
+   Child: TThing;
+begin
+   for Child in FChildren do
+      if (((foIncludePerspectiveChildren in Options) or (Child <> Perspective)) and (IsChildTraversable(Child, Perspective, foFromOutside in Options))) then
+         Child.FindMatchingThings(Perspective, Options + [foFromOutside], PositionFilter, PropertyFilter, List);
+end;
+
+procedure TAtom.ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
+begin
+   FindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
+end;
+
+function TAtom.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean;
+begin
+   SubjectiveInformation.Reset(); {BOGUS Warning: Variable "SubjectiveInformation" does not seem to be initialized}
+   Result := FindThingTraverser(Thing, Perspective, FromOutside);
+   if (Result) then
+      Include(SubjectiveInformation.Reachable, rpReachable);
+end;
+
+function TAtom.FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
+var
+   Child: TThing;
+begin
+   for Child in FChildren do
+      if (IsChildTraversable(Child, Perspective, FromOutside)) then
+         if (Child.FindThingTraverser(Thing, Perspective, True)) then
+         begin
+            Result := True;
+            Exit;
+         end;
+   Result := False;
+end;
+
+function TAtom.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
+begin
+   Result := FindThingTraverser(Thing, Perspective, FromOutside);
+end;
+
+procedure TAtom.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
+var
+   Child: TThing;
+begin
+   for Child in FChildren do
+      if (IsChildTraversable(Child, Perspective, FromOutside)) then
+         Child.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
 end;
 
 function TAtom.GetSummaryName(Perspective: TAvatar): UTF8String;
@@ -856,11 +973,6 @@ begin
    Result := '';
 end;
 
-function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions): UTF8String;
-begin
-   Result := GetDescriptionOn(Perspective, Options, '');
-end;
-
 function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOnOptions; Prefix: UTF8String): UTF8String;
 
    procedure ProcessBatch(Children: TThingList);
@@ -905,105 +1017,6 @@ end;
 function TAtom.IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 begin
    Result := True;
-end;
-
-procedure TAtom.FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
-var
-   Child: TThing;
-begin
-   for Child in FChildren do
-      if (((foIncludePerspectiveChildren in Options) or (Child <> Perspective)) and (IsChildTraversable(Child, Perspective, foFromOutside in Options))) then
-         Child.FindMatchingThings(Perspective, Options + [foFromOutside], PositionFilter, PropertyFilter, List);
-end;
-
-procedure TAtom.ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
-begin
-   FindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
-end;
-
-function TAtom.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean;
-begin
-   SubjectiveInformation.Reset(); {BOGUS Warning: Variable "SubjectiveInformation" does not seem to be initialized}
-   Result := FindThingTraverser(Thing, Perspective, FromOutside);
-   if (Result) then
-      Include(SubjectiveInformation.Reachable, rpReachable);
-end;
-
-function TAtom.FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
-var
-   Child: TThing;
-begin
-   for Child in FChildren do
-      if (IsChildTraversable(Child, Perspective, FromOutside)) then
-         if (Child.FindThingTraverser(Thing, Perspective, True)) then
-         begin
-            Result := True;
-            Exit;
-         end;
-   Result := False;
-end;
-
-function TAtom.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
-begin
-   Result := FindThingTraverser(Thing, Perspective, FromOutside);
-end;
-
-procedure TAtom.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
-var
-   Child: TThing;
-begin
-   for Child in FChildren do
-      if (IsChildTraversable(Child, Perspective, FromOutside)) then
-         Child.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
-end;
-
-function TAtom.GetRepresentative(): TAtom;
-begin
-   Result := Self;
-end;
-
-function TAtom.GetInside(var PositionOverride: TThingPosition): TAtom;
-var
-   Child: TThing;
-begin
-   Assert(PositionOverride = tpIn);
-   Result := nil;
-   for Child in FChildren do
-   begin
-      if (Child.Position in tpOpening) then
-      begin
-         Assert(not Assigned(Result));
-         Result := Child.GetInside(PositionOverride);
-         {$IFOPT C-} Exit; {$ENDIF} // no need to go through the list if not checking for assertions anyway
-      end;
-   end;
-end;
-
-function TAtom.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
-var
-   Inside: TAtom;
-   Position: TThingPosition;
-begin
-   Position := tpIn;
-   Inside := GetInside(Position);
-   if (Assigned(Inside)) then
-   begin
-      Assert(Inside <> Self, 'If you make GetInside() return the element proper, then you must override CanInsideHold() also.');
-      if (Position = tpIn) then
-         Result := Inside.CanInsideHold(Manifest)
-      else
-      if (Position = tpOn) then
-         Result := Inside.CanSurfaceHold(Manifest)
-      else
-         raise Exception.Create('Unexpected or unknown overriding inside thing position ' + IntToStr(Cardinal(Position)));
-   end
-   else
-      Result := False;
-end;
-
-function TAtom.GetSurface(): TAtom;
-begin
-   Result := Self;
 end;
 
 {$IFDEF DEBUG}
@@ -1723,6 +1736,16 @@ end;
 procedure TAvatar.RemoveFromWorld();
 begin
    FParent.Remove(Self);
+end;
+
+function TAvatar.Locate(Thing: TThing): TSubjectiveInformation;
+var
+   Root: TAtom;
+   {$IFOPT C+} Found, {$ENDIF} FromOutside: Boolean;
+begin
+   Root := GetSurroundingsRoot(FromOutside);
+   {$IFOPT C+} Found := {$ENDIF} Root.FindThing(Thing, Self, FromOutside, Result);
+   {$IFOPT C+} Assert(Found); {$ENDIF}
 end;
 
 {$IFDEF DEBUG}

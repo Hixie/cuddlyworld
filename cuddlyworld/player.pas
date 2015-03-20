@@ -773,16 +773,13 @@ end;
 
 procedure TPlayer.DoFind(Subject: TThing);
 var
-   Root: TAtom;
    SubjectiveInformation: TSubjectiveInformation;
    Message, ExtraMessage: UTF8String;
-   {$IFOPT C+} Found, {$ENDIF} FromOutside, UseCommas: Boolean;
+   UseCommas: Boolean;
    Count, Index: Cardinal;
    Direction: TCardinalDirection;
 begin
-   Root := GetSurroundingsRoot(FromOutside);
-   {$IFOPT C+} Found := {$ENDIF} Root.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
-   {$IFOPT C+} Assert(Found); {$ENDIF}
+   SubjectiveInformation := Locate(Subject as TThing);
    if (SubjectiveInformation.Directions <> []) then
    begin
       Message := Capitalise(Subject.GetDefiniteName(Self)) + ' ' + IsAre(Subject.IsPlural(Self)) + ' ';
@@ -821,13 +818,9 @@ end;
 
 procedure TPlayer.DoLookUnder(Subject: TThing);
 var
-   Root: TAtom;
    SubjectiveInformation: TSubjectiveInformation;
-   {$IFOPT C+} Found, {$ENDIF} FromOutside: Boolean;
 begin
-   Root := GetSurroundingsRoot(FromOutside);
-   {$IFOPT C+} Found := {$ENDIF} Root.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
-   {$IFOPT C+} Assert(Found); {$ENDIF}
+   SubjectiveInformation := Locate(Subject);
    if (SubjectiveInformation.Directions = [cdUp]) then
    begin
       SendMessage('You are under ' + Subject.GetDefiniteName(Self) + '.');
@@ -1857,13 +1850,14 @@ begin
       else
       begin
          // "at" might not work, e.g. "You aren't in Kansas anymore." needs "in" not "at"; but "The Beach" or
-         // "Whole Foods" wants "at"...
+         // "Whole Foods" wants "at"... XXX
          Message := TMessage.Create(mkNotReachable, 'You aren''t at _ anymore.', [Subject.GetDefiniteName(Self)]);
       end;
    end
    else
    if (Subject is TThing) then
    begin
+      // XXX could use Locate() but that would duplicate the call to GetSurroundingsRoot()
       Result := SelfRoot.FindThing(Subject as TThing, Self, FromOutside, SubjectiveInformation);
       if (not Result) then
       begin
