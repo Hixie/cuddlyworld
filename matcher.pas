@@ -8,8 +8,9 @@ uses
    storable, grammarian;
 
 type
-   TMatcherFlags = Cardinal;
    TByteCode = Byte;
+   TMatcherFlags = type Cardinal;
+   TMatcherFlag = type TByteCode;
    PCompiledPattern = ^TCompiledPattern;
    TCompiledPattern = packed array[TByteCode] of TByteCode;
 
@@ -214,13 +215,13 @@ type
    end;
    TFlagNode = class(TPatternNode)
     protected
-     FFlag: TByteCode;
+     FFlag: TMatcherFlag;
      FSlaveNode: TPatternNode;
      procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
      procedure ReportTokens(Callback: TTokenReporterCallback); override;
      procedure FixTokenIDs(Callback: TTokenFinderCallback); override;
     public
-     constructor Create(Flag: TByteCode; SlaveNode: TPatternNode);
+     constructor Create(Flag: TMatcherFlag; SlaveNode: TPatternNode);
      destructor Destroy(); override;
    end;
    TChildrenPatternNode = class(TPatternNode)
@@ -428,7 +429,7 @@ begin
 end;
 
 
-constructor TFlagNode.Create(Flag: TByteCode; SlaveNode: TPatternNode);
+constructor TFlagNode.Create(Flag: TMatcherFlag; SlaveNode: TPatternNode);
 begin
    inherited Create();
    Assert(Flag < kFlagCount);
@@ -1157,7 +1158,7 @@ function TMatcher.Matches(Tokens: TTokens; Start: Cardinal; Flags: TMatcherFlags
 
    function IsActiveFlag(TokenID: TByteCode): Boolean;
    var
-      Flag: TByteCode;
+      Flag: TMatcherFlag;
    begin
       if ((TokenID < mtFlagMin) or (TokenID > mtFlagMax)) then
       begin
@@ -1402,7 +1403,7 @@ var
 
    function IsAcceptableBranch(TokenID: TByteCode {$IFDEF DEBUG_CANONICAL_MATCH}; Prefix: UTF8String {$ENDIF}): Boolean;
    var
-      Flag: TByteCode;
+      Flag: TMatcherFlag;
    begin
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '   IsAcceptableBranch(', TokenID, '); with flags ', Flags); {$ENDIF}
       if ((TokenID <= mtMaxTrueToken) or (TokenID = mtFollow)) then

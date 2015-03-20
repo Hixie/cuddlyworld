@@ -5,24 +5,89 @@ unit threshold;
 interface
 
 uses
-   locations, things, grammarian, storable, physics, messages;
+   locations, things, grammarian, matcher, storable, physics, messages;
 
 type
-   TThresholdThing = class(TScenery) // @RegisterStorableClass
+   TThresholdThing = class abstract(TScenery)
     protected
       FFrontSideFacesDirection: TCardinalDirection;
-      FFrontSideDescription: UTF8String;
-      FBackSideDescription: UTF8String;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       property FrontSideFacesDirection: TCardinalDirection read FFrontSideFacesDirection write FFrontSideFacesDirection;
+   end;
+
+   generic TDoubleSidedThing <AncestorClass: TThing> = class abstract (AncestorClass)
+    protected
+      // make sure you implement Read and Write for these in your subclass...
+      // http://bugs.freepascal.org/view.php?id=16588
+      FFrontSideDescription: UTF8String;
+      FBackSideDescription: UTF8String;
+    public
       property FrontSideDescription: UTF8String read FFrontSideDescription write FFrontSideDescription;
       property BackSideDescription: UTF8String read FBackSideDescription write FBackSideDescription;
    end;
 
+   TStaticThresholdThing = class(specialize TDoubleSidedThing<TThresholdThing>) // @RegisterStorableClass
+    // This is for something that's always traversable, like an archway or something
+    // note that we inherit from a class that defines Openable, so IsOpen() might be true or false
+    // but that doesn't mean that when IsOpen() is false, we're not traversable
+    public
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+   end;
+
+(*
+   TDoorWay = class(TThresholdThing) // @ RegisterStorableClass
+    // openable if there's a door
+    // IsOpen() returns FOpened which we inherit
+    protected
+      function GetDoor(): TDoor; // or nil if there isn't one
+    public
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Door: TDoor);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+        // XXX defer to the door if possible, else inherited
+      property Door: TDoor read GetDoor; // can be nil, if there's no door
+        // XXX doorways override everything to do with IsOpen accordingly
+   end;
+
+   TDoor = class(TStaticThing) // @ RegisterStorableClass
+    // XXX A TDoor is openable if it has a doorway
+    // XXX when you tell the TDoor to open, it actually checks if it is in a doorway
+    // and if it is, it tells the doorway that it is now open; ditto when closing, in reverse
+    // XXX sides:
+    // there should be two TFeature objects, one for each side, that are permanently part of this object
+    // XXX have the constructor set them
+    // XXX have them be saved and restored appropriately
+    // XXX defer to the relevant one of those for DescriptionSelf if Locate() returns a direction and we have
+    // a doorway, otherwise defer to both, front then back. relevant one depends on doorway front facing
+    // XXX only the relevant side should be referencable, when in a doorway
+    protected
+      FFrontSide, FBackSide: TFeature;
+      function GetDoorWay(): TDoorWay; // or nil if the door isn't in a doorway
+      // GetLock() could work a similar way
+      function GetMatcherFlags(): TMatcherFlags; override;
+    public
+      const mfOpen: TMatcherFlag = 1;
+      const mfClosed: TMatcherFlag = 2;
+      constructor Create(Name: UTF8String; Pattern: UTF8String; FrontSide, BackSide: TFeature);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+      property DoorWay: TDoorWay read GetDoorWay; // can be nil, if the door is not in a doorway
+   end;
+
+// XXX
+// open door
+// close door
+// take door
+// put door in doorway
+// hang door in doorway
+*)
    TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
     public
       constructor Create(Landmark: TThing; Surface: TThing);
@@ -44,7 +109,7 @@ function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TTh
 implementation
 
 uses
-   thingdim, lists;
+   thingdim, lists, exceptions;
 
 function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing; Flags: TLocation.TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
 begin
@@ -54,6 +119,21 @@ begin
    Result.AddLandmark(Threshold.FrontSideFacesDirection, FrontLocation, [loAutoDescribe, loPermissibleNavigationTarget]);
    BackLocation.AddLandmark(Threshold.FrontSideFacesDirection, Result, Flags);
    Result.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], BackLocation, [loAutoDescribe, loPermissibleNavigationTarget]);
+end;
+
+
+constructor TStaticThresholdThing.Read(Stream: TReadStream);
+begin
+   inherited;
+   FFrontSideDescription := Stream.ReadString();
+   FBackSideDescription := Stream.ReadString();
+end;
+
+procedure TStaticThresholdThing.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteString(FFrontSideDescription);
+   Stream.WriteString(FBackSideDescription);
 end;
 
 
@@ -67,35 +147,42 @@ constructor TThresholdThing.Read(Stream: TReadStream);
 begin
    inherited;
    FFrontSideFacesDirection := TCardinalDirection(Stream.ReadCardinal());
-   FFrontSideDescription := Stream.ReadString();
-   FBackSideDescription := Stream.ReadString();
 end;
 
 procedure TThresholdThing.Write(Stream: TWriteStream);
 begin
    inherited;
    Stream.WriteCardinal(Cardinal(FFrontSideFacesDirection));
-   Stream.WriteString(FFrontSideDescription);
-   Stream.WriteString(FBackSideDescription);
 end;
 
-function TThresholdThing.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
+
+function TStaticThresholdThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
+var
+   SubjectiveInformation: TSubjectiveInformation;
+   Direction: TCardinalDirection;
 begin
+   SubjectiveInformation := Perspective.Locate(Self);
+   if (PopCnt(Cardinal(SubjectiveInformation.Directions)) <> 1) then
+   begin
+      // e.g. if you're right there at the archway or whatever
+      Result := inherited;
+      exit;
+   end;
+   XXX; // convert SubjectiveInformation.Directions into a single Direction
    Assert(Direction in [FFrontSideFacesDirection, cdReverse[FFrontSideFacesDirection]]);
-   Result := 'Looking ' + CardinalDirectionToString(Direction) + ', you see ' + GetIndefiniteName(Perspective) + '. ';
    if (Direction = FFrontSideFacesDirection) then
    begin
       if (FFrontSideDescription <> '') then
-         Result := Result + FFrontSideDescription
+         Result := FFrontSideDescription
       else
-         Result := Result + FDescription;
+         Result := inherited;
    end
    else
    begin
       if (FBackSideDescription <> '') then
-         Result := Result + FBackSideDescription
+         Result := FBackSideDescription
       else
-         Result := Result + FDescription;
+         Result := inherited;
    end;
 end;
 

@@ -2214,7 +2214,7 @@ procedure TestMechanics2();
       WestRoom := TGroundLocation.Create('West Room', 'the West room', 'a West room', 'This is the room on the west side of the door frame.', CreateStoneSurface());
 
       { The Door }
-      DoorFrame := TThresholdThing.Create('door frame', '((door frame/frames?) door/doors)@', 'The door frame is a frame around where a door would go.', cdEast);
+      DoorFrame := TStaticThresholdThing.Create('door frame', '((door frame/frames?) door/doors)@', 'The door frame is a frame around where a door would go.', cdEast);
       Doorway := ConnectThreshold(EastRoom, WestRoom, DoorFrame, CreateStoneSurface());
 
       { World }

@@ -72,7 +72,7 @@ begin
    SkyBox := TBackdrop.Create(Sky, tpAtImplicit);
    World.AddLocation(SkyBox);
 
-   Archway := TThresholdThing.Create('archway', 'unnotable? (arch/arches archway/archways)@', 'The archway has no notable features.', cdSouth);
+   Archway := TStaticThresholdThing.Create('archway', 'unnotable? (arch/arches archway/archways)@', 'The archway has no notable features.', cdSouth);
 
    Room1 := TGroundLocation.Create('Room', 'a room', 'the room', 'Nothing is particularly noteworthy about this location.', CreateEarthSurface());
    Room1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
