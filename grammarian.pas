@@ -46,8 +46,9 @@ const
 type
    { Ambiguous means that the placement is made explicit in the name (e.g. "rim" + "of bag") }
    { Implicit means that the thing isn't mentioned when looking at its parent }
-   { Currently, only one tpOpening is allowed per thing. We could relax this by changing GetInside() to GetOpenings() and making
-     everything disambiguate wherever we are currently using GetInside() instead of having it assume it's one or nil. }
+   { Currently, only one tpOpening is allowed per thing, and IsChildTraversable() must always return true for that child.
+     We could relax this by changing GetInside() to GetOpenings() and making everything disambiguate wherever we are currently
+     using GetInside() instead of having it assume it's one or nil. }
    { See further notes below for other implications of these values }
    TThingPosition = (tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit,
                      tpDirectionalOpening, tpDirectionalPath,
