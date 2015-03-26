@@ -51,7 +51,8 @@ procedure CompilePattern(S: UTF8String; out Singular: TMatcher; out Plural: TMat
    Tokens and nested lists can be split with a "/" to indicate alternative singular/plural forms.
    Tokens and nested lists can be suffixed (after the suffixes mentioned above) with ":" and an
    integer in the range 0..31 to indicate a flag that must be matched for that token or list to be
-   considered.
+   considered. Flag indices are zero-based. (TMatcherFlags' least-significant-bit corresponds to
+   flag zero, the second bit corresponds to flag 1, and so forth.)
    Special characters can be escaped using \.
 
    Examples:
