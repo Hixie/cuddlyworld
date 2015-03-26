@@ -64,7 +64,7 @@ const
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
    tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
    tpOpening = [tpSurfaceOpening, tpDirectionalOpening];
-   tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpAt, tpOn, tpPlantedIn, tpDirectionalPath]; { thinsg that the user can refer to as being "on" then parent }
+   tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpAt, tpOn, tpPlantedIn, tpDirectionalPath]; { things that the user can refer to as being "on" then parent }
    tpArguablyInside = [tpPlantedInImplicit, tpPlantedIn, tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
    tpOutside = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpCarried]; { things that count towards OutsideSizeManifest }
    tpSurface = [tpPlantedInImplicit, tpOn, tpPlantedIn]; { things that count towards SurfaceSizeManifest }
