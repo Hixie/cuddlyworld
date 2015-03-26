@@ -45,10 +45,10 @@ type
    end;
 
 type
-   TThingFeature = (tfDiggable, tfCanDig, tfExaminingReads,
+   TThingFeature = (tfDiggable, tfCanDig, tfExaminingReads, tfOpenable, tfClosable,
                     tfCanHaveThingsPushedOn, { e.g. it has a ramp, or a surface flush with its container -- e.g. holes can have things pushed onto them }
                     tfCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
-   TThingFeatures = set of TThingFeature;
+   TThingFeatures = set of TThingFeature; // as returned by GetFeatures()
    TFindMatchingThingsOption = (foIncludePerspectiveChildren, // e.g. not used by "take all"
                                 foIncludeNonImplicits, // e.g. usd by "debug things" to make the avatars be included in the list; not used by "take all" so that avatars aren't picked up
                                 foFromOutside);
@@ -110,10 +110,10 @@ type
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); virtual;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
-      procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
+      procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual; // see note [proxy]
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
-      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
+      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual; // see note [proxy]
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
 
       // Atom identity
@@ -208,7 +208,7 @@ type
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; virtual; // various
       function GetDescriptionWriting(Perspective: TAvatar): UTF8String; virtual; // 'there is no...'
 
-      // Misc (these should be moved up at some point)
+      // Misc (these should be organised at some point)
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
@@ -218,10 +218,15 @@ type
       procedure Shake(Perspective: TAvatar); virtual;
       procedure Press(Perspective: TAvatar); virtual;
       function GetFeatures(): TThingFeatures; virtual;
-      function CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
-      function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
-      procedure Dug(Target: TThing; Perspective: TAvatar; var Message: TMessage); virtual;
+      function CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // can this be used as a digging tool to dig the given target?
+      function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // can this be dug by the given spade? if so, do it
+      procedure Dug(Target: TThing; Perspective: TAvatar; var Message: TMessage); virtual; // this was used as a digging tool to dig the given target
       function IsOpen(): Boolean; virtual;
+      function CanSeeIn(): Boolean; virtual; // must return true if IsOpen() is true
+      function CanSeeOut(): Boolean; virtual; // must return true if IsOpen() is true
+      function Open(Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // can this be opened? if so, do it
+      function Close(Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // can this be closed? if so, do it
+      // XXX eventually we should add opening and closing tools, just like we have digging tools
       {$IFDEF DEBUG} function Debug(): UTF8String; override; {$ENDIF}
       property Parent: TAtom read FParent;
       property Position: TThingPosition read FPosition write FPosition;
@@ -337,7 +342,7 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Persp
       TThresholdLocation.GetEntrance() fast-forwards you to the other side.
 }
 
-{ Note [context]: 
+{ Note [context]:
     Several of the description methods have a Context argument.
     This represents the object from which we are getting a
     description. For example, if you are next to a pedestal and you
@@ -347,6 +352,14 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Persp
     then the pedestal will talk about itself and it's important that
     the pedestal not be mentioned again by the room when the room
     gives its "horizon" description.
+  Note [proxy]:
+    Some of the APIs have "Proxy" in their name and, by default, just
+    defer to the same APIs without "Proxy" in their name. These are
+    called on landmarks, and are used by TThresholdLocation to defer
+    to the master thing rather than including everything at the
+    location. This is why, e.g., you can refer to the door knob on a
+    door in a room, but not refer to the stain on the floor by the
+    door unless you are actually standing right there at the door.
 }
 
 procedure QueueForDisposal(Atom: TAtom);
@@ -828,7 +841,7 @@ begin
          if (Child.FindThingTraverser(Thing, Perspective, True)) then
          begin
             Result := True;
-            Exit;
+            exit;
          end;
    Result := False;
 end;
@@ -1063,7 +1076,7 @@ var
 begin
    if (Self is Filter) then
       List.AppendItem(Self);
-   if (FromOutside and IsOpen()) then
+   if (FromOutside and CanSeeOut()) then
    begin
       for Child in FChildren do
          if (Child.Position in tpContained) then
@@ -1289,10 +1302,15 @@ begin
       if (not (Direction in cdPhysicalDirections)) then
       begin
          Assert(Direction = cdOut);
-         if ((Perspective.Position in tpContained) and (not IsOpen())) then
+         if ((Perspective.Position in tpContained) and (not CanSeeOut())) then
+         begin
+            Assert(not IsOpen(), 'if something is open, CanSeeOut() and CanSeeIn() should be true');
             Result := GetDescriptionClosed(Perspective)
+         end
          else
+         begin
             Result := FParent.GetRepresentative().GetDescriptionRemoteDetailed(Perspective, Direction);
+         end;
       end
       else
       if (Perspective.Position in tpDeferNavigationToParent) then
@@ -1315,7 +1333,7 @@ var
    Contents: UTF8String;
    {$IFOPT C+} Child: TThing; {$ENDIF}
 begin
-   if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
+   if (CanSeeIn() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
    begin
       {$IFOPT C+}
          for Child in FChildren do
@@ -1396,7 +1414,7 @@ function TThing.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescri
 var
    Additional: UTF8String;
 begin
-   if (IsOpen() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
+   if (CanSeeIn() or ((Perspective.Parent = Self) and (Perspective.Position in tpContained))) then
       Result := GetDescriptionIn(Perspective, Options, Prefix)
    else
       Result := '';
@@ -1636,7 +1654,7 @@ end;
 
 function TThing.IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 begin
-   Result := ((not (Child.Position in tpContained)) or (not FromOutside) or (IsOpen()));
+   Result := ((not (Child.Position in tpContained)) or (not FromOutside) or (CanSeeIn()));
 end;
 
 function TThing.IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean;
@@ -1720,14 +1738,45 @@ begin
    Result := False;
 end;
 
+function TThing.CanSeeIn(): Boolean;
+begin
+   Result := IsOpen();
+end;
+
+function TThing.CanSeeOut(): Boolean;
+begin
+   Result := IsOpen();
+end;
+
+function TThing.Open(Perspective: TAvatar; var Message: TMessage): Boolean;
+begin
+   if (IsOpen()) then
+      Message := TMessage.Create(mkRedundant, '_ is already open.', [Capitalise(GetDefiniteName(Perspective))])
+   else
+      Message := TMessage.Create(mkBogus, 'How to open _ is not readily apparent.', [GetDefiniteName(Perspective)]);
+   Result := False;
+end;
+
+function TThing.Close(Perspective: TAvatar; var Message: TMessage): Boolean;
+begin
+   if (not IsOpen()) then
+      Message := TMessage.Create(mkRedundant, '_ is not open.', [Capitalise(GetDefiniteName(Perspective))])
+   else
+      Message := TMessage.Create(mkBogus, 'How to close _ is not readily apparent.', [GetDefiniteName(Perspective)]);
+   Result := False;
+end;
+
 {$IFDEF DEBUG}
 function TThing.Debug(): UTF8String;
 begin
    Result := inherited;
    Result := Result + #10 +
+             // XXX should give GetFeatures() set
              'IsPlural: ' + TernaryConditional('singular', 'plural', IsPlural(nil)) + #10 +
              'Position: ' + ThingPositionToString(FPosition) + ' ' + FParent.GetName(nil) + #10 +
              'IsOpen: ' + TernaryConditional('closed', 'open', IsOpen()) + #10 +
+             'CanSeeIn: ' + TernaryConditional('opaque', 'transparent', CanSeeIn()) + #10 +
+             'CanSeeOut: ' + TernaryConditional('opaque', 'transparent', CanSeeOut()) + #10 +
              'GetIntrinsicSize(): ' + UTF8String(GetIntrinsicSize()) + #10 +
              'GetSurfaceSizeManifest(): ' + UTF8String(GetSurfaceSizeManifest()) + #10;
 end;
