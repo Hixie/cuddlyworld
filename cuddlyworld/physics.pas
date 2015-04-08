@@ -50,7 +50,7 @@ type
                     tfCanHaveThingsPushedIn); { e.g. it has its entrance flush with its base, or has a lip flush with its container -- holes, bags; but not boxes }
    TThingFeatures = set of TThingFeature; // as returned by GetFeatures()
    TFindMatchingThingsOption = (foIncludePerspectiveChildren, // e.g. not used by "take all"
-                                foIncludeNonImplicits, // e.g. usd by "debug things" to make the avatars be included in the list; not used by "take all" so that avatars aren't picked up
+                                foIncludeNonImplicits, // e.g. used by "debug things" to make the avatars be included in the list; not used by "take all" so that avatars aren't picked up
                                 foFromOutside);
    TFindMatchingThingsOptions = set of TFindMatchingThingsOption;
 
@@ -65,6 +65,9 @@ type
                                 psOnThatThingIsAThing { nested look },
                                 psTheThingIsOnThatThing { find },
                                 psOnThatSpecialThing { find (something far away) -- only if parent is TThing, not TLocation });
+
+type
+   TPlacementStyle = (psRoughly, psCarefully);
 
 type
    TThingReporter = procedure (Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber) of object;
@@ -86,12 +89,14 @@ type
       procedure Write(Stream: TWriteStream); override;
 
       // Moving things around
+      function GetObtrusiveObstacles: TThingList;
+      procedure AddObtrusiveObstacles(List: TThingList); virtual;
       procedure Add(Thing: TThing; Position: TThingPosition);
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
       procedure Remove(Thing: TThingList.TEnumerator);
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
-      procedure Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar); virtual;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
+      procedure Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); virtual;
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { external size of the object (e.g. to decide if it fits inside another): self and children that are tpOutside; add tpContained children if container is flexible }
       function GetInsideSizeManifest(): TThingSizeManifest; virtual; { only children that are tpContained }
@@ -167,7 +172,7 @@ type
       // Moving things around
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); override;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; override;
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
       function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
@@ -214,7 +219,7 @@ type
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract; // compares Tokens to FName, essentially
       procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
-      procedure Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar); virtual;
+      procedure Moved(OldParent: TAtom; Care: TPlacementStyle; Perspective: TAvatar); virtual;
       procedure Shake(Perspective: TAvatar); virtual;
       procedure Press(Perspective: TAvatar); virtual;
       function GetFeatures(): TThingFeatures; virtual;
@@ -371,7 +376,7 @@ procedure EmptyDisposalQueue();
 implementation
 
 uses
-   sysutils, broadcast;
+   sysutils, broadcast, exceptions;
 
 procedure TSubjectiveInformation.Reset();
 begin
@@ -454,11 +459,11 @@ begin
       //Assert(ATo is TThing, 'if you want to be "on" a TLocation, give it a surface available from GetSurface()');
       DisambiguationOpening := nil;
       Message := TMessage.Create(mkSuccess, '');
-      Success := ATo.CanPut(Perspective, Position, Perspective, Message);
+      Success := ATo.CanPut(Perspective, Position, psCarefully, Perspective, Message);
       if (Success) then
       begin
          ATo.Add(Perspective, Position);
-         // XXX announcements
+         // XXX announcements, like AnnounceArrival() and co
          Perspective.DoLook();
       end
       else
@@ -581,6 +586,21 @@ begin
 end;
 {$ENDIF}
 
+function TAtom.GetObtrusiveObstacles: TThingList;
+begin
+   Result := TThingList.Create([slDropDuplicates]);
+   AddObtrusiveObstacles(Result);
+end;
+
+procedure TAtom.AddObtrusiveObstacles(List: TThingList);
+var
+   Child: TThing;
+begin
+   for Child in FChildren do
+      if (Child.FPosition in tpObtrusive) then
+         List.AppendItem(Child);
+end;
+
 procedure TAtom.Add(Thing: TThing; Position: TThingPosition);
 {$IFOPT C+}
 var
@@ -644,7 +664,7 @@ procedure TAtom.Removed(Thing: TThing);
 begin
 end;
 
-function TAtom.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
+function TAtom.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if (ThingPosition = tpOn) then
    begin
@@ -677,7 +697,7 @@ begin
    end;
 end;
 
-procedure TAtom.Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
+procedure TAtom.Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar);
 var
    OldParent: TAtom;
    {$IFOPT C+} ParentSearch: TAtom; {$ENDIF}
@@ -692,7 +712,7 @@ begin
       Assert(ParentSearch <> Thing);
    until (not (ParentSearch is TThing));
    {$ENDIF}
-   Thing.Moved(OldParent, Carefully, Perspective);
+   Thing.Moved(OldParent, Care, Perspective);
    HandleAdd(Thing, Perspective);
 end;
 
@@ -862,6 +882,7 @@ end;
 
 function TAtom.GetSummaryName(Perspective: TAvatar): UTF8String;
 begin
+   XXX;
    Result := GetName(Perspective);
 end;
 
@@ -1029,6 +1050,7 @@ end;
 
 function TAtom.IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 begin
+   Assert(Child.FParent = Self);
    Result := True;
 end;
 
@@ -1144,7 +1166,7 @@ begin
    begin
       if (Result = Self) then
       begin
-         if (not CanPut(Traveller, PositionOverride, Perspective, Message)) then
+         if (not CanPut(Traveller, PositionOverride, psCarefully, Perspective, Message)) then
             Result := nil;
       end
       else
@@ -1180,6 +1202,7 @@ function TThing.GetSummaryName(Perspective: TAvatar): UTF8String;
 var
    Context: TAtom;
 begin
+   XXX;
    Result := inherited;
    Assert(Assigned(FParent));
    Context := FParent.GetRepresentative();
@@ -1568,7 +1591,7 @@ begin
    Result := 'There is no discernible writing on ' + GetDefiniteName(Perspective) + '.';
 end;
 
-function TThing.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
+function TThing.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if ((ThingPosition = tpIn) and (not IsOpen())) then
    begin
@@ -1654,6 +1677,7 @@ end;
 
 function TThing.IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
 begin
+   Assert(Child.FParent = Self);
    Result := ((not (Child.Position in tpContained)) or (not FromOutside) or (CanSeeIn()));
 end;
 
@@ -1693,7 +1717,7 @@ begin
    inherited;
 end;
 
-procedure TThing.Moved(OldParent: TAtom; Carefully: Boolean; Perspective: TAvatar);
+procedure TThing.Moved(OldParent: TAtom; Care: TPlacementStyle; Perspective: TAvatar);
 begin
    // XXX should be more specific about where things are going, e.g. 'takes x', 'drops x', 'puts x on y', 'moves x around' (if oldparent=newparent)
    DoBroadcast([OldParent, FParent], Perspective, [C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), M('.')]);

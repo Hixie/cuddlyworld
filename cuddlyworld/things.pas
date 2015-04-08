@@ -8,12 +8,13 @@ uses
    storable, physics, messages, thingdim, grammarian, matcher;
 
 type
-   TNamedThing = class(TThing)
+   TNamedThing = class abstract (TThing)
     protected
-      FName, FLongName: UTF8String;
+      FName, FCachedLongName: UTF8String;
+      FCachedLongNameMatcherFlags: TMatcherFlags;
       FSingularPattern, FPluralPattern: TMatcher;
       FPlural: Boolean;
-      function GetMatcherFlags(): TMatcherFlags; virtual;
+      function GetMatcherFlags(Perspective: TAvatar): TMatcherFlags; virtual;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String);
       destructor Destroy(); override;
@@ -25,36 +26,55 @@ type
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
       {$IFDEF DEBUG} function Debug(): UTF8String; override; {$ENDIF}
-      property LongName: UTF8String read FLongName write FLongName;
       property Plural: Boolean read FPlural write FPlural;
    end;
 
-   // Things that never change: MacGuffins, set pieces, and other non-interactive nouns
-   TStaticThing = class(TNamedThing) // @RegisterStorableClass
+   // things that have a description
+   TDescribedThing = class abstract (TNamedThing)
     protected
       FDescription: UTF8String;
+    public
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+   end;
+
+   // Things that have a specific mass and size
+   TPhysicalThing = class abstract (TNamedThing)
+    protected
       FMass: TThingMass;
       FSize: TThingSize;
     public
-      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize);
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Mass: TThingMass; Size: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
-      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       property Mass: TThingMass read FMass write FMass;
       property Size: TThingSize read FSize write FSize;
    end;
 
+   // Things that never change: MacGuffins, set pieces, and other non-interactive nouns
+   TDescribedPhysicalThing = class(TPhysicalThing) // @RegisterStorableClass
+    protected
+      FDescription: UTF8String;
+    public
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+   end;
+
    // Things that are really just aspects of other things
-   TFeature = class(TStaticThing) // @RegisterStorableClass
+   TFeature = class(TDescribedPhysicalThing) // @RegisterStorableClass
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
    // Things that never change and don't even ever move and are typically gigantic
-   TScenery = class(TStaticThing) // @RegisterStorableClass
+   TScenery = class(TDescribedPhysicalThing) // @RegisterStorableClass
     protected
       FUnderDescription: UTF8String;
       FFindDescription: UTF8String;
@@ -101,7 +121,7 @@ type
    end;
 
    // The ground, mainly
-   TSurface = class(TStaticThing) // @RegisterStorableClass
+   TSurface = class(TDescribedPhysicalThing) // @RegisterStorableClass
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -130,7 +150,7 @@ type
    end;
 
    // Open boxes, crates, etc
-   TContainer = class(TStaticThing) // @RegisterStorableClass
+   TContainer = class(TDescribedPhysicalThing) // @RegisterStorableClass
      public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
@@ -138,7 +158,7 @@ type
       function GetFeatures(): TThingFeatures; override;
    end;
 
-   TSpade = class(TStaticThing) // @RegisterStorableClass
+   TSpade = class(TDescribedPhysicalThing) // @RegisterStorableClass
     public
       constructor Create();
       function GetFeatures(): TThingFeatures; override;
@@ -162,9 +182,8 @@ type
 
    // More complicated things
 
-   TBag = class(TNamedThing) // @RegisterStorableClass
+   TBag = class(TDescribedThing) // @RegisterStorableClass
     protected
-      FDescription: UTF8String;
       FMaxSize: TThingSize;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; MaxSize: TThingSize);
@@ -173,7 +192,6 @@ type
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
-      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
@@ -182,9 +200,8 @@ type
 
    TPileClass = class of TPile;
 
-   THole = class(TNamedThing) // @RegisterStorableClass
+   THole = class(TDescribedThing) // @RegisterStorableClass
     protected
-      FDescription: UTF8String;
       FSize: TThingSize;
       FPileClass: TPileClass;
     public
@@ -193,7 +210,6 @@ type
       procedure Write(Stream: TWriteStream); override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; override;
-      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionState(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override;
       function GetLookUnder(Perspective: TAvatar): UTF8String; override;
@@ -205,7 +221,7 @@ type
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function IsOpen(): Boolean; override;
       procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
@@ -213,21 +229,15 @@ type
       function GetFeatures(): TThingFeatures; override;
    end;
 
-   TPile = class(TNamedThing) // @RegisterStorableClass
+   TPile = class(TDescribedPhysicalThing) // @RegisterStorableClass
     protected
       FIngredient: UTF8String;
-      FDescription: UTF8String;
-      FMass: TThingMass;
-      FSize: TThingSize;
     public
-      constructor Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize); { ingredient must be canonical plural form }
+      constructor Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize); { ingredient must be canonical plural form }
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetIntrinsicMass(): TThingMass; override;
-      function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function GetLookUnder(Perspective: TAvatar): UTF8String; override;
-      function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String): UTF8String; override;
       function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String; override;
       function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; override;
@@ -239,13 +249,13 @@ type
 
    TEarthPile = class(TPile) // @RegisterStorableClass
     public
-      constructor Create(Size: TThingSize);
+      constructor Create(ASize: TThingSize);
    end;
 
 implementation
 
 uses
-   sysutils, broadcast;
+   sysutils, broadcast, exceptions;
 
 constructor TNamedThing.Create(Name: UTF8String; Pattern: UTF8String);
 var
@@ -254,6 +264,7 @@ var
    {$IFOPT C+} NameIsPlural: Boolean; {$ENDIF}
 begin
    inherited Create();
+   FCachedLongNameMatcherFlags := mfUnset;
    FName := Name;
    {$IFOPT C+} Assert(HasSingularVsPluralAnnotation(Pattern), 'The ' + Name + ' needs explicit singular and plural patterns (no slashes found in "' + Pattern + '").'); {$ENDIF}
    CompilePattern(Pattern, FSingularPattern, FPluralPattern);
@@ -265,10 +276,6 @@ begin
         Assert(False, 'Default name ("' + Name + '") does not match given pattern ("' + Pattern + '")');
    {$ENDIF}
    FPlural := not NameIsSingular;
-   if (FPlural) then
-      FLongName := FPluralPattern.GetCanonicalMatch(' ')
-   else
-      FLongName := FSingularPattern.GetCanonicalMatch(' ');
 end;
 
 destructor TNamedThing.Destroy();
@@ -281,8 +288,8 @@ end;
 constructor TNamedThing.Read(Stream: TReadStream);
 begin
    inherited;
+   FCachedLongNameMatcherFlags := mfUnset;
    FName := Stream.ReadString();
-   FLongName := Stream.ReadString();
    FSingularPattern := Stream.ReadObject() as TMatcher;
    FPluralPattern := Stream.ReadObject() as TMatcher;
    FPlural := Stream.ReadBoolean();
@@ -292,13 +299,12 @@ procedure TNamedThing.Write(Stream: TWriteStream);
 begin
    inherited;
    Stream.WriteString(FName);
-   Stream.WriteString(FLongName);
    Stream.WriteObject(FSingularPattern);
    Stream.WriteObject(FPluralPattern);
    Stream.WriteBoolean(FPlural);
 end;
 
-function TNamedThing.GetMatcherFlags(): TMatcherFlags;
+function TNamedThing.GetMatcherFlags(Perspective: TAvatar): TMatcherFlags;
 begin
    Result := 0;
 end;
@@ -310,6 +316,7 @@ end;
 
 function TNamedThing.GetSummaryName(Perspective: TAvatar): UTF8String;
 begin
+   XXX;
    Result := FName;
    Assert(Assigned(FParent));
    case FPosition of
@@ -318,8 +325,29 @@ begin
 end;
 
 function TNamedThing.GetLongName(Perspective: TAvatar): UTF8String;
+var
+   CurrentFlags: TMatcherFlags;
 begin
-   Result := FLongName;
+   CurrentFlags := GetMatcherFlags(Perspective);
+   if (FCachedLongNameMatcherFlags <> CurrentFlags) then
+   begin
+      if (FPlural) then
+      begin
+         FCachedLongName := FPluralPattern.GetCanonicalMatch(' ', CurrentFlags);
+         Assert(FCachedLongName <> '', 'Couldn''t get a long name out of:'#10 + FPluralPattern.GetPatternDescription());
+      end
+      else
+      begin
+         FCachedLongName := FSingularPattern.GetCanonicalMatch(' ', CurrentFlags);
+         Assert(FCachedLongName <> '', 'Couldn''t get a long name out of:'#10 + FSingularPattern.GetPatternDescription());
+      end;
+      FCachedLongNameMatcherFlags := CurrentFlags;
+   end
+   else
+   begin
+      Assert(FCachedLongName <> '', 'Flags were already ' + IntToStr(FCachedLongNameMatcherFlags) + ' but didn''t have a cached name.');
+   end;
+   Result := FCachedLongName;
 end;
 
 function TNamedThing.IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean;
@@ -328,13 +356,13 @@ var
 begin
    Result := False;
    GrammaticalNumber := [];
-   Count := FSingularPattern.Matches(Tokens, Start, GetMatcherFlags());
+   Count := FSingularPattern.Matches(Tokens, Start, GetMatcherFlags(Perspective));
    if (Count > 0) then
    begin
       Result := True;
       GrammaticalNumber := [gnSingular];
    end;
-   PossibleCount := FPluralPattern.Matches(Tokens, Start, GetMatcherFlags());
+   PossibleCount := FPluralPattern.Matches(Tokens, Start, GetMatcherFlags(Perspective));
    if ((PossibleCount > 0) and (PossibleCount >= Count)) then
    begin
       if (Count = PossibleCount) then
@@ -365,41 +393,81 @@ end;
 {$ENDIF}
 
 
-constructor TStaticThing.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize);
+constructor TDescribedThing.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
 begin
    inherited Create(Name, Pattern);
    FDescription := Description;
+end;
+
+constructor TDescribedThing.Read(Stream: TReadStream);
+begin
+   inherited;
+   FDescription := Stream.ReadString();
+end;
+
+procedure TDescribedThing.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteString(FDescription);
+end;
+
+function TDescribedThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
+begin
+   Result := FDescription;
+end;
+
+
+constructor TPhysicalThing.Create(Name: UTF8String; Pattern: UTF8String; Mass: TThingMass; Size: TThingSize);
+begin
+   inherited Create(Name, Pattern);
    FMass := Mass;
    FSize := Size;
 end;
 
-constructor TStaticThing.Read(Stream: TReadStream);
+constructor TPhysicalThing.Read(Stream: TReadStream);
 begin
    inherited;
-   FDescription := Stream.ReadString();
    FMass := TThingMass(Stream.ReadCardinal());
    FSize := TThingSize(Stream.ReadCardinal());
 end;
 
-procedure TStaticThing.Write(Stream: TWriteStream);
+procedure TPhysicalThing.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteString(FDescription);
    Stream.WriteCardinal(Cardinal(FMass));
    Stream.WriteCardinal(Cardinal(FSize));
 end;
 
-function TStaticThing.GetIntrinsicMass(): TThingMass;
+function TPhysicalThing.GetIntrinsicMass(): TThingMass;
 begin
    Result := FMass;
 end;
 
-function TStaticThing.GetIntrinsicSize(): TThingSize;
+function TPhysicalThing.GetIntrinsicSize(): TThingSize;
 begin
    Result := FSize;
 end;
 
-function TStaticThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
+
+constructor TDescribedPhysicalThing.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize);
+begin
+   inherited Create(Name, Pattern, AMass, ASize);
+   FDescription := Description;
+end;
+
+constructor TDescribedPhysicalThing.Read(Stream: TReadStream);
+begin
+   inherited;
+   FDescription := Stream.ReadString();
+end;
+
+procedure TDescribedPhysicalThing.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteString(FDescription);
+end;
+
+function TDescribedPhysicalThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
 end;
@@ -808,22 +876,19 @@ end;
 
 constructor TBag.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; MaxSize: TThingSize);
 begin
-   inherited Create(Name, Pattern);
-   FDescription := Description;
+   inherited Create(Name, Pattern, Description);
    FMaxSize := MaxSize;
 end;
 
 constructor TBag.Read(Stream: TReadStream);
 begin
    inherited;
-   FDescription := Stream.ReadString();
    FMaxSize := TThingSize(Stream.ReadCardinal());
 end;
 
 procedure TBag.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteString(FDescription);
    Stream.WriteCardinal(Cardinal(FMaxSize));
 end;
 
@@ -840,11 +905,6 @@ end;
 function TBag.GetOutsideSizeManifest(): TThingSizeManifest;
 begin
    Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
-end;
-
-function TBag.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
-begin
-   Result := FDescription;
 end;
 
 function TBag.GetInside(var PositionOverride: TThingPosition): TAtom;
@@ -871,8 +931,7 @@ end;
 
 constructor THole.Create(Description: UTF8String; Size: TThingSize; PileClass: TPileClass);
 begin
-   inherited Create('hole', 'hole/holes');
-   FDescription := Description;
+   inherited Create('hole', 'hole/holes', Description);
    FSize := Size;
    FPileClass := PileClass;
 end;
@@ -882,7 +941,6 @@ var
    PileClass: TClass;
 begin
    inherited;
-   FDescription := Stream.ReadString();
    FSize := TThingSize(Stream.ReadCardinal());
    {$IFOPT C-} {$HINT This could be optimised further in non-debug builds.} {$ENDIF}
    PileClass := Stream.ReadClass();
@@ -893,7 +951,6 @@ end;
 procedure THole.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteString(FDescription);
    Stream.WriteCardinal(Cardinal(FSize));
    Stream.WriteClass(FPileClass);
 end;
@@ -934,11 +991,6 @@ begin
    end;
    if (Length(Result) = 0) then
       Result := inherited;
-end;
-
-function THole.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
-begin
-   Result := FDescription;
 end;
 
 function THole.GetDescriptionState(Perspective: TAvatar): UTF8String;
@@ -1050,7 +1102,7 @@ begin
                                         GetIndefiniteName(Perspective)]);
 end;
 
-function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
+function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if (ThingPosition = tpOn) then
    begin
@@ -1223,7 +1275,7 @@ begin
 end;
 
 
-constructor TPile.Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; Mass: TThingMass; Size: TThingSize);
+constructor TPile.Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize);
 var
    Index: Cardinal;
    Pattern: UTF8String;
@@ -1242,39 +1294,20 @@ begin
       Pattern := Pattern + ' ' + SingularIngredients[Index] + '/' + PluralIngredients[Index];
    end;
    Pattern := Pattern + ')@';
-   inherited Create('pile of ' + PluralIngredients[0], Pattern);
+   inherited Create('pile of ' + PluralIngredients[0], Pattern, Description, AMass, ASize);
    FIngredient := PluralIngredients[0];
-   FDescription := Description;
-   FMass := Mass;
-   FSize := Size;
 end;
 
 constructor TPile.Read(Stream: TReadStream);
 begin
    inherited;
    FIngredient := Stream.ReadString();
-   FDescription := Stream.ReadString();
-   FMass := TThingMass(Stream.ReadCardinal());
-   FSize := TThingSize(Stream.ReadCardinal());
 end;
 
 procedure TPile.Write(Stream: TWriteStream);
 begin
    inherited;
    Stream.WriteString(FIngredient);
-   Stream.WriteString(FDescription);
-   Stream.WriteCardinal(Cardinal(TThingMass(FMass)));
-   Stream.WriteCardinal(Cardinal(TThingSize(FSize)));
-end;
-
-function TPile.GetIntrinsicMass(): TThingMass;
-begin
-   Result := FMass;
-end;
-
-function TPile.GetIntrinsicSize(): TThingSize;
-begin
-   Result := FSize;
 end;
 
 function TPile.GetOutsideSizeManifest(): TThingSizeManifest;
@@ -1285,11 +1318,6 @@ end;
 function TPile.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    Result := 'Digging through ' + GetDefiniteName(Perspective) + ' to the bottom, you find ' + FParent.GetIndefiniteName(Perspective) + '.';
-end;
-
-function TPile.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
-begin
-   Result := FDescription;
 end;
 
 function TPile.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String): UTF8String;
@@ -1337,9 +1365,9 @@ begin
 end;
 
 
-constructor TEarthPile.Create(Size: TThingSize);
+constructor TEarthPile.Create(ASize: TThingSize);
 begin
-   inherited Create(['earth', 'dirt', 'soil'], ['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, Size], Size);
+   inherited Create(['earth', 'dirt', 'soil'], ['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, ASize], ASize);
 end;
 
 

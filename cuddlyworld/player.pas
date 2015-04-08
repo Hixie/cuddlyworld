@@ -35,7 +35,7 @@ type
       procedure DoFind(Subject: TThing);
       procedure DoLookUnder(Subject: TThing);
       procedure DoTake(Subject: TThingList);
-      procedure DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
+      procedure DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
       procedure DoMove(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition);
       procedure DoPush(Subject: TThingList; Direction: TCardinalDirection);
       procedure DoRemove(Subject: TThingList; RequiredPosition: TThingPosition; RequiredParent: TThing);
@@ -43,6 +43,8 @@ type
       procedure DoShake(Subject: TThingList);
       procedure DoDig(Target: TThing; Spade: TThing);
       procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
+      procedure DoOpen(Subject: TThing);
+      procedure DoClose(Subject: TThing);
       procedure DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
       procedure DoDance();
       {$IFDEF DEBUG}
@@ -125,7 +127,7 @@ type
    TActionVerb = (avNone,
                   avLook, avLookDirectional, avLookAt, avExamine, avRead, avLookUnder, avLookIn, avInventory, avFind,
                   avGo, avEnter, avClimbOn,
-                  avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection,
+                  avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
                   avTalk, avDance,
                   {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugThings, avDebugThing, avDebugTeleport, {$ENDIF}
                   avHelp, avQuit);
@@ -151,13 +153,15 @@ type
       avEnter: (EnterSubject: TThing);
       avClimbOn: (ClimbOnSubject: TThing);
       avTake: (TakeSubject: TThingList);
-      avPut: (PutSubject: TThingList; PutTarget: TAtom; PutPosition: TThingPosition; PutCarefully: Boolean);
+      avPut: (PutSubject: TThingList; PutTarget: TAtom; PutPosition: TThingPosition; PutCare: TPlacementStyle);
       avMove: (MoveSubject: TThingList; MoveTarget: TAtom; MovePosition: TThingPosition);
       avPush: (PushSubject: TThingList; PushDirection: TCardinalDirection);
       avRemove: (RemoveSubject: TThingList; RemoveFromPosition: TThingPosition; RemoveFromObject: TThing);
       avPress: (PressSubject: TThingList);
       avShake: (ShakeSubject: TThingList);
       avDig {and avDigDirection}: (DigSpade: TThing; case TActionVerb of avDig: (DigTarget: TThing); avDigDirection: (DigDirection: TCardinalDirection));
+      avOpen: (OpenTarget: TThing);
+      avClose: (CloseTarget: TThing);
       avTalk: (TalkTarget: TThing; TalkMessage: PTalkMessage; TalkVolume: TTalkVolume);
       avDance: ();
       {$IFDEF DEBUG}
@@ -234,7 +238,7 @@ var
        avEnter: DoNavigation(FParent, Action.EnterSubject, tpIn, Self);
        avClimbOn: DoNavigation(FParent, Action.ClimbOnSubject, tpOn, Self);
        avTake: DoTake(Action.TakeSubject);
-       avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCarefully);
+       avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
        avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MovePosition);
        avPush: DoPush(Action.PushSubject, Action.PushDirection);
        avRemove: DoRemove(Action.RemoveSubject, Action.RemoveFromPosition, Action.RemoveFromObject);
@@ -242,6 +246,8 @@ var
        avShake: DoShake(Action.ShakeSubject);
        avDig: DoDig(Action.DigTarget, Action.DigSpade);
        avDigDirection: DoDig(Action.DigDirection, Action.DigSpade);
+       avOpen: DoOpen(Action.OpenTarget);
+       avClose: DoClose(Action.CloseTarget);
        avTalk: DoTalk(Action.TalkTarget, Action.TalkMessage^.Message, Action.TalkVolume);
        avDance: DoDance();
        {$IFDEF DEBUG}
@@ -737,38 +743,38 @@ end;
 
 procedure TPlayer.AnnounceAppearance();
 begin
-   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, MP(Self, M('appears.'), M('appear.'))]);
+   DoBroadcast([Self], Self, [C(M(@GetIndefiniteName)), SP, MP(Self, M('appears.'), M('appear.'))]);
 end;
 
 procedure TPlayer.AnnounceDisappearance();
 begin
-   DoBroadcast(Self, [C(M(@GetIndefiniteName)), SP, MP(Self, M('disappears.'), M('disappear.'))]);
+   DoBroadcast([Self], Self, [C(M(@GetIndefiniteName)), SP, MP(Self, M('disappears.'), M('disappear.'))]);
 end;
 
 procedure TPlayer.AnnounceDeparture(Destination: TAtom; Direction: TCardinalDirection);
 begin
    if (Destination is TLocation) then
-      DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('goes'), M('go')), SP, M(CardinalDirectionToString(Direction) + '.')])
+      DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('goes'), M('go')), SP, M(CardinalDirectionToString(Direction) + '.')])
    else
-      DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('enters'), M('enter')), SP, M(@Destination.GetDefiniteName), M('.')]);
+      DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('enters'), M('enter')), SP, M(@Destination.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.AnnounceDeparture(Destination: TAtom);
 begin
-   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('enters'), M('enter')), SP, M(@Destination.GetDefiniteName), M('.')]);
+   DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('enters'), M('enter')), SP, M(@Destination.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom; Direction: TCardinalDirection);
 begin
    // XXX this relies on the rooms being symmetric
-   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDefiniteString(Direction)), M('.')]);
+   DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDefiniteString(Direction)), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom);
 begin
    // XXX could be more intelligent by querying the current location
    // e.g. "enters from" when the current location has an exit and "arrives from" when it doesn't
-   DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), M('.')]);
+   DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), M('.')]);
 end;
 
 procedure TPlayer.DoFind(Subject: TThing);
@@ -881,7 +887,7 @@ begin
                Assert((Message.AsKind = mkSuccess) = Success);
                SendMessage(Message.AsText);
                if (Success) then
-                  Self.Put(CurrentSubject, tpCarried, True, Self);
+                  Self.Put(CurrentSubject, tpCarried, psCarefully, Self);
             end;
          end;
       end;
@@ -891,7 +897,7 @@ begin
    end;
 end;
 
-procedure TPlayer.DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; PutCarefully: Boolean);
+procedure TPlayer.DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
 var
    Multiple, Success: Boolean;
    MessageText: UTF8String;
@@ -991,19 +997,21 @@ begin
                end;
                if (Success) then
                begin
-                  if (PutCarefully) then
-                     MessageText := 'Placed'
-                  else
-                     MessageText := 'Dropped';
+                  case (Care) of
+                    psCarefully: MessageText := 'Placed';
+                    psRoughly: MessageText := 'Dropped';
+                   else
+                      Assert(False);
+                  end;
                   if (Target <> FParent.GetSurface()) then
                      MessageText := MessageText + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
                   MessageText := MessageText + '.';
                   Message := TMessage.Create(mkSuccess, MessageText);
-                  Success := Target.CanPut(CurrentSubject, ThingPosition, Self, Message);
+                  Success := Target.CanPut(CurrentSubject, ThingPosition, Care, Self, Message);
                   Assert((Message.AsKind = mkSuccess) = Success);
                   SendMessage(Message.AsText);
                   if (Success) then
-                     Target.Put(CurrentSubject, ThingPosition, PutCarefully, Self);
+                     Target.Put(CurrentSubject, ThingPosition, Care, Self);
                end;
             end;
          end;
@@ -1110,7 +1118,7 @@ begin
             try
                SingleThingList.AppendItem(CurrentSubject);
                if (Assigned(Target)) then
-                  DoPut(SingleThingList, Target, ThingPosition, True)
+                  DoPut(SingleThingList, Target, ThingPosition, psCarefully)
                else
                   DoShake(SingleThingList);
             finally
@@ -1207,7 +1215,7 @@ begin
                   try
                      SingleThingList.AppendItem(CurrentSubject);
                      if (Assigned(Target)) then
-                        DoPut(SingleThingList, SurrogateTarget, ThingPosition, True)
+                        DoPut(SingleThingList, SurrogateTarget, ThingPosition, psCarefully)
                      else
                         DoShake(SingleThingList);
                   finally
@@ -1225,11 +1233,11 @@ begin
                   Message := TMessage.Create(mkSuccess, 'Moved _ _.',
                                                         [ThingPositionToDirectionString(ThingPosition),
                                                          SurrogateTarget.GetDefiniteName(Self)]);
-                  Success := CanPushThing(CurrentSubject, Message) and SurrogateTarget.CanPut(CurrentSubject, ThingPosition, Self, Message);
+                  Success := CanPushThing(CurrentSubject, Message) and SurrogateTarget.CanPut(CurrentSubject, ThingPosition, psCarefully, Self, Message);
                   Assert((Message.AsKind = mkSuccess) = Success);
                   SendMessage(Message.AsText);
                   if (Success) then
-                     SurrogateTarget.Put(CurrentSubject, ThingPosition, True, Self);
+                     SurrogateTarget.Put(CurrentSubject, ThingPosition, psCarefully, Self);
                end;
             end;
          end;
@@ -1304,14 +1312,14 @@ begin
                         if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
                            AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Self));
                         Success := CanPushThing(CurrentSubject, Message) and
-                                   Destination.CanPut(CurrentSubject, ThingPosition, Self, Message);
+                                   Destination.CanPut(CurrentSubject, ThingPosition, psRoughly, Self, Message);
                         Assert((Message.AsKind = mkSuccess) = Success);
                         SendMessage(Message.AsText);
                         if (Success) then
                         begin
                            for CurrentNotifiee in NotificationList do
                               CurrentNotifiee.HandlePassedThrough(CurrentSubject, CurrentSubject.Parent, Destination, ThingPosition, Self);
-                           Destination.Put(CurrentSubject, ThingPosition, False, Self);
+                           Destination.Put(CurrentSubject, ThingPosition, psRoughly, Self);
                         end;
                      end
                      else
@@ -1488,11 +1496,11 @@ begin
                                                         [ThingPositionToDirectionString(DestinationPosition),
                                                          Destination.GetDefiniteName(Self)]);
                   // XXX should check that it's possible to slide the thing to the given position
-                  Success := Destination.CanPut(CurrentSubject, DestinationPosition, Self, Message);
+                  Success := Destination.CanPut(CurrentSubject, DestinationPosition, psCarefully, Self, Message);
                   Assert((Message.AsKind = mkSuccess) = Success);
                   SendMessage(Message.AsText);
                   if (Success) then
-                     Destination.Put(CurrentSubject, DestinationPosition, True, Self);
+                     Destination.Put(CurrentSubject, DestinationPosition, psCarefully, Self);
                end;
             end;
          end;
@@ -1526,7 +1534,7 @@ begin
          else
          if (CurrentSubject = Self) then
          begin
-            DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@GetReflexivePronoun), M('.')]);
+            DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' presses '), M(' press ')), M(@GetReflexivePronoun), M('.')]);
             Press(Self);
          end
          else
@@ -1564,7 +1572,7 @@ begin
          else
          if (CurrentSubject = Self) then
          begin
-            DoBroadcast(Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@GetReflexivePronoun), M('.')]);
+            DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@GetReflexivePronoun), M('.')]);
             SendMessage('You shake yourself.');
          end
          else
@@ -1657,6 +1665,24 @@ begin
    end;
 end;
 
+procedure TPlayer.DoOpen(Subject: TThing);
+var
+   Message: TMessage;
+begin
+   Message := TMessage.Create(mkSuccess, 'Opened.');
+   Subject.Open(Self, Message);
+   SendMessage(Message.AsText);
+end;
+
+procedure TPlayer.DoClose(Subject: TThing);
+var
+   Message: TMessage;
+begin
+   Message := TMessage.Create(mkSuccess, 'Closed.');
+   Subject.Close(Self, Message);
+   SendMessage(Message.AsText);
+end;
+
 procedure TPlayer.DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
 var
    SingularVerb, PluralVerb: UTF8String;
@@ -1673,7 +1699,7 @@ begin
    begin
       // XXX notify NPCs
       if (Volume <> tvWhispering) then
-         DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M(' to '), M(@Target.GetDefiniteName), M('.')])
+         DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M(' to '), M(@Target.GetDefiniteName), M('.')])
       else
       if (Target is TPlayer) then
          (Target as TPlayer).SendMessage(Capitalise(GetDefiniteName(Target as TAvatar)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Target as TAvatar)) + ' ' + Message + ' to ' + Target.GetDefiniteName(Target as TAvatar) + '.');
@@ -1681,14 +1707,16 @@ begin
    end
    else
    begin
-      DoBroadcast(Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M('.')]);
+      DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M(SingularVerb), M(PluralVerb)), SP, M(Message), M('.')]);
       SendMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional(SingularVerb, PluralVerb, IsPlural(Self)) + ' ' + Message + '.');
    end;
 end;
 
 procedure TPlayer.DoDance();
 begin
-   XXX; // need a general emoting mechanic
+//   XXX; // need a general emoting mechanic
+   DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('dances'), M('dance')), M('.')]);
+   SendMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional('dances', 'dance', IsPlural(Self)) + '.');
 end;
 
 procedure TPlayer.HandleAdd(Thing: TThing; Blame: TAvatar);
@@ -1698,6 +1726,7 @@ var
    Count: Cardinal;
    Child: TThing;
    Candidate: TThing;
+   {$IFOPT C+} Message: TMessage; {$ENDIF}
 begin
    Zero(Masses);
    Zero(Sizes);
@@ -1734,7 +1763,12 @@ begin
       Assert(MaxCarryCount >= 0);
       Count := Count - 1; // can't go negative since Count > MaxCarryCount and MaxCarryCount >= 0 // $R-
       DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
-      FParent.Put(Candidate, tpOn, False, Self);
+      {$IFOPT C+}
+        Message.Create(mkSuccess, '');
+        Assert(FParent.CanPut(Candidate, tpOn, psRoughly, Self, Message));
+        Assert(Message.AsKind = mkSuccess);
+      {$ENDIF};
+      FParent.Put(Candidate, tpOn, psRoughly, Self);
    end;
 end;
 
@@ -1959,7 +1993,7 @@ begin
    begin
       ChildrenCopy := TThingList.Clone(FChildren);
       try
-         DoPut(ChildrenCopy, FParent, tpOn, False);
+         DoPut(ChildrenCopy, FParent, tpOn, psRoughly);
       finally
          ChildrenCopy.Free();
       end;

@@ -668,7 +668,7 @@
       if (Tokens[CurrentToken] = 'put') then
       begin
          Result := True;
-         Action.PutCarefully := True;
+         Action.PutCare := psCarefully;
          Verb := 'put';
          WhatQ := 'What do you want to put somewhere?';
          DirectionQ := 'That''s a direction; it is where it is.';
@@ -676,7 +676,7 @@
       else if (Tokens[CurrentToken] = 'place') then
       begin
          Result := True;
-         Action.PutCarefully := True;
+         Action.PutCare := psCarefully;
          Verb := 'place';
          WhatQ := 'What do you want to carefully place somewhere?';
          DirectionQ := 'You can''t place a direction.';
@@ -684,7 +684,7 @@
       else if (Tokens[CurrentToken] = 'drop') then
       begin
          Result := True;
-         Action.PutCarefully := False;
+         Action.PutCare := psRoughly;
          Verb := 'drop';
          WhatQ := 'What do you want to carelessly drop?';
          DirectionQ := 'What do you want to drop there?';
@@ -715,7 +715,7 @@
                   Action.PutTarget := FParent.GetRepresentative().GetSurface();
                end;
                Assert(Assigned(Action.PutTarget));
-               if (Action.PutCarefully) then
+               if (Action.PutCare = psCarefully) then
                   AutoDisambiguated(ThingPositionToString(Action.PutPosition) + ' ' + Action.PutTarget.GetDefiniteName(Self));
             end
             else
@@ -1142,6 +1142,84 @@
       end;
    end;
 
+   function GetOpen(var Action: TAction): Boolean;
+   var
+      Message: UTF8String;
+      GotThing: Boolean;
+   begin
+      if (Tokens[CurrentToken] = 'open') then
+      begin
+         Inc(CurrentToken);
+         Result := True;
+         Action.Verb := avOpen;
+         Action.OpenTarget := nil;
+         GotThing := False;
+         if (not CanEnd()) then
+         begin
+            GotThing := GetThing(Action.OpenTarget, [], 'open');
+            if (not CanEnd()) then
+            begin
+               if (GotThing) then
+                  Fail('I don''t understand how to open "' + OriginalTokens[CurrentToken] + '".')
+               else
+                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+            end;
+         end;
+         Message := '';
+         if (not Assigned(Action.OpenTarget)) then
+         begin
+            Action.OpenTarget := GetImpliedThing([aisSurroundings, aisSelf], [tfOpenable]);
+            if (Assigned(Action.OpenTarget)) then
+               Message := Action.OpenTarget.GetDefiniteName(Self)
+            else
+               Fail('What do you want to open?');
+         end;
+         if (Length(Message) > 0) then
+            AutoDisambiguated(Message);
+      end
+      else
+         Result := False;
+   end;
+
+   function GetClose(var Action: TAction): Boolean;
+   var
+      Message: UTF8String;
+      GotThing: Boolean;
+   begin
+      if (Tokens[CurrentToken] = 'close') then
+      begin
+         Inc(CurrentToken);
+         Result := True;
+         Action.Verb := avClose;
+         Action.CloseTarget := nil;
+         GotThing := False;
+         if (not CanEnd()) then
+         begin
+            GotThing := GetThing(Action.CloseTarget, [], 'close');
+            if (not CanEnd()) then
+            begin
+               if (GotThing) then
+                  Fail('I don''t understand how to close "' + OriginalTokens[CurrentToken] + '".')
+               else
+                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+            end;
+         end;
+         Message := '';
+         if (not Assigned(Action.CloseTarget)) then
+         begin
+            Action.CloseTarget := GetImpliedThing([aisSurroundings, aisSelf], [tfClosable]);
+            if (Assigned(Action.CloseTarget)) then
+               Message := Action.CloseTarget.GetDefiniteName(Self)
+            else
+               Fail('What do you want to close?');
+         end;
+         if (Length(Message) > 0) then
+            AutoDisambiguated(Message);
+      end
+      else
+         Result := False;
+   end;
+
    function GetDance(var Action: TAction): Boolean;
    begin
       if (Tokens[CurrentToken] = 'dance') then
@@ -1293,7 +1371,7 @@
    begin
       if (GetLook(Action) or GetExamine(Action) or GetRead(Action) or GetInventory(Action) or GetFind(Action) or
           GetGo(Action) or GetEnter(Action) or GetLeave(Action) or
-          GetTake(Action) or GetPut(Action) or GetMove(Action) or GetPush(Action) or GetShake(Action) or GetDig(Action) or
+          GetTake(Action) or GetPut(Action) or GetMove(Action) or GetPush(Action) or GetShake(Action) or GetDig(Action) or GetOpen(Action) or GetClose(Action) or
           GetTalk(Action) or GetDance(Action) or
           GetBug(Action) or GetHelp(Action) or GetQuit(Action)) then
          Result := GetContinuation() { consumes the "next" and verifies there's something else coming }

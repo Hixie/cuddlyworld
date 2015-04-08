@@ -1,28 +1,29 @@
 #rm -rf ../bin/*; fpc test.pas -B -dDEBUG -Ci -Co -CO -Cr -CR -Ct -O- -g -gt -gl -gh -Sa -OoDFA -veiwnhb -FE../bin/ -Fulib -Filib && ../bin/test; exit
 
 # Generate helper files
-perl -w regen.pl &&
+perl -w regen.pl || exit 1
 
 MODE="DEBUG"
 
-MAIN="tests"
+# DEFINES=-dPLAY_IN_TEST_EDEN
+# DEFINES=-dPLAY_IN_TEST_DOORLAND
+# play as Flathead, password zorkmid
+# (the world doesn't support adding players, you need to hard-code them in)
+# (don't forget to comment out genesis below)
+
 pushd . > /dev/null
-. ${SRC}lib/compile.sh
+# DEFINES="-dVERBOSE"
+MAIN="tests" MODE="$MODE" PATHS="-Futests" lib/compile.sh || exit 1
 popd > /dev/null
-unset TESTCMD
 echo
 
 rm -f world.dat
-MAIN="genesis"
 pushd . > /dev/null
-. ${SRC}lib/compile.sh
+MAIN="genesis" MODE=$MODE lib/compile.sh || exit 1
 popd > /dev/null
-unset TESTCMD
 echo
 
-MAIN="cuddlyworld"
 pushd . > /dev/null
-. ${SRC}lib/compile.sh
+MAIN="cuddlyworld" MODE=$MODE lib/compile.sh || exit 1
 popd > /dev/null
-unset TESTCMD
 echo

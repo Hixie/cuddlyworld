@@ -1,3 +1,65 @@
+NEW BUGS
+ + can't see things that are in the threshold when not in threshold
+ + "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the doorway (!) which is a total no-no
+ + "look under door"
+ + "move door north" should say that it's closed or something, not that it can't move
+ + "close" doesn't autoclose an open door
+ + "open north" doesn't work
+ + "open north door" doesn't work
+ + put door in doorway
+ + hang door in doorway
+
+
+CODE HEALTH
+ + replace anything that uses AvatarMessage but should be broadcast with a broadcast
+ + replace  Message.Create(mkSuccess, '');  with a zero-argument constructor
+ + rename AddObtrusiveObstacles to something like EnumerateObtrusiveObstacles, ditto AddExplicitlyReferencedThings
+
+CREATE TESTS FOR
+ - walking through the door
+ - enter door
+ - enter doorway
+ - take doorway
+ - open doorway
+ - close doorway
+ - take door
+ - take doorway
+ - enter door
+ - enter doorway
+ - open door
+ - close door
+ - open doorway
+ - close doorway
+ - put door in doorway
+ - open door
+ - close door
+ - take side
+ - look at door
+ - look at doorway
+ - look in door
+ - look in doorway
+ - look under door
+ - look under doorway
+ - look <direction of door>
+ - open door
+ - take side
+ - look at door
+ - look at doorway
+ - look in door
+ - look in doorway
+ - look under door
+ - look under doorway
+ - look <direction of door>
+ - <direction of door>
+ - look at side
+ - close door
+ - look at side
+ - <reverse direction of door>
+ - debug thing doorway
+ - debug thing door
+ - debug thing side
+ - move door <direction of door>
+
 CURRENT TASKS
  + "find archway" when in the threshold room should use the room's context fragment
  + "find <name of neighboring location>" doesn't work
@@ -219,6 +281,7 @@ UI
  + Disambiguation of things that fail should say "try to", e.g. "(first trying to take the mountain)"
  + Handle multiples of things, so that you can have "take three coins" and it doesn't say "Coin: Taken" "Coin: Taken" "Coin: Taken" but "You take three coins" or some such.
  + Answering questions: each time we say "which do you mean...", if the player just replies, it should try again until getting to the question then try to use the answer
+ + "look around" should do the same as "look"
 
 CODE
  + Check all the warnings
