@@ -17,11 +17,12 @@
 
    SUBCLASS = class(SUPERCLASS)
     protected
-      FGround: TThing;
+      FSurface: TThing;
     public
       constructor Create(CONSTRUCTORARGUMENTDECLARATIONS Ground: TThing);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      procedure AddObtrusiveObstacles(List: TThingList); override;
       function GetSurface(): TAtom; override;
    end;
 
@@ -30,26 +31,32 @@
 constructor SUBCLASS.Create(CONSTRUCTORARGUMENTDECLARATIONS Ground: TThing);
 begin
    inherited Create(CONSTRUCTORARGUMENTNAMES);
-   FGround := Ground;
-   Add(FGround, tpPartOfImplicit);
-   AddLandmark(cdDown, FGround, [loPermissibleNavigationTarget, loConsiderDirectionUnimportantWhenFindingChildren, loNotVisibleFromBehind]);
+   FSurface := Ground;
+   Add(FSurface, tpPartOfImplicit);
+   AddLandmark(cdDown, FSurface, [loPermissibleNavigationTarget, loConsiderDirectionUnimportantWhenFindingChildren, loNotVisibleFromBehind]);
 end;
 
 constructor SUBCLASS.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@Pointer(FGround));
+   Stream.ReadReference(@Pointer(FSurface));
 end;
 
 procedure SUBCLASS.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteReference(FGround);
+   Stream.WriteReference(FSurface);
+end;
+
+procedure SUBCLASS.AddObtrusiveObstacles(List: TThingList);
+begin
+   inherited;
+   FSurface.AddObtrusiveObstacles(List);
 end;
 
 function SUBCLASS.GetSurface(): TAtom;
 begin
-   Result := FGround;
+   Result := FSurface;
 end;
 
 {$ELSE}

@@ -9,11 +9,15 @@ uses
 
 type
    TByteCode = Byte;
-   TMatcherFlags = type Cardinal;
+   TMatcherFlags = type Integer;
    TMatcherFlag = type TByteCode;
    PCompiledPattern = ^TCompiledPattern;
    TCompiledPattern = packed array[TByteCode] of TByteCode;
 
+const
+   mfUnset = -1; // not a valid flag value
+
+type
    TMatcher = class(TStorable) // @RegisterStorableClass
     protected
       FTokens: TTokens; { must be stored lexically sorted }
@@ -111,6 +115,11 @@ uses
       indicates the end of the state. Token $FE indicates is always
       matched. This leaves tokens $80 to FD for other magic purposes.
 
+    - Tokens $81 to $A0 are used for transitions that require certain
+      flags to be set, tokens $A1 to $C0 are used for transitions that
+      require certain flags not to be set, and tokens $C1 to $FD
+      aren't used.
+
     - States always start on an even numbered byte, since each state
       is an even number of bytes long; so the least-significant bit of
       each transition byte can be used for magic. It's used for
@@ -157,7 +166,9 @@ const
    mtNone = $80;
    mtFlagMin = $81;
    mtFlagMax = mtFlagMin + kFlagCount - 1;
-   mtFollow = $FE; {$IF mtFollow <= mtFlagMin} {$ERROR TMatcherFlags is too wide} {$ENDIF}
+   mtNegativeFlagMin = mtFlagMax + 1;
+   mtNegativeFlagMax = mtNegativeFlagMin + kFlagCount - 1;
+   mtFollow = $FE; {$IF mtFollow <= mtNegativeFlagMin} {$ERROR TMatcherFlags is too wide} {$ENDIF}
    mtStateEnd = $FF;
    { Magic Pattern States }
    mpsMatch = $FF;
@@ -172,7 +183,7 @@ type
 
    TState = record
      Transitions: PTransition;
-     TransitionCount: Cardinal;
+     IncomingTransitionCount, OutgoingTransitionCount: Cardinal;
      NextState: PState;
      PreviousState: PState;
      Index: TByteCode;
@@ -356,7 +367,8 @@ begin
    Transition^.BlockDuplicates := BlockDuplicates;
    Transition^.NextTransition := State^.Transitions;
    State^.Transitions := Transition;
-   Inc(State^.TransitionCount);
+   Inc(State^.OutgoingTransitionCount);
+   Inc(TargetState^.IncomingTransitionCount);
 end;
 
 procedure NewPattern(out Pattern: PCompiledPattern; Length: TByteCode); inline;
@@ -461,10 +473,14 @@ begin
    {
             Flag
        A=---------->O---[...]--->Z
+        ------------------------>
+            Negative Flag
    }
    MiddleState := GetNewState();
    AddTransition(StartState, mtFlagMin + FFlag, MiddleState, BlockDuplicates); // $R-
    FSlaveNode.HookStates(MiddleState, TargetState, GetNewState, BlockDuplicates); // XXX should BlockDuplicates be specified here?
+   if (StartState <> TargetState) then
+      AddTransition(StartState, mtNegativeFlagMin + FFlag, TargetState, BlockDuplicates); // $R-
 end;
 
 
@@ -805,7 +821,8 @@ function TPatternCompiler.GetNewState(): PState;
 begin
    New(Result);
    Result^.Transitions := nil;
-   Result^.TransitionCount := 0;
+   Result^.IncomingTransitionCount := 0;
+   Result^.OutgoingTransitionCount := 0;
    Result^.Index := 0;
    Result^.NextState := FLastState;
    Result^.PreviousState := FLastState^.PreviousState;
@@ -854,10 +871,14 @@ end;
 
 procedure TPatternCompiler.GetCompiledPattern(out Pattern: PCompiledPattern; out PatternLength: TByteCode);
 
+   {$DEFINE OPT_SURROGATES}
+   {$DEFINE OPT_REDUNDANT_TRANSITIONS}
+   //{$DEFINE OPT_FIRST_STATE}
+
    function GetUltimateTarget(State: PState): PState;
    begin
       Result := State;
-      while ((Result^.TransitionCount = 1) and (Result^.Transitions^.Token = mtFollow)) do
+      while ((Result^.OutgoingTransitionCount = 1) and (Result^.Transitions^.Token = mtFollow)) do
       begin
          Assert(Assigned(Result));
          Assert(Result <> FLastState);
@@ -870,175 +891,192 @@ procedure TPatternCompiler.GetCompiledPattern(out Pattern: PCompiledPattern; out
    function StateNeedsSerialising(State: PState): Boolean; inline;
    begin
       Assert(Assigned(State));
-      Result := (State = FFirstState { see note above }) or (State^.TransitionCount > 1) or (State^.Transitions^.Token <> mtFollow);
+      Result := (State = FFirstState) or // we don't know how to optimise the first state away currently, see OPT_FIRST_STATE
+                ((State^.IncomingTransitionCount > 0) and
+                 ({$IFDEF OPT_SURROGATES} (State^.OutgoingTransitionCount > 1) or (State^.Transitions^.Token <> mtFollow) {$ELSE} True {$ENDIF}));
+   end;
+
+   function TransitionIsSubSetOfAnother(Transition: PTransition; State: PState): Boolean; inline;
+   var
+      CandidateTransition: PTransition;
+   begin
+      Assert(Assigned(State));
+      Assert(Assigned(Transition));
+      CandidateTransition := State^.Transitions;
+      repeat
+         if (CandidateTransition <> Transition) then
+         begin
+            if (((Transition^.Token > mtMaxTrueToken) and (CandidateTransition^.Token = mtFollow)) and
+                (CandidateTransition^.State = Transition^.State) and
+                ((CandidateTransition^.BlockDuplicates = Transition^.BlockDuplicates) or
+                 (CandidateTransition^.BlockDuplicates = False))) then
+            begin
+               Result := True;
+               exit;
+            end;
+         end;
+         CandidateTransition := CandidateTransition^.NextTransition;
+      until not Assigned(CandidateTransition);
+      Result := False;
    end;
 
 var
-   State: PState;
+   State {$IFDEF OPT_SURROGATES}, NewTargetState {$ENDIF}: PState;
    Index: Cardinal;
-   Transition: PTransition;
+   Transition {$IFDEF OPT_REDUNDANT_TRANSITIONS}, PrevTransition {$ENDIF}: PTransition;
+   DidSomething: Boolean;
 begin
    { Build state machine }
    New(FFirstState);
    FFirstState^.Transitions := nil;
-   FFirstState^.TransitionCount := 0;
+   FFirstState^.IncomingTransitionCount := 1; // so that it doesn't get optimised away
+   FFirstState^.OutgoingTransitionCount := 0;
    FFirstState^.Index := 0;
    FFirstState^.PreviousState := nil;
    New(FLastState);
    FLastState^.Transitions := nil;
-   FLastState^.TransitionCount := 0;
+   FLastState^.IncomingTransitionCount := 0;
+   FLastState^.OutgoingTransitionCount := 0;
    FLastState^.Index := 0;
    FLastState^.NextState := nil;
    FFirstState^.NextState := FLastState;
    FLastState^.PreviousState := FFirstState;
    FRoot.HookStates(FFirstState, FLastState, @GetNewState);
 
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('FFirstState=', HexStr(FFirstState)); {$ENDIF}
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('FLastState=', HexStr(FLastState)); {$ENDIF}
-
-   { Optimise transitions through surrogates }
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('GetCompiledPattern(): optimising...'); {$ENDIF}
-   State := FFirstState;
    repeat
-      Assert(Assigned(State));
-      Assert(State^.TransitionCount >= 1);
+      DidSomething := False;
 
-{$IFDEF DEBUG_PATTERN_COMPILER}
-  Writeln('  Looking at state $', HexStr(State), '...');
-  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
-  Writeln('  It has these transitions:');
-  Transition := State^.Transitions;
-  while (Assigned(Transition)) do
-  begin
-     if (Transition^.State = FLastState) then
-        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
-     else
-        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' with dentists ', StateNeedsSerialising(Transition^.State));
-     Transition := Transition^.NextTransition;
-  end;  
-  Writeln('  --');
-{$ENDIF}
-
-      Transition := State^.Transitions;
+      {$IFDEF OPT_SURROGATES}
+      { Optimise transitions through surrogates }
+      State := FFirstState;
       repeat
-         Assert(Assigned(Transition));
-         Transition^.State := GetUltimateTarget(Transition^.State);
-         Assert((Transition^.State = FLastState) or (StateNeedsSerialising(Transition^.State)));
-         Transition := Transition^.NextTransition;
-      until (not Assigned(Transition));
+         Assert(Assigned(State));
+         if (StateNeedsSerialising(State)) then
+         begin
+            Assert(State^.OutgoingTransitionCount >= 1);
+            Transition := State^.Transitions;
+            repeat
+               Assert(Assigned(Transition));
+               NewTargetState := GetUltimateTarget(Transition^.State);
+               if (NewTargetState <> Transition^.State) then
+               begin
+                  Dec(Transition^.State^.IncomingTransitionCount);
+                  Transition^.State := NewTargetState;
+                  Inc(Transition^.State^.IncomingTransitionCount);
+                  DidSomething := True;
+               end;
+               Assert((Transition^.State = FLastState) or StateNeedsSerialising(Transition^.State));
+               Transition := Transition^.NextTransition;
+            until (not Assigned(Transition));
+         end;
+         State := State^.NextState;
+      until (State = FLastState);
+      {$ENDIF}
 
-{$IFDEF DEBUG_PATTERN_COMPILER}
-  Writeln('  Looking again at state $', HexStr(State), ' after optimising.');
-  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
-  Writeln('  It now has these transitions:');
-  Transition := State^.Transitions;
-  while (Assigned(Transition)) do
-  begin
-     if (Transition^.State = FLastState) then
-        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
-     else
-        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' with dentists ', StateNeedsSerialising(Transition^.State));
-     Transition := Transition^.NextTransition;
-  end;  
-  Writeln('  --');
-{$ENDIF}
+      {$IFDEF OPT_REDUNDANT_TRANSITIONS}
+      { Optimise redundant state transitions }
+      State := FFirstState;
+      repeat
+         Assert(Assigned(State));
+         if (StateNeedsSerialising(State)) then
+         begin
+            Assert(State^.OutgoingTransitionCount >= 1);
+            Transition := State^.Transitions;
+            PrevTransition := nil;
+            repeat
+               Assert(Assigned(Transition));
+               if (TransitionIsSubSetOfAnother(Transition, State)) then
+               begin
+                  if (Assigned(PrevTransition)) then
+                  begin
+                     PrevTransition^.NextTransition := Transition^.NextTransition;
+                     Dec(Transition^.State^.IncomingTransitionCount);
+                     Dispose(Transition);
+                     Dec(State^.OutgoingTransitionCount);
+                     Transition := PrevTransition^.NextTransition;
+                  end
+                  else
+                  begin
+                     Assert(Assigned(Transition^.NextTransition));
+                     Dec(Transition^.State^.IncomingTransitionCount);
+                     State^.Transitions := Transition^.NextTransition;
+                     Dispose(Transition);
+                     Dec(State^.OutgoingTransitionCount);
+                     Transition := State^.Transitions;
+                  end;
+                  DidSomething := True;
+               end
+               else
+               begin
+                  PrevTransition := Transition;
+                  Transition := Transition^.NextTransition;
+               end;
+            until (not Assigned(Transition));
+         end;
+         State := State^.NextState;
+      until (State = FLastState);
+      {$ENDIF}
 
-      State := State^.NextState;
-   until (State = FLastState);
-   { Future optimisation idea: We currently always serialise the first
-     state even if it could be optimised away, because optimising it
-     away would require making sure the next state came first.  What
-     we really should do is detect this case, and copy all the states
-     from the next state to the first state, then fixing all the
-     transitions to that state to point to the first state, then
-     removing the transitions from that state so it gets optimised
-     away. (We would then rinse-repeat, in case the next state was
-     also redundant.) }
+      {$IFDEF OPT_FIRST_STATE}
+      { Future optimisation idea: We currently always serialise the first
+        state even if it could be optimised away, because optimising it
+        away would require making sure the next state came first.  What
+        we really should do is detect this case, and copy all the states
+        from the next state to the first state, then fixing all the
+        transitions to that state to point to the first state, then
+        removing the transitions from that state so it gets optimised
+        away. (We would then rinse-repeat, in case the next state was
+        also redundant.) }
+      {$ENDIF}
 
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('GetCompiledPattern(): Minting state IDs...'); {$ENDIF}
+   until not DidSomething;
+
    { Establish state IDs }
    Index := 0;
    State := FFirstState;
-   Assert(FLastState^.TransitionCount = 0);
+   Assert(FLastState^.OutgoingTransitionCount = 0);
    repeat
       Assert(Assigned(State));
       Assert(State <> FLastState);
-      Assert(State^.TransitionCount >= 1);
+      Assert(State^.OutgoingTransitionCount >= 1);
       Assert(Index >= 0);
       Assert(Index <= mpsMaxTrueTransition);
       Assert(Index mod 2 = 0);
-
-{$IFDEF DEBUG_PATTERN_COMPILER}
-  Writeln('  Looking at state $', HexStr(State), '...');
-  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
-  Writeln('  It has these transitions:');
-  Transition := State^.Transitions;
-  while (Assigned(Transition)) do
-  begin
-     if (Transition^.State = FLastState) then
-        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
-     else
-        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' with dentists ', StateNeedsSerialising(Transition^.State));
-     Transition := Transition^.NextTransition;
-  end;  
-  Writeln('  --');
-{$ENDIF}
-
       if (StateNeedsSerialising(State)) then
       begin
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('  minting state ', Index); {$ENDIF}
          Assert(Index <= High(TByteCode));
          State^.Index := Index; // $R-
-         Inc(Index, 2 + State^.TransitionCount * 2);
+         Inc(Index, 2 + State^.OutgoingTransitionCount * 2);
          Assert(Index <= mpsMaxTrueTransition, 'Pattern too complicated.');
       end {$IFOPT C+} else State^.Index := mpsNotSerialised {$ENDIF};
       State := State^.NextState;
    until (State = FLastState);
    FLastState^.Index := mpsMatch;
+
    { Serialise the compiled pattern }
    Assert(Index <= High(PatternLength));
    PatternLength := Index; // $R-
    NewPattern(Pattern, PatternLength);
    Index := 0;
    State := FFirstState;
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('GetCompiledPattern(): Serialising... PatternLength=', PatternLength); {$ENDIF}
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at start'); {$ENDIF}
    repeat
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at top of state loop'); {$ENDIF}
-{$IFDEF DEBUG_PATTERN_COMPILER}
-  Writeln('  Looking at state $', HexStr(State), ' marked as index ', State^.Index, '.');
-  Writeln('  True or false, top dentists agree, it needs serialising: ', StateNeedsSerialising(State));
-  Writeln('  It has these transitions:');
-  Transition := State^.Transitions;
-  while (Assigned(Transition)) do
-  begin
-     if (Transition^.State = FLastState) then
-        Writeln('    * Token: ', Transition^.Token, ' to MATCH')
-     else
-        Writeln('    * Token: ', Transition^.Token, ' to state $', HexStr(Transition^.State), ' marked as index ', Transition^.State^.Index, ' with dentists ', StateNeedsSerialising(Transition^.State));
-     Transition := Transition^.NextTransition;
-  end;  
-  Writeln('  --');
-{$ENDIF}
       Assert(Assigned(State));
       Assert(State <> FLastState);
-      Assert(State^.TransitionCount >= 1);
+      Assert(State^.OutgoingTransitionCount >= 1);
       Assert(Assigned(State^.Transitions));
       if (StateNeedsSerialising(State)) then
       begin
          Pattern^[Index] := msfNormal;
          Inc(Index);
          Transition := State^.Transitions;
-         Inc(Index, (State^.TransitionCount) * 2 + 1);
+         Inc(Index, (State^.OutgoingTransitionCount) * 2 + 1);
          repeat
             Assert(Assigned(Transition));
             Assert((Transition^.State = FLastState) or (StateNeedsSerialising(Transition^.State)));
             Dec(Index, 3);
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at top of transition loop'); {$ENDIF}
             Assert(Assigned(Transition));
             Pattern^[Index] := Transition^.Token;
             Inc(Index);
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' for target state'); {$ENDIF}
             Assert(Assigned(Transition^.State));
             Assert(Index <= High(Pattern^));
             if (Transition^.BlockDuplicates) then
@@ -1047,16 +1085,14 @@ begin
                Pattern^[Index] := Transition^.State^.Index; // $R-
             Transition := Transition^.NextTransition;
          until (not Assigned(Transition));
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' after transition loop'); {$ENDIF}
-         Inc(Index, (State^.TransitionCount-1) * 2 + 1);
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' for state trailer'); {$ENDIF}
+         Inc(Index, (State^.OutgoingTransitionCount-1) * 2 + 1);
          Pattern^[Index] := mtStateEnd;
          Inc(Index);
-      end {$IFDEF DEBUG_PATTERN_COMPILER} else Writeln('skipped a state! wee!') {$ENDIF} ;
+      end;
       State := State^.NextState;
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Index=', Index, ' at end of state'); {$ENDIF}
    until (State = FLastState);
    Assert(Index = PatternLength);
+
    { Release memory }
    while (Assigned(FFirstState)) do
    begin
@@ -1157,17 +1193,31 @@ end;
 //{$DEFINE VERBOSE_MATCHES}
 function TMatcher.Matches(Tokens: TTokens; Start: Cardinal; Flags: TMatcherFlags = 0): Cardinal;
 
-   function IsActiveFlag(TokenID: TByteCode): Boolean;
+   function IsAcceptableFlagTransition(TokenID: TByteCode): Boolean;
    var
       Flag: TMatcherFlag;
    begin
-      if ((TokenID < mtFlagMin) or (TokenID > mtFlagMax)) then
+      if (TokenID < mtFlagMin) then
       begin
          Result := False;
-         exit;
+      end
+      else
+      if (TokenID <= mtFlagMax) then
+      begin
+         Flag := TokenID - mtFlagMin; // $R-
+         Result := (Flags and (1 shl Flag)) <> 0;
+      end
+      else
+      if (TokenID <= mtNegativeFlagMax) then
+      begin
+         Flag := TokenID - mtNegativeFlagMin; // $R-
+         Result := (Flags and (1 shl Flag)) = 0;
+      end
+      else
+      begin
+         Assert(TokenID = mtFollow);
+         Result := False;
       end;
-      Flag := TokenID - mtFlagMin; // $R-
-      Result := (Flags and (1 shl Flag)) <> 0;
    end;
 
 type
@@ -1291,7 +1341,7 @@ begin
          repeat
             Assert(CurrentTransition < High(CurrentTransition));
             CandidateTokenID := CurrentStateMachine^.Pattern^.Data^[CurrentTransition];
-            if ((CandidateTokenID = mtFollow) or (IsActiveFlag(CandidateTokenID))) then
+            if ((CandidateTokenID = mtFollow) or (IsAcceptableFlagTransition(CandidateTokenID))) then
             begin
                NextState := CurrentStateMachine^.Pattern^.Data^[CurrentTransition+1];
                if (NextState = mpsMatch) then
@@ -1420,6 +1470,13 @@ var
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '    = is flag ', Flag, ' which is: ', Result); {$ENDIF}
          exit;
       end;
+      if (TokenID in [mtNegativeFlagMin .. mtNegativeFlagMax]) then
+      begin
+         Flag := TokenID - mtNegativeFlagMin; // $R-
+         Result := (Flags and (1 shl Flag)) = 0;
+{$IFDEF DEBUG_CANONICAL_MATCH} Writeln(Prefix + '    = is negative flag ', Flag, ' which is: ', Result); {$ENDIF}
+         exit;
+      end;
       Result := false;
       Assert(False);
    end;
@@ -1505,6 +1562,9 @@ begin
          if (FPattern^[Index] in [mtFlagMin .. mtFlagMax]) then
             Result := Result + 'FLAG ' + IntToStr(1 shl (FPattern^[Index] - mtFlagMin))
          else
+         if (FPattern^[Index] in [mtNegativeFlagMin .. mtNegativeFlagMax]) then
+            Result := Result + 'NEGATIVE FLAG ' + IntToStr(1 shl (FPattern^[Index] - mtNegativeFlagMin))
+         else
             Result := Result + IntToStr(FPattern^[Index]) + ':"' + FOriginalTokens[FPattern^[Index]] + '"';
          Result := Result + ' -> ';
          if (FPattern^[Index+1] = mpsMatch) then
@@ -1571,7 +1631,11 @@ begin
             Result := Result + 'color="' + S + ':' + S + '" '
          else
          if (FPattern^[Index] > mtMaxTrueToken) then
-            Result := Result + 'color="' + S + '" label="<flag ' + IntToStr(FPattern^[Index] - mtFlagMin) + '>" fontsize10 samehead="' + IntToStr(State) + '" '
+            case (FPattern^[Index]) of
+               mtFlagMin..mtFlagMax: Result := Result + 'color="' + S + '" label="<flag ' + IntToStr(FPattern^[Index] - mtFlagMin) + '>" fontsize10 samehead="' + IntToStr(State) + '" ';
+               mtNegativeFlagMin..mtNegativeFlagMax: Result := Result + 'color="' + S + '" label="<negative flag ' + IntToStr(FPattern^[Index] - mtNegativeFlagMin) + '>" fontsize10 samehead="' + IntToStr(State) + '" ';
+               else Result := Result + 'color="' + S + '" label="<error ' + IntToStr(FPattern^[Index]) + '>" fontsize10 samehead="' + IntToStr(State) + '" '
+            end
          else
             Result := Result + 'color="' + S + '" label="' + FOriginalTokens[FPattern^[Index]] + '" fontsize=10 samehead="' + IntToStr(State) + '" ';
          Result := Result + '];' + #10;
@@ -1808,10 +1872,10 @@ var
 {$ENDIF}
 begin
 {$IFDEF DEBUG} OldHeapInfo := SetHeapInfo('Compiling "' + Copy(S, 1, HeapInfoSize - 12) + '"'); {$ENDIF}
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln(#10#10'Pattern: "', S, '"'); {$ENDIF}
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Compiling pattern: "', S, '"'); {$ENDIF}
    Singular := CompilePatternVersion(S, 0);
-{$IFDEF DEBUG_PATTERN_COMPILER} Writeln(#10#10); {$ENDIF}
    Plural := CompilePatternVersion(S, 1);
+{$IFDEF DEBUG_PATTERN_COMPILER} Writeln('Result (singular):'#10, Singular.GetPatternDescription()); {$ENDIF}
 {$IFDEF DEBUG} SetHeapInfo(OldHeapInfo); {$ENDIF}
 end;
 

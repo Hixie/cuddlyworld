@@ -52,7 +52,7 @@ type
    { See further notes below for other implications of these values }
    TThingPosition = (tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit,
                      tpDirectionalOpening, tpDirectionalPath,
-                     tpSurfaceOpening, tpAt, tpOn, tpPlantedIn, tpIn, tpEmbedded, tpCarried);
+                     tpSurfaceOpening, tpAt, tpOn, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpCarried);
    TThingPositionFilter = set of TThingPosition;
 
 const
@@ -60,12 +60,13 @@ const
    tpAutoDescribe = [tpSurfaceOpening, tpAt]; { things that should be included in the main description of an object }
    tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks arrays, and not tpContained in something else) }
    tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already }
+   tpObtrusive = [tpOn, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpCarried]; { used by GetObtrusiveObstacles() }
    tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
-   tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpIn, tpCarried]; { affects how things are pushed around }
-   tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
+   tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpInstalledIn, tpIn, tpCarried]; { affects how things are pushed around }
+   tpContained = [tpInstalledIn, tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
    tpOpening = [tpSurfaceOpening, tpDirectionalOpening];
    tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpAt, tpOn, tpPlantedIn, tpDirectionalPath]; { things that the user can refer to as being "on" then parent }
-   tpArguablyInside = [tpPlantedInImplicit, tpPlantedIn, tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
+   tpArguablyInside = [tpPlantedInImplicit, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
    tpOutside = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpCarried]; { things that count towards OutsideSizeManifest }
    tpSurface = [tpPlantedInImplicit, tpOn, tpPlantedIn]; { things that count towards SurfaceSizeManifest }
    tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
@@ -553,6 +554,7 @@ begin
      tpAtImplicit, tpAt: Result := 'at';
      tpDirectionalPath, tpOn: Result := 'on';
      tpDirectionalOpening, tpSurfaceOpening, tpIn, tpEmbedded: Result := 'in';
+     tpInstalledIn: Result := 'installed in';
      tpCarried: Result := 'being carried by';
      tpPlantedInImplicit, tpPlantedIn: Result := 'planted in';
     else
@@ -572,7 +574,7 @@ begin
      tpOn: Result := 'onto';
      tpDirectionalOpening: Result := 'through';
      tpDirectionalPath: Result := 'along';
-     tpSurfaceOpening, tpIn, tpEmbedded: Result := 'into';
+     tpSurfaceOpening, tpInstalledIn, tpIn, tpEmbedded: Result := 'into';
      tpCarried: Result := 'so that it is carried by'; // assert instead?
      tpPlantedInImplicit, tpPlantedIn: Result := 'so that it is planted in';
     else

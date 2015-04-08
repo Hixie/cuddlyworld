@@ -8,147 +8,153 @@ uses
    physics, grammarian;
 
 type
-   TMessageCallback = function (): UTF8String;
-   TMessageCallbackPerspective = function (Perspective: TAvatar): UTF8String;
-   TMessageCallbackMethod = function (): UTF8String of object;
-   TMessageCallbackPerspectiveMethod = function (Perspective: TAvatar): UTF8String of object;
+   TBroadcastCallback = function (): UTF8String;
+   TBroadcastCallbackPerspective = function (Perspective: TAvatar): UTF8String;
+   TBroadcastCallbackMethod = function (): UTF8String of object;
+   TBroadcastCallbackPerspectiveMethod = function (Perspective: TAvatar): UTF8String of object;
 
-   TMessageKind = (mkSpace, mkEmpty, mkCapitalise, mkUTF8String, mkCallback, mkCallbackPerspective, mkCallbackMethod, mkCallbackPerspectiveMethod, mkPluralCheck, mkPerspectivePluralCheck);
-   PMessagePart = ^TMessagePart;
-   TMessagePart = record
-      case Kind: TMessageKind of
-       mkEmpty: ();
-       mkSpace: ();
-       mkCapitalise: (DataCapitalisePart: PMessagePart);
-       mkUTF8String: (DataString: Pointer);
-       mkCallback: (DataCallback: TMessageCallback);
-       mkCallbackPerspective: (DataCallbackPerspective: TMessageCallbackPerspective);
-       mkCallbackMethod: (DataCallbackMethod: TMessageCallbackMethod);
-       mkCallbackPerspectiveMethod: (DataCallbackPerspectiveMethod: TMessageCallbackPerspectiveMethod);
-       mkPluralCheck: (DataPluralCheckTarget: TAtom; DataPluralSingularPart: PMessagePart; DataPluralPluralPart: PMessagePart);
-       mkPerspectivePluralCheck: (DataPerspectivePluralSingularPart: PMessagePart; DataPerspectivePluralPluralPart: PMessagePart);
+   TBroadcastPartKind = (bpkSpace, bpkEmpty, bpkCapitalise, bpkUTF8String, bpkCallback, bpkCallbackPerspective, bpkCallbackMethod, bpkCallbackPerspectiveMethod, bpkPluralCheck, bpkPerspectivePluralCheck);
+   PBroadcastPart = ^TBroadcastPart;
+   TBroadcastPart = record
+      case Kind: TBroadcastPartKind of
+       bpkEmpty: ();
+       bpkSpace: ();
+       bpkCapitalise: (DataCapitalisePart: PBroadcastPart);
+       bpkUTF8String: (DataString: Pointer);
+       bpkCallback: (DataCallback: TBroadcastCallback);
+       bpkCallbackPerspective: (DataCallbackPerspective: TBroadcastCallbackPerspective);
+       bpkCallbackMethod: (DataCallbackMethod: TBroadcastCallbackMethod);
+       bpkCallbackPerspectiveMethod: (DataCallbackPerspectiveMethod: TBroadcastCallbackPerspectiveMethod);
+       bpkPluralCheck: (DataPluralCheckTarget: TAtom; DataPluralSingularPart: PBroadcastPart; DataPluralPluralPart: PBroadcastPart);
+       bpkPerspectivePluralCheck: (DataPerspectivePluralSingularPart: PBroadcastPart; DataPerspectivePluralPluralPart: PBroadcastPart);
    end;
 
-function SP(): PMessagePart; inline; { SPace }
-function C(const M: PMessagePart): PMessagePart; inline; { Capitalise }
-function M(const V: UTF8String): PMessagePart; inline; { Message part }
-function M(const V: TMessageCallback): PMessagePart; inline; { Message part }
-function M(const V: TMessageCallbackPerspective): PMessagePart; inline; { Message part }
-function M(const V: TMessageCallbackMethod): PMessagePart; inline; { Message part }
-function M(const V: TMessageCallbackPerspectiveMethod): PMessagePart; inline; { Message part }
-function MP(const T: TAtom; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline; { Message part - thing is Plural check }
-function MPP(const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline; { Message part - Perspective is Plural check }
+function SP(): PBroadcastPart; inline; { SPace }
+function C(const M: PBroadcastPart): PBroadcastPart; inline; { Capitalise }
+function M(const V: UTF8String): PBroadcastPart; inline; { Broadcast part }
+function M(const V: TBroadcastCallback): PBroadcastPart; inline; { Broadcast part }
+function M(const V: TBroadcastCallbackPerspective): PBroadcastPart; inline; { Broadcast part }
+function M(const V: TBroadcastCallbackMethod): PBroadcastPart; inline; { Broadcast part }
+function M(const V: TBroadcastCallbackPerspectiveMethod): PBroadcastPart; inline; { Broadcast part }
+function MP(const T: TAtom; const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline; { Broadcast part - thing is Plural check }
+function MPP(const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline; { Broadcast part - Perspective is Plural check }
 
-procedure ClearMessagePart(MessagePart: PMessagePart);
+procedure ClearBroadcastPart(BroadcastPart: PBroadcastPart);
 
-// DoBroadcast skips Perspective - use Perspective.AvatarMessage() if you need the Perspective to get it
+// skips ExcludedPlayer
+procedure DoBroadcast(NotificationTargets: array of TAtom; ExcludedPlayer: TAvatar; BroadcastParts: array of PBroadcastPart);
+
+// uses nil as the ExcludedPlayer
+procedure DoBroadcastAll(NotificationTargets: array of TAtom; BroadcastParts: array of PBroadcastPart);
+
 // XXX NPCs don't get broadcasts either currently
-procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar; MessageParts: array of PMessagePart);
-procedure DoBroadcast(Perspective: TAvatar; MessageParts: array of PMessagePart);
+// XXX should use TMessageKinds for broadcasts and then send them to NPCs
+
+// XXX should probably use the '_ _ and _.' style from messages.pas
 
 implementation
 
 uses
    sysutils, lists, player;
 
-function SP(): PMessagePart; inline;
+function SP(): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkSpace;
+   Result^.Kind := bpkSpace;
 end;
 
-function C(const M: PMessagePart): PMessagePart; inline;
+function C(const M: PBroadcastPart): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkCapitalise;
+   Result^.Kind := bpkCapitalise;
    Result^.DataCapitalisePart := M;
 end;
 
-function M(const V: UTF8String): PMessagePart; inline;
+function M(const V: UTF8String): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkUTF8String;
+   Result^.Kind := bpkUTF8String;
    Result^.DataString := nil;
    UTF8String(Result^.DataString) := V;
 end;
 
-function M(const V: TMessageCallback): PMessagePart; inline;
+function M(const V: TBroadcastCallback): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkCallback;
+   Result^.Kind := bpkCallback;
    Result^.DataCallback := V;
 end;
 
-function M(const V: TMessageCallbackPerspective): PMessagePart; inline;
+function M(const V: TBroadcastCallbackPerspective): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkCallbackPerspective;
+   Result^.Kind := bpkCallbackPerspective;
    Result^.DataCallbackPerspective := V;
 end;
 
-function M(const V: TMessageCallbackMethod): PMessagePart; inline;
+function M(const V: TBroadcastCallbackMethod): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkCallbackMethod;
+   Result^.Kind := bpkCallbackMethod;
    Result^.DataCallbackMethod := V;
 end;
 
-function M(const V: TMessageCallbackPerspectiveMethod): PMessagePart; inline;
+function M(const V: TBroadcastCallbackPerspectiveMethod): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkCallbackPerspectiveMethod;
+   Result^.Kind := bpkCallbackPerspectiveMethod;
    Result^.DataCallbackPerspectiveMethod := V;
 end;
 
-function MP(const T: TAtom; const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline;
+function MP(const T: TAtom; const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkPluralCheck;
+   Result^.Kind := bpkPluralCheck;
    Result^.DataPluralCheckTarget := T;
    Result^.DataPluralSingularPart := M1;
    Result^.DataPluralPluralPart := M2;
 end;
 
-function MPP(const M1: PMessagePart; const M2: PMessagePart): PMessagePart; inline;
+function MPP(const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline;
 begin
    New(Result);
-   Result^.Kind := mkPerspectivePluralCheck;
+   Result^.Kind := bpkPerspectivePluralCheck;
    Result^.DataPerspectivePluralSingularPart := M1;
    Result^.DataPerspectivePluralPluralPart := M2;
 end;
 
-procedure ClearMessagePart(MessagePart: PMessagePart);
+procedure ClearBroadcastPart(BroadcastPart: PBroadcastPart);
 begin
-   case MessagePart^.Kind of
-    mkCapitalise: ClearMessagePart(MessagePart^.DataCapitalisePart);
-    mkUTF8String: UTF8String(MessagePart^.DataString) := '';
-    mkPluralCheck: begin ClearMessagePart(MessagePart^.DataPluralSingularPart); ClearMessagePart(MessagePart^.DataPluralPluralPart); end;
-    mkPerspectivePluralCheck: begin ClearMessagePart(MessagePart^.DataPerspectivePluralSingularPart); ClearMessagePart(MessagePart^.DataPerspectivePluralPluralPart); end;
+   case BroadcastPart^.Kind of
+    bpkCapitalise: ClearBroadcastPart(BroadcastPart^.DataCapitalisePart);
+    bpkUTF8String: UTF8String(BroadcastPart^.DataString) := '';
+    bpkPluralCheck: begin ClearBroadcastPart(BroadcastPart^.DataPluralSingularPart); ClearBroadcastPart(BroadcastPart^.DataPluralPluralPart); end;
+    bpkPerspectivePluralCheck: begin ClearBroadcastPart(BroadcastPart^.DataPerspectivePluralSingularPart); ClearBroadcastPart(BroadcastPart^.DataPerspectivePluralPluralPart); end;
    end;
-   Dispose(MessagePart);
+   Dispose(BroadcastPart);
 end;
 
-procedure DoBroadcast(Perspective: TAvatar; MessageParts: array of PMessagePart);
+procedure DoBroadcastAll(NotificationTargets: array of TAtom; BroadcastParts: array of PBroadcastPart);
 begin
-   DoBroadcast([Perspective], Perspective, MessageParts);
+   DoBroadcast(NotificationTargets, nil, BroadcastParts);
 end;
 
-procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar; MessageParts: array of PMessagePart);
+procedure DoBroadcast(NotificationTargets: array of TAtom; ExcludedPlayer: TAvatar; BroadcastParts: array of PBroadcastPart);
 
-   function Assemble(MessageParts: array of PMessagePart; Perspective: TAvatar): UTF8String;
+   function Assemble(BroadcastParts: array of PBroadcastPart; Perspective: TAvatar): UTF8String;
 
-      function GetPart(Part: PMessagePart): UTF8String; inline;
+      function GetPart(Part: PBroadcastPart): UTF8String; inline;
       begin
          case Part^.Kind of
-           mkSpace: Result := ' ';
-           mkCapitalise: Result := Capitalise(GetPart(Part^.DataCapitalisePart));
-           mkUTF8String: Result := UTF8String(Part^.DataString);
-           mkCallback: Result := Part^.DataCallback();
-           mkCallbackPerspective: Result := Part^.DataCallbackPerspective(Perspective);
-           mkCallbackMethod: Result := Part^.DataCallbackMethod();
-           mkCallbackPerspectiveMethod: Result := Part^.DataCallbackPerspectiveMethod(Perspective);
-           mkPluralCheck: if (Part^.DataPluralCheckTarget.IsPlural(Perspective)) then Result := GetPart(Part^.DataPluralPluralPart) else Result := GetPart(Part^.DataPluralSingularPart);
-           mkPerspectivePluralCheck: if (Perspective.IsPlural(Perspective)) then Result := GetPart(Part^.DataPerspectivePluralPluralPart) else Result := GetPart(Part^.DataPerspectivePluralSingularPart);
+           bpkSpace: Result := ' ';
+           bpkCapitalise: Result := Capitalise(GetPart(Part^.DataCapitalisePart));
+           bpkUTF8String: Result := UTF8String(Part^.DataString);
+           bpkCallback: Result := Part^.DataCallback();
+           bpkCallbackPerspective: Result := Part^.DataCallbackPerspective(Perspective);
+           bpkCallbackMethod: Result := Part^.DataCallbackMethod();
+           bpkCallbackPerspectiveMethod: Result := Part^.DataCallbackPerspectiveMethod(Perspective);
+           bpkPluralCheck: if (Part^.DataPluralCheckTarget.IsPlural(Perspective)) then Result := GetPart(Part^.DataPluralPluralPart) else Result := GetPart(Part^.DataPluralSingularPart);
+           bpkPerspectivePluralCheck: if (Perspective.IsPlural(Perspective)) then Result := GetPart(Part^.DataPerspectivePluralPluralPart) else Result := GetPart(Part^.DataPerspectivePluralSingularPart);
           else
             Assert(False, 'Failed to assemble broadcast message - unexpected type ' + IntToStr(Cardinal(Part^.Kind)));
             Result := '<error>';
@@ -159,9 +165,9 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; Perspective: TAvatar;
       Index: Cardinal;
    begin
       Result := '';
-      Assert(Length(MessageParts) > 0);
-      for Index := Low(MessageParts) to High(MessageParts) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
-         Result := Result + GetPart(MessageParts[Index]);
+      Assert(Length(BroadcastParts) > 0);
+      for Index := Low(BroadcastParts) to High(BroadcastParts) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         Result := Result + GetPart(BroadcastParts[Index]);
    end;
 
 var
@@ -171,7 +177,7 @@ var
    FromOutside: Boolean;
 begin
    Assert(Length(NotificationTargets) > 0, 'Don''t call DoBroadcast with nobody to broadcast to!');
-   Assert(Length(MessageParts) > 0, 'Don''t call DoBroadcast with nothing to broadcast!');
+   Assert(Length(BroadcastParts) > 0, 'Don''t call DoBroadcast with nothing to broadcast!');
    try
       Players := TThingList.Create([slDropDuplicates]);
       try
@@ -179,15 +185,15 @@ begin
          for Index := Low(NotificationTargets) to High(NotificationTargets) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
             NotificationTargets[Index].GetSurroundingsRoot(FromOutside).GetNearbyThingsByClass(Players, FromOutside, TPlayer);
          for CurrentPlayer in Players do
-            if (CurrentPlayer <> Perspective) then
-               (CurrentPlayer as TPlayer).SendRawMessage(Assemble(MessageParts, CurrentPlayer as TPlayer));
+            if (CurrentPlayer <> ExcludedPlayer) then
+               (CurrentPlayer as TPlayer).SendRawMessage(Assemble(BroadcastParts, CurrentPlayer as TPlayer));
       finally
          Players.Free();
       end;
    finally
-      Assert(Length(MessageParts) > 0);
-      for Index := Low(MessageParts) to High(MessageParts) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
-         ClearMessagePart(MessageParts[Index]);
+      Assert(Length(BroadcastParts) > 0);
+      for Index := Low(BroadcastParts) to High(BroadcastParts) do {BOGUS Warning: Type size mismatch, possible loss of data / range check error}
+         ClearBroadcastPart(BroadcastParts[Index]);
    end;
 end;
 

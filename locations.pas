@@ -56,8 +56,8 @@ type
     public
       function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      procedure Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar); override;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
+      procedure Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
    end;
 
    TBackdrop = class(TSlavedLocation) // @RegisterStorableClass
@@ -73,7 +73,7 @@ type
 implementation
 
 uses
-   things;
+   things, broadcast;
 
 constructor TNamedLocation.Create(Name, DefiniteName, IndefiniteName, Description: UTF8String);
 begin
@@ -200,24 +200,22 @@ begin
    Result := CanSurfaceHold(Manifest);
 end;
 
-function TAirLocation.CanPut(Thing: TThing; ThingPosition: TThingPosition; Perspective: TAvatar; var Message: TMessage): Boolean;
+function TAirLocation.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if (ThingPosition in [tpOn, tpIn]) then
-      Result := GetBelow().CanPut(Thing, tpOn, Perspective, Message)
+      Result := GetBelow().CanPut(Thing, tpOn, Care, Perspective, Message)
    else
-      Result := inherited; // at time of writing, this would always throw
+      Result := inherited; // at time of writing, this would always throw, since the superclass asserts that ThingPosition is tpOn or tpIn
 end;
 
-procedure TAirLocation.Put(Thing: TThing; Position: TThingPosition; Carefully: Boolean; Perspective: TAvatar);
+procedure TAirLocation.Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar);
 var
    Below: TAtom;
 begin
    Below := GetBelow();
    Assert(Assigned(Below));
-   Perspective.AvatarMessage(TMessage.Create(mkEffect, '_ falls to _.', 
-                                                       [Capitalise(Thing.GetDefiniteName(Perspective)),
-                                                        Below.GetDefiniteName(Perspective)]));
-   Below.Put(Thing, Position, False, Perspective);
+   DoBroadcastAll([Perspective, Self, Thing, Below], [C(M(@Thing.GetDefiniteName)), SP, MP(Thing, M('falls to'), M('fall to')), SP, M(@Below.GetDefiniteName)]);
+   Below.Put(Thing, Position, Care, Perspective);
 end;
 
 function TAirLocation.GetBelow(): TAtom;

@@ -59,9 +59,9 @@ end;
 function InitEden: TWorld;
 var
    World: TCuddlyWorld;
-   SkyBox, Room1, Room2, ArchwayLocation: TLocation;
+   SkyBox, Room1, Room2, DoorwayLocation: TLocation;
    Sky, Sun: TThing;
-   Archway: TThresholdThing;
+   Doorway: TThresholdThing;
 begin
    World := TCuddlyWorld.Create();
 
@@ -72,20 +72,23 @@ begin
    SkyBox := TBackdrop.Create(Sky, tpAtImplicit);
    World.AddLocation(SkyBox);
 
-   Archway := TStaticThresholdThing.Create('archway', 'unnotable? (arch/arches archway/archways)@', 'The archway has no notable features.', cdSouth);
-
    Room1 := TGroundLocation.Create('Room', 'a room', 'the room', 'Nothing is particularly noteworthy about this location.', CreateEarthSurface());
    Room1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
    Room2 := TGroundLocation.Create('Back Room', 'a back room', 'the back room', 'Nothing is particularly noteworthy about this second location.', CreateEarthSurface());
    Room2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
-   ArchwayLocation := ConnectThreshold(Room1, Room2, Archway, CreateEarthSurface());
-   ArchwayLocation.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
+   Doorway := TDoorWay.Create('doorway', 'unnotable? doorway/doorways', 'The doorway has no notable features.', cdSouth,
+                              TDoor.Create('door', 'wooden? (open:1 closed:2)* door/doors', 
+                                          TDoorSide.Create('side', 'varnished? (front:1)? side/sides', 'the door is varnished.'),
+                                          TDoorSide.Create('side', '((scratched? (back:1)? side/sides) scratch/scratches)@', 'the door has a big scratch, as if made by a wolf.')));
+
+   DoorwayLocation := ConnectThreshold(Room1, Room2, Doorway, CreateEarthSurface());
+   DoorwayLocation.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
    World.AddLocation(Room1);
    World.AddLocation(Room2);
-   World.AddLocation(ArchwayLocation);
+   World.AddLocation(DoorwayLocation);
    World.StartingLocation := Room1.GetSurface();
    World.StartingPosition := tpOn;
 
