@@ -9,10 +9,7 @@ NEW BUGS
  + put door in doorway
  + hang door in doorway
 
-
 CODE HEALTH
- + replace anything that uses AvatarMessage but should be broadcast with a broadcast
- + replace  Message.Create(mkSuccess, '');  with a zero-argument constructor
  + rename AddObtrusiveObstacles to something like EnumerateObtrusiveObstacles, ditto AddExplicitlyReferencedThings
 
 CREATE TESTS FOR
@@ -277,6 +274,7 @@ THING SEEKER IMPROVEMENTS: VOCABULARY
  + "put MY penny in MY bag" -- "my" should only look in one's inventory
 
 UI
+ + Replace anything that uses AvatarMessage but should be broadcast with a broadcast
  + It would be good to merge disambiguation messages, so that "put brown in bag" "(the brown mug) (the black bag) (first taking the brown mug)" became just one statement
  + Disambiguation of things that fail should say "try to", e.g. "(first trying to take the mountain)"
  + Handle multiples of things, so that you can have "take three coins" and it doesn't say "Coin: Taken" "Coin: Taken" "Coin: Taken" but "You take three coins" or some such.

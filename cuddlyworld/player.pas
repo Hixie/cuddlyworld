@@ -851,7 +851,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          if (not Reachable(CurrentSubject, Message)) then
          begin
             Assert(Message.AsKind <> mkSuccess);
@@ -916,7 +916,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          if (not Reachable(CurrentSubject, Message)) then
          begin
             Assert(Message.AsKind <> mkSuccess);
@@ -1111,7 +1111,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          if (CurrentSubject.Parent = Self) then
          begin
             SingleThingList := TThingList.Create();
@@ -1272,7 +1272,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          if (not Reachable(CurrentSubject, Message)) then
          begin
             Assert(Message.AsKind <> mkSuccess);
@@ -1525,7 +1525,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          if (not Reachable(CurrentSubject, Message)) then
          begin
             Assert(Message.AsKind <> mkSuccess);
@@ -1563,7 +1563,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          if (not Reachable(CurrentSubject, Message)) then
          begin
             Assert(Message.AsKind <> mkSuccess);
@@ -1764,7 +1764,7 @@ begin
       Count := Count - 1; // can't go negative since Count > MaxCarryCount and MaxCarryCount >= 0 // $R-
       DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
       {$IFOPT C+}
-        Message.Create(mkSuccess, '');
+        Message.Create();
         Assert(FParent.CanPut(Candidate, tpOn, psRoughly, Self, Message));
         Assert(Message.AsKind = mkSuccess);
       {$ENDIF};
@@ -1879,7 +1879,7 @@ begin
       Result := SelfRoot = Subject;
       if (Result) then
       begin
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
       end
       else
       begin
@@ -1927,7 +1927,7 @@ begin
       end
       else
       begin
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
       end;
    end
    else
