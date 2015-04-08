@@ -399,7 +399,7 @@ begin
    Assert(Assigned(Perspective));
    Position := tpOn;
    DisambiguationOpening := nil;
-   Message := TMessage.Create(mkSuccess, '');
+   Message := TMessage.Create();
    NotificationList := TAtomList.Create();
    try
       Destination := ATo.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
@@ -458,7 +458,7 @@ begin
       Assert(Assigned(ATo));
       //Assert(ATo is TThing, 'if you want to be "on" a TLocation, give it a surface available from GetSurface()');
       DisambiguationOpening := nil;
-      Message := TMessage.Create(mkSuccess, '');
+      Message := TMessage.Create();
       Success := ATo.CanPut(Perspective, Position, psCarefully, Perspective, Message);
       if (Success) then
       begin
@@ -479,7 +479,7 @@ begin
    begin
       Assert(ATo is TThing);
       DisambiguationOpening := nil;
-      Message := TMessage.Create(mkSuccess, '');
+      Message := TMessage.Create();
       NotificationList := TAtomList.Create();
       try
          Ancestor := AFrom;
@@ -2031,12 +2031,12 @@ begin
       try
          PositionOverride := tpOn;
          DisambiguationOpening := nil;
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          ActualDestination := FDirectionalLandmarks[Direction][0].Atom.GetEntrance(Traveller, Direction, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
          Assert(Message.AsKind = mkSuccess);
          PositionOverride := tpOn;
          DisambiguationOpening := nil;
-         Message := TMessage.Create(mkSuccess, '');
+         Message := TMessage.Create();
          DesiredDestination := Atom.GetEntrance(Traveller, Direction, Traveller, PositionOverride, DisambiguationOpening, Message, NotificationList);
          Assert(Message.AsKind = mkSuccess);
          Assert(Assigned(ActualDestination));
