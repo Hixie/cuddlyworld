@@ -22,7 +22,7 @@
       constructor Create(CONSTRUCTORARGUMENTDECLARATIONS Ground: TThing);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure AddObtrusiveObstacles(List: TThingList); override;
+      procedure EnumerateObtrusiveObstacles(List: TThingList); override;
       function GetSurface(): TAtom; override;
    end;
 
@@ -48,10 +48,10 @@ begin
    Stream.WriteReference(FSurface);
 end;
 
-procedure SUBCLASS.AddObtrusiveObstacles(List: TThingList);
+procedure SUBCLASS.EnumerateObtrusiveObstacles(List: TThingList);
 begin
    inherited;
-   FSurface.AddObtrusiveObstacles(List);
+   FSurface.EnumerateObtrusiveObstacles(List);
 end;
 
 function SUBCLASS.GetSurface(): TAtom;
