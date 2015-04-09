@@ -1,7 +1,10 @@
 NEW BUGS
  + can't see things that are in the threshold when not in threshold
  + can't see that things you put in the doorway drop to the floor, when in one of the rooms
- + "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the doorway (!) which is a total no-no
+ + no way to actually enter (and remain at) a threshold
+    - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
+    - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the
+      doorway (!) which is a total no-no
  + "look under door"
  + "move door north" should say that it's closed or something, not that it can't move
  + "close" doesn't autoclose an open door
@@ -12,6 +15,11 @@ NEW BUGS
  + > put door in doorway // is a bit verbose:
    Placed in the doorway. // can we drop this line entirely since we get the next one?
    You install a door installed in the doorway. It is closed. // "install a door installed"?
+ + "move leaves through door", "push pile through door"
+ + make the thing seeker disambiguate on features too. For example:
+    - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
+    - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
+    - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
 
 
 CREATE TESTS FOR
@@ -65,12 +73,6 @@ CURRENT TASKS
  + "go to <name of neighboring location>" doesn't work
 
 NAVIGATION
- + no way to actually enter (and remain at) a threshold
-    - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
-    - make it possible to close and open a threshold door
-    - make sure it's possible to have doors with two distinct sides
-       - TThresholdLocation invokes its TDoubleSidedThing's AddExplicitlyReferencedThingsFromDirection()
-    - make it possible to take a door off its hinges, leaving the threshold
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
  + "visit east archway"
@@ -191,7 +193,6 @@ THINGS
  + "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
  + "move all but inventory" should work
- + "move leaves through door", "push pile through door"
  + 'look under' should move things if they are bigger than what they are on
  + 'look' when inside an object that usually hides its contents (e.g. a pile) still hides its contents when in the pile - do we need FromOutside for GetDescriptionIn()?
  + "look closer" should ask what part you want to look closer at ("look closer" "what do you want to look closer at?" "look closer at tree" "do you want to examine the leaf, or the branch?"
@@ -249,10 +250,6 @@ THING SEEKER IMPROVEMENTS: LOGIC
     - "drop any four coins" when i'm holding 3 and there's 3 on the ground...?
     - "drop all that is a coin" shouldn't drop those on the ground
     - worse: given red and blue tables, "take red then drop table" asks which table to drop
- + make the thing seeker disambiguate on features too. For example:
-    - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
-    - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
-    - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
  + find a solution to:
     - "There is an orange here. There is an orange mug here." "Take orange." "Which orange do you mean, the orange or the orange mug?"
     - Trees all over the place. "Examine tree." "Which tree do you mean, the tree, the tree, the tree, the tree, the tree, the tree, the tree, or the tree?"
@@ -295,6 +292,17 @@ CODE
  + see if it makes sense to change TThing.Navigate() and TThing.GetLookTowardsDirection() to instead use a GetAtomForDirection()-like approach
  + replace HINTS OFF and WARNINGS OFF pragmas with BOGUS pragmas
  + import ../../isd/server/src/infrastructure/corewebsocket.pas and ../../isd/server/src/infrastructure/corenetwork.pas
+
+BLUE SKY (q.v. http://mud.co.uk/richard/imucg2.htm)
+ + fluids: "what happens when a jug containing 5 litres of water is
+   poured into a bowl with a 3 litre capacity"
+ + smoke pouring from room to room
+ + temperature
+ + "If 1,300 matchsticks have been made into a model of the Eiffel
+   Tower, and 700 are removed, does that leave a 600-matchstick model?
+   What if 1,299 were removed? What if only 1 was? What if the
+   matchsticks were made into something else?"
+ + small rooms, like inside a grandfather clock
 
 MORE NOTES
  http://www.brasslantern.org/writers/iftheory/tads3andi7.html
