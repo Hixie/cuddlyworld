@@ -1,5 +1,6 @@
 NEW BUGS
  + can't see things that are in the threshold when not in threshold
+ + can't see that things you put in the doorway drop to the floor, when in one of the rooms
  + "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the doorway (!) which is a total no-no
  + "look under door"
  + "move door north" should say that it's closed or something, not that it can't move
@@ -8,6 +9,10 @@ NEW BUGS
  + "open north door" doesn't work
  + put door in doorway
  + hang door in doorway
+ + > put door in doorway // is a bit verbose:
+   Placed in the doorway. // can we drop this line entirely since we get the next one?
+   You install a door installed in the doorway. It is closed. // "install a door installed"?
+
 
 CREATE TESTS FOR
  - walking through the door
