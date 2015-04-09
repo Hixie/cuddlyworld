@@ -9,9 +9,6 @@ NEW BUGS
  + put door in doorway
  + hang door in doorway
 
-CODE HEALTH
- + rename AddObtrusiveObstacles to something like EnumerateObtrusiveObstacles, ditto AddExplicitlyReferencedThings
-
 CREATE TESTS FOR
  - walking through the door
  - enter door

@@ -53,7 +53,7 @@ type
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection; Door: TDoor = nil);
       function IsClear(): Boolean; virtual;
-      procedure AddObtrusiveObstacles(List: TThingList); override;
+      procedure EnumerateObtrusiveObstacles(List: TThingList); override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Put(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
@@ -115,7 +115,7 @@ type
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; override;
-      procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
+      procedure EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
@@ -268,13 +268,13 @@ begin
    List.Free();
 end;
 
-procedure TDoorWay.AddObtrusiveObstacles(List: TThingList);
+procedure TDoorWay.EnumerateObtrusiveObstacles(List: TThingList);
 var
    CurrentDoor: TThing;
 begin
    inherited;
    if (FParent is TThresholdLocation) then
-      FParent.AddObtrusiveObstacles(List);
+      FParent.EnumerateObtrusiveObstacles(List);
    CurrentDoor := GetDoor();
    if (Assigned(CurrentDoor)) then
       List.RemoveItem(CurrentDoor);
@@ -789,10 +789,10 @@ begin
    List.Free();
 end;
 
-procedure TThresholdLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter);
+procedure TThresholdLocation.EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter);
 begin
    if (Distance > 0) then
-      FMaster.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
+      FMaster.EnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
    inherited;
 end;
 

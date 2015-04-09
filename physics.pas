@@ -90,7 +90,7 @@ type
 
       // Moving things around
       function GetObtrusiveObstacles: TThingList;
-      procedure AddObtrusiveObstacles(List: TThingList); virtual;
+      procedure EnumerateObtrusiveObstacles(List: TThingList); virtual;
       procedure Add(Thing: TThing; Position: TThingPosition);
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
@@ -119,7 +119,7 @@ type
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual; // see note [proxy]
-      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
+      procedure EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
 
       // Atom identity
       function IsPlural(Perspective: TAvatar): Boolean; virtual; abstract;
@@ -218,7 +218,7 @@ type
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract; // compares Tokens to FName, essentially
-      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
+      procedure EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
       procedure Moved(OldParent: TAtom; Care: TPlacementStyle; Perspective: TAvatar); virtual;
       procedure Shake(Perspective: TAvatar); virtual;
       procedure Press(Perspective: TAvatar); virtual;
@@ -326,8 +326,8 @@ type
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
-      procedure AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
-      procedure AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); virtual;
+      procedure EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
+      procedure EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); virtual;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; override;
    end;
@@ -589,10 +589,10 @@ end;
 function TAtom.GetObtrusiveObstacles: TThingList;
 begin
    Result := TThingList.Create([slDropDuplicates]);
-   AddObtrusiveObstacles(Result);
+   EnumerateObtrusiveObstacles(Result);
 end;
 
-procedure TAtom.AddObtrusiveObstacles(List: TThingList);
+procedure TAtom.EnumerateObtrusiveObstacles(List: TThingList);
 var
    Child: TThing;
 begin
@@ -871,13 +871,13 @@ begin
    Result := FindThingTraverser(Thing, Perspective, FromOutside);
 end;
 
-procedure TAtom.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
+procedure TAtom.EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
 var
    Child: TThing;
 begin
    for Child in FChildren do
       if (IsChildTraversable(Child, Perspective, FromOutside)) then
-         Child.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
+         Child.EnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
 end;
 
 function TAtom.GetSummaryName(Perspective: TAvatar): UTF8String;
@@ -1707,7 +1707,7 @@ begin
       Result := inherited;
 end;
 
-procedure TThing.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
+procedure TThing.EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
 var
    Count: Cardinal;
    GrammaticalNumber: TGrammaticalNumber;
@@ -2311,7 +2311,7 @@ begin
    Internal(Direction, Distance > 0, False);
 end;
 
-procedure TLocation.AddExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
+procedure TLocation.EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
 var
    Index: Cardinal;
    Direction: TCardinalDirection;
@@ -2325,16 +2325,16 @@ begin
          if (loThreshold in FImportantLandmarks[Index]^.Options) then
          begin
             if (FImportantLandmarks[Index]^.Atom is TLocation) then
-               (FImportantLandmarks[Index]^.Atom as TLocation).AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, 1, FImportantLandmarks[Index]^.Direction, Reporter)
+               (FImportantLandmarks[Index]^.Atom as TLocation).EnumerateExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, 1, FImportantLandmarks[Index]^.Direction, Reporter)
             else
-               FImportantLandmarks[Index]^.Atom.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
+               FImportantLandmarks[Index]^.Atom.EnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
          end;
       end;
    for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
-      AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, 0, Direction, Reporter);
+      EnumerateExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, 0, Direction, Reporter);
 end;
 
-procedure TLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter);
+procedure TLocation.EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter);
 
    procedure Internal(CurrentDirection: TCardinalDirection; MustBeVisibleFromFarAway: Boolean; Reversed: Boolean);
    var
@@ -2355,7 +2355,7 @@ procedure TLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; St
                Assert(Assigned(CandidateAtom));
                if (CandidateAtom is TLocation) then
                begin
-                  (CandidateAtom as TLocation).AddExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, Distance+1, CurrentDirection, Reporter); // $R-
+                  (CandidateAtom as TLocation).EnumerateExplicitlyReferencedThingsDirectional(Tokens, Start, Perspective, Distance+1, CurrentDirection, Reporter); // $R-
                end
                else
                if (CandidateAtom is TThing) then
@@ -2374,7 +2374,7 @@ procedure TLocation.AddExplicitlyReferencedThingsDirectional(Tokens: TTokens; St
                      ShouldInclude := Ancestor <> Self;
                   end;
                   if (ShouldInclude) then
-                     CandidateAtom.AddExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
+                     CandidateAtom.EnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
                end
                else
                   Assert(False, 'Not sure how to handle directional atom of class ' + CandidateAtom.ClassName);

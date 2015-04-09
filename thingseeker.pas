@@ -1875,7 +1875,7 @@ var
             FCurrentBestLength := 0;
             FCurrentBestGrammaticalNumber := [];
             try
-               Perspective.GetSurroundingsRoot(FromOutside).AddExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @Add);
+               Perspective.GetSurroundingsRoot(FromOutside).EnumerateExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @Add);
             except
                FCurrentBestThingList.Empty();
                raise;
