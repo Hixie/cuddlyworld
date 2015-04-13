@@ -357,6 +357,12 @@ function TDoorWay.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPl
          end
          else
          begin
+            Message := TMessage.Create(mkSuccess, '_ _ _ _ _.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        TernaryConditional('installs', 'install', Perspective.IsPlural(Perspective)),
+                                        Thing.GetIndefiniteName(Perspective),
+                                        ThingPositionToString(tpConsiderForDoorPosition),
+                                        GetDefiniteName(Perspective)]);
             Result := True;
          end;
       finally
@@ -441,16 +447,17 @@ begin
    if (Thing = GetDoor()) then
    begin
       FOpened := not IsClear();
-      DoBroadcastAll([Self, Blame], [C(M(@Blame.GetDefiniteName)), SP, // You
-                                     MP(Blame, M('installs'), M('install')), SP, // install
-                                     M(@Thing.GetIndefiniteName), SP, // a thing
-                                     M(ThingPositionToString(Thing.Position)), SP, // in
-                                     M(@GetDefiniteName), // the door way
-                                     M('. '),
-                                     C(M(@Thing.GetSubjectPronoun)), SP, // It
-                                     MP(Thing, M('is'), M('are')), SP, // is 
-                                     M(TernaryConditional('closed', 'open', IsOpen())),
-                                     M('.')]);
+      DoBroadcast([Self, Blame], Blame,
+                  [C(M(@Blame.GetDefiniteName)), SP, // You
+                   MP(Blame, M('installs'), M('install')), SP, // install
+                   M(@Thing.GetIndefiniteName), SP, // a thing
+                   M(ThingPositionToString(tpConsiderForDoorPosition)), SP, // in
+                   M(@GetDefiniteName), // the door way
+                   M('. '),
+                   C(M(@Thing.GetSubjectPronoun)), SP, // It
+                   MP(Thing, M('is'), M('are')), SP, // is 
+                   M(TernaryConditional('closed', 'open', IsOpen())),
+                   M('.')]);
    end;
    inherited;
 end;
@@ -839,11 +846,14 @@ begin
 end;
 
 function TDoor.GetFeatures(): TThingFeatures;
+var
+   TheDoorWay: TThing;
 begin
    Result := inherited;
-   if (Assigned(GetDoorWay())) then
+   TheDoorWay := GetDoorWay();
+   if (Assigned(TheDoorWay)) then
    begin
-      if (IsOpen()) then
+      if (TheDoorWay.IsOpen()) then
          Result := Result + [tfClosable]
       else
          Result := Result + [tfOpenable];
