@@ -122,6 +122,7 @@ type
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; override;
+      procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); override;
       procedure EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
@@ -334,6 +335,35 @@ begin
 end;
 
 function TDoorWay.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
+
+   function IsUnencumbered(): Boolean;
+   var
+      DoorObstacles: TThingList;
+   begin
+      DoorObstacles := Thing.GetObtrusiveObstacles();
+      try
+         if (DoorObstacles.Length > 0) then
+         begin
+            Message := TMessage.Create(mkBlocked, '_ cannot install _ _ _ while _ _ _ _.',
+                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        Thing.GetIndefiniteName(Perspective),
+                                        ThingPositionToString(tpConsiderForDoorPosition),
+                                        GetIndefiniteName(Perspective),
+                                        DoorObstacles.GetIndefiniteString(Perspective, 'or'),
+                                        IsAre(DoorObstacles.IsPlural(Perspective)),
+                                        ThingPositionToString(DoorObstacles.First.Position),
+                                        Thing.GetObjectPronoun(Perspective)]);
+            Result := False;
+         end
+         else
+         begin
+            Result := True;
+         end;
+      finally
+         DoorObstacles.Free();
+      end;
+   end;
+
 var
    OldDoor: TDoor;
    CouldBeDoor: Boolean;
@@ -342,12 +372,14 @@ begin
    CouldBeDoor := GetCouldBeDoor(Thing, ThingPosition);
    if ((ThingPosition in tpContained) and Assigned(GetDoor()) and not IsOpen()) then
    begin
+      // can't put something inside a closed doorway
       Message := TMessage.Create(mkClosed, GetDescriptionClosed(Perspective));
       Result := False;
    end
    else
    if ((CouldBeDoor) and (not (FParent is TThresholdLocation))) then
    begin
+      // this is a door in another thing or something
       if (Assigned(OldDoor)) then
       begin
          Message := TMessage.Create(mkDuplicate, '_ already _ _.', [Capitalise(GetDefiniteName(Perspective)),
@@ -356,16 +388,17 @@ begin
          Result := False;
       end
       else
-         Result := True;
+         Result := IsUnencumbered();
    end
    else
    if (((not CouldBeDoor) or (Care <> psCarefully) or (Assigned(GetDoor()))) and (FParent is TThresholdLocation)) then
    begin
+      // not a door being carefully installed in a doorway
       Result := FParent.GetSurface().CanPut(Thing, tpOn, Care, Perspective, Message);
    end
    else
    begin
-      Result := True;
+      Result := IsUnencumbered();
    end;
 end;
 
@@ -376,17 +409,23 @@ begin
    if (((not GetCouldBeDoor(Thing, ThingPosition)) or (Care <> psCarefully) or (Assigned(GetDoor()))) and (FParent is TThresholdLocation)) then
    begin
       Ground := FParent.GetSurface();
-      DoBroadcastAll([Self, Ground], [C(M(@Perspective.GetDefiniteName)), SP, // You
-                                      MP(Perspective, M('drops'), M('drop')), SP, // drop
-                                      M(@Thing.GetDefiniteName), SP, // the door
-                                      M(ThingPositionToString(ThingPosition)), SP, // in
-                                      M(@GetDefiniteName), // the door way
-                                      M(', and '),
-                                      M(@Thing.GetSubjectPronoun), SP, // it
-                                      MP(Thing, M('falls'), M('fall')), SP, // falls
-                                      M(ThingPositionToDirectionString(tpOnGround)), SP, // to
-                                      M(@Ground.GetDefiniteName), // the ground
-                                      M('.')]);
+      DoBroadcast([Self, Ground], Perspective,
+                  [C(M(@Perspective.GetDefiniteName)), SP, // You
+                   MP(Perspective, M('drops'), M('drop')), SP, // drop
+                   M(@Thing.GetDefiniteName), SP, // the door
+                   M(ThingPositionToString(ThingPosition)), SP, // in
+                   M(@GetDefiniteName), // the door way
+                   M(', and '),
+                   M(@Thing.GetSubjectPronoun), SP, // it
+                   MP(Thing, M('falls'), M('fall')), SP, // falls
+                   M(ThingPositionToDirectionString(tpOnGround)), SP, // to
+                   M(@Ground.GetDefiniteName), // the ground
+                   M('.')]);
+      Perspective.AvatarMessage(TMessage.Create(mkThingsFall, '_ _ _ _.',
+                                               [Capitalise(Thing.GetDefiniteName(Perspective)),
+                                                TernaryConditional('falls', 'fall', Thing.IsPlural(Perspective)),
+                                                ThingPositionToDirectionString(tpOnGround),
+                                                Ground.GetDefiniteName(Perspective)]));
       Ground.Put(Thing, tpOnGround, Care, Perspective);
    end
    else
@@ -939,6 +978,15 @@ begin
    else
       Result := inherited;
    List.Free();
+end;
+
+procedure TThresholdLocation.GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass);
+var
+   Direction: TCardinalDirection;
+begin
+   for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
+      if (Length(FDirectionalLandmarks[Direction]) > 0) then
+         FDirectionalLandmarks[Direction][0].Atom.GetNearbyThingsByClass(List, True, Filter);
 end;
 
 procedure TThresholdLocation.EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter);
