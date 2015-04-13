@@ -1,9 +1,5 @@
 NEW BUGS
- + "close" doesn't autoclose an open door
- + "move door north" should say that it's closed or something, not that it can't move
- + > put door in doorway // is a bit verbose:
-   Placed in the doorway. // can we drop this line entirely since we get the next one?
-   You install a door installed in the doorway. It is closed. // "install a door installed"?
+ + no broadcast message when someone picks up a door (or anything, indeed)
  + no way to actually enter (and remain at) a threshold
     - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
     - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the
@@ -83,6 +79,17 @@ CREATE TESTS FOR
  - close door ; fails, we're in the way
  - take bag
  - exit ; fails
+ - <direction of door>
+ - close
+ - put bag in door ; fails
+ - open
+ - put bag in door
+ - close ; fails
+ - find bag
+ - push bag <reverse direction of door>
+ - find bag ; fails
+ - <reverse direction of door>
+ - find bag
 
 CURRENT TASKS
  + "find archway" when in the threshold room should use the room's context fragment
