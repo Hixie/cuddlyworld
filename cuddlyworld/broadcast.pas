@@ -12,8 +12,10 @@ type
    TBroadcastCallbackPerspective = function (Perspective: TAvatar): UTF8String;
    TBroadcastCallbackMethod = function (): UTF8String of object;
    TBroadcastCallbackPerspectiveMethod = function (Perspective: TAvatar): UTF8String of object;
+   TBroadcastCallbackPerspectiveConjunctionMethod = function (Perspective: TAvatar; const Conjunction: UTF8String): UTF8String of object;
+   TBroadcastCallbackPluralCheckMethod = function (Perspective: TAvatar): Boolean of object;
 
-   TBroadcastPartKind = (bpkSpace, bpkEmpty, bpkCapitalise, bpkUTF8String, bpkCallback, bpkCallbackPerspective, bpkCallbackMethod, bpkCallbackPerspectiveMethod, bpkPluralCheck, bpkPerspectivePluralCheck);
+   TBroadcastPartKind = (bpkSpace, bpkEmpty, bpkCapitalise, bpkUTF8String, bpkCallback, bpkCallbackPerspective, bpkCallbackMethod, bpkCallbackPerspectiveMethod, bpkCallbackPerspectiveConjunctionMethod, bpkPluralCheck, bpkPerspectivePluralCheck, bpkCallbackPluralCheckMethod);
    PBroadcastPart = ^TBroadcastPart;
    TBroadcastPart = record
       case Kind: TBroadcastPartKind of
@@ -25,8 +27,10 @@ type
        bpkCallbackPerspective: (DataCallbackPerspective: TBroadcastCallbackPerspective);
        bpkCallbackMethod: (DataCallbackMethod: TBroadcastCallbackMethod);
        bpkCallbackPerspectiveMethod: (DataCallbackPerspectiveMethod: TBroadcastCallbackPerspectiveMethod);
+       bpkCallbackPerspectiveConjunctionMethod: (DataCallbackPerspectiveConjunctionMethod: TBroadcastCallbackPerspectiveConjunctionMethod; DataCallbackPerspectiveConjunctionMethodConjuction: PBroadcastPart);
        bpkPluralCheck: (DataPluralCheckTarget: TAtom; DataPluralSingularPart: PBroadcastPart; DataPluralPluralPart: PBroadcastPart);
        bpkPerspectivePluralCheck: (DataPerspectivePluralSingularPart: PBroadcastPart; DataPerspectivePluralPluralPart: PBroadcastPart);
+       bpkCallbackPluralCheckMethod: (DataCallbackPluralCheckMethod: TBroadcastCallbackPluralCheckMethod; DataCallbackPluralCheckMethodSingularPart: PBroadcastPart; DataCallbackPluralCheckMethodPluralPart: PBroadcastPart);
    end;
 
 function SP(): PBroadcastPart; inline; { SPace }
@@ -36,7 +40,9 @@ function M(const V: TBroadcastCallback): PBroadcastPart; inline; { Broadcast par
 function M(const V: TBroadcastCallbackPerspective): PBroadcastPart; inline; { Broadcast part }
 function M(const V: TBroadcastCallbackMethod): PBroadcastPart; inline; { Broadcast part }
 function M(const V: TBroadcastCallbackPerspectiveMethod): PBroadcastPart; inline; { Broadcast part }
+function M(const V: TBroadcastCallbackPerspectiveConjunctionMethod; const C: PBroadcastPart): PBroadcastPart; inline; { Broadcast part with conjunction }
 function MP(const T: TAtom; const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline; { Broadcast part - thing is Plural check }
+function MP(const V: TBroadcastCallbackPluralCheckMethod; const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline; { Broadcast part - method for plural check }
 function MPP(const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline; { Broadcast part - Perspective is Plural check }
 
 procedure ClearBroadcastPart(BroadcastPart: PBroadcastPart);
@@ -106,6 +112,14 @@ begin
    Result^.DataCallbackPerspectiveMethod := V;
 end;
 
+function M(const V: TBroadcastCallbackPerspectiveConjunctionMethod; const C: PBroadcastPart): PBroadcastPart; inline;
+begin
+   New(Result);
+   Result^.Kind := bpkCallbackPerspectiveConjunctionMethod;
+   Result^.DataCallbackPerspectiveConjunctionMethod := V;
+   Result^.DataCallbackPerspectiveConjunctionMethodConjuction := C;
+end;
+
 function MP(const T: TAtom; const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline;
 begin
    New(Result);
@@ -113,6 +127,15 @@ begin
    Result^.DataPluralCheckTarget := T;
    Result^.DataPluralSingularPart := M1;
    Result^.DataPluralPluralPart := M2;
+end;
+
+function MP(const V: TBroadcastCallbackPluralCheckMethod; const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline;
+begin
+   New(Result);
+   Result^.Kind := bpkCallbackPluralCheckMethod;
+   Result^.DataCallbackPluralCheckMethod := V;
+   Result^.DataCallbackPluralCheckMethodSingularPart := M1;
+   Result^.DataCallbackPluralCheckMethodPluralPart := M2;
 end;
 
 function MPP(const M1: PBroadcastPart; const M2: PBroadcastPart): PBroadcastPart; inline;
@@ -128,8 +151,10 @@ begin
    case BroadcastPart^.Kind of
     bpkCapitalise: ClearBroadcastPart(BroadcastPart^.DataCapitalisePart);
     bpkUTF8String: UTF8String(BroadcastPart^.DataString) := '';
+    bpkCallbackPerspectiveConjunctionMethod: ClearBroadcastPart(BroadcastPart^.DataCallbackPerspectiveConjunctionMethodConjuction);
     bpkPluralCheck: begin ClearBroadcastPart(BroadcastPart^.DataPluralSingularPart); ClearBroadcastPart(BroadcastPart^.DataPluralPluralPart); end;
     bpkPerspectivePluralCheck: begin ClearBroadcastPart(BroadcastPart^.DataPerspectivePluralSingularPart); ClearBroadcastPart(BroadcastPart^.DataPerspectivePluralPluralPart); end;
+    bpkCallbackPluralCheckMethod: begin ClearBroadcastPart(BroadcastPart^.DataCallbackPluralCheckMethodSingularPart); ClearBroadcastPart(BroadcastPart^.DataCallbackPluralCheckMethodPluralPart); end;
    end;
    Dispose(BroadcastPart);
 end;
@@ -153,8 +178,10 @@ procedure DoBroadcast(NotificationTargets: array of TAtom; ExcludedPlayer: TAvat
            bpkCallbackPerspective: Result := Part^.DataCallbackPerspective(Perspective);
            bpkCallbackMethod: Result := Part^.DataCallbackMethod();
            bpkCallbackPerspectiveMethod: Result := Part^.DataCallbackPerspectiveMethod(Perspective);
+           bpkCallbackPerspectiveConjunctionMethod: Result := Part^.DataCallbackPerspectiveConjunctionMethod(Perspective, GetPart(Part^.DataCallbackPerspectiveConjunctionMethodConjuction));
            bpkPluralCheck: if (Part^.DataPluralCheckTarget.IsPlural(Perspective)) then Result := GetPart(Part^.DataPluralPluralPart) else Result := GetPart(Part^.DataPluralSingularPart);
            bpkPerspectivePluralCheck: if (Perspective.IsPlural(Perspective)) then Result := GetPart(Part^.DataPerspectivePluralPluralPart) else Result := GetPart(Part^.DataPerspectivePluralSingularPart);
+           bpkCallbackPluralCheckMethod: if (Part^.DataCallbackPluralCheckMethod(Perspective)) then Result := GetPart(Part^.DataCallbackPluralCheckMethodPluralPart) else Result := GetPart(Part^.DataCallbackPluralCheckMethodSingularPart);
           else
             Assert(False, 'Failed to assemble broadcast message - unexpected type ' + IntToStr(Cardinal(Part^.Kind)));
             Result := '<error>';

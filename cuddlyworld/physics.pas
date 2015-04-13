@@ -23,12 +23,16 @@ type
       function GetIndefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
       function GetDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
       function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+      function IsPlural(Perspective: TAvatar): Boolean;
+      function GetPossessiveAdjective(Perspective: TAvatar): UTF8String;
    end;
 
    TThingList = class(TInternalThingList) // @RegisterStorableClass
       function GetIndefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
       function GetDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
       function GetLongDefiniteString(Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
+      function IsPlural(Perspective: TAvatar): Boolean;
+      function GetPossessiveAdjective(Perspective: TAvatar): UTF8String;
    end;
 
 function GetIndefiniteString(const List: array of TAtom; StartIndex, EndIndex: Cardinal; Perspective: TAvatar; const Conjunction: UTF8String): UTF8String;
@@ -89,7 +93,7 @@ type
       procedure Write(Stream: TWriteStream); override;
 
       // Moving things around
-      function GetObtrusiveObstacles: TThingList;
+      function GetObtrusiveObstacles(): TThingList; // these are the children that can be shaken loose
       procedure EnumerateObtrusiveObstacles(List: TThingList); virtual;
       procedure Add(Thing: TThing; Position: TThingPosition);
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
@@ -120,6 +124,7 @@ type
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual; // see note [proxy]
       procedure EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
+      procedure ProxiedEnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual; // see note [proxy]
 
       // Atom identity
       function IsPlural(Perspective: TAvatar): Boolean; virtual; abstract;
@@ -356,16 +361,19 @@ procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Persp
     description as a key point. However, if you are on the pedestal,
     then the pedestal will talk about itself and it's important that
     the pedestal not be mentioned again by the room when the room
-    gives its "horizon" description.
-  Note [proxy]:
+    gives its "horizon" description. }
+
+{ Note [proxy]:
     Some of the APIs have "Proxy" in their name and, by default, just
     defer to the same APIs without "Proxy" in their name. These are
-    called on landmarks, and are used by TThresholdLocation to defer
-    to the master thing rather than including everything at the
-    location. This is why, e.g., you can refer to the door knob on a
-    door in a room, but not refer to the stain on the floor by the
-    door unless you are actually standing right there at the door.
-}
+    methods whose non-proxy versions walk down the tree. The proxy
+    versions are used when crossing from one tree to another, in
+    particular when crossing from a location to another, or from
+    within a proxy method of a location to a specific object within
+    that location (e.g. room -> landmark threshold -> doorway). This
+    allows you to further fork at that point. The regular methods
+    should not go back up the tree, since that risks an infinite loop
+    (or at least a lot of redundant work). }
 
 procedure QueueForDisposal(Atom: TAtom);
 
@@ -586,7 +594,7 @@ begin
 end;
 {$ENDIF}
 
-function TAtom.GetObtrusiveObstacles: TThingList;
+function TAtom.GetObtrusiveObstacles(): TThingList;
 begin
    Result := TThingList.Create([slDropDuplicates]);
    EnumerateObtrusiveObstacles(Result);
@@ -878,6 +886,11 @@ begin
    for Child in FChildren do
       if (IsChildTraversable(Child, Perspective, FromOutside)) then
          Child.EnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
+end;
+
+procedure TAtom.ProxiedEnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter);
+begin
+   EnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, FromOutside, Reporter);
 end;
 
 function TAtom.GetSummaryName(Perspective: TAvatar): UTF8String;

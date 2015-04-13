@@ -245,3 +245,39 @@ begin
       Result := Result + List[Index].GetLongDefiniteName(Perspective);
    end;
 end;
+
+function TAtomList.IsPlural(Perspective: TAvatar): Boolean;
+begin
+   Result := (Length <> 1) or (First.IsPlural(Perspective));
+end;
+
+function TAtomList.GetPossessiveAdjective(Perspective: TAvatar): UTF8String;
+begin
+   if (IsPlural(Perspective)) then
+   begin
+      if (Contains(Perspective)) then
+         Result := 'your'
+      else
+         Result := 'their'
+   end
+   else
+      Result := First.GetPossessiveAdjective(Perspective);
+end;
+
+function TThingList.IsPlural(Perspective: TAvatar): Boolean;
+begin
+   Result := (Length <> 1) or (First.IsPlural(Perspective));
+end;
+
+function TThingList.GetPossessiveAdjective(Perspective: TAvatar): UTF8String;
+begin
+   if (IsPlural(Perspective)) then
+   begin
+      if (Contains(Perspective)) then
+         Result := 'your'
+      else
+         Result := 'their'
+   end
+   else
+      Result := First.GetPossessiveAdjective(Perspective);
+end;

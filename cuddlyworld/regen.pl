@@ -57,6 +57,9 @@ sub regenAtomLists {
         }
         print ATOMLISTHELPER atomarrayhelper($method);
     }
+    foreach my $class (qw(Atom Thing)) {
+        print ATOMLISTHELPER atomlistgrammarhelper($class);
+    }
     close ATOMLISTHELPER;
 
     sub atomlisthelper {
@@ -90,6 +93,30 @@ begin
    finally
       E.Free();
    end;
+end;
+EOM
+    }
+
+    sub atomlistgrammarhelper {
+        my($class, $method) = @_;
+        return <<EOM;
+
+function T${class}List.IsPlural(Perspective: TAvatar): Boolean;
+begin
+   Result := (Length <> 1) or (First.IsPlural(Perspective));
+end;
+
+function T${class}List.GetPossessiveAdjective(Perspective: TAvatar): UTF8String;
+begin
+   if (IsPlural(Perspective)) then
+   begin
+      if (Contains(Perspective)) then
+         Result := 'your'
+      else
+         Result := 'their'
+   end
+   else
+      Result := First.GetPossessiveAdjective(Perspective);
 end;
 EOM
     }
