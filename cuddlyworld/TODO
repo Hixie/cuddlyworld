@@ -1,21 +1,17 @@
 NEW BUGS
- + if something is on a door, it doesn't block it becoming an installed door
- + can't see that things you put in the doorway drop to the floor, when in one of the rooms (broadcast doesn't go to nearby rooms)
+ + "close" doesn't autoclose an open door
+ + "move door north" should say that it's closed or something, not that it can't move
+ + > put door in doorway // is a bit verbose:
+   Placed in the doorway. // can we drop this line entirely since we get the next one?
+   You install a door installed in the doorway. It is closed. // "install a door installed"?
  + no way to actually enter (and remain at) a threshold
     - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
     - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the
       doorway (!) which is a total no-no
     - "enter door" tries to go tpIn the TDoor itself
  + "look under door"
- + "move door north" should say that it's closed or something, not that it can't move
- + "close" doesn't autoclose an open door
  + "open north" doesn't work
  + "open north door" doesn't work
- + put door in doorway
- + hang door in doorway
- + > put door in doorway // is a bit verbose:
-   Placed in the doorway. // can we drop this line entirely since we get the next one?
-   You install a door installed in the doorway. It is closed. // "install a door installed"?
  + "move leaves through door", "push pile through door"
  + make the thing seeker disambiguate on features too. For example:
     - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
@@ -211,6 +207,11 @@ THINGS
  + 'dig hole' should work
  + "fill hole" (with pile of earth) (by moving pile of earth into hole)
  + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
+ + "push door to doorway" - right now this always pushes "in" to the thing, which interacts poorly with doorways:
+   | > push door to doorway
+   | (inside the doorway)
+   | Placed in the doorway.
+   | You install a door installed in the doorway. It is closed.
  + "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
  + "move all but inventory" should work
@@ -244,6 +245,7 @@ THINGS
  + tpAutoDescribeDirectional seems a bit dubious. Maybe use an lo* constant instead, or something? does that even make sense?
  + find hole says "The hole is below, in the ground." but "below" sounds a bit weird.
  + "read sky" should say "in" not "on" -- maybe base this on whether something has a surface? consider book (in), bag (on)
+ + "hang door in doorway", maybe have a tpHangingFrom which "hang" defaults to trying?
  + add a tpStuckTo for notes, then autodisambiguate whether something should be put tpOn or tpStuckTo
     - notes vs buckets being put "on" a door mean different things
     - allow notes to be stuck to doors even when closed
