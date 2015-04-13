@@ -1,10 +1,11 @@
 NEW BUGS
- + can't see things that are in the threshold when not in threshold
- + can't see that things you put in the doorway drop to the floor, when in one of the rooms
+ + if something is on a door, it doesn't block it becoming an installed door
+ + can't see that things you put in the doorway drop to the floor, when in one of the rooms (broadcast doesn't go to nearby rooms)
  + no way to actually enter (and remain at) a threshold
     - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
     - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the
       doorway (!) which is a total no-no
+    - "enter door" tries to go tpIn the TDoor itself
  + "look under door"
  + "move door north" should say that it's closed or something, not that it can't move
  + "close" doesn't autoclose an open door
@@ -21,6 +22,13 @@ NEW BUGS
     - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
     - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
 
+CODE HEALTH
+ + Rename "Find*" methods with "Enumerate*" methods were applicable
+ + Consider if EnumerateExplicitlyReferencedThings(),
+   FindMatchingThings(), and FindThingTraverser() (and maybe some
+   others) should be refactored so that the logic for walking the tree
+   is in one place and the filtering is in another.
+ + Drop GetSummaryName()
 
 CREATE TESTS FOR
  - walking through the door
@@ -29,6 +37,7 @@ CREATE TESTS FOR
  - take doorway
  - open doorway
  - close doorway
+ - find door
  - take door
  - take doorway
  - enter door
@@ -49,6 +58,7 @@ CREATE TESTS FOR
  - look under doorway
  - look <direction of door>
  - open door
+ - find door
  - take side
  - look at door
  - look at doorway
@@ -66,6 +76,17 @@ CREATE TESTS FOR
  - debug thing door
  - debug thing side
  - move door <direction of door>
+(reset)
+ - put bag on door
+ - open door
+ - put bag on door
+ - enter door ; goes to other side, bag drops
+ - close
+ - open
+ - stand in doorway
+ - close door ; fails, we're in the way
+ - take bag
+ - exit ; fails
 
 CURRENT TASKS
  + "find archway" when in the threshold room should use the room's context fragment
@@ -165,8 +186,8 @@ THINGS
  + "except"
  + "read sign at east path" for "Arrivals Circle"->"ground"->"stone pedestal"->"AnthonyH": Which sign do you mean, the big stone to the east at the east-leading path, the north-pointing thick wooden sign, the light pink crystal sign to the south, the west-pointing stainless-steel sign, or the southwest-pointing shining silicon metalloid sign?
  + "read first sign"
- + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it's heavy
-    -- especially for the rim of the bag of holding, which can't possibly be too heavy to shake!
+ + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it "cannot be moved"
+    -- especially for the rim of the bag of holding, which can clearly be moved
     -- should probably just say "(by shaking the bag)" and defer up
  + make orbs smaller but with no carrying capability
  + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
@@ -223,6 +244,9 @@ THINGS
  + tpAutoDescribeDirectional seems a bit dubious. Maybe use an lo* constant instead, or something? does that even make sense?
  + find hole says "The hole is below, in the ground." but "below" sounds a bit weird.
  + "read sky" should say "in" not "on" -- maybe base this on whether something has a surface? consider book (in), bag (on)
+ + add a tpStuckTo for notes, then autodisambiguate whether something should be put tpOn or tpStuckTo
+    - notes vs buckets being put "on" a door mean different things
+    - allow notes to be stuck to doors even when closed
 
 NETWORK
  + password command
@@ -271,6 +295,7 @@ THING SEEKER IMPROVEMENTS: VOCABULARY
  + "take the bottle and the bag THAT IS OPEN and frogs and cats from the table BUT NOT the blue ones that are small"
  + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
  + "put MY penny in MY bag" -- "my" should only look in one's inventory
+ + "find front side of door" says it doesn't understand how to find things "of", but the "of the door" is added by being tpAmbiguousPartOfImplicit
 
 UI
  + Replace anything that uses AvatarMessage but should be broadcast with a broadcast

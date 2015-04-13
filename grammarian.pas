@@ -59,8 +59,8 @@ const
    tpEverything = [Low(TThingPosition) .. High(TThingPosition)];
    tpAutoDescribe = [tpSurfaceOpening, tpAt]; { things that should be included in the main description of an object }
    tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks arrays, and not tpContained in something else) }
-   tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already }
-   tpObtrusive = [tpOn, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpCarried]; { used by GetObtrusiveObstacles() }
+   tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already, and conceptually these children essentially _are_ the parent, or at least part of it }
+   tpObtrusive = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpIn, tpEmbedded, tpCarried]; { used by GetObtrusiveObstacles(); these are things that can be shaken loose }
    tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpInstalledIn, tpIn, tpCarried]; { affects how things are pushed around }
    tpContained = [tpInstalledIn, tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
