@@ -4,6 +4,8 @@ unit testmechanics;
 
 interface
 
+//{$DEFINE VERBOSE}
+
 uses
    sysutils, storable, matcher, physics, player, locations, things, grammarian, cuddlycamp, world, threshold;
 

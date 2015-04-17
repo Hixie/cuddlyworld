@@ -802,6 +802,12 @@ begin
       FHole := THole.Create('The hole is quite dirty.', HoleSize, TEarthPile);
       Add(FHole, tpSurfaceOpening);
       Add(Pile, tpOn);
+      DoBroadcast([Self, FHole, Pile, Perspective], Perspective,
+                  [C(M(@Perspective.GetDefiniteName)), SP,
+                   MP(Perspective, M('digs'), M('dig')), SP,
+                   M(@FHole.GetIndefiniteName), SP,
+                   M(ThingPositionToString(FHole.Position)), SP,
+                   M(@GetDefiniteName), M('.')]);
       Result := True;
       Message := TMessage.Create(mkSuccess, 'With much effort, _ dig a huge hole.',
                                             [Perspective.GetDefiniteName(Perspective)]);

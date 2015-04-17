@@ -1,5 +1,4 @@
 NEW BUGS
- + no broadcast message when someone picks up a door (or anything, indeed)
  + no way to actually enter (and remain at) a threshold
     - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
     - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the

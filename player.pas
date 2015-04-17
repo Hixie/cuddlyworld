@@ -840,7 +840,7 @@ var
    Multiple: Boolean;
    Success: Boolean;
    Message: TMessage;
-   Ancestor: TAtom;
+   Ancestor, TargetSurface: TAtom;
    CurrentSubject: TThing;
 begin
    Assert(Assigned(Subject));
@@ -865,7 +865,15 @@ begin
          else
          if (CurrentSubject = Self) then
          begin
-            SendMessage('You try to pick yourself up but end up on ' + FParent.GetSurface().GetDefiniteName(Self) + '.');
+            TargetSurface := FParent.GetSurface();
+            DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP,
+                                       MP(Self, M('tries to'), M('try to')), SP,
+                                       M('pick'), SP,
+                                       M(@GetReflexivePronoun), SP,
+                                       M('up, but end up'), SP,
+                                       M(ThingPositionToString(Position)), SP,
+                                       M(@TargetSurface.GetDefiniteName), M('.')]);
+            SendMessage('You try to pick yourself up but end up ' + ThingPositionToString(Position) + ' ' + TargetSurface.GetDefiniteName(Self) + '.');
          end
          else
          begin
@@ -1580,7 +1588,6 @@ begin
             Message := TMessage.Create(mkImmovable, 'You can''t shake _.', [CurrentSubject.GetDefiniteName(Self)]);
             if (CanShakeThing(CurrentSubject, Message)) then
             begin
-               { have to do broadcast as well as avatar message because broadcast won't get the context }
                DoBroadcast([CurrentSubject, Self], Self, [C(M(@GetDefiniteName)), MP(Self, M(' shakes '), M(' shake ')), M(@CurrentSubject.GetDefiniteName), M('.')]);
                SendMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional('shakes', 'shake', IsPlural(Self)) + ' ' + CurrentSubject.GetDefiniteName(Self) + '.');
                CurrentSubject.Shake(Self);
