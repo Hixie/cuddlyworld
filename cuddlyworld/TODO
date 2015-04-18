@@ -1,6 +1,14 @@
 NEW BUGS
  + "move me to sun" does a teleport! Sun should not be reachable! (you already can't _put_ things on the sun)
+ + should have a function that turns "avatarA movedTo thingB from positionD thingD to positionC thingC" into things like:
+    - avatarA dropped thingB onto thingC (thingD outside thingC)
+    - avatarA picked thingB up (A=C)
+    - avatarA climbs into thingC (A=B)
+    - avatarA drops thingB (C is a common parent of A and B, D=A)
+    - etc
+    + use this for logic in TThing.Moved(), and places that refer to what happened to an object, e.g. TDoorWay.Put()
  + doorways should make canput refuse tpOn
+ + moving things into doorways should just pretend you meant onto the ground of the threshold, if there is one
  + no way to actually enter (and remain at) a threshold
     - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
     - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the
@@ -93,6 +101,9 @@ CREATE TESTS FOR
  - find bag ; fails
  - <reverse direction of door>
  - find bag
+(reset)
+ - move all and me onto sun
+ - move onto sun
 
 CURRENT TASKS
  + "find archway" when in the threshold room should use the room's context fragment

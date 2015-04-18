@@ -1256,7 +1256,7 @@ procedure THole.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
 begin
    Assert(FParent is TEarthGround);
    case Direction of
-     cdUp, cdOut: DoNavigation(Self, FParent.GetRepresentative(), cdUp, Perspective);
+     cdUp, cdOut: DoNavigation(FParent.GetRepresentative(), cdUp, Perspective);
     else
       Perspective.AvatarMessage(TMessage.Create(mkInHole, 'You''re in a hole.'));
    end;

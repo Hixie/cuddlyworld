@@ -235,8 +235,8 @@ var
        avInventory: DoInventory();
        avFind: DoFind(Action.FindSubject);
        avGo: FParent.Navigate(Action.GoDirection, Self);
-       avEnter: DoNavigation(FParent, Action.EnterSubject, tpIn, Self);
-       avClimbOn: DoNavigation(FParent, Action.ClimbOnSubject, tpOn, Self);
+       avEnter: DoNavigation(Action.EnterSubject, tpIn, Self);
+       avClimbOn: DoNavigation(Action.ClimbOnSubject, tpOn, Self);
        avTake: DoTake(Action.TakeSubject);
        avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
        avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MovePosition);
@@ -767,7 +767,7 @@ end;
 procedure TPlayer.AnnounceArrival(Source: TAtom; Direction: TCardinalDirection);
 begin
    // XXX this relies on the rooms being symmetric
-   DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDefiniteString(Direction)), M('.')]);
+   DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP, MP(Self, M('arrives'), M('arrive')), M(' from '), M(@Source.GetDefiniteName), SP, M(CardinalDirectionToDirectionString(Direction)), M('.')]);
 end;
 
 procedure TPlayer.AnnounceArrival(Source: TAtom);
@@ -1254,7 +1254,7 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(GetName(Self)));
-         DoNavigation(FParent, Target, ThingPosition, Self);
+         DoNavigation(Target, ThingPosition, Self);
       end;
    finally
       if (Multiple) then
