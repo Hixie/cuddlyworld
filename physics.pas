@@ -337,8 +337,8 @@ type
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; override;
    end;
 
-procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
-procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);
+procedure DoNavigation(Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
+procedure DoNavigation(Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
 
 { Navigation works as follows:
     Enter and ClimbOn actions invoke the Position-based DoNavigation() above directly.
@@ -393,33 +393,42 @@ begin
 end;
 
 
-procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
+procedure DoNavigation(Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 var
-   Destination: TAtom;
+   SpecificDestination, Source: TAtom;
+   SourceAncestor, DestinationAncestor: TAtom;
    Message: TMessage;
    Position: TThingPosition;
    NotificationList: TAtomList;
    NotificationTarget: TAtom;
    DisambiguationOpening: TThing;
 begin
-   Assert(Assigned(AFrom));
-   Assert(Assigned(ATo));
+   Assert(Assigned(Destination));
    Assert(Assigned(Perspective));
+   Source := Perspective.Parent;
+   SourceAncestor := Source;
+   while (SourceAncestor is TThing) do
+      SourceAncestor := (SourceAncestor as TThing).Parent;
+   DestinationAncestor := Destination;
+   while (DestinationAncestor is TThing) do
+      DestinationAncestor := (DestinationAncestor as TThing).Parent;
+   if (SourceAncestor <> DestinationAncestor) then
+      Source := SourceAncestor;
    Position := tpOn;
    DisambiguationOpening := nil;
    Message := TMessage.Create();
    NotificationList := TAtomList.Create();
    try
-      Destination := ATo.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
-      if (Assigned(Destination)) then
+      SpecificDestination := Destination.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
+      if (Assigned(SpecificDestination)) then
       begin
-         if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
+         if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> SpecificDestination)) then
             Perspective.AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Perspective));
-         Perspective.AnnounceDeparture(ATo, Direction);
+         Perspective.AnnounceDeparture(Destination, Direction);
          for NotificationTarget in NotificationList do
-            NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
-         Destination.Put(Perspective, Position, psCarefully, Perspective);
-         Perspective.AnnounceArrival(AFrom.GetRepresentative(), ReverseCardinalDirection(Direction));
+            NotificationTarget.HandlePassedThrough(Perspective, Source, SpecificDestination, Position, Perspective);
+         SpecificDestination.Put(Perspective, Position, psCarefully, Perspective);
+         Perspective.AnnounceArrival(Source.GetRepresentative(), ReverseCardinalDirection(Direction));
          Perspective.DoLook();
       end
       else
@@ -434,9 +443,9 @@ begin
    end;
 end;
 
-procedure DoNavigation(AFrom: TAtom; ATo: TAtom; Position: TThingPosition; Perspective: TAvatar);
+procedure DoNavigation(Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
 var
-   Destination: TAtom;
+   SpecificDestination, Source: TAtom;
    Message: TMessage;
    Success: Boolean;
    Ancestor: TAtom;
@@ -445,32 +454,30 @@ var
    DisambiguationOpening: TThing;
    Direction: TCardinalDirection;
 begin
-   Assert(Assigned(AFrom));
-   Assert(Assigned(ATo));
+   Assert(Assigned(Destination));
    Assert(Assigned(Perspective));
-   Assert(Perspective.Parent = AFrom);
-   Ancestor := ATo;
+   Source := Perspective.Parent;
+   Ancestor := Destination;
    while ((Ancestor is TThing) and (Ancestor <> Perspective)) do
       Ancestor := (Ancestor as TThing).Parent;
    if (Ancestor = Perspective) then
    begin
       Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseLocation, 'That would prove rather challenging given where _ _ relative to _.',
-                                                [ATo.GetDefiniteName(Perspective),
-                                                 IsAre(ATo.IsPlural(Perspective)),
+                                                [Destination.GetDefiniteName(Perspective),
+                                                 IsAre(Destination.IsPlural(Perspective)),
                                                  Perspective.GetReflexivePronoun(Perspective)]));
    end
    else
    if (Position = tpOn) then
    begin
-      ATo := ATo.GetSurface();
-      Assert(Assigned(ATo));
-      //Assert(ATo is TThing, 'if you want to be "on" a TLocation, give it a surface available from GetSurface()');
-      DisambiguationOpening := nil;
+      Destination := Destination.GetSurface();
+      Assert(Assigned(Destination));
+      Assert(Destination is TThing, 'if you want to be "on" a TLocation, give it a surface available from GetSurface()');
       Message := TMessage.Create();
-      Success := ATo.CanPut(Perspective, Position, psCarefully, Perspective, Message);
+      Success := Destination.CanPut(Perspective, Position, psCarefully, Perspective, Message);
       if (Success) then
       begin
-         ATo.Put(Perspective, Position, psCarefully, Perspective);
+         Destination.Put(Perspective, Position, psCarefully, Perspective);
          // XXX announcements, like AnnounceArrival() and co
          Perspective.DoLook();
       end
@@ -478,42 +485,42 @@ begin
       begin
          Message.PrefaceFailureTopic('_ cannot get onto _.', 
                                      [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                      ATo.GetDefiniteName(Perspective)]);
+                                      Destination.GetDefiniteName(Perspective)]);
          Perspective.AvatarMessage(Message);
       end;
    end
    else
    if (Position = tpIn) then
    begin
-      Assert(ATo is TThing);
+      Assert(Destination is TThing);
       DisambiguationOpening := nil;
       Message := TMessage.Create();
       NotificationList := TAtomList.Create();
       try
-         Ancestor := AFrom;
-         while ((Ancestor is TThing) and (Ancestor <> ATo)) do
+         Ancestor := Source;
+         while ((Ancestor is TThing) and (Ancestor <> Destination)) do
             Ancestor := (Ancestor as TThing).Parent;
-         if (Ancestor = ATo) then
+         if (Ancestor = Destination) then
             Direction := cdOut
          else
             Direction := cdIn;
-         Destination := ATo.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
-         if (Assigned(Destination)) then
+         SpecificDestination := Destination.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
+         if (Assigned(SpecificDestination)) then
          begin
-            if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
+            if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> SpecificDestination)) then
                Perspective.AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Perspective));
-            Perspective.AnnounceDeparture(ATo);
+            Perspective.AnnounceDeparture(Destination);
             for NotificationTarget in NotificationList do
-               NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
-            Destination.Put(Perspective, Position, psCarefully, Perspective);
-            Perspective.AnnounceArrival(AFrom.GetRepresentative());
+               NotificationTarget.HandlePassedThrough(Perspective, Source, SpecificDestination, Position, Perspective);
+            SpecificDestination.Put(Perspective, Position, psCarefully, Perspective);
+            Perspective.AnnounceArrival(Source.GetRepresentative());
             Perspective.DoLook();
          end
          else
          begin
             Message.PrefaceFailureTopic('_ cannot enter _.',
                                         [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                         ATo.GetDefiniteName(Perspective)]);
+                                         Destination.GetDefiniteName(Perspective)]);
             Perspective.AvatarMessage(Message);
          end;
       finally
@@ -1677,7 +1684,7 @@ begin
                EquivalentPosition := tpIn
             else
                EquivalentPosition := tpOn;
-            DoNavigation(Self, FParent, EquivalentPosition, Perspective)
+            DoNavigation(FParent, EquivalentPosition, Perspective)
          end
          else
             Perspective.AvatarMessage(TMessage.Create(mkClosed, GetDescriptionClosed(Perspective)));
@@ -1746,7 +1753,8 @@ end;
 procedure TThing.Moved(OldParent: TAtom; Care: TPlacementStyle; Perspective: TAvatar);
 begin
    // XXX should be more specific about where things are going, e.g. 'takes x', 'drops x', 'puts x on y', 'moves x around' (if oldparent=newparent)
-   DoBroadcast([OldParent, FParent], Perspective, [C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), M('.')]);
+   if (Self <> Perspective) then
+      DoBroadcast([OldParent, FParent], Perspective, [C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), M('.')]);
 end;
 
 procedure TThing.Shake(Perspective: TAvatar);
@@ -2204,7 +2212,7 @@ var
 begin
    Destination := GetAtomForDirectionalNavigation(Direction);
    if (Assigned(Destination)) then
-      DoNavigation(Self, Destination, Direction, Perspective)
+      DoNavigation(Destination, Direction, Perspective)
    else
       FailNavigation(Direction, Perspective);
 end;
