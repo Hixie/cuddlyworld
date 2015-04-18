@@ -95,7 +95,7 @@ type
       // Moving things around
       function GetObtrusiveObstacles(): TThingList; // these are the children that can be shaken loose
       procedure EnumerateObtrusiveObstacles(List: TThingList); virtual;
-      procedure Add(Thing: TThing; Position: TThingPosition);
+      procedure Add(Thing: TThing; Position: TThingPosition); // use Put() if it's during gameplay
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
       procedure Remove(Thing: TThingList.TEnumerator);
@@ -418,7 +418,7 @@ begin
          Perspective.AnnounceDeparture(ATo, Direction);
          for NotificationTarget in NotificationList do
             NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
-         Destination.Add(Perspective, Position);
+         Destination.Put(Perspective, Position, psCarefully, Perspective);
          Perspective.AnnounceArrival(AFrom.GetRepresentative(), ReverseCardinalDirection(Direction));
          Perspective.DoLook();
       end
@@ -470,7 +470,7 @@ begin
       Success := ATo.CanPut(Perspective, Position, psCarefully, Perspective, Message);
       if (Success) then
       begin
-         ATo.Add(Perspective, Position);
+         ATo.Put(Perspective, Position, psCarefully, Perspective);
          // XXX announcements, like AnnounceArrival() and co
          Perspective.DoLook();
       end
@@ -505,7 +505,7 @@ begin
             Perspective.AnnounceDeparture(ATo);
             for NotificationTarget in NotificationList do
                NotificationTarget.HandlePassedThrough(Perspective, AFrom, Destination, Position, Perspective);
-            Destination.Add(Perspective, Position);
+            Destination.Put(Perspective, Position, psCarefully, Perspective);
             Perspective.AnnounceArrival(AFrom.GetRepresentative());
             Perspective.DoLook();
          end
@@ -613,6 +613,7 @@ procedure TAtom.Add(Thing: TThing; Position: TThingPosition);
 {$IFOPT C+}
 var
    TempPosition: TThingPosition;
+   ParentSearch: TAtom;
 {$ENDIF}
 begin
    {$IFOPT C+}
@@ -626,13 +627,25 @@ begin
    FChildren.AppendItem(Thing);
    Thing.FParent := Self;
    Thing.FPosition := Position;
+   {$IFOPT C+}
+   // check for cycles
+   ParentSearch := Thing;
+   Assert(ParentSearch is TThing);
+   repeat
+      ParentSearch := (ParentSearch as TThing).Parent;
+      Assert(ParentSearch <> Thing);
+   until (not (ParentSearch is TThing));
+   {$ENDIF}
 end;
 
 procedure TAtom.Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
 var
    OldParent: TAtom;
    ActualThing: TThing;
-   {$IFOPT C+} TempPosition: TThingPosition; {$ENDIF}
+   {$IFOPT C+}
+   TempPosition: TThingPosition;
+   ParentSearch: TAtom;
+   {$ENDIF}
 begin
    Assert(Thing.FList <> FChildren);
    ActualThing := Thing.Current;
@@ -648,6 +661,15 @@ begin
    ActualThing.FPosition := Position;
    if (Assigned(OldParent)) then
       OldParent.Removed(ActualThing);
+   {$IFOPT C+}
+   // check for cycles
+   ParentSearch := ActualThing;
+   Assert(ParentSearch is TThing);
+   repeat
+      ParentSearch := (ParentSearch as TThing).Parent;
+      Assert(ParentSearch <> ActualThing);
+   until (not (ParentSearch is TThing));
+   {$ENDIF}
 end;
 
 procedure TAtom.Remove(Thing: TThing);
@@ -708,18 +730,9 @@ end;
 procedure TAtom.Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar);
 var
    OldParent: TAtom;
-   {$IFOPT C+} ParentSearch: TAtom; {$ENDIF}
 begin
    OldParent := Thing.FParent;
    Add(Thing, Position);
-   {$IFOPT C+}
-   ParentSearch := Thing;
-   Assert(ParentSearch is TThing);
-   repeat
-      ParentSearch := (ParentSearch as TThing).Parent;
-      Assert(ParentSearch <> Thing);
-   until (not (ParentSearch is TThing));
-   {$ENDIF}
    Thing.Moved(OldParent, Care, Perspective);
    HandleAdd(Thing, Perspective);
 end;
