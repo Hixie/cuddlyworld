@@ -1,10 +1,13 @@
 NEW BUGS
+ + "move me to sun" does a teleport! Sun should not be reachable! (you already can't _put_ things on the sun)
+ + doorways should make canput refuse tpOn
  + no way to actually enter (and remain at) a threshold
     - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
     - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the
       doorway (!) which is a total no-no
     - "enter door" tries to go tpIn the TDoor itself
- + "look under door"
+    - "enter door" and "enter doorway" should warp you to the other side
+    - "stand in doorway" should warp you to the threshold
  + "open north" doesn't work
  + "open north door" doesn't work
  + "move leaves through door", "push pile through door"
@@ -12,6 +15,7 @@ NEW BUGS
     - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
     - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
     - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
+ + "look under door"
 
 CODE HEALTH
  + Rename "Find*" methods with "Enumerate*" methods were applicable
@@ -183,6 +187,7 @@ PLAYER INTERACTION
  + "i,d" doesn't work, but "i;d" does
  + similarly, "enter hole, look up, look down, exit hole" doesn't parse right
  + "put bag on me" works... not sure exactly what to do with that
+ + "take" and "drop" and "move" and so on don't give much detail in their broadcast -- they're all done by TAtom.Moved() which just says "x moved the y."
 
 THINGS
  + "except"
@@ -222,6 +227,7 @@ THINGS
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
  + "move all but inventory" should work
  + 'look under' should move things if they are bigger than what they are on
+ + 'look under' should give more detail when you're under the thing, e.g. maybe FParent.GetBasicDescription().
  + 'look' when inside an object that usually hides its contents (e.g. a pile) still hides its contents when in the pile - do we need FromOutside for GetDescriptionIn()?
  + "look closer" should ask what part you want to look closer at ("look closer" "what do you want to look closer at?" "look closer at tree" "do you want to examine the leaf, or the branch?"
  + "look through opening"
