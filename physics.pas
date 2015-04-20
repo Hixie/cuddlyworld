@@ -42,10 +42,22 @@ function GetLongDefiniteString(const List: array of TAtom; StartIndex, EndIndex:
 type
    TReachablePosition = (rpReachable, rpNotReachable);
    TReachablePositionSet = set of TReachablePosition;
+   TNavigationAbility = (naWalk, naJump, naFly, naDebugTeleport);
+   TNavigationAbilities = set of TNavigationAbility;
    TSubjectiveInformation = record
       Directions: TCardinalDirectionSet;
       Reachable: TReachablePositionSet;
+      RequiredAbilitiesToNavigate: TNavigationAbilities;
       procedure Reset();
+   end;
+   TTravelType = (ttNone, ttByPosition, ttByDirection);
+   TNavigationInstruction = record
+      RequiredAbilities: TNavigationAbilities;
+      Target: TAtom;
+      case TravelType: TTravelType of
+       ttNone: ();
+       ttByPosition: (Position: TThingPosition);
+       ttByDirection: (Direction: TCardinalDirection);
    end;
 
 type
@@ -99,7 +111,7 @@ type
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
       procedure Remove(Thing: TThingList.TEnumerator);
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // whether Thing can be put on/in this Atom
       procedure Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); virtual;
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { external size of the object (e.g. to decide if it fits inside another): self and children that are tpOutside; add tpContained children if container is flexible }
@@ -112,7 +124,7 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
-      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); virtual; abstract; { called by avatar children to trigger DoNavigation correctly }
+      function GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; virtual; abstract;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; virtual; abstract;
 
       // Finding things
@@ -177,6 +189,8 @@ type
       // Moving things around
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); override;
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; override;
+      function CanReach(Subject: TAtom; Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // whether we can manipulate Subject
+      function HasAbilityToTravelTo(Destination: TAtom; RequiredAbilities: TNavigationAbilities; Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // [travel]
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
@@ -219,7 +233,7 @@ type
       function GetDescriptionWriting(Perspective: TAvatar): UTF8String; virtual; // 'there is no...'
 
       // Misc (these should be organised at some point)
-      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
+      function GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; override;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; virtual; abstract; // compares Tokens to FName, essentially
@@ -327,8 +341,8 @@ type
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; override; // see note [context]
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
-      procedure Navigate(Direction: TCardinalDirection; Perspective: TAvatar); override;
-      procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar); { also called when trying to dig in and push something in this direction }
+      function GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; override;
+      procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar; out Message: TMessage); { also called when trying to dig in and push something in this direction }
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
       procedure EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
@@ -337,19 +351,21 @@ type
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; override;
    end;
 
-procedure DoNavigation(Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
-procedure DoNavigation(Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
+procedure ForceTravel(Traveller: TThing; Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
+procedure ForceTravel(Traveller: TThing; Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
 
-{ Navigation works as follows:
-    Enter and ClimbOn actions invoke the Position-based DoNavigation() above directly.
-    Go actions invoke the player's parent's Navigate() method.
-      Navigate() then typicially defers up until you reach the location.
-      The TLocation.Navigate() method then looks in the appropriate direction.
-      If that returns something, it calls the Direction-based DoNavigation().
-    Then, DoNavigation() calls GetSurface() (for ClimbOn) or GetEntrance() (for Enter and Go).
-      TThing.GetEntrance() looks for the child that is a tpOpening and defers to it, else defers to GetInside()
-      TLocation.GetEntrance() calls GetSurface().
-      TThresholdLocation.GetEntrance() fast-forwards you to the other side.
+{ Note [travel]:
+    Navigation works as follows:
+       Enter and ClimbOn actions invoke the Position-based ForceTravel() above directly.
+       Go actions first invoke the player's parent's GetNavigationInstructions() method to find out what to do
+         GetNavigationInstructions() then typicially defers up until you reach the location.
+         The TLocation.GetNavigationInstructions() looks in the appropriate direction.
+         The THole.GetNavigationInstructions() turns 'up' and 'out' into a location
+       Then, if that returns something, it calls ForceTravel().
+       ForceTravel() calls GetSurface() (for ClimbOn) or GetEntrance() (for Enter and Go).
+         TThing.GetEntrance() looks for the child that is a tpOpening and defers to it, else defers to GetInside()
+         TLocation.GetEntrance() calls GetSurface().
+         TThresholdLocation.GetEntrance() fast-forwards you to the other side.
 }
 
 { Note [context]:
@@ -375,10 +391,9 @@ procedure DoNavigation(Destination: TAtom; Position: TThingPosition; Perspective
     should not go back up the tree, since that risks an infinite loop
     (or at least a lot of redundant work). }
 
-procedure QueueForDisposal(Atom: TAtom);
-
 procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation); // does not set loAutoDescribe
 
+procedure QueueForDisposal(Atom: TAtom);
 procedure EmptyDisposalQueue();
 
 implementation
@@ -390,10 +405,11 @@ procedure TSubjectiveInformation.Reset();
 begin
    Directions := [];
    Reachable := [];
+   RequiredAbilitiesToNavigate := [];
 end;
 
 
-procedure DoNavigation(Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
+procedure ForceTravel(Traveller: TThing; Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 var
    SpecificDestination, Source: TAtom;
    SourceAncestor, DestinationAncestor: TAtom;
@@ -404,8 +420,8 @@ var
    DisambiguationOpening: TThing;
 begin
    Assert(Assigned(Destination));
-   Assert(Assigned(Perspective));
-   Source := Perspective.Parent;
+   Assert(Assigned(Traveller));
+   Source := Traveller.Parent;
    SourceAncestor := Source;
    while (SourceAncestor is TThing) do
       SourceAncestor := (SourceAncestor as TThing).Parent;
@@ -419,22 +435,30 @@ begin
    Message := TMessage.Create();
    NotificationList := TAtomList.Create();
    try
-      SpecificDestination := Destination.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
+      SpecificDestination := Destination.GetEntrance(Traveller, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
       if (Assigned(SpecificDestination)) then
       begin
+         Assert(Message.AsKind = mkSuccess);
+         Assert(Message.AsText = '');
          if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> SpecificDestination)) then
             Perspective.AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Perspective));
-         Perspective.AnnounceDeparture(Destination, Direction);
+         if (Perspective = Traveller) then
+            Perspective.AnnounceDeparture(Destination, Direction);
          for NotificationTarget in NotificationList do
-            NotificationTarget.HandlePassedThrough(Perspective, Source, SpecificDestination, Position, Perspective);
-         SpecificDestination.Put(Perspective, Position, psCarefully, Perspective);
-         Perspective.AnnounceArrival(Source.GetRepresentative(), ReverseCardinalDirection(Direction));
-         Perspective.DoLook();
+            NotificationTarget.HandlePassedThrough(Traveller, Source, SpecificDestination, Position, Perspective);
+         SpecificDestination.Put(Traveller, Position, psCarefully, Perspective);
+         if (Perspective = Traveller) then
+         begin
+            Perspective.AnnounceArrival(Source.GetRepresentative(), ReverseCardinalDirection(Direction));
+            Perspective.DoLook();
+         end;
       end
       else
       begin
+         Assert(Message.AsKind <> mkSuccess);
+         Assert(Message.AsText <> '');
          Message.PrefaceFailureTopic('_ cannot go _.',
-                                    [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                    [Capitalise(Traveller.GetDefiniteName(Perspective)),
                                      CardinalDirectionToString(Direction)]);
          Perspective.AvatarMessage(Message);
       end;
@@ -443,7 +467,7 @@ begin
    end;
 end;
 
-procedure DoNavigation(Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
+procedure ForceTravel(Traveller: TThing; Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
 var
    SpecificDestination, Source: TAtom;
    Message: TMessage;
@@ -455,17 +479,17 @@ var
    Direction: TCardinalDirection;
 begin
    Assert(Assigned(Destination));
-   Assert(Assigned(Perspective));
-   Source := Perspective.Parent;
+   Assert(Assigned(Traveller));
+   Source := Traveller.Parent;
    Ancestor := Destination;
-   while ((Ancestor is TThing) and (Ancestor <> Perspective)) do
+   while ((Ancestor is TThing) and (Ancestor <> Traveller)) do
       Ancestor := (Ancestor as TThing).Parent;
-   if (Ancestor = Perspective) then
+   if (Ancestor = Traveller) then
    begin
       Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseLocation, 'That would prove rather challenging given where _ _ relative to _.',
                                                 [Destination.GetDefiniteName(Perspective),
                                                  IsAre(Destination.IsPlural(Perspective)),
-                                                 Perspective.GetReflexivePronoun(Perspective)]));
+                                                 Traveller.GetReflexivePronoun(Perspective)]));
    end
    else
    if (Position = tpOn) then
@@ -474,17 +498,24 @@ begin
       Assert(Assigned(Destination));
       Assert(Destination is TThing, 'if you want to be "on" a TLocation, give it a surface available from GetSurface()');
       Message := TMessage.Create();
-      Success := Destination.CanPut(Perspective, Position, psCarefully, Perspective, Message);
+      Success := Destination.CanPut(Traveller, Position, psCarefully, Perspective, Message);
       if (Success) then
       begin
-         Destination.Put(Perspective, Position, psCarefully, Perspective);
-         // XXX announcements, like AnnounceArrival() and co
-         Perspective.DoLook();
+         Assert(Message.AsKind = mkSuccess);
+         Assert(Message.AsText = '');
+         Destination.Put(Traveller, Position, psCarefully, Perspective);
+         if (Perspective = Traveller) then
+         begin
+            // XXX announcements, like AnnounceArrival() and co
+            Perspective.DoLook();
+         end;
       end
       else
       begin
+         Assert(Message.AsKind <> mkSuccess);
+         Assert(Message.AsText <> '');
          Message.PrefaceFailureTopic('_ cannot get onto _.', 
-                                     [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                     [Capitalise(Traveller.GetDefiniteName(Perspective)),
                                       Destination.GetDefiniteName(Perspective)]);
          Perspective.AvatarMessage(Message);
       end;
@@ -504,22 +535,30 @@ begin
             Direction := cdOut
          else
             Direction := cdIn;
-         SpecificDestination := Destination.GetEntrance(Perspective, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
+         SpecificDestination := Destination.GetEntrance(Traveller, Direction, Perspective, Position, DisambiguationOpening, Message, NotificationList);
          if (Assigned(SpecificDestination)) then
          begin
+            Assert(Message.AsKind = mkSuccess);
+            Assert(Message.AsText = '');
             if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> SpecificDestination)) then
                Perspective.AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Perspective));
-            Perspective.AnnounceDeparture(Destination);
+            if (Perspective = Traveller) then
+               Perspective.AnnounceDeparture(Destination);
             for NotificationTarget in NotificationList do
-               NotificationTarget.HandlePassedThrough(Perspective, Source, SpecificDestination, Position, Perspective);
-            SpecificDestination.Put(Perspective, Position, psCarefully, Perspective);
-            Perspective.AnnounceArrival(Source.GetRepresentative());
-            Perspective.DoLook();
+               NotificationTarget.HandlePassedThrough(Traveller, Source, SpecificDestination, Position, Perspective);
+            SpecificDestination.Put(Traveller, Position, psCarefully, Perspective);
+            if (Perspective = Traveller) then
+            begin
+               Perspective.AnnounceArrival(Source.GetRepresentative());
+               Perspective.DoLook();
+            end;
          end
          else
          begin
+            Assert(Message.AsKind <> mkSuccess);
+            Assert(Message.AsText <> '');
             Message.PrefaceFailureTopic('_ cannot enter _.',
-                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                        [Capitalise(Traveller.GetDefiniteName(Perspective)),
                                          Destination.GetDefiniteName(Perspective)]);
             Perspective.AvatarMessage(Message);
          end;
@@ -1340,7 +1379,7 @@ begin
 end;
 
 function TThing.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
-{ see also Navigate() }
+{ see also GetNavigationInstructions() }
 
    function DeferToParent(): UTF8String;
    begin
@@ -1624,6 +1663,96 @@ begin
    Result := 'There is no discernible writing on ' + GetDefiniteName(Perspective) + '.';
 end;
 
+function TThing.CanReach(Subject: TAtom; Perspective: TAvatar; var Message: TMessage): Boolean;
+
+   function GetRootFor(Atom: TAtom): TAtom; // for assertions only
+   begin
+      while (Atom is TThing) do
+         Atom := (Atom as TThing).Parent;
+      Result := Atom;
+   end;
+
+var
+   SelfRoot: TAtom;
+   FromOutside: Boolean;
+   SubjectiveInformation: TSubjectiveInformation;
+   Direction: TCardinalDirection;
+   DirectionMessage: UTF8String;
+begin
+   Assert(Assigned(Subject));
+   Assert(Assigned(FParent));
+   SelfRoot := GetSurroundingsRoot(FromOutside);
+   Assert(Assigned(SelfRoot));
+   if (Subject is TLocation) then
+   begin
+      Result := SelfRoot = Subject;
+      if (not Result) then
+      begin
+         Message := TMessage.Create(mkNotReachable, '_ _ _ _ anymore.',
+                                    [Capitalise(GetDefiniteName(Perspective)),
+                                     TernaryConditional('isn''t', 'aren''t', IsPlural(Perspective)),
+                                     'at', // XXX
+                                           // "at" might not work, e.g. "You aren't in Kansas anymore."
+                                           // needs "in" not "at", as does "The Garden"; but "The
+                                           // Beach" or "Whole Foods" wants "at"... maybe TLocations
+                                           // need a ThingPosition analogue with tpIn and tpAt!
+                                     Subject.GetDefiniteName(Perspective)]);
+      end
+      else
+         Assert(FromOutside);
+   end
+   else
+   if (Subject is TThing) then
+   begin
+      // (similar to Locate() logic)
+      Result := SelfRoot.FindThing(Subject as TThing, Perspective, FromOutside, SubjectiveInformation);
+      if (not Result) then
+      begin
+         Message := TMessage.Create(mkNotReachable, '_ can''t see _ anymore.',
+                                    [Capitalise(GetDefiniteName(Perspective)),
+                                     Subject.GetDefiniteName(Perspective)]);
+      end
+      else
+      if (not (rpReachable in SubjectiveInformation.Reachable)) then
+      begin
+         Assert(GetRootFor(Self) <> GetRootFor(Subject));
+         Result := False;
+         DirectionMessage := '';
+         for Direction := Low(SubjectiveInformation.Directions) to High(SubjectiveInformation.Directions) do
+         begin
+            if (Direction in SubjectiveInformation.Directions) then
+            begin
+               if (DirectionMessage <> '') then
+               begin
+                  // it's in more than one direction, give up trying to explain where it is
+                  DirectionMessage := '';
+                  Break;
+               end;
+               DirectionMessage := ' (' + CardinalDirectionToDirectionString(Direction) + ')';
+            end;
+         end;
+         Message := TMessage.Create(mkNotReachable, '_ _ too far away_.',
+                                                    [Capitalise(Subject.GetDefiniteName(Perspective)),
+                                                     IsAre(Subject.IsPlural(Perspective)),
+                                                     DirectionMessage]);
+         // SelfRoot := GetRootFor(Self);
+         // SubjectRoot := GetRootFor(Subject);
+         // '... You are in _ but _ is in _.',
+         // [..., SelfRoot.GetDefiniteName(Perspective), Subject.GetDefiniteName(Perspective), SubjectRoot.GetDefiniteName(Perspective)]
+      end;
+   end
+   else
+      raise Exception.Create('CanReach() does not know how to handle objects of class ' + Subject.ClassName());
+end;
+
+function TThing.HasAbilityToTravelTo(Destination: TAtom; RequiredAbilities: TNavigationAbilities; Perspective: TAvatar; var Message: TMessage): Boolean;
+begin
+   Result := False;
+   Message := TMessage.Create(mkBogus, '_ can''t travel by _.',
+                             [Capitalise(GetIndefiniteName(Perspective)),
+                              GetReflexivePronoun(Perspective)]);
+end;
+
 function TThing.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    if ((ThingPosition = tpIn) and (not IsOpen())) then
@@ -1652,27 +1781,28 @@ begin
    Result := CanTake(Perspective, Message);
 end;
 
-procedure TThing.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
+function TThing.GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
 { see also GetLookTowardsDirection() }
 
    procedure DeferToParent();
    begin
       Assert(Assigned(FParent));
       if (FPosition in tpDeferNavigationToParent) then
-         FParent.Navigate(Direction, Perspective)
+         Result := FParent.GetNavigationInstructions(Direction, Perspective, Message)
       else
-         Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot go _; _ _ _ _.',
-                                                                                [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                                                                 CardinalDirectionToString(Direction),
-                                                                                 Perspective.GetSubjectPronoun(Perspective),
-                                                                                 TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)),
-                                                                                 ThingPositionToString(FPosition),
-                                                                                 FParent.GetDefiniteName(Perspective)]));
+         Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot go _; _ _ _ _.',
+                                    [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                     CardinalDirectionToString(Direction),
+                                     Perspective.GetSubjectPronoun(Perspective),
+                                     TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)),
+                                     ThingPositionToString(FPosition),
+                                     FParent.GetDefiniteName(Perspective)]);
    end;
 
 var
    EquivalentPosition: TThingPosition;
 begin
+   Result.TravelType := ttNone;
    if (Perspective.Parent = Self) then
    begin
       if (not (Direction in cdPhysicalDirections)) then
@@ -1684,22 +1814,25 @@ begin
                EquivalentPosition := tpIn
             else
                EquivalentPosition := tpOn;
-            DoNavigation(FParent, EquivalentPosition, Perspective)
+            Result.TravelType := ttByPosition;
+            Result.RequiredAbilities := [];
+            Result.Target := FParent;
+            Result.Position := EquivalentPosition;
          end
          else
-            Perspective.AvatarMessage(TMessage.Create(mkClosed, GetDescriptionClosed(Perspective)));
+            Message := TMessage.Create(mkClosed, GetDescriptionClosed(Perspective));
       end
       else
       if (Perspective.Position in tpDeferNavigationToParent) then
          DeferToParent()
       else
-         Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot go _; _ _ _ _.',
-                                                                                [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                                                                 CardinalDirectionToString(Direction),
-                                                                                 Perspective.GetSubjectPronoun(Perspective),
-                                                                                 TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)),
-                                                                                 ThingPositionToString(Perspective.Position),
-                                                                                 GetDefiniteName(Perspective)]));
+         Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ cannot go _; _ _ _ _.',
+                                    [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                     CardinalDirectionToString(Direction),
+                                     Perspective.GetSubjectPronoun(Perspective),
+                                     TernaryConditional('is', 'are', Perspective.IsPlural(Perspective)),
+                                     ThingPositionToString(Perspective.Position),
+                                     GetDefiniteName(Perspective)]);
    end
    else
    begin
@@ -2206,22 +2339,29 @@ begin
       Result := nil;
 end;
 
-procedure TLocation.Navigate(Direction: TCardinalDirection; Perspective: TAvatar);
+function TLocation.GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
 var
    Destination: TAtom;
 begin
+   Result.TravelType := ttNone;
    Destination := GetAtomForDirectionalNavigation(Direction);
    if (Assigned(Destination)) then
-      DoNavigation(Destination, Direction, Perspective)
+   begin
+      // XXX We should figure out what the actual required abilities are, not just say [naWalk] for all directions!
+      Result.TravelType := ttByDirection;
+      Result.RequiredAbilities := [naWalk];
+      Result.Target := Destination;
+      Result.Direction := Direction;
+   end
    else
-      FailNavigation(Direction, Perspective);
+      FailNavigation(Direction, Perspective, Message);
 end;
 
-procedure TLocation.FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar);
+procedure TLocation.FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar; out Message: TMessage);
 begin
-   Perspective.AvatarMessage(TMessage.Create(mkCannotMoveBecauseCustom, '_ can''t go _ from here.',
-                                                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                                                         CardinalDirectionToString(Direction)]));
+   Message := TMessage.Create(mkCannotMoveBecauseCustom, '_ can''t go _ from here.',
+                              [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                               CardinalDirectionToString(Direction)]);
 end;
 
 function TLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
@@ -2281,6 +2421,11 @@ begin
                if (not (loConsiderDirectionUnimportantWhenFindingChildren in FImportantLandmarks[Index]^.Options)) then
                   Include(SubjectiveInformation.Directions, FImportantLandmarks[Index]^.Direction);
                Include(SubjectiveInformation.Reachable, rpReachable);
+               if (not (loPermissibleNavigationTarget in FImportantLandmarks[Index]^.Options)) then
+                  Include(SubjectiveInformation.RequiredAbilitiesToNavigate, naDebugTeleport)
+               else
+                  Include(SubjectiveInformation.RequiredAbilitiesToNavigate, naWalk); // XXX we're just assuming that everything is walkable
+                  // long term we should add ability to set this to naFly, naJump, naWalk, or combinations thereof
             end;
          end;
       end;
