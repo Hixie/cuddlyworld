@@ -541,7 +541,7 @@ begin
       if (Length(FUnderDescription) > 0) then
          Result := FUnderDescription
       else
-         Result := 'You cannot see under ' + GetDefiniteName(Perspective) + '.';
+         Result := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot see under ' + GetDefiniteName(Perspective) + '.';
    end
    else
       Result := inherited;
@@ -1254,7 +1254,9 @@ begin
            Result.Direction := cdUp;
         end;
     else
-      Message := TMessage.Create(mkInHole, 'You''re in a hole.');
+      Message := TMessage.Create(mkInHole, '_ _ in a hole.',
+                                 [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                  IsAre(Perspective.IsPlural(Perspective))]);
    end;
 end;
 

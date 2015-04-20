@@ -1,7 +1,3 @@
-CODE HEALTH
- + Rename "Find*" methods with "Enumerate*" methods were applicable
- + Find places that say "You" and make them generic if not in TPlayer
-
 NEW BUGS
  + if you climb on the door (move me to door), then going north says you're installed in the doorway
  + should have a function that turns "avatarA movedTo thingB from positionD thingD to positionC thingC" into things like:
@@ -30,6 +26,7 @@ NEW BUGS
  + "look under door"
 
 CODE HEALTH
+ + Rename "Find*" methods with "Enumerate*" methods were applicable
  + Consider if EnumerateExplicitlyReferencedThings(),
    FindMatchingThings(), and FindThingTraverser() (and maybe some
    others) should be refactored so that the logic for walking the tree
@@ -110,6 +107,7 @@ CREATE TESTS FOR
  - drop all
  - enter bag
  - exit
+ - ; going north from inside a hole ; fails
 
 CURRENT TASKS
  + "find archway" when in the threshold room should use the room's context fragment
