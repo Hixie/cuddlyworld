@@ -1,6 +1,5 @@
 CODE HEALTH
  + FindThing has Perspective, but doesn't seem to use it?
- + Drop GetSummaryName()
  + Rename "Find*" methods with "Enumerate*" methods were applicable
  + Find places that say "You" and make them generic if not in TPlayer
 
@@ -332,6 +331,7 @@ THING SEEKER IMPROVEMENTS: VOCABULARY
  + "take the bottle, the bag THAT IS OPEN, frogs, cats from the table, BUT NOT the blue ones THAT ARE small"
  + "put MY penny in MY bag" -- "my" should only look in one's inventory
  + "find front side of door" says it doesn't understand how to find things "of", but the "of the door" is added by being tpAmbiguousPartOfImplicit
+    - should support all the things that TThing.GetLongDefiniteName adds
 
 UI
  + Replace anything that uses AvatarMessage but should be broadcast with a broadcast
