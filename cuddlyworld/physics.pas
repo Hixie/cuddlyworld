@@ -132,7 +132,7 @@ type
       function GetSurroundingsRoot(out FromOutside: Boolean): TAtom; virtual;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual;
       procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); virtual; // see note [proxy]
-      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
+      function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; virtual; // used by CanReach() and Locate()
       function FindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual; // see note [proxy]
       procedure EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); virtual;
@@ -302,7 +302,7 @@ type
     public
      type
       TLandmarkOptions = set of (loAutoDescribe, // include landmark in descriptions of the room
-                                 loPermissibleNavigationTarget, // only the first landmark in each direction is allowed to be loPermissibleNavigationTarget
+                                 loPermissibleNavigationTarget, // whether you can travel that way; only the first landmark in each direction is allowed to be loPermissibleNavigationTarget, otherwise direction navigation would be ambiguous
                                  loThreshold, // whether FindThing and FindMatchingThings should traverse (ExplicitlyReferenced logic doesn't use this since it looks everywhere)
                                  loVisibleFromFarAway, // for e.g. mountains
                                  loNotVisibleFromBehind, // for e.g. surfaces so that they're not visible from below
@@ -911,7 +911,12 @@ end;
 
 function TAtom.FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean;
 begin
-   SubjectiveInformation.Reset(); {BOGUS Warning: Variable "SubjectiveInformation" does not seem to be initialized}
+   // The semantics of FindThing are a bit vague.
+   // It's used by CanReach() to determine if a thing can be manipulated.
+   // It's used by Locate() to determine, basically, what direction something is in.
+   // In theory the Perspective argument can be used to determine if that particular Perspective can see that particular item
+   // e.g. a ghost only being visible to other ghosts
+   SubjectiveInformation.Reset();
    Result := FindThingTraverser(Thing, Perspective, FromOutside);
    if (Result) then
       Include(SubjectiveInformation.Reachable, rpReachable);

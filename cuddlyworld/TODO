@@ -1,5 +1,4 @@
 CODE HEALTH
- + FindThing has Perspective, but doesn't seem to use it?
  + Rename "Find*" methods with "Enumerate*" methods were applicable
  + Find places that say "You" and make them generic if not in TPlayer
 
