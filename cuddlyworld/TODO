@@ -1,36 +1,17 @@
 NEW BUGS
  + if you climb on the door (move me to door), then going north says you're installed in the doorway
- + should have a function that turns "avatarA movedTo thingB from positionD thingD to positionC thingC" into things like:
-    - avatarA dropped thingB onto thingC (thingD outside thingC)
-    - avatarA picked thingB up (A=C)
-    - avatarA climbs into thingC (A=B)
-    - avatarA drops thingB (C is a common parent of A and B, D=A)
-    - etc
-    + use this for logic in TThing.Moved(), and places that refer to what happened to an object, e.g. TDoorWay.Put()
  + doorways should make canput refuse tpOn
  + moving things into doorways should just pretend you meant onto the ground of the threshold, if there is one
  + no way to actually enter (and remain at) a threshold
-    - "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance."
-    - "enter doorway" doesn't warp you to the other room, nor the threshold, but actually puts you in the
-      doorway (!) which is a total no-no
+    - "enter doorway" => "You fall onto the ground."
     - "enter door" tries to go tpIn the TDoor itself
     - "enter door" and "enter doorway" should warp you to the other side
-    - "stand in doorway" should warp you to the threshold
+    - "stand in doorway" should work like "move me into doorway"
+    - "stand on foo" should work like "move me onto foo"
  + "open north" doesn't work
  + "open north door" doesn't work
- + "move leaves through door", "push pile through door"
- + make the thing seeker disambiguate on features too. For example:
-    - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
-    - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
-    - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
- + "look under door"
-
-CODE HEALTH
- + Rename "Find*" methods with "Enumerate*" methods were applicable
- + Consider if EnumerateExplicitlyReferencedThings(),
-   FindMatchingThings(), and FindThingTraverser() (and maybe some
-   others) should be refactored so that the logic for walking the tree
-   is in one place and the filtering is in another.
+ + "look under door" says "The door is installed in the doorway." which is non-sequitur
+ + "find doorway" when in the threshold room should use the room's context fragment, rather than "The doorway is at the doorway."
 
 CREATE TESTS FOR
  - walking through the door
@@ -109,12 +90,23 @@ CREATE TESTS FOR
  - exit
  - ; going north from inside a hole ; fails
 
-CURRENT TASKS
- + "find archway" when in the threshold room should use the room's context fragment
- + "find <name of neighboring location>" doesn't work
- + "go to <name of neighboring location>" doesn't work
+CODE HEALTH
+ + Rename "Find*" methods with "Enumerate*" methods were applicable
+ + Consider if EnumerateExplicitlyReferencedThings(),
+   FindMatchingThings(), and FindThingTraverser() (and maybe some
+   others) should be refactored so that the logic for walking the tree
+   is in one place and the filtering is in another.
+ + should have a function that turns "avatarA movedTo thingB from positionD thingD to positionC thingC" into things like:
+    - avatarA dropped thingB onto thingC (thingD outside thingC)
+    - avatarA picked thingB up (A=C)
+    - avatarA climbs into thingC (A=B)
+    - avatarA drops thingB (C is a common parent of A and B, D=A)
+    - etc
+    + use this for logic in TThing.Moved(), and places that refer to what happened to an object, e.g. TDoorWay.Put()
 
 NAVIGATION
+ + "find <name of neighboring location>" doesn't work
+ + "go to <name of neighboring location>" doesn't work
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
  + "visit east archway"
@@ -142,6 +134,7 @@ NAVIGATION
     - this is hard in particular if the location in question is not visible right now...
  + have navigation pay attention to the size of openings vs the size of players
     - so you can't enter the bag any more
+ + "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance." (might work now?)
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
@@ -253,6 +246,7 @@ THINGS
  + "take all there is"
  + "take all again"
  + "take leaves with spade"
+ + "move leaves through door", "push pile through door" => "through" is not a known preposition
  + "put x under y" should say (by putting y on x) (first taking y)
  + "find a b c" if it finds several says "which c do you want to find", not "which a b c do you want to find"
  + "find" uses the LongDefiniteName now, but it really should only do so when the DefiniteName is ambiguous
@@ -297,6 +291,10 @@ FOOD
  + "feed MacGuffin": I don't understand how to "feed".
 
 THING SEEKER IMPROVEMENTS: LOGIC
+ + make the thing seeker disambiguate on features too. For example:
+    - "There is a brown mug here. There is a brown door here." "Open brown." -> should assume the door (and disambiguate)
+    - "There is a brown mug here. There is a brown door here." "Take brown." -> should assume the mug (and disambiguate)
+    - "There is a small door and a big door here. The small door is open." "Close door." -> should assume the open small door (and disambiguate)
  + "put everything in rucksack" => put (everything but (rucksack)) in (rucksack)
  + "drop all" when holding something that contains something drops the contained things separately (first taking them)
  + "drop any two balloons" should pick two balloons that you're holding, not any two anywhere including those on the ground
