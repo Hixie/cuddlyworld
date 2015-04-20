@@ -564,6 +564,7 @@
    function GetEnter(var Action: TAction): Boolean;
    var
       Direction: TCardinalDirection;
+      Details: TSubjectiveInformation;
    begin
       if (Tokens[CurrentToken] = 'enter') then
       begin
@@ -579,6 +580,8 @@
                EnsureNoPunctuation();
                Fail('I don''t understand how to enter things "' + OriginalTokens[CurrentToken] + '".');
             end;
+            Details := Locate(Action.EnterSubject);
+            Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
          end
          else
          if (TryDirection(Direction, [optAllowDefiniteArticle])) then
@@ -753,6 +756,7 @@
    function GetMove(var Action: TAction): Boolean;
    var
       PositionOverride: TThingPosition;
+      Details: TSubjectiveInformation;
    begin
       if (Tokens[CurrentToken] = 'move') then
       begin
@@ -776,6 +780,8 @@
             Action.Verb := avClimbOn;
             if (not CanEnd()) then
                Fail('I don''t understand how to move onto things "' + OriginalTokens[CurrentToken] + '".');
+            Details := Locate(Action.ClimbOnSubject);
+            Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
             Result := True;
          end
          else
@@ -785,6 +791,8 @@
             Action.Verb := avEnter;
             if (not CanEnd()) then
                Fail('I don''t understand how to move into things "' + OriginalTokens[CurrentToken] + '".');
+            Details := Locate(Action.EnterSubject);
+            Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
             Result := True;
          end
          else

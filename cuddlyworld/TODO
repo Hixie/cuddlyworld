@@ -1,5 +1,11 @@
+CODE HEALTH
+ + FindThing has Perspective, but doesn't seem to use it?
+ + Drop GetSummaryName()
+ + Rename "Find*" methods with "Enumerate*" methods were applicable
+ + Find places that say "You" and make them generic if not in TPlayer
+
 NEW BUGS
- + "move me to sun" does a teleport! Sun should not be reachable! (you already can't _put_ things on the sun)
+ + if you climb on the door (move me to door), then going north says you're installed in the doorway
  + should have a function that turns "avatarA movedTo thingB from positionD thingD to positionC thingC" into things like:
     - avatarA dropped thingB onto thingC (thingD outside thingC)
     - avatarA picked thingB up (A=C)
@@ -26,12 +32,10 @@ NEW BUGS
  + "look under door"
 
 CODE HEALTH
- + Rename "Find*" methods with "Enumerate*" methods were applicable
  + Consider if EnumerateExplicitlyReferencedThings(),
    FindMatchingThings(), and FindThingTraverser() (and maybe some
    others) should be refactored so that the logic for walking the tree
    is in one place and the filtering is in another.
- + Drop GetSummaryName()
 
 CREATE TESTS FOR
  - walking through the door
@@ -103,7 +107,11 @@ CREATE TESTS FOR
  - find bag
 (reset)
  - move all and me onto sun
- - move onto sun
+ - move onto sun ; fails
+(reset)
+ - drop all
+ - enter bag
+ - exit
 
 CURRENT TASKS
  + "find archway" when in the threshold room should use the room's context fragment
@@ -136,6 +144,8 @@ NAVIGATION
  + "enter e" when there are three matching things "e" should pick the right one and enter it
  + "[go] north until village", "[go] north and stop at village", "[go] north up to village", "north, stopping at village"
     - this is hard in particular if the location in question is not visible right now...
+ + have navigation pay attention to the size of openings vs the size of players
+    - so you can't enter the bag any more
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
@@ -207,6 +217,7 @@ THINGS
  + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it "cannot be moved"
     -- especially for the rim of the bag of holding, which can clearly be moved
     -- should probably just say "(by shaking the bag)" and defer up
+    -- same with "take rim" --> "The rim of the bag of holding cannot be moved."
  + make orbs smaller but with no carrying capability
  + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
  + you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
