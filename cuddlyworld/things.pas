@@ -21,7 +21,6 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       function GetName(Perspective: TAvatar): UTF8String; override;
-      function GetSummaryName(Perspective: TAvatar): UTF8String; override;
       function GetLongName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
@@ -312,16 +311,6 @@ end;
 function TNamedThing.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := FName;
-end;
-
-function TNamedThing.GetSummaryName(Perspective: TAvatar): UTF8String;
-begin
-   XXX;
-   Result := FName;
-   Assert(Assigned(FParent));
-   case FPosition of
-    tpAmbiguousPartOfImplicit: Result := Result + ' of ' + FParent.GetSummaryName(Perspective);
-   end;
 end;
 
 function TNamedThing.GetLongName(Perspective: TAvatar): UTF8String;

@@ -141,7 +141,6 @@ type
       // Atom identity
       function IsPlural(Perspective: TAvatar): Boolean; virtual; abstract;
       function GetName(Perspective: TAvatar): UTF8String; virtual; abstract;
-      function GetSummaryName(Perspective: TAvatar): UTF8String; virtual;
       function GetLongName(Perspective: TAvatar): UTF8String; virtual; { if you reply to other terms, put as many as possible here; this is shown to disambiguate }
       function GetIndefiniteName(Perspective: TAvatar): UTF8String; virtual; abstract;
       function GetDefiniteName(Perspective: TAvatar): UTF8String; virtual;
@@ -203,7 +202,6 @@ type
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
 
       // Identification
-      function GetSummaryName(Perspective: TAvatar): UTF8String; override;
       function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetLongDefiniteName(Perspective: TAvatar): UTF8String; override;
@@ -952,12 +950,6 @@ begin
    EnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, FromOutside, Reporter);
 end;
 
-function TAtom.GetSummaryName(Perspective: TAvatar): UTF8String;
-begin
-   XXX;
-   Result := GetName(Perspective);
-end;
-
 function TAtom.GetLongName(Perspective: TAvatar): UTF8String;
 begin
    Result := GetName(Perspective);
@@ -1268,20 +1260,6 @@ begin
                                                  [Capitalise(GetDefiniteName(Perspective)),
                                                   TernaryConditional('has', 'have', IsPlural(Perspective))]);
    end;
-end;
-
-function TThing.GetSummaryName(Perspective: TAvatar): UTF8String;
-var
-   Context: TAtom;
-begin
-   XXX;
-   Result := inherited;
-   Assert(Assigned(FParent));
-   Context := FParent.GetRepresentative();
-   if (Context is TThing) then
-      case FPosition of
-       tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetSummaryName(Perspective);
-      end;
 end;
 
 function TThing.GetIndefiniteName(Perspective: TAvatar): UTF8String;
