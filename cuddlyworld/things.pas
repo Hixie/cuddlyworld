@@ -124,7 +124,7 @@ type
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      function GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var MEssage: TMessage): TNavigationInstruction; override;
+      function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var MEssage: TMessage): TNavigationInstruction; override;
       function GetRepresentative(): TAtom; override;
    end;
 
@@ -223,7 +223,7 @@ type
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function IsOpen(): Boolean; override;
-      function GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; override;
+      function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; override;
       function GetBiggestCoverer: TThing; { only call if IsOpen() is false meaning there is a coverer in the first place }
       function GetFeatures(): TThingFeatures; override;
    end;
@@ -672,11 +672,11 @@ begin
                                                             FParent.GetDefiniteName(Perspective)]);
 end;
 
-function TSurface.GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
+function TSurface.GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
 begin
    // always defer to parent, so that "get out" doesn't try to get out of the TSurface and into the TLocation!
    Assert(Assigned(FParent));
-   Result := FParent.GetNavigationInstructions(Direction, Perspective, Message);
+   Result := FParent.GetNavigationInstructions(Direction, Self, Perspective, Message);
 end;
 
 function TSurface.GetRepresentative(): TAtom;
@@ -1241,10 +1241,11 @@ begin
    Result := True;
 end;
 
-function THole.GetNavigationInstructions(Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
+function THole.GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
 begin
    Result.TravelType := ttNone;
    Assert(FParent is TEarthGround);
+   Assert(Child.Position = tpIn); // if this fires, then we need to make sure we handle navigation while on a filled pile by deferring to parent
    case Direction of
      cdUp, cdOut:
         begin

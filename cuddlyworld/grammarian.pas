@@ -69,7 +69,28 @@ const
    tpArguablyInside = [tpPlantedInImplicit, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
    tpOutside = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpCarried]; { things that count towards OutsideSizeManifest }
    tpSurface = [tpPlantedInImplicit, tpOn, tpPlantedIn]; { things that count towards SurfaceSizeManifest }
-   tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn]; { only defer physical directions }
+   tpDeferNavigationToParent = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpDirectionalPath, tpAt, tpOn, tpInstalledIn]; // see below
+   tpTransitivePositions = [tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpAt, tpOn, tpIn, tpCarried]; // see below
+
+   { tpDeferNavigationToParent: If a thing A is tpOn a thing B and
+     tries to navigate, then we defer to B to tell A where to go. If a
+     thing A is tpIn a thing B, then we don't, because you first have
+     to get out of B.
+
+     tpTransitivePositions: If a thing A is tpOn a thing B that is
+     tpInstalledIn a thing C that is tpIn a thing D, then A is on B
+     and in D, but it's not installed in C. tpOn and tpIn are thus
+     considered "transitive", while tpInstalledIn is not.
+
+     It's possible that the union of tpDeferNavigationToParent and
+     tpTransitivePositions should include all TThingPosition values.
+     Right now this isn't true, so e.g. if you're on something that's
+     planted in something else, you won't be able to navigate using
+     cardinal directions (tpPlantedInImplicit is not in
+     tpDeferNavigationToParent), but you will just be told it's
+     because you're on the planted thing, not because you're planted
+     in something else (since tpPlantedInImplicit isn't in
+     tpTransitivePositions either). }
 
 function Tokenise(const S: UTF8String): TTokens;
 function TokeniseCanonically(const S: UTF8String): TTokens;

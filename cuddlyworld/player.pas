@@ -894,7 +894,7 @@ var
    Instructions: TNavigationInstruction;
 begin
    Message := TMessage.Create();
-   Instructions := FParent.GetNavigationInstructions(Direction, Self, Message);
+   Instructions := FParent.GetNavigationInstructions(Direction, Self, Self, Message);
    if (Instructions.TravelType = ttNone) then
    begin
       Assert(Message.AsKind <> mkSuccess);
