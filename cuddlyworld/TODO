@@ -1,5 +1,4 @@
 NEW BUGS
- + if you climb on the door (move me to door), then going north says you're installed in the doorway
  + doorways should make canput refuse tpOn
  + moving things into doorways should just pretend you meant onto the ground of the threshold, if there is one
  + no way to actually enter (and remain at) a threshold
@@ -89,6 +88,7 @@ CREATE TESTS FOR
  - enter bag
  - exit
  - ; going north from inside a hole ; fails
+ - ; going north from on a flower that's planted in the ground ; fails with message saying you're on a flower, not planted in the ground
 
 CODE HEALTH
  + Rename "Find*" methods with "Enumerate*" methods were applicable
