@@ -335,77 +335,90 @@ begin
 end;
 
 function TDoorWay.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
-
-   function IsUnencumbered(): Boolean;
-   var
-      DoorObstacles: TThingList;
-   begin
-      DoorObstacles := Thing.GetObtrusiveObstacles();
-      try
-         if (DoorObstacles.Length > 0) then
-         begin
-            Message := TMessage.Create(mkBlocked, '_ cannot install _ _ _ while _ _ _ _.',
-                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                        Thing.GetIndefiniteName(Perspective),
-                                        ThingPositionToString(tpConsiderForDoorPosition),
-                                        GetIndefiniteName(Perspective),
-                                        DoorObstacles.GetIndefiniteString(Perspective, 'or'),
-                                        IsAre(DoorObstacles.IsPlural(Perspective)),
-                                        ThingPositionToString(DoorObstacles.First.Position),
-                                        Thing.GetObjectPronoun(Perspective)]);
-            Result := False;
-         end
-         else
-         begin
-            Message := TMessage.Create(mkSuccess, '_ _ _ _ _.',
-                                       [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                        TernaryConditional('installs', 'install', Perspective.IsPlural(Perspective)),
-                                        Thing.GetIndefiniteName(Perspective),
-                                        ThingPositionToString(tpConsiderForDoorPosition),
-                                        GetDefiniteName(Perspective)]);
-            Result := True;
-         end;
-      finally
-         DoorObstacles.Free();
-      end;
-   end;
-
 var
    OldDoor: TDoor;
    CouldBeDoor: Boolean;
+   DoorObstacles: TThingList;
 begin
    OldDoor := GetDoor();
-   CouldBeDoor := GetCouldBeDoor(Thing, ThingPosition);
-   if ((ThingPosition in tpContained) and Assigned(GetDoor()) and not IsOpen()) then
+   if (ThingPosition = tpOn) then
    begin
-      // can't put something inside a closed doorway
-      Message := TMessage.Create(mkClosed, GetDescriptionClosed(Perspective));
+      if (Assigned(OldDoor)) then
+         Message := TMessage.Create(mkClosed, '_ can''t put something on _.',
+                                   [Capitalise(Perspective.GetDefiniteName(Perspective)), GetIndefiniteName(Perspective)])
+      else
+         Message := TMessage.Create(mkClosed, '_ can''t put something on _. Did you mean on _?',
+                                   [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                    GetIndefiniteName(Perspective),
+                                    OldDoor.GetDefiniteName(Perspective)]);
       Result := False;
    end
    else
-   if ((CouldBeDoor) and (not (FParent is TThresholdLocation))) then
+   if (ThingPosition = tpIn) then
    begin
-      // this is a door in another thing or something
-      if (Assigned(OldDoor)) then
+      CouldBeDoor := GetCouldBeDoor(Thing, ThingPosition);
+      if (Assigned(GetDoor()) and not IsOpen()) then
       begin
+         // can't put something inside a closed doorway, whether it could itself be a door or not
+         Message := TMessage.Create(mkClosed, GetDescriptionClosed(Perspective));
+         Result := False;
+      end
+      else
+      if ((CouldBeDoor) and Assigned(OldDoor) and (not (FParent is TThresholdLocation))) then
+      begin
+         // can't install a door when there's already a door
+         // this is a door in another thing or something, so we just say that, instead of dropping it on the floor
          Message := TMessage.Create(mkDuplicate, '_ already _ _.', [Capitalise(GetDefiniteName(Perspective)),
                                                                     TernaryConditional('has', 'have', IsPlural(Perspective)),
                                                                     OldDoor.GetIndefiniteName(Perspective)]);
          Result := False;
       end
       else
-         Result := IsUnencumbered();
+      if ((CouldBeDoor) and (not Assigned(GetDoor())) and (Care = psCarefully)) then
+      begin
+         DoorObstacles := Thing.GetObtrusiveObstacles();
+         try
+            if (DoorObstacles.Length > 0) then
+            begin
+               Message := TMessage.Create(mkBlocked, '_ cannot install _ _ _ while _ _ _ _.',
+                                          [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                           Thing.GetIndefiniteName(Perspective),
+                                           ThingPositionToString(tpConsiderForDoorPosition),
+                                           GetIndefiniteName(Perspective),
+                                           DoorObstacles.GetIndefiniteString(Perspective, 'or'),
+                                           IsAre(DoorObstacles.IsPlural(Perspective)),
+                                           ThingPositionToString(DoorObstacles.First.Position),
+                                           Thing.GetObjectPronoun(Perspective)]);
+               Result := False;
+            end
+            else
+            begin
+               Message := TMessage.Create(mkSuccess, '_ _ _ _ _.',
+                                          [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                           TernaryConditional('installs', 'install', Perspective.IsPlural(Perspective)),
+                                           Thing.GetIndefiniteName(Perspective),
+                                           ThingPositionToString(tpConsiderForDoorPosition),
+                                           GetDefiniteName(Perspective)]);
+               Result := True;
+            end;
+         finally
+            DoorObstacles.Free();
+         end;
+      end
+      else
+      if (FParent is TThresholdLocation) then
+      begin
+         // just dump the junk in the threshold location
+         Result := FParent.GetSurface().CanPut(Thing, tpOn, Care, Perspective, Message);
+      end
+      else
+      begin
+         // just dump the stuff in us
+         Result := inherited;
+      end;
    end
    else
-   if (((not CouldBeDoor) or (Care <> psCarefully) or (Assigned(GetDoor()))) and (FParent is TThresholdLocation)) then
-   begin
-      // not a door being carefully installed in a doorway
-      Result := FParent.GetSurface().CanPut(Thing, tpOn, Care, Perspective, Message);
-   end
-   else
-   begin
-      Result := IsUnencumbered();
-   end;
+      Assert(False); // CanPut only supports tpOn and tpIn
 end;
 
 procedure TDoorWay.Put(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar);
@@ -421,17 +434,10 @@ begin
                    M(@Thing.GetDefiniteName), SP, // the door
                    M(ThingPositionToString(ThingPosition)), SP, // in
                    M(@GetDefiniteName), // the door way
-                   M(', and '),
-                   M(@Thing.GetSubjectPronoun), SP, // it
-                   MP(Thing, M('falls'), M('fall')), SP, // falls
-                   M(ThingPositionToDirectionString(tpOnGround)), SP, // to
+                   M(', '),
+                   M(ThingPositionToString(tpOnGround)), SP, // to
                    M(@Ground.GetDefiniteName), // the ground
                    M('.')]);
-      Perspective.AvatarMessage(TMessage.Create(mkThingsFall, '_ _ _ _.',
-                                               [Capitalise(Thing.GetDefiniteName(Perspective)),
-                                                TernaryConditional('falls', 'fall', Thing.IsPlural(Perspective)),
-                                                ThingPositionToDirectionString(tpOnGround),
-                                                Ground.GetDefiniteName(Perspective)]));
       Ground.Put(Thing, tpOnGround, Care, Perspective);
    end
    else

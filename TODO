@@ -1,6 +1,4 @@
 NEW BUGS
- + doorways should make canput refuse tpOn
- + moving things into doorways should just pretend you meant onto the ground of the threshold, if there is one
  + no way to actually enter (and remain at) a threshold
     - "enter doorway" => "You fall onto the ground."
     - "enter door" tries to go tpIn the TDoor itself
@@ -59,6 +57,8 @@ CREATE TESTS FOR
  - debug thing side
  - move door <direction of door>
 (reset)
+ - put bag on doorway ; fails
+ - put bag in doorway ; fails
  - put bag on door
  - open door
  - put bag on door
@@ -73,7 +73,9 @@ CREATE TESTS FOR
  - close
  - put bag in door ; fails
  - open
- - put bag in door
+ - put bag in door ; fails
+ - put bag on doorway ; fails
+ - put bag in doorway
  - close ; fails
  - find bag
  - push bag <reverse direction of door>
@@ -81,9 +83,8 @@ CREATE TESTS FOR
  - <reverse direction of door>
  - find bag
 (reset)
- - move all and me onto sun
+ - move all and me onto sun ; fails
  - move onto sun ; fails
-(reset)
  - drop all
  - enter bag
  - exit
