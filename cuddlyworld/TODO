@@ -1,14 +1,17 @@
 NEW BUGS
- + no way to actually enter (and remain at) a threshold
-    - "enter doorway" => "You fall onto the ground."
-    - "enter door" tries to go tpIn the TDoor itself
-    - "enter door" and "enter doorway" should warp you to the other side
-    - "stand in doorway" should work like "move me into doorway"
-    - "stand on foo" should work like "move me onto foo"
- + "open north" doesn't work
- + "open north door" doesn't work
- + "look under door" says "The door is installed in the doorway." which is non-sequitur
  + "find doorway" when in the threshold room should use the room's context fragment, rather than "The doorway is at the doorway."
+ + "move me to door then move me to door then enter door" is a comedy of errors:
+    - second move says you can't get on the door (but you're on the door!)
+      because there's not enough room
+    - then entering the door puts you at the threshold while saying:
+      "You fall onto the ground as you pass through the door, barely missing you on your way down."
+ + no reasonable way to actually enter (and remain at) a threshold
+    + "move me to doorway" redundantly says "You cannot get onto the doorway. You can't put something on a doorway."
+    + "move me to doorway" tries to put you both in and through the door
+    + "move me to door" tries to get "onto" the door
+    - "stand in doorway" should work like "move me into doorway" (once that works)
+    - "stand on foo" should work like "move me onto foo"
+ + "look under door" says "The door is installed in the doorway." which is non-sequitur
 
 CREATE TESTS FOR
  - walking through the door
@@ -90,6 +93,23 @@ CREATE TESTS FOR
  - exit
  - ; going north from inside a hole ; fails
  - ; going north from on a flower that's planted in the ground ; fails with message saying you're on a flower, not planted in the ground
+ - move me onto door ; fails, door closed
+ - open door
+ - move me onto door
+ - close door ; fails, obstructed
+ - exit ; goes to threshold
+ - move me onto door
+ - enter door ; fails, which way?
+ - down
+ - move all to ground
+ - move all to doorway
+ - move all to door
+ - take all
+ - <direction of door>
+ - move all to ground
+ - move all to doorway
+ - move all to door
+ - take all
 
 CODE HEALTH
  + Rename "Find*" methods with "Enumerate*" methods were applicable
@@ -111,7 +131,7 @@ NAVIGATION
  + support "go north through the archway", "go down through the hole" now that we auto-disambiguate with "through"
  + "go to east archway"
  + "visit east archway"
- + "move to north", "move to hut"
+ + "move to north", "move to hut", "move to door" (should act like "move me to door", etc)
  + exit things by name
     - "leave leaves", "exit leaves": I don't understand how to exit "leaves".
     - "exit hole"
@@ -136,6 +156,9 @@ NAVIGATION
  + have navigation pay attention to the size of openings vs the size of players
     - so you can't enter the bag any more
  + "enter north archway" says "You cannot enter the north archway. The north archway has no discernible entrance." (might work now?)
+ + "enter" doesn't work (should autodisambiguate enterable things)
+ + "open north" doesn't work (should try checking atoms in that direction)
+ + "open north door" doesn't work unless "north" is in the door name
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
@@ -201,6 +224,10 @@ PLAYER INTERACTION
  + "take" and "drop" and "move" and so on don't give much detail in their broadcast -- they're all done by TAtom.Moved() which just says "x moved the y."
 
 THINGS
+ + floors at threshold locations should be visible to all
+    + floors at threshold locations should be entirely ignored if we would have to disambiguate
+      between multiple kinds of floors
+ + while on a door you can't see the ground, but "l d" shows you the ground
  + "except"
  + "read sign at east path" for "Arrivals Circle"->"ground"->"stone pedestal"->"AnthonyH": Which sign do you mean, the big stone to the east at the east-leading path, the north-pointing thick wooden sign, the light pink crystal sign to the south, the west-pointing stainless-steel sign, or the southwest-pointing shining silicon metalloid sign?
  + "read first sign"

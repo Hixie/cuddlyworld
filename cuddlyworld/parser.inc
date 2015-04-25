@@ -709,13 +709,16 @@
                begin
                   Action.PutPosition := tpIn;
                   Action.PutTarget := FParent.GetInside(Action.PutPosition)
-                  {$IFOPT C+} ; Assert(Assigned(Action.PutTarget)); Action.PutTarget := Action.PutTarget {$ENDIF}
+                  {$IFOPT C+} ; Assert(Assigned(Action.PutTarget)); Action.PutTarget := Action.PutTarget {$ENDIF} // because otherwise, where are _we_??
                                                                            .GetSurface();
+                  Assert(Assigned(Action.PutTarget)); // things always have surfaces
                end
                else
                begin
                   Action.PutPosition := tpOn;
                   Action.PutTarget := FParent.GetRepresentative().GetSurface();
+                  if (not Assigned(Action.PutTarget)) then
+                     Action.PutTarget := FParent;
                end;
                Assert(Assigned(Action.PutTarget));
                if (Action.PutCare = psCarefully) then
@@ -755,7 +758,6 @@
 
    function GetMove(var Action: TAction): Boolean;
    var
-      PositionOverride: TThingPosition;
       Details: TSubjectiveInformation;
    begin
       if (Tokens[CurrentToken] = 'move') then
@@ -799,6 +801,7 @@
          if (GetThings(Action.MoveSubject, [aisSurroundings, aisSelf], [eckIn, eckOn], 'move')) then
          begin
             Action.Verb := avMove;
+            Action.MoveAmbiguous := False; // Fail, set the MovePosition, or reset MoveAmbiguous to True before exitting this
             Result := True;
             if (CanEnd()) then
             begin
@@ -829,20 +832,9 @@
             else
             if (GetPrepositionThing('to', [], 'move things', Action.MoveTarget)) then
             begin
-               PositionOverride := tpIn;
-               if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
-               begin
-                  // XXX could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
-                  AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Self));
-                  Action.MovePosition := tpIn;
-               end
-               else
-               begin
-                  AutoDisambiguated('on ' + Action.MoveTarget.GetDefiniteName(Self));
-                  Action.MovePosition := tpOn;
-               end;
                if (not CanEnd()) then
                   Fail('I don''t understand how to move things to other things "' + OriginalTokens[CurrentToken] + '".');
+               Action.MoveAmbiguous := True;
             end
             else
             if (Tokens[CurrentToken] = 'out') then
@@ -943,6 +935,7 @@
             begin
                Assert(@Action.PushSubject = @Action.MoveSubject);
                Action.Verb := avMove;
+               Action.MoveAmbiguous := False;
                Action.MovePosition := tpOn;
                if (not CanEnd()) then
                   Fail('I don''t understand how to push things onto other things "' + OriginalTokens[CurrentToken] + '".');
@@ -956,6 +949,7 @@
             begin
                Assert(@Action.PushSubject = @Action.MoveSubject);
                Action.Verb := avMove;
+               Action.MoveAmbiguous := False;
                Action.MovePosition := tpIn;
                if (not CanEnd()) then
                   Fail('I don''t understand how to push things into other things "' + OriginalTokens[CurrentToken] + '".');
@@ -963,6 +957,7 @@
             else
             if (GetPrepositionThing('to', [], 'push things', Action.MoveTarget)) then
             begin
+               // XXX should probably change this to use MoveAmbiguous = True
                PositionOverride := tpIn;
                if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
                begin
@@ -970,6 +965,7 @@
                   AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Self));
                   Assert(@Action.PushSubject = @Action.MoveSubject);
                   Action.Verb := avMove;
+                  Action.MoveAmbiguous := False;
                   Action.MovePosition := tpIn;
                end
                else
@@ -977,6 +973,7 @@
                   AutoDisambiguated('on ' + Action.MoveTarget.GetDefiniteName(Self));
                   Assert(@Action.PushSubject = @Action.MoveSubject);
                   Action.Verb := avMove;
+                  Action.MoveAmbiguous := False;
                   Action.MovePosition := tpOn;
                end;
                if (not CanEnd()) then

@@ -103,7 +103,7 @@ type
       procedure Write(Stream: TWriteStream); override;
       function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function IsOpen(): Boolean; override;
    end;
 
@@ -142,7 +142,7 @@ type
       function GetLookUnder(Perspective: TAvatar): UTF8String; override;
       function GetFeatures(): TThingFeatures; override;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override;
       procedure Removed(Thing: TThing); override;
@@ -151,7 +151,7 @@ type
    // Open boxes, crates, etc
    TContainer = class(TDescribedPhysicalThing) // @RegisterStorableClass
      public
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
       function GetFeatures(): TThingFeatures; override;
@@ -191,7 +191,7 @@ type
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
       function GetFeatures(): TThingFeatures; override;
@@ -215,7 +215,7 @@ type
       function GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -241,7 +241,7 @@ type
       function GetDescriptionInTitle(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions): UTF8String; override;
       function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function IsOpen(): Boolean; override;
    end;
@@ -578,13 +578,14 @@ begin
    Result := inherited;
 end;
 
-function TLocationProxy.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TLocationProxy.GetInside(var PositionOverride: TThingPosition): TThing;
 begin
    Assert(Assigned(FDestination));
    Result := FDestination.GetInside(PositionOverride);
    if (not Assigned(Result)) then
    begin
       Result := FDestination.GetSurface();
+      Assert(Assigned(Result));
       PositionOverride := tpOn;
    end;
 end;
@@ -803,7 +804,7 @@ begin
    end;
 end;
 
-function TEarthGround.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TEarthGround.GetInside(var PositionOverride: TThingPosition): TThing;
 begin
    if (Assigned(FHole) and (FHole.IsOpen())) then { if it's not open then the hole isn't visible, so we pretend it's not there }
       Result := FHole
@@ -831,7 +832,7 @@ begin
 end;
 
 
-function TContainer.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TContainer.GetInside(var PositionOverride: TThingPosition): TThing;
 begin
    Result := Self;
 end;
@@ -902,7 +903,7 @@ begin
    Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
 end;
 
-function TBag.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TBag.GetInside(var PositionOverride: TThingPosition): TThing;
 begin
    Result := Self;
 end;
@@ -1063,7 +1064,7 @@ begin
    Result := FSize;
 end;
 
-function THole.GetInside(var PositionOverride: TThingPosition): TAtom;
+function THole.GetInside(var PositionOverride: TThingPosition): TThing;
 begin
    Result := Self;
 end;
@@ -1354,7 +1355,7 @@ begin
    Result := False;
 end;
 
-function TPile.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TPile.GetInside(var PositionOverride: TThingPosition): TThing;
 begin
    Result := Self;
 end;

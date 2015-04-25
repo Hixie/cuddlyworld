@@ -62,11 +62,13 @@ type
       procedure Put(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); override;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function GetDefaultDestination(out ThingPosition: TThingPosition): TThing; override;
       function GetLookIn(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetFeatures(): TThingFeatures; override;
       function CanSeeIn(): Boolean; override;
       function CanSeeThrough(): Boolean; virtual;
@@ -96,6 +98,8 @@ type
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); override;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
+      function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; override;
       function GetFeatures(): TThingFeatures; override;
       function Open(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function Close(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -111,6 +115,11 @@ type
       const mfOtherSideVisible: TMatcherFlag = 1;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionSelfSentenceFragment(Perspective: TAvatar): UTF8String; virtual;
+   end;
+
+   TThresholdSurface = class(TSurface) // @RegisterStorableClass
+    public
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
    TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
@@ -131,7 +140,7 @@ type
 
 // XXX wall with a hole in it... wall without a hole in it... wall that can be hit to make a hole in it...
 
-function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing; Flags: TLocation.TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
+function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing = nil; Flags: TLocation.TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
 // if you omit loAutoDescribe from the last argument, then the threshold won't be mentioned in descriptions of rooms that contain it
 
 implementation
@@ -141,6 +150,8 @@ uses
 
 function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing; Flags: TLocation.TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
 begin
+   if (not Assigned(Surface)) then
+      Surface := TThresholdSurface.Create('floor', 'flat? (ground/grounds floor/floors)@', 'The floor is flat.');
    Flags := Flags + [loPermissibleNavigationTarget, loThreshold];
    Result := TThresholdLocation.Create(Threshold, Surface);
    FrontLocation.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], Result, Flags);
@@ -356,60 +367,62 @@ begin
    else
    if (ThingPosition = tpIn) then
    begin
-      CouldBeDoor := GetCouldBeDoor(Thing, ThingPosition);
-      if (Assigned(GetDoor()) and not IsOpen()) then
+      CouldBeDoor := GetCouldBeDoor(Thing, ThingPosition) and (Care = psCarefully);
+      if (CouldBeDoor) then
       begin
-         // can't put something inside a closed doorway, whether it could itself be a door or not
-         Message := TMessage.Create(mkClosed, GetDescriptionClosed(Perspective));
-         Result := False;
-      end
-      else
-      if ((CouldBeDoor) and Assigned(OldDoor) and (not (FParent is TThresholdLocation))) then
-      begin
-         // can't install a door when there's already a door
-         // this is a door in another thing or something, so we just say that, instead of dropping it on the floor
-         Message := TMessage.Create(mkDuplicate, '_ already _ _.', [Capitalise(GetDefiniteName(Perspective)),
-                                                                    TernaryConditional('has', 'have', IsPlural(Perspective)),
-                                                                    OldDoor.GetIndefiniteName(Perspective)]);
-         Result := False;
-      end
-      else
-      if ((CouldBeDoor) and (not Assigned(GetDoor())) and (Care = psCarefully)) then
-      begin
-         DoorObstacles := Thing.GetObtrusiveObstacles();
-         try
-            if (DoorObstacles.Length > 0) then
-            begin
-               Message := TMessage.Create(mkBlocked, '_ cannot install _ _ _ while _ _ _ _.',
-                                          [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                           Thing.GetIndefiniteName(Perspective),
-                                           ThingPositionToString(tpConsiderForDoorPosition),
-                                           GetIndefiniteName(Perspective),
-                                           DoorObstacles.GetIndefiniteString(Perspective, 'or'),
-                                           IsAre(DoorObstacles.IsPlural(Perspective)),
-                                           ThingPositionToString(DoorObstacles.First.Position),
-                                           Thing.GetObjectPronoun(Perspective)]);
-               Result := False;
-            end
-            else
-            begin
-               Message := TMessage.Create(mkSuccess, '_ _ _ _ _.',
-                                          [Capitalise(Perspective.GetDefiniteName(Perspective)),
-                                           TernaryConditional('installs', 'install', Perspective.IsPlural(Perspective)),
-                                           Thing.GetIndefiniteName(Perspective),
-                                           ThingPositionToString(tpConsiderForDoorPosition),
-                                           GetDefiniteName(Perspective)]);
-               Result := True;
+         if (Assigned(OldDoor)) then
+         begin
+            // can't install a door when there's already a door
+            Message := TMessage.Create(mkDuplicate, '_ already _ _.', [Capitalise(GetDefiniteName(Perspective)),
+                                                                       TernaryConditional('has', 'have', IsPlural(Perspective)),
+                                                                       OldDoor.GetIndefiniteName(Perspective)]);
+            Result := False;
+         end
+         else
+         begin
+            DoorObstacles := Thing.GetObtrusiveObstacles();
+            try
+               if (DoorObstacles.Length > 0) then
+               begin
+                  Message := TMessage.Create(mkBlocked, '_ cannot install _ _ _ while _ _ _ _.',
+                                             [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                              Thing.GetIndefiniteName(Perspective),
+                                              ThingPositionToString(tpConsiderForDoorPosition),
+                                              GetIndefiniteName(Perspective),
+                                              DoorObstacles.GetIndefiniteString(Perspective, 'or'),
+                                              IsAre(DoorObstacles.IsPlural(Perspective)),
+                                              ThingPositionToString(DoorObstacles.First.Position),
+                                              Thing.GetObjectPronoun(Perspective)]);
+                  Result := False;
+               end
+               else
+               begin
+                  Message := TMessage.Create(mkSuccess, '_ _ _ _ _.',
+                                             [Capitalise(Perspective.GetDefiniteName(Perspective)),
+                                              TernaryConditional('installs', 'install', Perspective.IsPlural(Perspective)),
+                                              Thing.GetIndefiniteName(Perspective),
+                                              ThingPositionToString(tpConsiderForDoorPosition),
+                                              GetDefiniteName(Perspective)]);
+                  Result := True;
+               end;
+            finally
+               DoorObstacles.Free();
             end;
-         finally
-            DoorObstacles.Free();
          end;
       end
       else
       if (FParent is TThresholdLocation) then
       begin
          // just dump the junk in the threshold location
+         Assert(Assigned(FParent.GetSurface()));
          Result := FParent.GetSurface().CanPut(Thing, tpOn, Care, Perspective, Message);
+      end
+      else
+      if (Assigned(OldDoor) and not IsOpen()) then
+      begin
+         // can't put something inside a closed doorway, whether it could itself be a door or not
+         Message := TMessage.Create(mkClosed, GetDescriptionClosed(Perspective));
+         Result := False;
       end
       else
       begin
@@ -428,6 +441,7 @@ begin
    if (((not GetCouldBeDoor(Thing, ThingPosition)) or (Care <> psCarefully) or (Assigned(GetDoor()))) and (FParent is TThresholdLocation)) then
    begin
       Ground := FParent.GetSurface();
+      Assert(Assigned(Ground));
       DoBroadcast([Self, Ground], Perspective,
                   [C(M(@Perspective.GetDefiniteName)), SP, // You
                    MP(Perspective, M('drops'), M('drop')), SP, // drop
@@ -484,7 +498,7 @@ begin
    inherited;
 end;
 
-function TDoorWay.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TDoorWay.GetInside(var PositionOverride: TThingPosition): TThing;
 begin
    Result := Self;
 end;
@@ -492,6 +506,16 @@ end;
 function TDoorWay.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
 begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
+end;
+
+function TDoorWay.GetDefaultDestination(out ThingPosition: TThingPosition): TThing;
+begin
+   ThingPosition := tpOn;
+   if (FParent is TThresholdLocation) then
+      Result := FParent.GetSurface()
+   else
+      Result := Self;
+   Assert(Assigned(Result));
 end;
 
 function TDoorWay.GetLookIn(Perspective: TAvatar): UTF8String;
@@ -535,6 +559,24 @@ begin
    TheDoor := GetDoor();
    if (Assigned(TheDoor)) then
       Result := 'Other than ' + TheDoor.GetDefiniteName(Perspective) + ', there is nothing in ' + GetDefiniteName(Perspective) + '.'
+   else
+      Result := inherited;
+end;
+
+function TDoorWay.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
+begin
+   if (IsOpen() and (FParent is TThresholdLocation)) then
+   begin
+      if (Direction = cdIn) then
+      begin
+         case (LocatePerspective(Perspective)) of
+            rppFront: Direction := cdReverse[FFrontSideFacesDirection];
+            rppBack: Direction := FFrontSideFacesDirection;
+         end;
+      end;
+      PositionOverride := tpOn;
+      Result := FParent.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList)
+   end
    else
       Result := inherited;
 end;
@@ -776,6 +818,7 @@ begin
          if (TheDoorWay.Parent is TThresholdLocation) then
          begin
             Ground := TheDoorWay.Parent.GetSurface();
+            Assert(Assigned(Ground));
             // mkThingsFall
             DoBroadcastAll([Self, Ground, Traveller, Perspective],
                            [C(M(@Obstacles.GetDefiniteString, M('and'))), SP,
@@ -849,6 +892,28 @@ begin
    begin
       Result := Result + ' ' + Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + TernaryConditional('closed', 'open', TheDoorWay.IsOpen()) + '.';
    end;
+end;
+
+function TDoor.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
+var
+   TheDoorWay: TThing;
+begin
+   TheDoorWay := GetDoorWay();
+   if (Assigned(TheDoorWay)) then
+      Result := TheDoorWay.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList)
+   else
+      Result := inherited;
+end;
+
+function TDoor.GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
+var
+   TheDoorWay: TThing;
+begin
+   TheDoorWay := GetDoorWay();
+   if ((Direction = cdOut) and Assigned(TheDoorWay) and TheDoorWay.IsOpen()) then
+      Result := TheDoorWay.GetNavigationInstructions(Direction, Self, Perspective, Message)
+   else
+      Result := inherited;
 end;
 
 function TDoor.GetFeatures(): TThingFeatures;
@@ -931,6 +996,23 @@ end;
 function TDoorSide.GetDescriptionSelfSentenceFragment(Perspective: TAvatar): UTF8String;
 begin
    Result := inherited GetDescriptionSelf(Perspective);
+end;
+
+
+function TThresholdSurface.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
+begin
+   Result := inherited;
+   if (Result and
+          Assigned(FParent) and
+          (FParent is TThresholdLocation) and
+          ((FParent as TThresholdLocation).FMaster is TDoorway) and
+          Assigned(((FParent as TThresholdLocation).FMaster as TDoorway).GetDoor()) and
+          not ((FParent as TThresholdLocation).FMaster as TDoorway).IsOpen()) then
+   begin
+      // can't put something inside a closed doorway, whether it could itself be a door or not
+      Message := TMessage.Create(mkClosed, ((FParent as TThresholdLocation).FMaster as TDoorway).GetDescriptionClosed(Perspective));
+      Result := False;
+   end;
 end;
 
 
