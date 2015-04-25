@@ -117,10 +117,10 @@ type
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { external size of the object (e.g. to decide if it fits inside another): self and children that are tpOutside; add tpContained children if container is flexible }
       function GetInsideSizeManifest(): TThingSizeManifest; virtual; { only children that are tpContained }
       function GetSurfaceSizeManifest(): TThingSizeManifest; virtual; { children that are tpSurface (e.g. to decide if something else can be added to the object's surface or if the surface is full already) }
-      function GetRepresentative(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface) }
-      function GetSurface(): TAtom; virtual; { the TAtom that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetRepresentative) }
+      function GetRepresentative(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface, maybe a TLocation) }
+      function GetSurface(): TThing; virtual; { the TThing that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetRepresentative) }
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
-      function GetInside(var PositionOverride: TThingPosition): TAtom; virtual; { returns nil if there's no inside to speak of }
+      function GetInside(var PositionOverride: TThingPosition): TThing; virtual; { returns nil if there's no inside to speak of }
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
@@ -198,7 +198,9 @@ type
       function GetIntrinsicSize(): TThingSize; virtual; abstract;
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
+      function GetSurface(): TThing; override;
       function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function GetDefaultDestination(out Position: TThingPosition): TThing; virtual; // for "move bar to foo", where do we actually put the thing and in what position?
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
 
       // Identification
@@ -492,7 +494,9 @@ begin
    else
    if (Position = tpOn) then
    begin
-      Destination := Destination.GetSurface();
+      SpecificDestination := Destination.GetSurface();
+      if (Assigned(SpecificDestination)) then
+         Destination := SpecificDestination;
       Assert(Assigned(Destination));
       Assert(Destination is TThing, 'if you want to be "on" a TLocation, give it a surface available from GetSurface()');
       Message := TMessage.Create();
@@ -826,7 +830,12 @@ begin
    Result := Self;
 end;
 
-function TAtom.GetInside(var PositionOverride: TThingPosition): TAtom;
+function TAtom.GetSurface(): TThing;
+begin
+   Result := nil;
+end;
+
+function TAtom.GetInside(var PositionOverride: TThingPosition): TThing;
 var
    Child: TThing;
 begin
@@ -845,7 +854,7 @@ end;
 
 function TAtom.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
 var
-   Inside: TAtom;
+   Inside: TThing;
    Position: TThingPosition;
 begin
    Position := tpIn;
@@ -863,11 +872,6 @@ begin
    end
    else
       Result := False;
-end;
-
-function TAtom.GetSurface(): TAtom;
-begin
-   Result := Self;
 end;
 
 procedure TAtom.HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar);
@@ -1105,11 +1109,14 @@ function TAtom.GetDescriptionOn(Perspective: TAvatar; Options: TGetDescriptionOn
       end;
    end;
 
+var
+   Surface: TThing;
 begin
    Result := '';
    ProcessBatch(FChildren);
-   if (GetSurface() <> Self) then
-      ProcessBatch(GetSurface().FChildren);
+   Surface := GetSurface();
+   if (Assigned(Surface) and (Surface <> Self)) then
+      ProcessBatch(Surface.FChildren);
 end;
 
 function TAtom.GetDescriptionChildren(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String = ''): UTF8String;
@@ -1199,9 +1206,14 @@ begin
    Result := inherited GetOutsideSizeManifest() + GetIntrinsicSize();
 end;
 
+function TThing.GetSurface(): TThing;
+begin
+   Result := Self;
+end;
+
 function TThing.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
 var
-   Surface: TAtom;
+   Surface: TThing;
 begin
    Surface := GetSurface();
    Assert(Assigned(Surface));
@@ -1209,6 +1221,22 @@ begin
       Result := Surface.CanSurfaceHold(Manifest)
    else
       Result := (GetSurfaceSizeManifest() + Manifest) <= (GetIntrinsicSize());
+end;
+
+function TThing.GetDefaultDestination(out Position: TThingPosition): TThing;
+begin
+   Result := nil;
+   if (IsOpen()) then
+   begin
+      Position := tpIn;
+      Result := GetInside(Position);
+   end;
+   if (not Assigned(Result)) then
+   begin
+      Position := tpOn;
+      Result := GetSurface();
+   end;
+   Assert(Assigned(Result));
 end;
 
 function TThing.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
@@ -1225,7 +1253,7 @@ begin
          Assert(IsChildTraversable(Child, Perspective, True));
          DisambiguationOpening := Child;
          Result := Child.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList);
-         Exit;
+         exit;
       end;
    end;
    // no opening, so instead try to directly put the thing inside our insides
@@ -1407,7 +1435,7 @@ end;
 function TThing.GetLookIn(Perspective: TAvatar): UTF8String;
 var
    PositionOverride: TThingPosition;
-   Inside: TAtom;
+   Inside: TThing;
    Contents: UTF8String;
    {$IFOPT C+} Child: TThing; {$ENDIF}
 begin
@@ -1446,7 +1474,7 @@ end;
 function TThing.GetDescriptionClosed(Perspective: TAvatar): UTF8String;
 var
    PositionOverride: TThingPosition;
-   Inside: TAtom;
+   Inside: TThing;
 begin
    Assert(not IsOpen());
    PositionOverride := tpIn;
@@ -1550,7 +1578,7 @@ function TThing.GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionC
    end;
 
 var
-   Inside, Surface: TAtom;
+   Inside, Surface: TThing;
    ExpectedPosition: TThingPosition;
    ExpectedPositionFilter: TThingPositionFilter;
 begin
@@ -1561,6 +1589,7 @@ begin
       ExpectedPositionFilter := [tpIn];
    ProcessBatch(FChildren, ExpectedPositionFilter);
    Surface := GetSurface();
+   Assert(Assigned(Surface));
    if (Surface <> Self) then
       ProcessBatch(Surface.FChildren, ExpectedPositionFilter);
    if (optFar in Options) then
@@ -1599,11 +1628,15 @@ function TThing.GetDescriptionCarried(Perspective: TAvatar; DeepCarried: Boolean
       end;
    end;
 
+var
+   Surface: TThing;
 begin
    Result := '';
    ProcessBatch(FChildren);
-   if (GetSurface() <> Self) then
-      ProcessBatch(GetSurface().FChildren);
+   Surface := GetSurface();
+   Assert(Assigned(Surface));
+   if (Surface <> Self) then
+      ProcessBatch(Surface.FChildren);
    if (Length(Result) > 0) then
       Result := Prefix + GetDescriptionCarriedTitle(Perspective, DeepCarried) + #10 + Result;
 end;
@@ -2256,6 +2289,7 @@ var
    Index: Cardinal;
    Atom: TAtom;
    S: UTF8String;
+   Surface: TThing;
 begin
    Assert(Mode in [psThereIsAThingThere, // look north
                    psThereIsAThingHere]); // look
@@ -2278,8 +2312,9 @@ begin
          end;
       end;
    ProcessBatch(FChildren);
-   if (GetSurface() <> Self) then
-      ProcessBatch(GetSurface().FChildren);
+   Surface := GetSurface();
+   if (Assigned(Surface)) then
+      ProcessBatch(Surface.FChildren);
 end;
 
 function TLocation.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
@@ -2332,19 +2367,29 @@ end;
 
 function TLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
+   PositionOverride := tpOn;
    Result := GetSurface();
+   if (not Assigned(Result)) then
+   begin
+      PositionOverride := tpIn;
+      Result := GetInside(PositionOverride);
+      if (not Assigned(Result)) then
+      begin
+         PositionOverride := tpAt; // ...this might not work very well, we'll have to see.
+         Result := Self;
+      end;
+   end;
 end;
 
 function TLocation.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
 var
-   Surface: TAtom;
+   Surface: TThing;
 begin
    Surface := GetSurface();
-   Assert(Assigned(Surface));
-   if (Surface <> Self) then
+   if (Assigned(Surface)) then
       Result := Surface.CanSurfaceHold(Manifest)
    else
-      Result := True;
+      Result := False;
 end;
 
 procedure TLocation.FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);

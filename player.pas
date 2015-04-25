@@ -38,7 +38,7 @@ type
       procedure DoNavigation(Direction: TCardinalDirection);
       procedure DoTake(Subject: TThingList);
       procedure DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
-      procedure DoMove(Subject: TThingList; Target: TThing; ThingPosition: TThingPosition);
+      procedure DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous: Boolean; ThingPosition: TThingPosition);
       procedure DoPush(Subject: TThingList; Direction: TCardinalDirection);
       procedure DoRemove(Subject: TThingList; RequiredPosition: TThingPosition; RequiredParent: TThing);
       procedure DoPress(Subject: TThingList);
@@ -61,6 +61,7 @@ type
       function CanCarryThing(Thing: TThing; var Message: TMessage): Boolean;
       function CanPushThing(Thing: TThing; var Message: TMessage): Boolean;
       function CanShakeThing(Thing: TThing; var Message: TMessage): Boolean;
+      procedure DoPutInternal(CurrentSubject: TThing; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
       function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
       procedure SetContext(Context: UTF8String);
       procedure ResetContext();
@@ -129,7 +130,7 @@ type
    TActionVerb = (avNone,
                   avLook, avLookDirectional, avLookAt, avExamine, avRead, avLookUnder, avLookIn, avInventory, avFind,
                   avGo, avEnter, avClimbOn,
-                  avTake, avPut, avMove, avPush, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
+                  avTake, avPut, avMove, avPush, avPushTo, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
                   avTalk, avDance,
                   {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugThings, avDebugThing, avDebugTeleport, {$ENDIF}
                   avHelp, avQuit);
@@ -156,7 +157,7 @@ type
       avClimbOn: (ClimbOnSubject: TThing; ClimbOnRequiredAbilities: TNavigationAbilities);
       avTake: (TakeSubject: TThingList);
       avPut: (PutSubject: TThingList; PutTarget: TAtom; PutPosition: TThingPosition; PutCare: TPlacementStyle);
-      avMove: (MoveSubject: TThingList; MoveTarget: TThing; MovePosition: TThingPosition);
+      avMove: (MoveSubject: TThingList; MoveTarget: TThing; case MoveAmbiguous: Boolean of False: (MovePosition: TThingPosition));
       avPush: (PushSubject: TThingList; PushDirection: TCardinalDirection);
       avRemove: (RemoveSubject: TThingList; RemoveFromPosition: TThingPosition; RemoveFromObject: TThing);
       avPress: (PressSubject: TThingList);
@@ -241,7 +242,7 @@ var
        avClimbOn: DoNavigation(Action.ClimbOnSubject, tpOn, Action.ClimbOnRequiredAbilities);
        avTake: DoTake(Action.TakeSubject);
        avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
-       avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MovePosition);
+       avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MoveAmbiguous, Action.MovePosition);
        avPush: DoPush(Action.PushSubject, Action.PushDirection);
        avRemove: DoRemove(Action.RemoveSubject, Action.RemoveFromPosition, Action.RemoveFromObject);
        avPress: DoPress(Action.PressSubject);
@@ -956,14 +957,19 @@ begin
          if (CurrentSubject = Self) then
          begin
             TargetSurface := FParent.GetSurface();
-            DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP,
-                                       MP(Self, M('tries to'), M('try to')), SP,
-                                       M('pick'), SP,
-                                       M(@GetReflexivePronoun), SP,
-                                       M('up, but end up'), SP,
-                                       M(ThingPositionToString(Position)), SP,
-                                       M(@TargetSurface.GetDefiniteName), M('.')]);
-            SendMessage('You try to pick yourself up but end up ' + ThingPositionToString(Position) + ' ' + TargetSurface.GetDefiniteName(Self) + '.');
+            if (Assigned(TargetSurface)) then
+            begin
+               DoBroadcast([Self], Self, [C(M(@GetDefiniteName)), SP,
+                                          MP(Self, M('tries to'), M('try to')), SP,
+                                          M('pick'), SP,
+                                          M(@GetReflexivePronoun), SP,
+                                          M('up, but end up'), SP,
+                                          M(ThingPositionToString(Position)), SP,
+                                          M(@TargetSurface.GetDefiniteName), M('.')]);
+               SendMessage('You try to pick yourself up but end up ' + ThingPositionToString(Position) + ' ' + TargetSurface.GetDefiniteName(Self) + '.');
+            end
+            else
+               SendMessage('Haw can one pick oneself up?');
          end
          else
          begin
@@ -997,11 +1003,8 @@ end;
 
 procedure TPlayer.DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
 var
-   Multiple, Success: Boolean;
-   MessageText: UTF8String;
+   Multiple: Boolean;
    Message: TMessage;
-   SingleThingList: TThingList;
-   Ancestor: TAtom;
    CurrentSubject: TThing;
 begin
    Assert(Assigned(Subject));
@@ -1032,87 +1035,7 @@ begin
             SendMessage('You can''t move something ' + ThingPositionToDirectionString(ThingPosition) + ' itself, however hard you try.');
          end
          else
-         begin
-            Assert(Message.AsKind = mkSuccess);
-            Assert(Message.AsText = '');
-            Ancestor := Target;
-            repeat
-               Assert(Ancestor is TThing);
-               Assert(Assigned((Ancestor as TThing).Parent));
-               Ancestor := (Ancestor as TThing).Parent;
-            until ((not (Ancestor is TThing)) or (Ancestor = CurrentSubject));
-            if (Ancestor = CurrentSubject) then
-            begin
-               { the target is on the thing }
-               Assert(Target is TThing);
-               Assert(Assigned((Target as TThing).Parent));
-               MessageText := (Target as TThing).GetDefiniteName(Self) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + ThingPositionToString((Target as TThing).Position) + ' ';
-               Ancestor := (Target as TThing).Parent;
-               while (Ancestor <> CurrentSubject) do
-               begin
-                  Assert(Ancestor is TThing);
-                  Assert(Assigned((Ancestor as TThing).Parent));
-                  MessageText := MessageText + Ancestor.GetDefiniteName(Self) + ', which ' + IsAre(Ancestor.IsPlural(Self)) + ' ' + ThingPositionToString((Ancestor as TThing).Position) + ' ';
-                  Ancestor := (Ancestor as TThing).Parent;
-               end;
-               Assert(Ancestor = CurrentSubject);
-               SendMessage('That would be difficult, since ' + MessageText + Ancestor.GetDefiniteName(Self) + '.');
-            end
-            else
-            begin
-               if (CurrentSubject.Parent <> Self) then
-               begin
-                  AutoDisambiguated('first taking ' + CurrentSubject.GetDefiniteName(Self));
-                  SingleThingList := TThingList.Create();
-                  try
-                     SingleThingList.AppendItem(CurrentSubject);
-                     DoTake(SingleThingList);
-                  finally
-                     SingleThingList.Free();
-                  end;
-                  if (not CanReach(CurrentSubject, Self, Message)) then
-                  begin
-                     Assert(Message.AsKind <> mkSuccess);
-                     SendMessage(Message.AsText);
-                     Success := False;
-                  end
-                  else
-                  if (not CanReach(Target, Self, Message)) then
-                  begin
-                     Assert(Message.AsKind <> mkSuccess);
-                     SendMessage(Message.AsText);
-                     Success := False;
-                  end
-                  else
-                  begin
-                     Assert(Message.AsKind = mkSuccess);
-                     Success := CurrentSubject.Parent = Self;
-                  end;
-               end
-               else
-               begin
-                  Success := True;
-               end;
-               if (Success) then
-               begin
-                  case (Care) of
-                    psCarefully: MessageText := 'Placed';
-                    psRoughly: MessageText := 'Dropped';
-                   else
-                      Assert(False);
-                  end;
-                  if (Target <> FParent.GetSurface()) then
-                     MessageText := MessageText + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
-                  MessageText := MessageText + '.';
-                  Message := TMessage.Create(mkSuccess, MessageText);
-                  Success := Target.CanPut(CurrentSubject, ThingPosition, Care, Self, Message);
-                  Assert((Message.AsKind = mkSuccess) = Success);
-                  SendMessage(Message.AsText);
-                  if (Success) then
-                     Target.Put(CurrentSubject, ThingPosition, Care, Self);
-               end;
-            end;
-         end;
+            DoPutInternal(CurrentSubject, Target, ThingPosition, Care);
       end;
    finally
       if (Multiple) then
@@ -1120,7 +1043,96 @@ begin
    end;
 end;
 
-procedure TPlayer.DoMove(Subject: TThingList; Target: TThing; ThingPosition: TThingPosition);
+procedure TPlayer.DoPutInternal(CurrentSubject: TThing; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
+var
+   Message: TMessage;
+   Ancestor: TAtom;
+   SingleThingList: TThingList;
+   Success: Boolean;
+   MessageText: UTF8String;
+begin
+   Message := TMessage.Create();
+   Ancestor := Target;
+   repeat
+      Assert(Ancestor is TThing);
+      Assert(Assigned((Ancestor as TThing).Parent));
+      Ancestor := (Ancestor as TThing).Parent;
+   until ((not (Ancestor is TThing)) or (Ancestor = CurrentSubject));
+   if (Ancestor = CurrentSubject) then
+   begin
+      { the target is on the thing }
+      Assert(Target is TThing);
+      Assert(Assigned((Target as TThing).Parent));
+      MessageText := (Target as TThing).GetDefiniteName(Self) + ' ' + IsAre(Target.IsPlural(Self)) + ' ' + ThingPositionToString((Target as TThing).Position) + ' ';
+      Ancestor := (Target as TThing).Parent;
+      while (Ancestor <> CurrentSubject) do
+      begin
+         Assert(Ancestor is TThing);
+         Assert(Assigned((Ancestor as TThing).Parent));
+         MessageText := MessageText + Ancestor.GetDefiniteName(Self) + ', which ' + IsAre(Ancestor.IsPlural(Self)) + ' ' + ThingPositionToString((Ancestor as TThing).Position) + ' ';
+         Ancestor := (Ancestor as TThing).Parent;
+      end;
+      Assert(Ancestor = CurrentSubject);
+      SendMessage('That would be difficult, since ' + MessageText + Ancestor.GetDefiniteName(Self) + '.');
+   end
+   else
+   begin
+      if (CurrentSubject.Parent <> Self) then
+      begin
+         AutoDisambiguated('first taking ' + CurrentSubject.GetDefiniteName(Self));
+         SingleThingList := TThingList.Create();
+         try
+            SingleThingList.AppendItem(CurrentSubject);
+            DoTake(SingleThingList);
+         finally
+            SingleThingList.Free();
+         end;
+         if (not CanReach(CurrentSubject, Self, Message)) then
+         begin
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
+            Success := False;
+         end
+         else
+         if (not CanReach(Target, Self, Message)) then
+         begin
+            Assert(Message.AsKind <> mkSuccess);
+            SendMessage(Message.AsText);
+            Success := False;
+         end
+         else
+         begin
+            Assert(Message.AsKind = mkSuccess);
+            Success := CurrentSubject.Parent = Self;
+         end;
+      end
+      else
+      begin
+         Success := True;
+      end;
+      if (Success) then
+      begin
+         Assert(Assigned(Target));
+         case (Care) of
+           psCarefully: MessageText := 'Placed';
+           psRoughly: MessageText := 'Dropped';
+          else
+             Assert(False);
+         end;
+         if (Target <> FParent.GetSurface()) then
+            MessageText := MessageText + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
+         MessageText := MessageText + '.';
+         Message := TMessage.Create(mkSuccess, MessageText);
+         Success := Target.CanPut(CurrentSubject, ThingPosition, Care, Self, Message);
+         Assert((Message.AsKind = mkSuccess) = Success);
+         SendMessage(Message.AsText);
+         if (Success) then
+            Target.Put(CurrentSubject, ThingPosition, Care, Self);
+      end;
+   end;
+end;
+
+procedure TPlayer.DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous: Boolean; ThingPosition: TThingPosition);
 // this is somewhat convoluted -- feel free to refactor it...
 
    function CanBePushedTo(Thing: TThing; Surface: TAtom): Boolean; { Thing is being pushed onto Surface }
@@ -1195,39 +1207,36 @@ var
    Multiple, NavigateToTarget, Success: Boolean;
    SingleThingList: TThingList;
    Ancestor, SurrogateTarget, LocationSurface: TAtom;
-   CurrentSubject: TThing;
+   CurrentSubject, OriginalTarget: TThing;
    {$IFOPT C+} PreviousParent: TAtom; {$ENDIF}
    Message: TMessage;
    Details: TSubjectiveInformation;
 begin
    Assert(Assigned(Subject));
    Assert(Subject.Length > 0);
-   Assert((ThingPosition = tpIn) or (ThingPosition = tpOn));
+   Assert(PositionAmbiguous or (ThingPosition = tpIn) or (ThingPosition = tpOn));
    Multiple := Subject.Length > 1;
    NavigateToTarget := False;
+   OriginalTarget := Target;
+   if (PositionAmbiguous) then
+   begin
+      Assert(Assigned(Target));
+      Target := Target.GetDefaultDestination(ThingPosition);
+      Assert(Assigned(Target));
+      Assert(ThingPosition in [tpIn, tpOn]);
+      if (Multiple or (Subject.First <> Self)) then
+         AutoDisambiguated(ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self));
+   end;
    try
       for CurrentSubject in Subject do
       begin
          if (Multiple) then
             SetContext(Capitalise(CurrentSubject.GetName(Self)));
          Message := TMessage.Create();
-         if (CurrentSubject.Parent = Self) then
-         begin
-            SingleThingList := TThingList.Create();
-            try
-               SingleThingList.AppendItem(CurrentSubject);
-               if (Assigned(Target)) then
-                  DoPut(SingleThingList, Target, ThingPosition, psCarefully)
-               else
-                  DoShake(SingleThingList);
-            finally
-               SingleThingList.Free();
-            end;
-         end
-         else
          if (CurrentSubject = Self) then
          begin
             {$IFOPT C+} PreviousParent := FParent; {$ENDIF}
+            Assert(not NavigateToTarget);
             if (Assigned(Target)) then
                NavigateToTarget := True
             else
@@ -1241,10 +1250,28 @@ begin
             SendMessage(Message.AsText);
          end
          else
-         if (Assigned(Target) and (not CanReach(Target, Self, Message))) then
+         if (Assigned(OriginalTarget) and (not CanReach(OriginalTarget, Self, Message))) then
          begin
             Assert(Message.AsKind <> mkSuccess);
             SendMessage(Message.AsText);
+         end
+         else
+         if (CurrentSubject.Parent = Self) then
+         begin
+            if (Assigned(Target)) then
+            begin
+               DoPutInternal(CurrentSubject, Target, ThingPosition, psCarefully);
+            end
+            else
+            begin
+               SingleThingList := TThingList.Create();
+               try
+                  SingleThingList.AppendItem(CurrentSubject);
+                  DoShake(SingleThingList);
+               finally
+                  SingleThingList.Free();
+               end;
+            end;
          end
          else
          begin
@@ -1270,7 +1297,8 @@ begin
                      while (Ancestor is TThing) do
                         Ancestor := (Ancestor as TThing).Parent;
                      Assert(Assigned(Ancestor));
-                     LocationSurface := Ancestor.GetSurface();
+                     LocationSurface := Ancestor.GetSurface(); // might be nil
+                     Assert(Assigned(CurrentSubject.Parent));
                      if ((CurrentSubject.Parent = Ancestor) or
                          (CurrentSubject.Parent = LocationSurface)) then
                      begin
@@ -1310,15 +1338,19 @@ begin
                begin
                   { can't be pushed }
                   { if the target was explicit, then try putting it there, otherwise, just shake it }
-                  SingleThingList := TThingList.Create();
-                  try
-                     SingleThingList.AppendItem(CurrentSubject);
-                     if (Assigned(Target)) then
-                        DoPut(SingleThingList, SurrogateTarget, ThingPosition, psCarefully)
-                     else
+                  if (Assigned(Target)) then
+                  begin
+                     DoPutInternal(CurrentSubject, SurrogateTarget, ThingPosition, psCarefully);
+                  end
+                  else
+                  begin
+                     SingleThingList := TThingList.Create();
+                     try
+                        SingleThingList.AppendItem(CurrentSubject);
                         DoShake(SingleThingList);
-                  finally
-                     SingleThingList.Free();
+                     finally
+                        SingleThingList.Free();
+                     end;
                   end;
                end
                else
@@ -1345,8 +1377,11 @@ begin
       begin
          if (Multiple) then
             SetContext(Capitalise(GetName(Self)));
-         Details := Locate(Target);
-         DoNavigation(Target, ThingPosition, Details.RequiredAbilitiesToNavigate);
+         // XXX not really sure if this is reasonable, in the PositionAmbiguous case
+         // consider "move me to doorway"
+         // we're going to need to go to the surface, but...
+         Details := Locate(OriginalTarget);
+         DoNavigation(OriginalTarget, ThingPosition, Details.RequiredAbilitiesToNavigate);
       end;
    finally
       if (Multiple) then
@@ -1593,6 +1628,12 @@ begin
                   else
                   begin
                      Destination := (CurrentSubject.Parent as TThing).Parent.GetSurface();
+                     if (not Assigned(Destination)) then
+                     begin
+                        // this is dubious... maybe DestinationPosition should be tpAt in this case
+                        // see also TLocation.GetEntrance()
+                        Destination := (CurrentSubject.Parent as TThing).Parent;
+                     end;
                      DestinationPosition := tpOn;
                   end;
                   Message := TMessage.Create(mkSuccess, 'Moved _ _.',
@@ -2017,6 +2058,7 @@ begin
    begin
       ChildrenCopy := TThingList.Clone(FChildren);
       try
+         // XXX this should probably be more aggressive about making this work
          DoPut(ChildrenCopy, FParent, tpOn, psRoughly);
       finally
          ChildrenCopy.Free();

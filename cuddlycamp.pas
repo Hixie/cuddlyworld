@@ -83,13 +83,14 @@ begin
                                           TDoorSide.Create('side', 'varnished? (front:1)? side/sides', 'the door is varnished.'),
                                           TDoorSide.Create('side', '((scratched? (back:1)? side/sides) scratch/scratches)@', 'the door has a big scratch, as if made by a wolf.')));
 
-   DoorwayLocation := ConnectThreshold(Room1, Room2, Doorway, CreateEarthSurface());
+   DoorwayLocation := ConnectThreshold(Room1, Room2, Doorway);
    DoorwayLocation.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
    World.AddLocation(Room1);
    World.AddLocation(Room2);
    World.AddLocation(DoorwayLocation);
    World.StartingLocation := Room1.GetSurface();
+   Assert(Assigned(World.StartingLocation));
    World.StartingPosition := tpOn;
 
    Result := World;

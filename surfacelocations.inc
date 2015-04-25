@@ -23,7 +23,7 @@
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       procedure EnumerateObtrusiveObstacles(List: TThingList); override;
-      function GetSurface(): TAtom; override;
+      function GetSurface(): TThing; override;
    end;
 
 {$ELSEIF PART=Implementation}
@@ -54,7 +54,7 @@ begin
    FSurface.EnumerateObtrusiveObstacles(List);
 end;
 
-function SUBCLASS.GetSurface(): TAtom;
+function SUBCLASS.GetSurface(): TThing;
 begin
    Result := FSurface;
 end;

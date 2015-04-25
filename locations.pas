@@ -54,7 +54,6 @@ type
     protected
       function GetBelow(): TAtom; virtual;
     public
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
@@ -62,8 +61,6 @@ type
 
    TBackdrop = class(TSlavedLocation) // @RegisterStorableClass
     // XXX should assert that nobody can enter this one except using 'debug teleport'
-    public
-      function GetInside(var PositionOverride: TThingPosition): TAtom; override;
    end;
 
 
@@ -187,14 +184,6 @@ end;
 {$UNDEF SUPERCLASS}
 {$UNDEF PART}
 
-
-function TAirLocation.GetInside(var PositionOverride: TThingPosition): TAtom;
-begin
-   Assert(PositionOverride = tpIn);
-   PositionOverride := tpOn;
-   Result := Self;
-end;
-
 function TAirLocation.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
 begin
    Result := CanSurfaceHold(Manifest);
@@ -223,13 +212,9 @@ begin
    Assert(Length(FDirectionalLandmarks[cdDown]) > 0);
    Assert(loPermissibleNavigationTarget in FDirectionalLandmarks[cdDown][0].Options);
    Result := FDirectionalLandmarks[cdDown][0].Atom.GetSurface();
-end;
-
-
-function TBackdrop.GetInside(var PositionOverride: TThingPosition): TAtom;
-begin
-   Assert(PositionOverride = tpIn);
-   Result := Self;
+   if (not Assigned(Result)) then
+      Result := FDirectionalLandmarks[cdDown][0].Atom;
+   Assert(Assigned(Result));
 end;
 
 
