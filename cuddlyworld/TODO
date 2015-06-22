@@ -11,107 +11,17 @@ NEW BUGS
     + "move me to door" tries to get "onto" the door
     - "stand in doorway" should work like "move me into doorway" (once that works)
     - "stand on foo" should work like "move me onto foo"
- + "look under door" says "The door is installed in the doorway." which is non-sequitur
-
-CREATE TESTS FOR
- - walking through the door
- - enter door
- - enter doorway
- - take doorway
- - open doorway
- - close doorway
- - find door
- - take door
- - take doorway
- - enter door
- - enter doorway
- - open door
- - close door
- - open doorway
- - close doorway
- - put door in doorway
- - open door
- - close door
- - take side
- - look at door
- - look at doorway
- - look in door
- - look in doorway
- - look under door
- - look under doorway
- - look <direction of door>
- - open door
- - find door
- - take side
- - look at door
- - look at doorway
- - look in door
- - look in doorway
- - look under door
- - look under doorway
- - look <direction of door>
- - <direction of door>
- - look at side
- - close door
- - look at side
- - <reverse direction of door>
- - debug thing doorway
- - debug thing door
- - debug thing side
- - move door <direction of door>
-(reset)
- - put bag on doorway ; fails
- - put bag in doorway ; fails
- - put bag on door
- - open door
- - put bag on door
- - enter door ; goes to other side, bag drops
- - close
- - open
- - stand in doorway
- - close door ; fails, we're in the way
- - take bag
- - exit ; fails
- - <direction of door>
- - close
- - put bag in door ; fails
- - open
- - put bag in door ; fails
- - put bag on doorway ; fails
- - put bag in doorway
- - close ; fails
- - find bag
- - push bag <reverse direction of door>
- - find bag ; fails
- - <reverse direction of door>
- - find bag
-(reset)
- - move all and me onto sun ; fails
- - move onto sun ; fails
- - drop all
- - enter bag
- - exit
- - ; going north from inside a hole ; fails
- - ; going north from on a flower that's planted in the ground ; fails with message saying you're on a flower, not planted in the ground
- - move me onto door ; fails, door closed
- - open door
- - move me onto door
- - close door ; fails, obstructed
- - exit ; goes to threshold
- - move me onto door
- - enter door ; fails, which way?
- - down
- - move all to ground
- - move all to doorway
- - move all to door
- - take all
- - <direction of door>
- - move all to ground
- - move all to doorway
- - move all to door
- - take all
+ + add cdUnder and cdOver to the direction enum
+    - add support for this everywhere
+    - add an argument to GetLookIn() that overrides the preposition used in prefixing the description
+ + refactor GetLookTowardsDirection and GetDescriptionRemoteDetailed/GetDescriptionRemoteBrief so that instead of the current
+   system, there's one mechanism that walks the sight line in the relevant direction and returns a list of instructions
+   for how to describe what the player can see
+ + fill out testmechanics3
 
 CODE HEALTH
+ + Replace all the places that generate strings by concatentating strings with calls to a function similar to
+   TMessage's constructor, with '_ _ of _'. Or see TBroadcast and see how it does it.
  + Rename "Find*" methods with "Enumerate*" methods were applicable
  + Consider if EnumerateExplicitlyReferencedThings(),
    FindMatchingThings(), and FindThingTraverser() (and maybe some
@@ -145,6 +55,7 @@ NAVIGATION
  + "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
  + announce when a player disconnects or reconnects
  + "look out" while on something on the ground talks about the ground. It should use the GetRepresentative() for the thing it's looking at
+ + "down" when on something doesn't exit it (e.g. climb on a door, "down" says you can't go down)
  + "exits"
  + seriously consider making it impossible for a TAvatar to be anything but tpOn
     - this would mean that any object that can be entered would have to have a separate surface inside
@@ -265,6 +176,7 @@ THINGS
  + "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
  + "move all but inventory" should work
+ + "move foo to bar", if bar is not nearby but is far away (e.g. in a threshold), should probably just move foo next to bar, rather than into bar or onto bar
  + 'look under' should move things if they are bigger than what they are on
  + 'look under' should give more detail when you're under the thing, e.g. maybe FParent.GetBasicDescription().
  + 'look' when inside an object that usually hides its contents (e.g. a pile) still hides its contents when in the pile - do we need FromOutside for GetDescriptionIn()?

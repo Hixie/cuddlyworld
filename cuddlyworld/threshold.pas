@@ -66,8 +66,12 @@ type
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function GetDefaultDestination(out ThingPosition: TThingPosition): TThing; override;
       function GetLookIn(Perspective: TAvatar): UTF8String; override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+      function GetLookThrough(Perspective: TAvatar): UTF8String; virtual; // this gives the answer regardless of whether there's a door, it's open, or whatever
+      function GetLookUnder(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String; override;
+      function GetDescriptionObstacles(Perspective: TAvatar; NoObstacleMessage: UTF8String = ''): UTF8String; virtual;
       function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override; // defers to the door
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetFeatures(): TThingFeatures; override;
       function CanSeeIn(): Boolean; override;
@@ -80,7 +84,11 @@ type
 
    TDoorSide = class;
 
-   TDoor = class(TPhysicalThing) // @RegisterStorableClass
+   TDoor = class(TDescribedPhysicalThing) // @RegisterStorableClass
+    // The description (settable via the .Description property) will override
+    // using the sides when both sides are visible. This may be helpful if the
+    // sides have identical descriptions (in which case the normal behaviour
+    // of including both in the overall description is ugly).
     protected
       FFrontSide, FBackSide: TDoorSide;
       function GetDoorWay(): TDoorWay; // or nil if the door isn't in a doorway
@@ -98,12 +106,17 @@ type
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); override;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
+      function GetLookUnder(Perspective: TAvatar): UTF8String; override;
+      function CanSeeUnder(Perspective: TAvatar): Boolean; virtual;
+      function GetCannotSeeUnder(Perspective: TAvatar): UTF8String; virtual;
+      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; override;
       function GetFeatures(): TThingFeatures; override;
       function Open(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function Close(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       property DoorWay: TDoorWay read GetDoorWay; // can be nil, if the door is not in a doorway
+      property Description: UTF8String read FDescription write FDescription;
    end;
 
    TDoorSide = class(TFeature) // @RegisterStorableClass
@@ -129,7 +142,7 @@ type
       function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; override;
       function GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String; override;
       function GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String; override;
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); override;
       procedure EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
@@ -155,9 +168,9 @@ begin
    Flags := Flags + [loPermissibleNavigationTarget, loThreshold];
    Result := TThresholdLocation.Create(Threshold, Surface);
    FrontLocation.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], Result, Flags);
-   Result.AddLandmark(Threshold.FrontSideFacesDirection, FrontLocation, [loAutoDescribe, loPermissibleNavigationTarget]);
+   Result.AddLandmark(Threshold.FrontSideFacesDirection, FrontLocation, [loAutoDescribe, loPermissibleNavigationTarget, loNotVisibleFromBehind]);
    BackLocation.AddLandmark(Threshold.FrontSideFacesDirection, Result, Flags);
-   Result.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], BackLocation, [loAutoDescribe, loPermissibleNavigationTarget]);
+   Result.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], BackLocation, [loAutoDescribe, loPermissibleNavigationTarget, loNotVisibleFromBehind]);
 end;
 
 
@@ -522,34 +535,122 @@ function TDoorWay.GetLookIn(Perspective: TAvatar): UTF8String;
 begin
    if (CanSeeThrough()) then
    begin
-      case (LocatePerspective(Perspective)) of
-         rppFront: Result := GetLookTowardsDirection(Perspective, cdReverse[FFrontSideFacesDirection]);
-         rppBack: Result := GetLookTowardsDirection(Perspective, FFrontSideFacesDirection);
-         else
-            Result := inherited;
-      end;
+      Result := GetLookThrough(Perspective);
+      if (Result = '') then
+         Result := inherited;
    end
    else
       Result := inherited;
 end;
 
-function TDoorWay.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
+function TDoorWay.GetLookUnder(Perspective: TAvatar): UTF8String;
 var
    TheDoor: TDoor;
-   Obstacles: TThingList;
+   Directions: TCardinalDirectionSet;
 begin
+   Result := '';
    TheDoor := GetDoor();
    if (Assigned(TheDoor)) then
-      Result := TheDoor.GetDescriptionRemoteDetailed(Perspective, Direction)
+   begin
+      Directions := cdAllDirections;
+      case (LocatePerspective(Perspective)) of
+         rppFront: Exclude(Directions, cdReverse[FFrontSideFacesDirection]);
+         rppBack: Exclude(Directions, FFrontSideFacesDirection);
+      end;
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' +
+                TernaryConditional('contains', 'contain', IsPlural(Perspective)) + ' ' +
+                TheDoor.GetIndefiniteName(Perspective) + '.' +
+                WithSpaceIfNotEmpty(TheDoor.GetBasicDescription(Perspective, psThereIsAThingHere, Directions)) +
+                WithNewlineIfNotEmpty(GetDescriptionObstacles(Perspective,
+                         'Other than ' + TheDoor.GetDefiniteName(Perspective) + ', there is nothing in ' + GetDefiniteName(Perspective) + '.'));
+   end
    else
-      Result := inherited;
+   begin
+      Result := GetDescriptionObstacles(Perspective, 'There is nothing in ' + GetDefiniteName(Perspective) + '.');
+   end;
+end;
+
+function TDoorWay.GetLookThrough(Perspective: TAvatar): UTF8String;
+begin
+   Assert((not Assigned(GetDoor())) or
+          IsOpen() or
+          CanSeeThrough() or
+          GetDoor().CanSeeUnder(Perspective));
+   case (LocatePerspective(Perspective)) of
+      rppFront: Result := GetLookTowardsDirection(Perspective, cdReverse[FFrontSideFacesDirection]);
+      rppBack: Result := GetLookTowardsDirection(Perspective, FFrontSideFacesDirection);
+      else
+         Result := '';
+   end;
+end;
+
+function TDoorWay.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String;
+var
+   TheDoor: TDoor;
+begin
+   TheDoor := GetDoor();
+   if (not Assigned(TheDoor)) then
+   begin
+      if (CanSeeThrough()) then
+      begin
+         // XXX this is terrible
+         // XXX this is just a stand-in until we can revamp GetLookThrough/GetDescriptionRemoteDetailed
+         // XXX see TODO
+         Perspective.AutoDisambiguated('looking through ' + GetDefiniteName(Perspective));
+         Result := GetLookThrough(Perspective);
+      end
+      else
+      begin
+         // XXX I don't really understand what this branch is trying to do or what output from this branch would look like...
+         // XXX but I don't think I like it.
+         if ((lpMandatory in Options) or not (lpNamesTarget in Options)) then
+            LeadingPhrase := LeadingPhrase + ','
+         else
+            LeadingPhrase := 'Looking';
+         LeadingPhrase := LeadingPhrase + ' through ' + GetDefiniteName(Perspective);
+         Include(Options, lpMandatory);
+         Result := inherited;
+      end;
+   end
+   else
+   begin
+      Exclude(Options, lpNamesTarget);
+      if (IsOpen()) then
+      begin
+         if (CanSeeThrough()) then
+         begin
+            // XXX this is terrible also
+            Perspective.AutoDisambiguated('looking through the open ' + TheDoor.GetName(Perspective));
+            Result := GetLookThrough(Perspective);
+         end
+         else
+         begin
+            Result := TheDoor.GetDescriptionRemoteDetailed(Perspective, Direction, LeadingPhrase, Options);
+         end;
+      end
+      else
+         Result := TheDoor.GetDescriptionRemoteDetailed(Perspective, Direction, LeadingPhrase, Options);
+   end;
+   Result := Result + WithSpaceIfNotEmpty(GetDescriptionObstacles(Perspective));
+end;
+
+function TDoorWay.GetDescriptionObstacles(Perspective: TAvatar; NoObstacleMessage: UTF8String = ''): UTF8String;
+var
+   Obstacles: TThingList;
+begin
+   Result := '';
    Obstacles := GetObtrusiveObstacles();
    try
       if (Obstacles.Length > 0) then
-         Result := Result + ' Blocking ' + GetDefiniteName(Perspective) + ' ' + IsAre(Obstacles.IsPlural(Perspective)) + ' ' + Obstacles.GetIndefiniteString(Perspective, 'and') + '.';
+         Result := 'Blocking ' +
+                   GetDefiniteName(Perspective) + ' ' +
+                   IsAre(Obstacles.IsPlural(Perspective)) + ' ' +
+                   Obstacles.GetIndefiniteString(Perspective, 'and') + '.'
+      else
+         Result := NoObstacleMessage;
    finally
       Obstacles.Free();
-   end;      
+   end;
 end;
 
 function TDoorWay.GetDescriptionEmpty(Perspective: TAvatar): UTF8String;
@@ -559,6 +660,18 @@ begin
    TheDoor := GetDoor();
    if (Assigned(TheDoor)) then
       Result := 'Other than ' + TheDoor.GetDefiniteName(Perspective) + ', there is nothing in ' + GetDefiniteName(Perspective) + '.'
+   else
+      Result := inherited;
+end;
+
+function TDoorWay.GetDescriptionClosed(Perspective: TAvatar): UTF8String;
+var
+   TheDoor: TDoor;
+begin
+   TheDoor := GetDoor();
+   Assert(Assigned(TheDoor) and not IsOpen());
+   if (Assigned(TheDoor)) then
+      Result := TheDoor.GetDescriptionClosed(Perspective)
    else
       Result := inherited;
 end;
@@ -692,7 +805,7 @@ end;
 
 constructor TDoor.Create(Name: UTF8String; Pattern: UTF8String; FrontSide, BackSide: TDoorSide; AMass: TThingMass = tmHeavy; ASize: TThingSize = tsMassive);
 begin
-   inherited Create(Name, Pattern, AMass, ASize);
+   inherited Create(Name, Pattern, '' { description }, AMass, ASize);
    Assert(Assigned(FrontSide));
    FFrontSide := FrontSide;
    Add(FrontSide, tpAmbiguousPartOfImplicit);
@@ -792,7 +905,7 @@ begin
       begin
          if (not TheDoorWay.IsOpen()) then
          begin
-            Message := TMessage.Create(mkCannotPutOnBecauseInstalled, TheDoorWay.GetDescriptionClosed(Perspective));
+            Message := TMessage.Create(mkCannotPutOnBecauseInstalled, TheDoorWay.GetDescriptionNoInside(Perspective));
             Result := False;
             exit;
          end;
@@ -884,7 +997,10 @@ begin
    else
    begin
       Assert(VisibleSides = [vsFront, vsBack]);
-      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('has', 'have', IsPlural(Perspective)) + ' two sides. On the front, ' + FFrontSide.GetDescriptionSelfSentenceFragment(Perspective) + ' On the back, ' + FBackSide.GetDescriptionSelfSentenceFragment(Perspective)
+      if (FDescription <> '') then
+         Result := FDescription
+      else
+         Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('has', 'have', IsPlural(Perspective)) + ' two sides. On the front, ' + FFrontSide.GetDescriptionSelfSentenceFragment(Perspective) + ' On the back, ' + FBackSide.GetDescriptionSelfSentenceFragment(Perspective);
    end;
    Assert(Result <> '');
    TheDoorWay := GetDoorWay();
@@ -892,6 +1008,53 @@ begin
    begin
       Result := Result + ' ' + Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' ' + TernaryConditional('closed', 'open', TheDoorWay.IsOpen()) + '.';
    end;
+end;
+
+function TDoor.GetLookUnder(Perspective: TAvatar): UTF8String;
+var
+   TheDoorWay: TDoorWay;
+begin
+   TheDoorWay := GetDoorWay();
+   if (Assigned(TheDoorWay)) then
+   begin
+      if (TheDoorWay.IsOpen()) then
+         Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' open.'
+      else
+      if (CanSeeUnder(Perspective)) then
+      begin
+         Assert(LocatePerspective(Perspective) in [rppFront, rppBack]);
+         Result := TheDoorWay.GetLookThrough(Perspective);
+         if (Result = '') then
+            Result := inherited;
+      end
+      else
+         Result := GetCannotSeeUnder(Perspective);
+   end
+   else
+      Result := inherited;
+end;
+
+function TDoor.CanSeeUnder(Perspective: TAvatar): Boolean;
+begin
+   Result := True;
+end;
+
+function TDoor.GetCannotSeeUnder(Perspective: TAvatar): UTF8String;
+begin
+   Assert(not CanSeeUnder(Perspective));
+   Result := Capitalise(Perspective.GetDefiniteName(Perspective)) + ' cannot see under ' + GetDefiniteName(Perspective) + '.';
+end;
+
+function TDoor.GetDescriptionClosed(Perspective: TAvatar): UTF8String;
+var
+   TheDoorWay: TDoorWay;
+begin
+   TheDoorWay := GetDoorWay();
+   Assert(Assigned(TheDoorWay) and not TheDoorWay.IsOpen());
+   if (Assigned(TheDoorWay) and not TheDoorWay.IsOpen()) then
+      Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' closed.'
+   else
+      Result := inherited;
 end;
 
 function TDoor.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
@@ -1010,7 +1173,7 @@ begin
           not ((FParent as TThresholdLocation).FMaster as TDoorway).IsOpen()) then
    begin
       // can't put something inside a closed doorway, whether it could itself be a door or not
-      Message := TMessage.Create(mkClosed, ((FParent as TThresholdLocation).FMaster as TDoorway).GetDescriptionClosed(Perspective));
+      Message := TMessage.Create(mkClosed, ((FParent as TThresholdLocation).FMaster as TDoorway).GetDescriptionNoInside(Perspective));
       Result := False;
    end;
 end;
@@ -1045,9 +1208,10 @@ begin
    Result := FMaster.GetDescriptionDirectional(Perspective, Mode, Direction);
 end;
 
-function TThresholdLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
+function TThresholdLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String;
 begin
-   Result := FMaster.GetDescriptionRemoteDetailed(Perspective, Direction);
+   Exclude(Options, lpNamesTarget);
+   Result := FMaster.GetDescriptionRemoteDetailed(Perspective, Direction, LeadingPhrase, Options);
 end;
 
 function TThresholdLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String;
@@ -1119,7 +1283,7 @@ begin
    end
    else
    begin
-      Message := TMessage.Create(mkClosed, FMaster.GetDescriptionClosed(Perspective));
+      Message := TMessage.Create(mkClosed, FMaster.GetDescriptionNoInside(Perspective));
       Result := nil;
    end;
 end;

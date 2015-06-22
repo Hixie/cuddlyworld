@@ -57,7 +57,7 @@ type
 
 const
    tpEverything = [Low(TThingPosition) .. High(TThingPosition)];
-   tpAutoDescribe = [tpSurfaceOpening, tpAt]; { things that should be included in the main description of an object }
+   tpAutoDescribe = [tpSurfaceOpening, tpAt, tpPlantedIn]; { things that should be included in the main description of an object }
    tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks arrays, and not tpContained in something else) }
    tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already, and conceptually these children essentially _are_ the parent, or at least part of it }
    tpObtrusive = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpIn, tpEmbedded, tpCarried]; { used by GetObtrusiveObstacles(); these are things that can be shaken loose }
@@ -104,6 +104,7 @@ function Capitalise(Phrase: UTF8String): UTF8String; inline;
 function TernaryConditional(FalseResult, TrueResult: UTF8String; Condition: Boolean): UTF8String; inline;
 function WithSpaces(const Sentences: array of UTF8String): UTF8String;
 function WithSpaceIfNotEmpty(const S: UTF8String): UTF8String; inline;
+function WithTrailingSpaceIfNotEmpty(const S: UTF8String): UTF8String; inline;
 function WithNewlineIfNotEmpty(const S: UTF8String): UTF8String; inline;
 function WithNewlineIfMultiline(const S: UTF8String): UTF8String; inline; // prefaces with a space if not multiline, a newline if multiline
 
@@ -443,6 +444,14 @@ begin
       Result := ''
    else
       Result := ' ' + S;
+end;
+
+function WithTrailingSpaceIfNotEmpty(const S: UTF8String): UTF8String;
+begin
+   if (S = '') then
+      Result := ''
+   else
+      Result := S + ' ';
 end;
 
 function WithNewlineIfNotEmpty(const S: UTF8String): UTF8String;

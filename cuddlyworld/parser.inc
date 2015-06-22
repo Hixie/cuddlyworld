@@ -235,7 +235,7 @@
             Thing := Things.First;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(Thing.GetDefiniteName(Self)); // XXX should really let the caller do that
+               AutoDisambiguated(Thing.GetLongDefiniteName(Self)); // XXX should really let the caller do that
          finally
             Things.Free();
          end;
@@ -280,7 +280,7 @@
             end;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(Things.GetDefiniteString(Self, 'and')); // XXX should really let the caller do that
+               AutoDisambiguated(Things.GetLongDefiniteString(Self, 'and')); // XXX should really let the caller do that
          except
             { in case we fail }
             Things.Free();
