@@ -4,7 +4,7 @@ program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, lists, physics, player, locations, things, grammarian, cuddlycamp, world, threshold,
-   testmechanics, testmechanics1, testmechanics2,
+   testmechanics, testmechanics1, testmechanics2, testmechanics3,
    base64encoder, client; // client is used just to make sure it gets compiled when compiling tests
 
 procedure TestBase64Encoder();
@@ -59,7 +59,7 @@ begin
          TestPlayer.Perform('look');
          Proxy.ExpectDone();
 
-         Proxy.ExpectString('(the bag of holding)');
+         Proxy.ExpectString('(the embroidered bag of holding labeled Tester)');
          Proxy.ExpectString('You already have that.');
          Proxy.ExpectString('');
          TestPlayer.Perform('take all, and bag');
@@ -475,6 +475,7 @@ begin
    TestBase64Encoder();
    TestMatcher();
    TestLists();
+   TestMechanics3.TestMechanics3();
    TestMechanics2.TestMechanics2();
    TestMechanics1.TestMechanics1();
    TestPlot();

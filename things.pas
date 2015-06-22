@@ -137,14 +137,14 @@ type
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String; override;
       function GetLookIn(Perspective: TAvatar): UTF8String; override;
       function GetLookUnder(Perspective: TAvatar): UTF8String; override;
       function GetFeatures(): TThingFeatures; override;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
-      function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override;
+      function GetDescriptionNoInside(Perspective: TAvatar): UTF8String; override;
       procedure Removed(Thing: TThing); override;
    end;
 
@@ -715,11 +715,14 @@ begin
 end;
 {$ENDIF}
 
-function TEarthGround.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
+function TEarthGround.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String;
 begin
    // we intentionally override seeing the ground if there's a hole, because we want to see what's in the hole
    if ((Direction = cdDown) and (Assigned(FHole)) and (FHole.IsOpen())) then
-      Result := FHole.GetDescriptionRemoteDetailed(Perspective, Direction)
+   begin
+      Exclude(Options, lpNamesTarget);
+      Result := FHole.GetDescriptionRemoteDetailed(Perspective, Direction, LeadingPhrase, Options);
+   end
    else
       Result := inherited;
 end;
@@ -730,7 +733,7 @@ var
 begin
    if (Assigned(FHole) and (FHole.IsOpen())) then
    begin
-      Result := FHole.GetDescriptionRemoteDetailed(Perspective, cdIn);
+      Result := FHole.GetDescriptionRemoteDetailed(Perspective, cdIn, 'Looking in ' + FHole.GetDefiniteName(Perspective), [lpNamesTarget]);
       Contents := FHole.GetDescriptionIn(Perspective, []);
       if (Length(Contents) > 0) then
          Result := Result + #10 + Contents;
@@ -820,8 +823,9 @@ begin
       Result := False;
 end;
 
-function TEarthGround.GetDescriptionClosed(Perspective: TAvatar): UTF8String;
+function TEarthGround.GetDescriptionNoInside(Perspective: TAvatar): UTF8String;
 begin
+   Assert((not Assigned(FHole)) or (not FHole.IsOpen()));
    Result := 'To put things in ' + GetDefiniteName(Perspective) + ', you''ll have to dig a hole to put them in.';
 end;
 
