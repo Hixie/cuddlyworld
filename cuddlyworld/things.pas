@@ -469,6 +469,7 @@ end;
 
 function TFeature.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ _ _.',
                                                            [Capitalise(GetDefiniteName(Perspective)),
@@ -509,6 +510,7 @@ end;
 
 function TScenery.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    if (Length(FCannotMoveExcuse) > 0) then
       Message := TMessage.Create(mkCannotMoveBecauseCustom, FCannotMoveExcuse)
@@ -574,6 +576,7 @@ end;
 
 function TLocationProxy.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
+   Assert(Message.IsValid);
    DisambiguationOpening := Self;       
    Result := inherited;
 end;
@@ -603,6 +606,7 @@ end;
 
 function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
+   Assert(Message.IsValid);
    Assert(Assigned(Traveller));
    if (not CanInsideHold(Traveller.GetOutsideSizeManifest())) then
    begin
@@ -623,6 +627,7 @@ end;
 
 function TOpening.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkBogus, '_ cannot move _. That does not make sense.',
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
@@ -631,6 +636,7 @@ end;
 
 function TOpening.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkBogus, '_ cannot physically pick up _. That is ludicrous.',
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
@@ -639,6 +645,7 @@ end;
 
 function TOpening.CanShake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkBogus, '_ cannot shake _. That is just silly.',
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
@@ -665,6 +672,7 @@ end;
 
 function TSurface.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Assert(Assigned(FParent));
    Result := False;
    Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ part of _.',
@@ -675,6 +683,7 @@ end;
 
 function TSurface.GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
 begin
+   Assert(Message.IsValid);
    // always defer to parent, so that "get out" doesn't try to get out of the TSurface and into the TLocation!
    Assert(Assigned(FParent));
    Result := FParent.GetNavigationInstructions(Direction, Self, Perspective, Message);
@@ -763,6 +772,7 @@ var
    Pile: TPile;
    E: TThingList.TEnumerator;
 begin
+   Assert(Message.IsValid);
    if (Assigned(FHole)) then
    begin
       Result := False;
@@ -870,6 +880,7 @@ end;
 
 function TSpade.CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := True;
 end;
 
@@ -1080,6 +1091,7 @@ end;
 
 function THole.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkBogus, '_ cannot move _. That does not make sense. Maybe try filling this hole in and digging a new one in the new location.', 
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
@@ -1088,6 +1100,7 @@ end;
 
 function THole.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkBogus, '_ cannot physically pick up a _. That is ludicrous.',
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
@@ -1096,6 +1109,7 @@ end;
 
 function THole.CanShake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkBogus, '_ cannot shake _. That is just silly.',
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
@@ -1104,6 +1118,7 @@ end;
 
 function THole.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (ThingPosition = tpOn) then
    begin
       if (IsOpen()) then
@@ -1248,6 +1263,7 @@ end;
 
 function THole.GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
 begin
+   Assert(Message.IsValid);
    Result.TravelType := ttNone;
    Assert(FParent is TEarthGround);
    Assert(Child.Position = tpIn); // if this fires, then we need to make sure we handle navigation while on a filled pile by deferring to parent
@@ -1353,6 +1369,7 @@ end;
 
 function TPile.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Message := TMessage.Create(mkCannotTakeBecausePile, '_ _ through your fingers.',
                                                        [Capitalise(GetDefiniteName(Perspective)),
                                                         TernaryConditional('slips', 'slip', IsPlural(Perspective))]);

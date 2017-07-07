@@ -364,6 +364,7 @@ var
    CouldBeDoor: Boolean;
    DoorObstacles: TThingList;
 begin
+   Assert(Message.IsValid);
    OldDoor := GetDoor();
    if (ThingPosition = tpOn) then
    begin
@@ -678,6 +679,7 @@ end;
 
 function TDoorWay.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
+   Assert(Message.IsValid);
    if (IsOpen() and (FParent is TThresholdLocation)) then
    begin
       if (Direction = cdIn) then
@@ -708,6 +710,7 @@ function TDoorWay.Open(Perspective: TAvatar; var Message: TMessage): Boolean;
 var
    TheDoor: TDoor;
 begin
+   Assert(Message.IsValid);
    TheDoor := GetDoor();
    if (Assigned(TheDoor)) then
    begin
@@ -742,6 +745,7 @@ var
    TheDoor: TDoor;
    Obstacles, MoreObstacles: TThingList;
 begin
+   Assert(Message.IsValid);
    TheDoor := GetDoor();
    if (Assigned(TheDoor)) then
    begin
@@ -898,6 +902,7 @@ function TDoor.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlace
 var
    TheDoorWay: TDoorWay;
 begin
+   Assert(Message.IsValid);
    if (ThingPosition = tpOn) then
    begin
       TheDoorWay := GetDoorWay();
@@ -1061,6 +1066,7 @@ function TDoor.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Per
 var
    TheDoorWay: TThing;
 begin
+   Assert(Message.IsValid);
    TheDoorWay := GetDoorWay();
    if (Assigned(TheDoorWay)) then
       Result := TheDoorWay.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList)
@@ -1072,6 +1078,7 @@ function TDoor.GetNavigationInstructions(Direction: TCardinalDirection; Child: T
 var
    TheDoorWay: TThing;
 begin
+   Assert(Message.IsValid);
    TheDoorWay := GetDoorWay();
    if ((Direction = cdOut) and Assigned(TheDoorWay) and TheDoorWay.IsOpen()) then
       Result := TheDoorWay.GetNavigationInstructions(Direction, Self, Perspective, Message)
@@ -1098,6 +1105,7 @@ function TDoor.Open(Perspective: TAvatar; var Message: TMessage): Boolean;
 var
    TheDoorWay: TDoorWay;
 begin
+   Assert(Message.IsValid);
    TheDoorWay := GetDoorWay();
    if (Assigned(TheDoorWay)) then
    begin
@@ -1119,6 +1127,7 @@ function TDoor.Close(Perspective: TAvatar; var Message: TMessage): Boolean;
 var
    TheDoorWay: TDoorWay;
 begin
+   Assert(Message.IsValid);
    TheDoorWay := GetDoorWay();
    if (Assigned(TheDoorWay)) then
    begin
@@ -1164,6 +1173,7 @@ end;
 
 function TThresholdSurface.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := inherited;
    if (Result and
           Assigned(FParent) and
@@ -1270,6 +1280,7 @@ end;
 
 function TThresholdLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
+   Assert(Message.IsValid);
    Assert(Assigned(FMaster));
    if ((FMaster is TThresholdThing) and (FMaster as TThresholdThing).CanTraverse(Traveller, Direction, Perspective)) then
    begin

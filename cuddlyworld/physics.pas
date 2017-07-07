@@ -394,7 +394,7 @@ procedure ForceTravel(Traveller: TThing; Destination: TAtom; Position: TThingPos
     should not go back up the tree, since that risks an infinite loop
     (or at least a lot of redundant work). }
 
-procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation); // does not set loAutoDescribe
+procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLocation.TLandmarkOptions = [loPermissibleNavigationTarget]);
 
 procedure QueueForDisposal(Atom: TAtom);
 procedure EmptyDisposalQueue();
@@ -747,6 +747,7 @@ end;
 
 function TAtom.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (ThingPosition = tpOn) then
    begin
       Result := CanSurfaceHold(Thing.GetIntrinsicSize());
@@ -1247,6 +1248,7 @@ var
    Child: TThing;
    RawMessage: UTF8String;
 begin
+   Assert(Message.IsValid);
    // first, look for an opening we can use as the entrance, and defer to it if we have one
    Assert(Assigned(FChildren));
    for Child in FChildren do
@@ -1717,6 +1719,7 @@ var
    DirectionMessage: UTF8String;
 begin
    Assert(Assigned(Subject));
+   Assert(Message.IsValid);
    Assert(Assigned(FParent));
    SelfRoot := GetSurroundingsRoot(FromOutside);
    Assert(Assigned(SelfRoot));
@@ -1784,6 +1787,7 @@ end;
 
 function TThing.HasAbilityToTravelTo(Destination: TAtom; RequiredAbilities: TNavigationAbilities; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := False;
    Message := TMessage.Create(mkBogus, '_ can''t travel by _.',
                              [Capitalise(GetIndefiniteName(Perspective)),
@@ -1792,6 +1796,7 @@ end;
 
 function TThing.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if ((ThingPosition = tpIn) and (not IsOpen())) then
    begin
       Result := False;
@@ -1805,16 +1810,19 @@ end;
 
 function TThing.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := True;
 end;
 
 function TThing.CanTake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := CanMove(Perspective, Message);
 end;
 
 function TThing.CanShake(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Result := CanTake(Perspective, Message);
 end;
 
@@ -1823,6 +1831,7 @@ var
    EquivalentPosition: TThingPosition;
    UsefulReferent, Candidate: TThing;
 begin
+   Assert(Message.IsValid);
    Result.TravelType := ttNone;
    if (Direction = cdOut) then
    begin
@@ -1926,6 +1935,7 @@ end;
 
 function TThing.CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Message := TMessage.Create(mkInappropriateTool, '_ _ not make a good digging tool.',
                                                    [Capitalise(GetDefiniteName(Perspective)),
                                                     TernaryConditional('does', 'do', IsPlural(Perspective))]);
@@ -1934,6 +1944,7 @@ end;
 
 function TThing.Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    Message := TMessage.Create(mkBogus, '_ cannot dig _.',
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
                                         GetDefiniteName(Perspective)]);
@@ -1942,6 +1953,7 @@ end;
 
 procedure TThing.Dug(Target: TThing; Perspective: TAvatar; var Message: TMessage);
 begin
+   Assert(Message.IsValid);
 end;
 
 function TThing.IsOpen(): Boolean;
@@ -1961,6 +1973,7 @@ end;
 
 function TThing.Open(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (IsOpen()) then
       Message := TMessage.Create(mkRedundant, '_ is already open.', [Capitalise(GetDefiniteName(Perspective))])
    else
@@ -1970,6 +1983,7 @@ end;
 
 function TThing.Close(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (not IsOpen()) then
       Message := TMessage.Create(mkRedundant, '_ is not open.', [Capitalise(GetDefiniteName(Perspective))])
    else
@@ -2365,6 +2379,7 @@ function TLocation.GetNavigationInstructions(Direction: TCardinalDirection; Chil
 var
    Destination: TAtom;
 begin
+   Assert(Message.IsValid);
    Result.TravelType := ttNone;
    Destination := GetAtomForDirectionalNavigation(Direction);
    if (Assigned(Destination)) then
@@ -2388,6 +2403,7 @@ end;
 
 function TLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
+   Assert(Message.IsValid);
    PositionOverride := tpOn;
    Result := GetSurface();
    if (not Assigned(Result)) then
@@ -2601,7 +2617,7 @@ begin
 end;
 
 
-procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation);
+procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLocation.TLandmarkOptions = [loPermissibleNavigationTarget]);
 
    procedure ConnectLocationsOneWay(A: TLocation; Direction: TCardinalDirection; B: TLocation);
    begin
@@ -2613,7 +2629,7 @@ procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirect
       end
       else
       begin
-         A.AddLandmark(Direction, B, [loPermissibleNavigationTarget]);
+         A.AddLandmark(Direction, B, Options);
       end;
    end;
 
