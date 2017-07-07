@@ -1,25 +1,5 @@
-NEW BUGS
- + "find doorway" when in the threshold room should use the room's context fragment, rather than "The doorway is at the doorway."
- + "move me to door then move me to door then enter door" is a comedy of errors:
-    - second move says you can't get on the door (but you're on the door!)
-      because there's not enough room
-    - then entering the door puts you at the threshold while saying:
-      "You fall onto the ground as you pass through the door, barely missing you on your way down."
- + no reasonable way to actually enter (and remain at) a threshold
-    + "move me to doorway" redundantly says "You cannot get onto the doorway. You can't put something on a doorway."
-    + "move me to doorway" tries to put you both in and through the door
-    + "move me to door" tries to get "onto" the door
-    - "stand in doorway" should work like "move me into doorway" (once that works)
-    - "stand on foo" should work like "move me onto foo"
- + add cdUnder and cdOver to the direction enum
-    - add support for this everywhere
-    - add an argument to GetLookIn() that overrides the preposition used in prefixing the description
- + refactor GetLookTowardsDirection and GetDescriptionRemoteDetailed/GetDescriptionRemoteBrief so that instead of the current
-   system, there's one mechanism that walks the sight line in the relevant direction and returns a list of instructions
-   for how to describe what the player can see
- + fill out testmechanics3
-
 CODE HEALTH
+ + There's a bug with picking up ponderous things
  + Replace all the places that generate strings by concatentating strings with calls to a function similar to
    TMessage's constructor, with '_ _ of _'. Or see TBroadcast and see how it does it.
  + Rename "Find*" methods with "Enumerate*" methods were applicable
@@ -34,6 +14,12 @@ CODE HEALTH
     - avatarA drops thingB (C is a common parent of A and B, D=A)
     - etc
     + use this for logic in TThing.Moved(), and places that refer to what happened to an object, e.g. TDoorWay.Put()
+ + add cdUnder and cdOver to the direction enum
+    - add support for this everywhere
+    - add an argument to GetLookIn() that overrides the preposition used in prefixing the description
+ + refactor GetLookTowardsDirection and GetDescriptionRemoteDetailed/GetDescriptionRemoteBrief so that instead of the current
+   system, there's one mechanism that walks the sight line in the relevant direction and returns a list of instructions
+   for how to describe what the player can see
 
 NAVIGATION
  + "find <name of neighboring location>" doesn't work
@@ -55,6 +41,7 @@ NAVIGATION
  + "jump into pile of leaves"; jumping into a pile should scatter it (remove psTidy from its FState)
  + announce when a player disconnects or reconnects
  + "look out" while on something on the ground talks about the ground. It should use the GetRepresentative() for the thing it's looking at
+ + "look around" should do the same as look.
  + "down" when on something doesn't exit it (e.g. climb on a door, "down" says you can't go down)
  + "exits"
  + seriously consider making it impossible for a TAvatar to be anything but tpOn
@@ -70,6 +57,20 @@ NAVIGATION
  + "enter" doesn't work (should autodisambiguate enterable things)
  + "open north" doesn't work (should try checking atoms in that direction)
  + "open north door" doesn't work unless "north" is in the door name
+
+DOOR BUGS BUGS
+ + "find doorway" when in the threshold room should use the room's context fragment, rather than "The doorway is at the doorway."
+ + "move me to door then move me to door then enter door" is a comedy of errors:
+    - second move says you can't get on the door (but you're on the door!)
+      because there's not enough room
+    - then entering the door puts you at the threshold while saying:
+      "You fall onto the ground as you pass through the door, barely missing you on your way down."
+ + no reasonable way to actually enter (and remain at) a threshold
+    + "move me to doorway" redundantly says "You cannot get onto the doorway. You can't put something on a doorway."
+    + "move me to doorway" tries to put you both in and through the door
+    + "move me to door" tries to get "onto" the door
+    - "stand in doorway" should work like "move me into doorway" (once that works)
+    - "stand on foo" should work like "move me onto foo"
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
@@ -155,6 +156,7 @@ THINGS
  + throwing - "throw MacGuffin north": I don't understand how to "throw".
  + "push things off table" doesn't work (pushing things off)
  + see whether "put x in ground" does things differently when the ground has a hole that is covered (see "// xxx" in things.pas TSurface.GetInside)
+ + "cover" a hole
  + TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
  + digging a pile of earth should reveal all the things in the pile and put them on the ground next to the pile
  + "empty x" should be like "move all from x out"
@@ -213,6 +215,7 @@ THINGS
  + add a tpStuckTo for notes, then autodisambiguate whether something should be put tpOn or tpStuckTo
     - notes vs buckets being put "on" a door mean different things
     - allow notes to be stuck to doors even when closed
+ + making sandcastles or other shapes out of piles of earth, or other malleable materials
 
 NETWORK
  + password command
@@ -227,6 +230,7 @@ ILLUMINATION
     - also check for FChildren that block Visibility from Perspective to Subject (e.g. smoke, fog)
 
 FOOD
+ + "eat garlic"
  + "go eat": I don't understand how to go "eat".
  + "feed MacGuffin": I don't understand how to "feed".
 

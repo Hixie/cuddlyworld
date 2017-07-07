@@ -534,6 +534,7 @@ end;
 
 function TPlayer.HasAbilityToTravelTo(Destination: TAtom; RequiredAbilities: TNavigationAbilities; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if ((RequiredAbilities - [naWalk, naJump]) <> []) then
    begin
       if (naFly in RequiredAbilities) then
@@ -1911,7 +1912,7 @@ begin
       Count := Count - 1; // can't go negative since Count > MaxCarryCount and MaxCarryCount >= 0 // $R-
       DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
       {$IFOPT C+}
-        Message.Create();
+        Message := TMessage.Create();
         Assert(FParent.CanPut(Candidate, tpOn, psRoughly, Self, Message));
         Assert(Message.AsKind = mkSuccess);
       {$ENDIF};
@@ -1921,6 +1922,7 @@ end;
 
 function TPlayer.CanCarryThing(Thing: TThing; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (not Thing.CanTake(Self, Message)) then
    begin
       Result := False;
@@ -1949,6 +1951,7 @@ end;
 
 function TPlayer.CanPushThing(Thing: TThing; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (not Thing.CanMove(Self, Message)) then
    begin
       Result := False;
@@ -1975,6 +1978,7 @@ end;
 
 function TPlayer.CanShakeThing(Thing: TThing; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (not Thing.CanShake(Self, Message)) then
    begin
       Result := False;

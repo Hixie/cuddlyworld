@@ -191,6 +191,7 @@ end;
 
 function TAirLocation.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
+   Assert(Message.IsValid);
    if (ThingPosition in [tpOn, tpIn]) then
       Result := GetBelow().CanPut(Thing, tpOn, Care, Perspective, Message)
    else
