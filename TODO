@@ -2,7 +2,7 @@ CODE HEALTH
  + There's a bug with picking up ponderous things
  + Replace all the places that generate strings by concatentating strings with calls to a function similar to
    TMessage's constructor, with '_ _ of _'. Or see TBroadcast and see how it does it.
- + Rename "Find*" methods with "Enumerate*" methods were applicable
+ + Rename "Find*" methods with "Enumerate*" methods where applicable
  + Consider if EnumerateExplicitlyReferencedThings(),
    FindMatchingThings(), and FindThingTraverser() (and maybe some
    others) should be refactored so that the logic for walking the tree
@@ -58,7 +58,7 @@ NAVIGATION
  + "open north" doesn't work (should try checking atoms in that direction)
  + "open north door" doesn't work unless "north" is in the door name
 
-DOOR BUGS BUGS
+DOOR BUGS
  + "find doorway" when in the threshold room should use the room's context fragment, rather than "The doorway is at the doorway."
  + "move me to door then move me to door then enter door" is a comedy of errors:
     - second move says you can't get on the door (but you're on the door!)
@@ -71,25 +71,42 @@ DOOR BUGS BUGS
     + "move me to door" tries to get "onto" the door
     - "stand in doorway" should work like "move me into doorway" (once that works)
     - "stand on foo" should work like "move me onto foo"
+ + > move door to doorway
+   | (on the floor)
+   | (first taking the door)
+   | Taken.
+   | You can't see the floor anymore.
+ + "push door to doorway" at one point did this, but this may be resolved now?:
+   | > push door to doorway
+   | (inside the doorway)
+   | Placed in the doorway.
+   | You install a door installed in the doorway. It is closed.
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
+ + animals/monsters/species/npcs
+    + separate whether something is playable from what it is (species/gender)
+    + make it possible for all living things to have an AI or a player
+    + NPCs should have an idea of what belongs to them
+    + NPCs should have an idea of where stuff that belongs to them should be
+    + NPCs should be concerned by other characters holding or moving their stuff
  + TFeaturelessOutdoorLocation should magically describe itself:
-   + count tpPlantedIn* trees and decide if it's a forested area
-     - should be able to refer to "forest of trees"
-     - should automatically say, for areas that have no exits but are blocked by trees, that the forest is too dense
-       (rather than the default "you can't go that way")
-   + if it's not forested but has forests around it, it's a clearing
-   + well-worn paths: count how many people have walked on them and should start describing themselves as paths
-     - remember the kind of footprint for people exitting and entering in each direction
-        - gender (male/female/robot/etc), from/to, direction, how heavy
-        - linked list, remember the last five
-        - at a regular interval, forget oldest one (grass growing back)
-     - if there's two directions that are heavily walked, describe a path between them
-     - if there's three or more directions heavily walked, describe an intersection between them
-     - if there's a direction walked but noticeably less, describe it as "a lesser path also leads" that way
-     - allow players to study tracks
-   + if it's surrounded by non-forested, non-path areas, it's a field
+    + count tpPlantedIn* trees and decide if it's a forested area
+      - should be able to refer to "forest of trees"
+      - should automatically say, for areas that have no exits but are blocked by trees, that the forest is too dense
+        (rather than the default "you can't go that way")
+    + if it's not forested but has forests around it, it's a clearing
+    + well-worn paths: count how many people have walked on them and should start describing themselves as paths
+      - remember the kind of footprint for people exitting and entering in each direction
+         - gender (male/female/robot/etc), from/to, direction, how heavy
+            - species, too, once we have animals/monsters
+         - linked list, remember the last five
+         - at a regular interval, forget oldest one (grass growing back)
+      - if there's two directions that are heavily walked, describe a path between them
+      - if there's three or more directions heavily walked, describe an intersection between them
+      - if there's a direction walked but noticeably less, describe it as "a lesser path also leads" that way
+      - allow players to study tracks (determine gender/species)
+    + if it's surrounded by non-forested, non-path areas, it's a grassy field
  + write a test tool that goes through each description of every location and thing and checks that all the nouns are accessible
  + Players should have PartOfs: eyes, hands, etc; gender-dependent...
  + World should have Implicits: "you", "time" ("take time"), etc
@@ -122,7 +139,7 @@ PLAYER INTERACTION
  + "say to <player>, ..."
  + rescue people in holes when the hole is filled (see // note in THole.HandleAdd)
  + player safe where they can keep things while disconnected
- + player savepoint so that players can reappear in a specific place after disconnecting
+ + player savepoint so that players can disappear/reappear while not connected (e.g. a bedroom)
  + "poke head out of leaves": I don't understand how to "poke".
  + "hide in leaves": I don't understand how to "hide". (should probably just be equivalent to getting into the leaves)
  + implement dancing, kissing, emoting in general
@@ -170,11 +187,6 @@ THINGS
  + 'dig hole' should work
  + "fill hole" (with pile of earth) (by moving pile of earth into hole)
  + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
- + "push door to doorway" - right now this always pushes "in" to the thing, which interacts poorly with doorways:
-   | > push door to doorway
-   | (inside the doorway)
-   | Placed in the doorway.
-   | You install a door installed in the doorway. It is closed.
  + "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
  + "move all but inventory" should work
@@ -218,8 +230,8 @@ THINGS
  + making sandcastles or other shapes out of piles of earth, or other malleable materials
 
 NETWORK
- + password command
- + gender command / "i am male", "i am a robot", "i am a hive mind" / UI
+ + password command?
+ + gender command / "i am male", "i am a robot", "i am a hive mind" / UI?
  + If you send too much data at once, the socket's write buffer is filled, which causes the socket to have an exception (ETryAgain), which causes the game to abort.
  + Sometimes the server just dies silently (killed by the kernel?).
 
@@ -294,8 +306,8 @@ CODE
  + import ../../isd/server/src/infrastructure/corewebsocket.pas and ../../isd/server/src/infrastructure/corenetwork.pas
 
 BLUE SKY (q.v. http://mud.co.uk/richard/imucg2.htm)
- + fluids: "what happens when a jug containing 5 litres of water is
-   poured into a bowl with a 3 litre capacity"
+ + fluids: "what happens when a jug containing five litres of water is
+   poured into a bowl with a three litre capacity"
  + smoke pouring from room to room
  + temperature
  + "If 1,300 matchsticks have been made into a model of the Eiffel
@@ -304,8 +316,9 @@ BLUE SKY (q.v. http://mud.co.uk/richard/imucg2.htm)
    matchsticks were made into something else?"
  + small rooms, like inside a grandfather clock
 
-MORE NOTES
+MORE NOTES (see copies in archives/)
  http://www.brasslantern.org/writers/iftheory/tads3andi7.html
  http://www.brasslantern.org/writers/iftheory/i7observations.html
  http://www.brasslantern.org/writers/iftheory/autonomousnpcs.html
  http://www.mud.co.uk/richard/imucg2.htm
+ http://mud.co.uk/richard/RingBearers11.pdf
