@@ -228,6 +228,17 @@ THINGS
     - notes vs buckets being put "on" a door mean different things
     - allow notes to be stuck to doors even when closed
  + making sandcastles or other shapes out of piles of earth, or other malleable materials
+ + TThing.Open() and TThing.Close() should probably be sensitive to GetFeatures returning tfOpenable and/or tfClosable
+    - consider these objects, neither of which report tfOpenable in GetFeatures:
+       > open sky
+       The sky is already open.
+       > close sky
+       How to close the sky is not readily apparent.
+       > open sun
+       How to open the sun is not readily apparent.
+       > close sun
+       The sun is not open.
+
 
 NETWORK
  + password command?
