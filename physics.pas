@@ -394,7 +394,7 @@ procedure ForceTravel(Traveller: TThing; Destination: TAtom; Position: TThingPos
     should not go back up the tree, since that risks an infinite loop
     (or at least a lot of redundant work). }
 
-procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLocation.TLandmarkOptions = [loPermissibleNavigationTarget]);
+procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLocation.TLandmarkOptions = [loPermissibleNavigationTarget]); // Calls AddLandmark in both directions as necessary (if a landmark already exists, then it is skipped). Verifies that a symmetric connection has been made.
 
 procedure QueueForDisposal(Atom: TAtom);
 procedure EmptyDisposalQueue();
@@ -2621,16 +2621,11 @@ procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirect
 
    procedure ConnectLocationsOneWay(A: TLocation; Direction: TCardinalDirection; B: TLocation);
    begin
-      if (Length(A.FDirectionalLandmarks[Direction]) > 0) then
-      begin
-         {$IFDEF DEBUG}
-         A.AssertDirectionHasDestination(Direction, B)
-         {$ENDIF}
-      end
-      else
-      begin
+      if (not A.HasLandmark(Direction)) then
          A.AddLandmark(Direction, B, Options);
-      end;
+      {$IFDEF DEBUG}
+      A.AssertDirectionHasDestination(Direction, B);
+      {$ENDIF}
    end;
 
 begin
