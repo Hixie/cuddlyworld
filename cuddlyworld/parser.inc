@@ -222,7 +222,7 @@
    begin
       Assert(not CanEnd());
       EnsureNoPunctuation();
-      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [], [], EndingClauses, VerbString);
+      Result := GlobalThingCollector.Collect(Player, Tokens, OriginalTokens, CurrentToken, [], [], EndingClauses, VerbString);
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
@@ -235,7 +235,7 @@
             Thing := Things.First;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(Thing.GetLongDefiniteName(Self)); // XXX should really let the caller do that
+               Player.AutoDisambiguated(Thing.GetLongDefiniteName(Player)); // XXX should really let the caller do that
          finally
             Things.Free();
          end;
@@ -262,7 +262,7 @@
       Things := nil;
       Assert(not CanEnd());
       EnsureNoPunctuation();
-      Result := GlobalThingCollector.Collect(Self, Tokens, OriginalTokens, CurrentToken, [optAllowMultiples], AllImpliedScope, EndingClauses, VerbString);
+      Result := GlobalThingCollector.Collect(Player, Tokens, OriginalTokens, CurrentToken, [optAllowMultiples], AllImpliedScope, EndingClauses, VerbString);
       if (Result) then
       begin
          Count := GlobalThingCollector.GetTokenCount();
@@ -280,7 +280,7 @@
             end;
             Inc(CurrentToken, Count);
             if (Disambiguate) then
-               AutoDisambiguated(Things.GetLongDefiniteString(Self, 'and')); // XXX should really let the caller do that
+               Player.AutoDisambiguated(Things.GetLongDefiniteString(PLayer, 'and')); // XXX should really let the caller do that
          except
             { in case we fail }
             Things.Free();
@@ -580,7 +580,7 @@
                EnsureNoPunctuation();
                Fail('I don''t understand how to enter things "' + OriginalTokens[CurrentToken] + '".');
             end;
-            Details := Locate(Action.EnterSubject);
+            Details := Player.Locate(Action.EnterSubject);
             Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
          end
          else
@@ -705,10 +705,10 @@
          begin
             if (CanEnd()) then
             begin
-               if (FPosition in tpContained) then
+               if (Player.Position in tpContained) then
                begin
                   Action.PutPosition := tpIn;
-                  Action.PutTarget := FParent.GetInside(Action.PutPosition)
+                  Action.PutTarget := Player.Parent.GetInside(Action.PutPosition)
                   {$IFOPT C+} ; Assert(Assigned(Action.PutTarget)); Action.PutTarget := Action.PutTarget {$ENDIF} // because otherwise, where are _we_??
                                                                            .GetSurface();
                   Assert(Assigned(Action.PutTarget)); // things always have surfaces
@@ -716,13 +716,13 @@
                else
                begin
                   Action.PutPosition := tpOn;
-                  Action.PutTarget := FParent.GetRepresentative().GetSurface();
+                  Action.PutTarget := Player.Parent.GetRepresentative().GetSurface();
                   if (not Assigned(Action.PutTarget)) then
-                     Action.PutTarget := FParent;
+                     Action.PutTarget := Player.Parent;
                end;
                Assert(Assigned(Action.PutTarget));
                if (Action.PutCare = psCarefully) then
-                  AutoDisambiguated(ThingPositionToString(Action.PutPosition) + ' ' + Action.PutTarget.GetDefiniteName(Self));
+                  Player.AutoDisambiguated(ThingPositionToString(Action.PutPosition) + ' ' + Action.PutTarget.GetDefiniteName(Player));
             end
             else
             if (GetPrepositionThing('onto', [], Verb + ' things', Action.PutTarget) or
@@ -782,7 +782,7 @@
             Action.Verb := avClimbOn;
             if (not CanEnd()) then
                Fail('I don''t understand how to move onto things "' + OriginalTokens[CurrentToken] + '".');
-            Details := Locate(Action.ClimbOnSubject);
+            Details := Player.Locate(Action.ClimbOnSubject);
             Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
             Result := True;
          end
@@ -793,7 +793,7 @@
             Action.Verb := avEnter;
             if (not CanEnd()) then
                Fail('I don''t understand how to move into things "' + OriginalTokens[CurrentToken] + '".');
-            Details := Locate(Action.EnterSubject);
+            Details := Player.Locate(Action.EnterSubject);
             Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
             Result := True;
          end
@@ -962,7 +962,7 @@
                if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
                begin
                   // XXX could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
-                  AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Self));
+                  Player.AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Player));
                   Assert(@Action.PushSubject = @Action.MoveSubject);
                   Action.Verb := avMove;
                   Action.MoveAmbiguous := False;
@@ -970,7 +970,7 @@
                end
                else
                begin
-                  AutoDisambiguated('on ' + Action.MoveTarget.GetDefiniteName(Self));
+                  Player.AutoDisambiguated('on ' + Action.MoveTarget.GetDefiniteName(Player));
                   Assert(@Action.PushSubject = @Action.MoveSubject);
                   Action.Verb := avMove;
                   Action.MoveAmbiguous := False;
@@ -1071,20 +1071,20 @@
          Message := '';
          if ((Action.Verb = avDig) and (not Assigned(Action.DigTarget))) then
          begin
-            Action.DigTarget := GetImpliedThing([aisSurroundings, aisSelf], [tfDiggable]);
+            Action.DigTarget := Player.GetImpliedThing([aisSurroundings, aisSelf], [tfDiggable]);
             if (Assigned(Action.DigTarget)) then
-               Message := Action.DigTarget.GetDefiniteName(Self)
+               Message := Action.DigTarget.GetDefiniteName(Player)
             else
                Fail('What do you want to dig?');
          end;
          if (not Assigned(Action.DigSpade)) then
          begin
-            Action.DigSpade := GetImpliedThing([aisSurroundings, aisSelf], [tfCanDig]);
+            Action.DigSpade := Player.GetImpliedThing([aisSurroundings, aisSelf], [tfCanDig]);
             if (Assigned(Action.DigSpade)) then
             begin
                if (Length(Message) > 0) then
                   Message := Message + ' ';
-               Message := Message + 'with ' + Action.DigSpade.GetDefiniteName(Self)
+               Message := Message + 'with ' + Action.DigSpade.GetDefiniteName(Player)
             end
             else
             begin
@@ -1092,7 +1092,7 @@
             end;
          end;
          if (Length(Message) > 0) then
-            AutoDisambiguated(Message);
+            Player.AutoDisambiguated(Message);
       end
       else
          Result := False;
@@ -1128,7 +1128,7 @@
             EnsureNoPunctuation();
          Action.Verb := avTalk;
          New(Action.TalkMessage);
-         Action.TalkMessage^.Message := Tokens[CurrentToken];
+         Action.TalkMessage^ := Tokens[CurrentToken];
          Action.TalkTarget := nil;
          Inc(CurrentToken);
          if (not CanEnd()) then
@@ -1136,7 +1136,7 @@
             if (GetPrepositionThing('to', [], 'say something', Action.TalkTarget)) then
             begin
                if (not CanEnd()) then
-                  Fail('I don''t understand how to say something to ' + Action.TalkTarget.GetIndefiniteName(Self) + ' "' + OriginalTokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to say something to ' + Action.TalkTarget.GetIndefiniteName(Player) + ' "' + OriginalTokens[CurrentToken] + '".');
             end
             else
             begin
@@ -1173,14 +1173,14 @@
          Message := '';
          if (not Assigned(Action.OpenTarget)) then
          begin
-            Action.OpenTarget := GetImpliedThing([aisSurroundings, aisSelf], [tfOpenable]);
+            Action.OpenTarget := Player.GetImpliedThing([aisSurroundings, aisSelf], [tfOpenable]);
             if (Assigned(Action.OpenTarget)) then
-               Message := Action.OpenTarget.GetDefiniteName(Self)
+               Message := Action.OpenTarget.GetDefiniteName(Player)
             else
                Fail('What do you want to open?');
          end;
          if (Length(Message) > 0) then
-            AutoDisambiguated(Message);
+            Player.AutoDisambiguated(Message);
       end
       else
          Result := False;
@@ -1212,14 +1212,14 @@
          Message := '';
          if (not Assigned(Action.CloseTarget)) then
          begin
-            Action.CloseTarget := GetImpliedThing([aisSurroundings, aisSelf], [tfClosable]);
+            Action.CloseTarget := Player.GetImpliedThing([aisSurroundings, aisSelf], [tfClosable]);
             if (Assigned(Action.CloseTarget)) then
-               Message := Action.CloseTarget.GetDefiniteName(Self)
+               Message := Action.CloseTarget.GetDefiniteName(Player)
             else
                Fail('What do you want to close?');
          end;
          if (Length(Message) > 0) then
-            AutoDisambiguated(Message);
+            Player.AutoDisambiguated(Message);
       end
       else
          Result := False;
@@ -1292,7 +1292,7 @@
                   if (not GetThings(Action.DebugThings, [aisSelf, aisSurroundings], [], 'debug', 'There''s nothing implicitly accessible here. Use "debug things" to get a list of explicitly accessible things.')) then
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                   if (not CanEnd()) then
-                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThings.GetLongDefiniteString(Self, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThings.GetLongDefiniteString(Player, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
                end;
             end
             else
@@ -1306,7 +1306,7 @@
                if (not GetThing(Action.DebugThing, [], 'debug')) then
                   Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                if (not CanEnd()) then
-                  Fail('Syntax: "debug thing <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThing.GetDefiniteName(Self) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+                  Fail('Syntax: "debug thing <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThing.GetDefiniteName(Player) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
             end
             else
             if (Tokens[CurrentToken] = 'teleport') then
@@ -1320,7 +1320,57 @@
                if (not GetThing(Action.DebugTarget, [], 'debug')) then
                   Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                if (not CanEnd()) then
-                  Fail('Syntax: "debug teleport <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugTarget.GetDefiniteName(Self) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+                  Fail('Syntax: "debug teleport <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugTarget.GetDefiniteName(Player) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+            end
+            else
+            if (Tokens[CurrentToken] = 'make') then
+            begin
+               Inc(CurrentToken);
+               if (not IsQuote()) then
+                  Fail('Syntax: "debug make ''<object serialization>''"');
+               Inc(CurrentToken);
+               if (not CanEnd()) then
+                  Fail('Syntax: "debug make ''<object serialization>''"');
+               Result := True;
+               Action.Verb := avDebugMake;
+               New(Action.DebugMakeData);
+               Action.DebugMakeData^ := Tokens[CurrentToken - 1];
+            end
+            else     
+            if (Tokens[CurrentToken] = 'classes') then
+            begin
+               Inc(CurrentToken);
+               Result := False;
+               Action.Verb := avDebugListClasses;
+               if (not CanEnd() and (Tokens[CurrentToken] = 'of')) then
+               begin
+                  Inc(CurrentToken);
+                  if (not CanEnd()) then
+                  begin
+                     if (Tokens[CurrentToken] = 'things') then
+                     begin
+                        Inc(CurrentToken);
+                        Action.DebugSuperclass := TThing;
+                     end
+                     else
+                     if (Tokens[CurrentToken] = 'locations') then
+                     begin
+                        Inc(CurrentToken);
+                        Action.DebugSuperclass := TLocation;
+                     end;
+                     if (not CanEnd()) then
+                     begin
+                        EnsureNoPunctuation();
+                     end
+                     else
+                     begin
+                        Result := True;
+                     end;
+                  end;
+               end;
+               if (not Result) then
+                  Fail('Syntax: "debug classes of things" or "debug classes of locations"');
+               Result := True;
             end
             else
             begin
@@ -1329,7 +1379,7 @@
             end;
          end
          else
-            Fail('Syntax: "debug <command>", where <command> is one of "status", "location", "things [<things>]", "thing <thing>", "teleport <thing>".');
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "location", "things [<things>]", "thing <thing>", "teleport <thing>", "make ''...''", "classes of things", "classes of locations".');
       end
       else
       {$ENDIF}

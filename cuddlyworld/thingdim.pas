@@ -4,7 +4,7 @@
 
 unit thingdim;
 
-{ This is way over-complicated. }
+{ XXX This is way over-complicated. }
 { We should convert all this to using integers. }
 { (It should be possible to do that without having to change any other code.) }
 

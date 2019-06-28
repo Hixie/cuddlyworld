@@ -5,16 +5,17 @@ unit things;
 interface
 
 uses
-   storable, physics, messages, thingdim, grammarian, matcher;
+   storable, physics, messages, thingdim, grammarian, matcher, textstream;
 
 type
-   TNamedThing = class abstract (TThing)
+   TNamedThing = class (TThing)
     protected
       FName, FCachedLongName: UTF8String;
       FCachedLongNameMatcherFlags: TMatcherFlags;
       FSingularPattern, FPluralPattern: TMatcher;
       FPlural: Boolean;
       function GetMatcherFlags(Perspective: TAvatar): TMatcherFlags; virtual;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TNamedThing; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String);
       destructor Destroy(); override;
@@ -29,9 +30,10 @@ type
    end;
 
    // things that have a description
-   TDescribedThing = class abstract (TNamedThing)
+   TDescribedThing = class (TNamedThing)
     protected
       FDescription: UTF8String;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TDescribedThing; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
       constructor Read(Stream: TReadStream); override;
@@ -40,10 +42,11 @@ type
    end;
 
    // Things that have a specific mass and size
-   TPhysicalThing = class abstract (TNamedThing)
+   TPhysicalThing = class (TNamedThing)
     protected
       FMass: TThingMass;
       FSize: TThingSize;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TPhysicalThing; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Mass: TThingMass; Size: TThingSize);
       constructor Read(Stream: TReadStream); override;
@@ -58,6 +61,7 @@ type
    TDescribedPhysicalThing = class(TPhysicalThing) // @RegisterStorableClass
     protected
       FDescription: UTF8String;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TDescribedPhysicalThing; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize);
       constructor Read(Stream: TReadStream); override;
@@ -67,6 +71,8 @@ type
 
    // Things that are really just aspects of other things
    TFeature = class(TDescribedPhysicalThing) // @RegisterStorableClass
+    protected
+      class function CreateFromProperties(Properties: TTextStreamProperties): TFeature; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -79,6 +85,7 @@ type
       FFindDescription: UTF8String;
       FCannotMoveExcuse: UTF8String;
       FOpened: Boolean;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TScenery; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
@@ -97,6 +104,7 @@ type
    TLocationProxy = class(TScenery)
     protected
       FDestination: TLocation;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TLocationProxy; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
@@ -108,6 +116,8 @@ type
    end;
 
    TOpening = class(TLocationProxy) // @RegisterStorableClass
+    protected
+      class function CreateFromProperties(Properties: TTextStreamProperties): TOpening; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
@@ -121,6 +131,8 @@ type
 
    // The ground, mainly
    TSurface = class(TDescribedPhysicalThing) // @RegisterStorableClass
+    protected
+      class function CreateFromProperties(Properties: TTextStreamProperties): TSurface; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -158,6 +170,8 @@ type
    end;
 
    TSpade = class(TDescribedPhysicalThing) // @RegisterStorableClass
+    protected
+      class function CreateFromProperties(Properties: TTextStreamProperties): TSpade; override;
     public
       constructor Create();
       function GetFeatures(): TThingFeatures; override;
@@ -167,6 +181,7 @@ type
    TSign = class(TScenery) // @RegisterStorableClass
     protected
       FWriting: UTF8String;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TSign; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Writing: UTF8String; AMass: TThingMass; ASize: TThingSize);
       constructor Read(Stream: TReadStream); override;
@@ -184,6 +199,7 @@ type
    TBag = class(TDescribedThing) // @RegisterStorableClass
     protected
       FMaxSize: TThingSize;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TBag; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; MaxSize: TThingSize);
       constructor Read(Stream: TReadStream); override;
@@ -203,6 +219,7 @@ type
     protected
       FSize: TThingSize;
       FPileClass: TPileClass;
+      class function CreateFromProperties(Properties: TTextStreamProperties): THole; override;
     public
       constructor Create(Description: UTF8String; Size: TThingSize; PileClass: TPileClass);
       constructor Read(Stream: TReadStream); override;
@@ -231,6 +248,7 @@ type
    TPile = class(TDescribedPhysicalThing) // @RegisterStorableClass
     protected
       FIngredient: UTF8String;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TPile; override;
     public
       constructor Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize); { ingredient must be canonical plural form }
       constructor Read(Stream: TReadStream); override;
@@ -247,6 +265,8 @@ type
    end;
 
    TEarthPile = class(TPile) // @RegisterStorableClass
+    protected
+      class function CreateFromProperties(Properties: TTextStreamProperties): TEarthPile; override;
     public
       constructor Create(ASize: TThingSize);
    end;
@@ -301,6 +321,24 @@ begin
    Stream.WriteObject(FSingularPattern);
    Stream.WriteObject(FPluralPattern);
    Stream.WriteBoolean(FPlural);
+end;
+
+class function TNamedThing.CreateFromProperties(Properties: TTextStreamProperties): TNamedThing;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern]);
+   Result := Create(Name, Pattern);
+   StreamedChildren.Apply(Result);
 end;
 
 function TNamedThing.GetMatcherFlags(Perspective: TAvatar): TMatcherFlags;
@@ -400,6 +438,26 @@ begin
    Stream.WriteString(FDescription);
 end;
 
+class function TDescribedThing.CreateFromProperties(Properties: TTextStreamProperties): TDescribedThing;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and    
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription]);
+   Result := Create(Name, Pattern, Description);
+   StreamedChildren.Apply(Result);
+end;
+
 function TDescribedThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
@@ -425,6 +483,28 @@ begin
    inherited;
    Stream.WriteCardinal(Cardinal(FMass));
    Stream.WriteCardinal(Cardinal(FSize));
+end;
+
+class function TPhysicalThing.CreateFromProperties(Properties: TTextStreamProperties): TPhysicalThing;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   MassValue: TThingMass;
+   SizeValue: TThingSize;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and {BOGUS Hint: Local variable "MassValue" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnMass, pnSize]);
+   Result := Create(Name, Pattern, MassValue, SizeValue);
+   StreamedChildren.Apply(Result);
 end;
 
 function TPhysicalThing.GetIntrinsicMass(): TThingMass;
@@ -456,6 +536,30 @@ begin
    Stream.WriteString(FDescription);
 end;
 
+class function TDescribedPhysicalThing.CreateFromProperties(Properties: TTextStreamProperties): TDescribedPhysicalThing;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   MassValue: TThingMass;
+   SizeValue: TThingSize;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and {BOGUS Hint: Local variable "MassValue" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnMass, pnSize]);
+   Result := Create(Name, Pattern, Description, MassValue, SizeValue);
+   StreamedChildren.Apply(Result);
+end;
+
 function TDescribedPhysicalThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
@@ -476,6 +580,26 @@ begin
                                                             IsAre(IsPlural(Perspective)),
                                                             ThingPositionToString(FPosition),
                                                             FParent.GetDefiniteName(Perspective)]);
+end;
+
+class function TFeature.CreateFromProperties(Properties: TTextStreamProperties): TFeature;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription]);
+   Result := Create(Name, Pattern, Description);
+   StreamedChildren.Apply(Result);
 end;
 
 
@@ -501,6 +625,43 @@ begin
    Stream.WriteString(FFindDescription);
    Stream.WriteString(FCannotMoveExcuse);
    Stream.WriteBoolean(FOpened);
+end;
+
+class function TScenery.CreateFromProperties(Properties: TTextStreamProperties): TScenery;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description, UnderDescriptionValue, FindDescriptionValue, CannotMoveExcuseValue: UTF8String;
+   MassValue: TThingMass = tmLudicrous;
+   SizeValue: TThingSize = tsLudicrous;
+   OpenedValue: Boolean = False;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.HandleUniqueStringProperty(pnUnderDescription, UnderDescriptionValue) and
+          Properties.HandleUniqueStringProperty(pnFindDescription, FindDescriptionValue) and
+          Properties.HandleUniqueStringProperty(pnCannotMoveExcuse, CannotMoveExcuseValue) and
+          Properties.HandleUniqueBooleanProperty(pnOpened, OpenedValue) and
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription]);
+   Result := Create(Name, Pattern, Description, MassValue, SizeValue);
+   if (Properties.Seen(pnUnderDescription)) then
+      Result.UnderDescription := UnderDescriptionValue;
+   if (Properties.Seen(pnFindDescription)) then
+      Result.FindDescription := FindDescriptionValue;
+   if (Properties.Seen(pnCannotMoveExcuse)) then
+      Result.CannotMoveExcuse := CannotMoveExcuseValue;
+   if (Properties.Seen(pnOpened)) then
+      Result.Opened := OpenedValue;
+   StreamedChildren.Apply(Result);
 end;
 
 function TScenery.IsOpen(): Boolean;
@@ -569,6 +730,32 @@ begin
    Stream.WriteReference(FDestination);
 end;
 
+class function TLocationProxy.CreateFromProperties(Properties: TTextStreamProperties): TLocationProxy;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   Destination: TLocation;
+   MassValue: TThingMass = tmLudicrous;
+   SizeValue: TThingSize = tsLudicrous;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          TLocation.HandleUniqueLocationProperty(Properties, pnDestination, Destination) and {BOGUS Hint: Local variable "Destination" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnDestination]);
+   Result := Create(Name, Pattern, Description, Destination, MassValue, SizeValue);
+   StreamedChildren.Apply(Result);
+end;
+
 function TLocationProxy.GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
 begin
    Result := Capitalise(GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('leads', 'lead', IsPlural(Perspective)) + ' ' + CardinalDirectionToString(Direction) + '.';
@@ -602,6 +789,30 @@ end;
 constructor TOpening.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
 begin
    inherited Create(Name, Pattern, Description, Destination, tmLudicrous, ASize);
+end;
+
+class function TOpening.CreateFromProperties(Properties: TTextStreamProperties): TOpening;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   Destination: TLocation;
+   SizeValue: TThingSize;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          TLocation.HandleUniqueLocationProperty(Properties, pnDestination, Destination) and {BOGUS Hint: Local variable "Destination" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnSize, pnDestination]);
+   Result := Create(Name, Pattern, Description, Destination, SizeValue);
+   StreamedChildren.Apply(Result);
 end;
 
 function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
@@ -668,6 +879,30 @@ constructor TSurface.Create(Name: UTF8String; Pattern: UTF8String; Description: 
 begin
    { needed for default values }
    inherited;
+end;
+
+class function TSurface.CreateFromProperties(Properties: TTextStreamProperties): TSurface;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   MassValue: TThingMass = tmLudicrous;
+   SizeValue: TThingSize = tsLudicrous;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription]);
+   Result := Create(Name, Pattern, Description, MassValue, SizeValue);
+   StreamedChildren.Apply(Result);
 end;
 
 function TSurface.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
@@ -873,6 +1108,19 @@ begin
    inherited Create('spade', '(metal (spade/spades shovel/shovels)@)&', 'The spade is a small handheld tool apparently shaped from a single piece of metal.', tmLight, tsSmall);
 end;
 
+class function TSpade.CreateFromProperties(Properties: TTextStreamProperties): TSpade;
+var
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Result := Create();
+   StreamedChildren.Apply(Result);
+end;
+
 function TSpade.GetFeatures(): TThingFeatures;
 begin
    Result := inherited GetFeatures() + [tfCanDig];
@@ -901,6 +1149,28 @@ procedure TBag.Write(Stream: TWriteStream);
 begin
    inherited;
    Stream.WriteCardinal(Cardinal(FMaxSize));
+end;
+
+class function TBag.CreateFromProperties(Properties: TTextStreamProperties): TBag;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   MaxSizeValue: TThingSize;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnMaxSize, MaxSizeValue) and {BOGUS Hint: Local variable "MaxSizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnMaxSize]);
+   Result := Create(Name, Pattern, Description, MaxSizeValue);
+   StreamedChildren.Apply(Result);
 end;
 
 function TBag.GetIntrinsicMass(): TThingMass;
@@ -964,6 +1234,26 @@ begin
    inherited;
    Stream.WriteCardinal(Cardinal(FSize));
    Stream.WriteClass(FPileClass);
+end;
+
+class function THole.CreateFromProperties(Properties: TTextStreamProperties): THole;
+var
+   Description: UTF8String;
+   SizeValue: TThingSize;
+   PileClassValue: TPileClass;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          Properties.specialize HandleUniqueClassProperty<TPileClass>(pnPileClass, PileClassValue, TPile) and {BOGUS Hint: Local variable "PileClassValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnDescription, pnSize, pnPileClass]);
+   Result := Create(Description, SizeValue, PileClassValue);
+   StreamedChildren.Apply(Result);
 end;
 
 function THole.GetTitle(Perspective: TAvatar): UTF8String;
@@ -1336,6 +1626,67 @@ begin
    Stream.WriteString(FIngredient);
 end;
 
+class function TPile.CreateFromProperties(Properties: TTextStreamProperties): TPile;
+var
+   Description: UTF8String;
+   MassValue: TThingMass;
+   SizeValue: TThingSize;
+   SingularIngredients: array of UTF8String;
+   PluralIngredients: array of UTF8String;
+   StreamedChildren: TStreamedChildren;
+
+   procedure Add(Singular, Plural: UTF8String);
+   begin
+      Assert(Length(SingularIngredients) = Length(PluralIngredients));
+      SetLength(SingularIngredients, Length(SingularIngredients) + 1);
+      SetLength(PluralIngredients, Length(PluralIngredients) + 1);
+      SingularIngredients[High(SingularIngredients)] := Singular;
+      PluralIngredients[High(PluralIngredients)] := Plural;
+      Assert(Length(SingularIngredients) = Length(PluralIngredients));
+   end;
+   
+   function HandleIngredientsProperty(): Boolean;
+   var
+      Stream: TTextStream;
+      Singular: UTF8String;
+      Plural: UTF8String;
+   begin
+      if (Properties.Name = pnIngredients) then
+      begin
+         Properties.EnsureNotSeen(pnIngredients);
+         Stream := Properties.Accept();
+         while (True) do
+         begin      
+            Singular := Stream.GetString();
+            Stream.ExpectPunctuation('/');
+            Plural := Stream.GetString();
+            Add(Singular, Plural);
+            if (Stream.PeekPunctuation() = ';') then
+               break;
+            Stream.ExpectPunctuation(',');
+         end;
+         Properties.Advance();
+         Result := False;
+      end
+      else
+         Result := True;
+   end;
+      
+begin
+   while (not Properties.Done) do
+   begin
+      if (HandleIngredientsProperty() and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and {BOGUS Hint: Local variable "MassValue" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnIngredients, pnDescription, pnMass, pnSize]);
+   Result := Create(SingularIngredients, PluralIngredients, Description, MassValue, SizeValue);
+   StreamedChildren.Apply(Result);
+end;
+
 function TPile.GetOutsideSizeManifest(): TThingSizeManifest;
 begin
    Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
@@ -1397,6 +1748,22 @@ begin
    inherited Create(['earth', 'dirt', 'soil'], ['earth', 'dirt', 'soil'], 'The pile of earth is quite dirty.', kDensityMap[tdLow, ASize], ASize);
 end;
 
+class function TEarthPile.CreateFromProperties(Properties: TTextStreamProperties): TEarthPile;
+var
+   SizeValue: TThingSize;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnSize]);
+   Result := Create(SizeValue);
+   StreamedChildren.Apply(Result);
+end;
+
 
 constructor TSign.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Writing: UTF8String; AMass: TThingMass; ASize: TThingSize);
 begin
@@ -1414,6 +1781,32 @@ procedure TSign.Write(Stream: TWriteStream);
 begin
    inherited;
    Stream.WriteString(FWriting);
+end;
+
+class function TSign.CreateFromProperties(Properties: TTextStreamProperties): TSign;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   Writing: UTF8String;
+   MassValue: TThingMass;
+   SizeValue: TThingSize;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.HandleUniqueStringProperty(pnWriting, Writing) and
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and {BOGUS Hint: Local variable "MassValue" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnWriting, pnMass, pnSize]);
+   Result := Create(Name, Pattern, Description, Writing, MassValue, SizeValue);
+   StreamedChildren.Apply(Result);
 end;
 
 function TSign.GetFeatures(): TThingFeatures;

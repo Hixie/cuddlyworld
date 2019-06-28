@@ -60,17 +60,35 @@ procedure TestMechanics3();
       Result := Song;
    end;
 
-   procedure RunTest(TestPlayer: TPlayer; Proxy: TTestProxy);
+   procedure RunTest(TestWorld: TWorld; TestPlayer: TPlayer; Proxy: TTestProxy);
+
+      procedure RunCommand(Command: UTF8String; Responses: array of UTF8String);
+      var
+         Response: UTF8String;
+      begin
+         for Response in Responses do
+            Proxy.ExpectString(Response);
+         Proxy.ExpectString('');
+         TestWorld.Perform(Command, TestPlayer);
+         Proxy.ExpectDone();
+      end;
+
    begin
-
-       // Things to test:
-       // "take all"
-       // "x colours of the rainbow" vs "x colours from the rainbow"
-       // "find colours of the faces of the people going by" (vs "find colours from the faces from the people going by")
-       // "enter bag", "drop bag", "enter bag", "exit", "take bag"
-
-       Proxy.ExpectDone();
-       Proxy.Test('End');
+      // The ones marked XXX are buggy.
+      RunCommand('look', ['World', 'The world is wonderful. There are trees of green here. There is a rose bush here.', 'There are people going by here.']);
+      RunCommand('x people', ['Which of the people do you want to examine first, the people going by or you?']);
+      RunCommand('x people going by', ['The people have faces. Some of the people appear to be friends; they are shaking hands. There are also some crying babies. Those are growing.']);
+      RunCommand('x the colors on the faces of the people going by', ['The colours of the faces of the people going by are as pretty as the colours of the rainbow.']);
+      RunCommand('x the colors on the faces from the people going by', ['The colours of the faces of the people going by are as pretty as the colours of the rainbow.']);
+      RunCommand('x the colors of the rainbow', ['The colours of the rainbow are so pretty in the sky.']);
+      RunCommand('x the colors from the rainbow', ['The colours of the rainbow are so pretty in the sky.']);
+      RunCommand('take all', ['People going by: Taken.', 'You fumble the people going by.', 'Colours: The colours are on the faces.']); // should this take the bush? XXX
+      RunCommand('enter bag', ['That would prove rather challenging given where the bag of holding is relative to yourself.']);
+      RunCommand('drop bag', ['Dropped.']);
+      RunCommand('enter bag', ['In the bag of holding (at World)', 'The bag has the name "Tester" embroidered around its rim.']);
+      RunCommand('exit bag', ['I don''t understand how to exit "bag".']); // XXX
+      RunCommand('exit', ['World', 'The world is wonderful. There are trees of green here. There is a rose bush here.', 'There are people going by here.', 'There is a bag of holding here.']);
+      RunCommand('take bag', ['Taken.']);
    end;
 
 begin

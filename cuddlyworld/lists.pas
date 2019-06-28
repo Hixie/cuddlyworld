@@ -11,7 +11,7 @@ type
    TTraversalDirection = (tdForward, tdReverse);
 
    TStorableListFlags = set of (slOwner, { if set, frees the list contents and writes objects to the stream; otherwise, doesn't free and writes references }
-                                slDropDuplicates); { if set, duplicates are checked for and ignored when adding }
+                                slDropDuplicates); { if set, duplicates are checked for and ignored when adding; makes insertion O(N) }
 
    PListNode = ^TListNode;
    TListNode = record
@@ -20,6 +20,8 @@ type
       Value: TStorable; // XXX should be a nested item, and of type TItem, but that doesn't work
    end;
 
+   // This is a linked list, O(1) when appending and removing, O(N) to search (e.g. using Contains()).
+   // If you enable slDropDuplicates, appending becomes O(N) (since it has to search for duplicates)
    generic TStorableList<TItem> = class(TStorable) // XXX can't use constraint <TItem: TStorable> because we instantiate it with forwarded types
      public
       type

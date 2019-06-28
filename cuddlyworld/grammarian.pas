@@ -60,12 +60,13 @@ const
    tpAutoDescribe = [tpSurfaceOpening, tpAt, tpPlantedIn]; { things that should be included in the main description of an object }
    tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks arrays, and not tpContained in something else) }
    tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already, and conceptually these children essentially _are_ the parent, or at least part of it }
-   tpObtrusive = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpIn, tpEmbedded, tpCarried]; { used by GetObtrusiveObstacles(); these are things that can be shaken loose }
+   tpObtrusive = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpIn, tpEmbedded, tpCarried]; { used by GetObtrusiveObstacles(); these are things that can be shaken loose or that can block doors }
    tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpInstalledIn, tpIn, tpCarried]; { affects how things are pushed around }
    tpContained = [tpInstalledIn, tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
    tpOpening = [tpSurfaceOpening, tpDirectionalOpening];
    tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpAt, tpOn, tpPlantedIn, tpDirectionalPath]; { things that the user can refer to as being "on" then parent }
+   tpArguablyOf = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpOnImplicit, tpPlantedInImplicit, tpDirectionalOpening, tpSurfaceOpening, tpAt, tpPlantedIn, tpInstalledIn, tpEmbedded, tpCarried]; // positions for children that should by found by "find child of parent"
    tpArguablyInside = [tpPlantedInImplicit, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
    tpOutside = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpCarried]; { things that count towards OutsideSizeManifest }
    tpSurface = [tpPlantedInImplicit, tpOn, tpPlantedIn]; { things that count towards SurfaceSizeManifest }
@@ -582,7 +583,7 @@ begin
      tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := 'part of';
      tpAroundImplicit: Result := 'around';
      tpAtImplicit, tpAt: Result := 'at';
-     tpDirectionalPath, tpOn: Result := 'on';
+     tpDirectionalPath, tpOn, tpOnImplicit: Result := 'on';
      tpDirectionalOpening, tpSurfaceOpening, tpIn, tpEmbedded: Result := 'in';
      tpInstalledIn: Result := 'installed in';
      tpCarried: Result := 'being carried by';
@@ -598,10 +599,10 @@ begin
    { as in "moved ... the floor" }
    case Position of
      tpPartOfImplicit, tpAmbiguousPartOfImplicit: Result := 'so that it is part of'; // assert instead?
-     tpAroundImplicit: Result := 'to'; // assert instead?
-     tpAtImplicit: Result := 'to'; // assert instead?
+     tpAroundImplicit: Result := 'to';
+     tpAtImplicit: Result := 'to';
      tpAt: Result := 'to';
-     tpOn: Result := 'onto';
+     tpOn, tpOnImplicit: Result := 'onto';
      tpDirectionalOpening: Result := 'through';
      tpDirectionalPath: Result := 'along';
      tpSurfaceOpening, tpInstalledIn, tpIn, tpEmbedded: Result := 'into';

@@ -5,7 +5,7 @@ unit player;
 interface
 
 uses
-   storable, physics, grammarian, messages, thingdim, thingseeker, lists;
+   storable, physics, grammarian, messages, lists, thingdim, thingseeker;
 
 const
    MaxCarryMass = tmPonderous; { not inclusive }
@@ -21,6 +21,54 @@ type
 
    TTalkVolume = (tvWhispering, tvSpeaking, tvShouting);
 
+   TActionVerb = (avNone,
+                  avLook, avLookDirectional, avLookAt, avExamine, avRead, avLookUnder, avLookIn, avInventory, avFind,
+                  avGo, avEnter, avClimbOn,
+                  avTake, avPut, avMove, avPush, avPushTo, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
+                  avTalk, avDance,
+                  {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugThings, avDebugThing, avDebugTeleport, avDebugMake, avDebugListClasses, {$ENDIF}
+                  avHelp, avQuit);
+
+   TAction = record
+     case Verb: TActionVerb of
+      avNone: ();
+      avLook: ();
+      avLookDirectional: (LookDirection: TCardinalDirection);
+      avLookAt: (LookAtSubject: TThing);
+      avExamine: (ExamineSubject: TThing);
+      avRead: (ReadSubject: TThing);
+      avLookUnder: (LookUnder: TThing);
+      avLookIn: (LookIn: TThing);
+      avInventory: ();
+      avFind: (FindSubject: TThing);
+      avGo: (GoDirection: TCardinalDirection);
+      avEnter: (EnterSubject: TThing; EnterRequiredAbilities: TNavigationAbilities);
+      avClimbOn: (ClimbOnSubject: TThing; ClimbOnRequiredAbilities: TNavigationAbilities);
+      avTake: (TakeSubject: TThingList);
+      avPut: (PutSubject: TThingList; PutTarget: TAtom; PutPosition: TThingPosition; PutCare: TPlacementStyle);
+      avMove: (MoveSubject: TThingList; MoveTarget: TThing; case MoveAmbiguous: Boolean of False: (MovePosition: TThingPosition));
+      avPush: (PushSubject: TThingList; PushDirection: TCardinalDirection);
+      avRemove: (RemoveSubject: TThingList; RemoveFromPosition: TThingPosition; RemoveFromObject: TThing);
+      avPress: (PressSubject: TThingList);
+      avShake: (ShakeSubject: TThingList);
+      avDig {and avDigDirection}: (DigSpade: TThing; case TActionVerb of avDig: (DigTarget: TThing); avDigDirection: (DigDirection: TCardinalDirection));
+      avOpen: (OpenTarget: TThing);
+      avClose: (CloseTarget: TThing);
+      avTalk: (TalkTarget: TThing; TalkMessage: PUTF8String; TalkVolume: TTalkVolume);
+      avDance: ();
+      {$IFDEF DEBUG}
+      avDebugStatus: ();
+      avDebugLocation: ();
+      avDebugThings: (DebugThings: TThingList);
+      avDebugThing: (DebugThing: TThing);
+      avDebugTeleport: (DebugTarget: TAtom);
+      avDebugMake: (DebugMakeData: PUTF8String);
+      avDebugListClasses: (DebugSuperclass: TClass);
+      {$ENDIF}
+      avHelp: ();
+      avQuit: ();
+   end;
+
    TMessageEvent = procedure (Message: UTF8String) of object;
    TForceDisconnectEvent = procedure () of object;
 
@@ -28,7 +76,6 @@ type
     protected
       FName, FPassword: UTF8String;
       FGender: TGender;
-      FReportFailedCommands: Boolean;
       FOnMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: UTF8String; { transient }
@@ -55,6 +102,8 @@ type
       procedure DoDebugThings(Things: TThingList);
       procedure DoDebugThing(Thing: TThing);
       procedure DoDebugTeleport(Target: TAtom);
+      procedure DoDebugMake(Data: UTF8String);
+      procedure DoDebugListClasses(Superclass: TClass);
       {$ENDIF}
       procedure DoHelp();
       procedure DoQuit();
@@ -62,7 +111,6 @@ type
       function CanPushThing(Thing: TThing; var Message: TMessage): Boolean;
       function CanShakeThing(Thing: TThing; var Message: TMessage): Boolean;
       procedure DoPutInternal(CurrentSubject: TThing; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
-      function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
       procedure SetContext(Context: UTF8String);
       procedure ResetContext();
     public
@@ -70,13 +118,14 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure Perform(Command: UTF8String); virtual;
+      procedure ExecuteAction(var Action: TAction);
       procedure DoLook(); override;
       procedure DoInventory();
       procedure AvatarMessage(Message: TMessage); override;
       procedure SendRawMessage(Message: UTF8String);
       procedure SendMessage(Message: UTF8String);
       procedure AutoDisambiguated(Message: UTF8String); override;
+      function GetImpliedThing(Scope: TAllImpliedScope; FeatureFilter: TThingFeatures): TThing;
       function HasAbilityToTravelTo(Destination: TAtom; RequiredAbilities: TNavigationAbilities; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
@@ -108,8 +157,8 @@ type
       function GetPassword(): UTF8String;
       procedure Adopt(AOnMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
+      property Name: UTF8String read FName;
       property Gender: TGender read FGender write FGender;
-      property ReportFailedCommands: Boolean read FReportFailedCommands write FReportFailedCommands;
    end;
 
    TPlayerList = specialize TStorableList<TPlayer>; // @RegisterStorableClass
@@ -124,63 +173,7 @@ var
 implementation
 
 uses
-   sysutils, exceptions, broadcast, things;
-
-type
-   TActionVerb = (avNone,
-                  avLook, avLookDirectional, avLookAt, avExamine, avRead, avLookUnder, avLookIn, avInventory, avFind,
-                  avGo, avEnter, avClimbOn,
-                  avTake, avPut, avMove, avPush, avPushTo, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
-                  avTalk, avDance,
-                  {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugThings, avDebugThing, avDebugTeleport, {$ENDIF}
-                  avHelp, avQuit);
-
-   PTalkMessage = ^TTalkMessage;
-   TTalkMessage = record
-      Message: UTF8String;
-   end;
-
-   TAction = record
-     case Verb: TActionVerb of
-      avNone: ();
-      avLook: ();
-      avLookDirectional: (LookDirection: TCardinalDirection);
-      avLookAt: (LookAtSubject: TThing);
-      avExamine: (ExamineSubject: TThing);
-      avRead: (ReadSubject: TThing);
-      avLookUnder: (LookUnder: TThing);
-      avLookIn: (LookIn: TThing);
-      avInventory: ();
-      avFind: (FindSubject: TThing);
-      avGo: (GoDirection: TCardinalDirection);
-      avEnter: (EnterSubject: TThing; EnterRequiredAbilities: TNavigationAbilities);
-      avClimbOn: (ClimbOnSubject: TThing; ClimbOnRequiredAbilities: TNavigationAbilities);
-      avTake: (TakeSubject: TThingList);
-      avPut: (PutSubject: TThingList; PutTarget: TAtom; PutPosition: TThingPosition; PutCare: TPlacementStyle);
-      avMove: (MoveSubject: TThingList; MoveTarget: TThing; case MoveAmbiguous: Boolean of False: (MovePosition: TThingPosition));
-      avPush: (PushSubject: TThingList; PushDirection: TCardinalDirection);
-      avRemove: (RemoveSubject: TThingList; RemoveFromPosition: TThingPosition; RemoveFromObject: TThing);
-      avPress: (PressSubject: TThingList);
-      avShake: (ShakeSubject: TThingList);
-      avDig {and avDigDirection}: (DigSpade: TThing; case TActionVerb of avDig: (DigTarget: TThing); avDigDirection: (DigDirection: TCardinalDirection));
-      avOpen: (OpenTarget: TThing);
-      avClose: (CloseTarget: TThing);
-      avTalk: (TalkTarget: TThing; TalkMessage: PTalkMessage; TalkVolume: TTalkVolume);
-      avDance: ();
-      {$IFDEF DEBUG}
-      avDebugStatus: ();
-      avDebugLocation: ();
-      avDebugThings: (DebugThings: TThingList);
-      avDebugThing: (DebugThing: TThing);
-      avDebugTeleport: (DebugTarget: TAtom);
-      {$ENDIF}
-      avHelp: ();
-      avQuit: ();
-   end;
-
-var
-   FailedCommandLog: Text;
-   GlobalThingCollector: TThingCollector; // used in parser.inc
+   sysutils, exceptions, broadcast, things, textstream;
 
 constructor TPlayer.Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
 var
@@ -218,123 +211,49 @@ begin
    Stream.WriteCardinal(Cardinal(FGender));
 end;
 
-procedure TPlayer.Perform(Command: UTF8String);
-var
-   Tokens, OriginalTokens: TTokens;
-   CurrentToken: Cardinal;
-
-{$INCLUDE parser.inc}
-
-   procedure ExecuteAction(var Action: TAction);
-   begin
-      case Action.Verb of
-       avLook: DoLook();
-       avLookDirectional: SendMessage(FParent.GetRepresentative().GetLookTowardsDirection(Self, Action.LookDirection));
-       avLookAt: SendMessage(Action.LookAtSubject.GetLookAt(Self));
-       avExamine: SendMessage(Action.ExamineSubject.GetExamine(Self));
-       avRead: SendMessage(Action.ReadSubject.GetDescriptionWriting(Self));
-       avLookUnder: DoLookUnder(Action.LookUnder);
-       avLookIn: SendMessage(Action.LookIn.GetLookIn(Self));
-       avInventory: DoInventory();
-       avFind: DoFind(Action.FindSubject);
-       avGo: DoNavigation(Action.GoDirection);
-       avEnter: DoNavigation(Action.EnterSubject, tpIn, Action.EnterRequiredAbilities);
-       avClimbOn: DoNavigation(Action.ClimbOnSubject, tpOn, Action.ClimbOnRequiredAbilities);
-       avTake: DoTake(Action.TakeSubject);
-       avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
-       avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MoveAmbiguous, Action.MovePosition);
-       avPush: DoPush(Action.PushSubject, Action.PushDirection);
-       avRemove: DoRemove(Action.RemoveSubject, Action.RemoveFromPosition, Action.RemoveFromObject);
-       avPress: DoPress(Action.PressSubject);
-       avShake: DoShake(Action.ShakeSubject);
-       avDig: DoDig(Action.DigTarget, Action.DigSpade);
-       avDigDirection: DoDig(Action.DigDirection, Action.DigSpade);
-       avOpen: DoOpen(Action.OpenTarget);
-       avClose: DoClose(Action.CloseTarget);
-       avTalk: DoTalk(Action.TalkTarget, Action.TalkMessage^.Message, Action.TalkVolume);
-       avDance: DoDance();
-       {$IFDEF DEBUG}
-       avDebugStatus: DoDebugStatus();
-       avDebugLocation: DoDebugLocation();
-       avDebugThings: DoDebugThings(Action.DebugThings);
-       avDebugThing: DoDebugThing(Action.DebugThing);
-       avDebugTeleport: DoDebugTeleport(Action.DebugTarget);
-       {$ENDIF}
-       avHelp: DoHelp();
-       avQuit: DoQuit();
-      else
-       raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
-      end;
-   end;
-
-var
-   Action: TAction;
-   More: Boolean;
-   Atom: TAtom;
-   Location: UTF8String;
+procedure TPlayer.ExecuteAction(var Action: TAction);
 begin
-   try
-      OriginalTokens := Tokenise(Command);
-      Tokens := TokeniseCanonically(Command);
-      Assert(Length(OriginalTokens) = Length(Tokens));
-      if (Length(Tokens) = 0) then
-         Exit;
-      CurrentToken := 0;
-      repeat
-         { This is suboptimal, but it's not clear how else to do it.
-           The parsing is dependent on the world's state. To support
-           things like "drop all then take all", we have to execute
-           the actions as we parse them. However, this means that "a
-           then b then" will do a, then fail to do b and complain
-           about the trailing then, which isn't ideal.
-         }
-         Action.Verb := avNone;
-         try
-            More := ParseAction(Action);
-            ExecuteAction(Action);
-         finally
-            case Action.Verb of
-             avTake: Action.TakeSubject.Free();
-             avPut: Action.PutSubject.Free();
-             avMove: Action.MoveSubject.Free();
-             avPush: Action.PushSubject.Free();
-             avRemove: Action.RemoveSubject.Free();
-             avPress: Action.PressSubject.Free();
-             avShake: Action.ShakeSubject.Free();
-             avTalk: Dispose(Action.TalkMessage);
-             {$IFDEF DEBUG}
-             avDebugThings: Action.DebugThings.Free();
-             {$ENDIF}
-            end;
-         end;
-         Assert(FContext = '');
-         SendRawMessage('');
-      until not More;
-   except
-      on E: EParseError do
-      begin
-         Location := '"' + FName + '"';
-         Atom := FParent;
-         try
-            while (Assigned(Atom)) do
-            begin
-               Location := '"' + Atom.GetName(Self) + '"->' + Location;
-               if (Atom is TThing) then
-                  Atom := (Atom as TThing).Parent
-               else
-                  Atom := nil;
-            end;
-         except
-           on EExternal do raise;
-           on E: Exception do Location := '(while finding location: ' + E.Message + ')';
-         end;
-         if (FReportFailedCommands) then
-            Writeln(FailedCommandLog, '"', Command, '" for ' + Location + ': ', E.Message);
-         SendRawMessage(E.Message);
-         SendRawMessage('');
-         Assert(FContext = '');
-      end;
+   case Action.Verb of
+    avLook: DoLook();
+    avLookDirectional: SendMessage(FParent.GetRepresentative().GetLookTowardsDirection(Self, Action.LookDirection));
+    avLookAt: SendMessage(Action.LookAtSubject.GetLookAt(Self));
+    avExamine: SendMessage(Action.ExamineSubject.GetExamine(Self));
+    avRead: SendMessage(Action.ReadSubject.GetDescriptionWriting(Self));
+    avLookUnder: DoLookUnder(Action.LookUnder);
+    avLookIn: SendMessage(Action.LookIn.GetLookIn(Self));
+    avInventory: DoInventory();
+    avFind: DoFind(Action.FindSubject);
+    avGo: DoNavigation(Action.GoDirection);
+    avEnter: DoNavigation(Action.EnterSubject, tpIn, Action.EnterRequiredAbilities);
+    avClimbOn: DoNavigation(Action.ClimbOnSubject, tpOn, Action.ClimbOnRequiredAbilities);
+    avTake: DoTake(Action.TakeSubject);
+    avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
+    avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MoveAmbiguous, Action.MovePosition);
+    avPush: DoPush(Action.PushSubject, Action.PushDirection);
+    avRemove: DoRemove(Action.RemoveSubject, Action.RemoveFromPosition, Action.RemoveFromObject);
+    avPress: DoPress(Action.PressSubject);
+    avShake: DoShake(Action.ShakeSubject);
+    avDig: DoDig(Action.DigTarget, Action.DigSpade);
+    avDigDirection: DoDig(Action.DigDirection, Action.DigSpade);
+    avOpen: DoOpen(Action.OpenTarget);
+    avClose: DoClose(Action.CloseTarget);
+    avTalk: DoTalk(Action.TalkTarget, Action.TalkMessage^, Action.TalkVolume);
+    avDance: DoDance();
+    {$IFDEF DEBUG}
+    avDebugStatus: DoDebugStatus();
+    avDebugLocation: DoDebugLocation();
+    avDebugThings: DoDebugThings(Action.DebugThings);
+    avDebugThing: DoDebugThing(Action.DebugThing);
+    avDebugTeleport: DoDebugTeleport(Action.DebugTarget);
+    avDebugMake: DoDebugMake(Action.DebugMakeData^);
+    avDebugListClasses: DoDebugListClasses(Action.DebugSuperclass);
+    {$ENDIF}
+    avHelp: DoHelp();
+    avQuit: DoQuit();
+   else
+    raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
    end;
+   Assert(FContext = '');
 end;
 
 procedure TPlayer.DoLook();
@@ -474,16 +393,58 @@ begin
       DoLook();
    end;
 end;
+
+function GetRegisteredClassUTF8(AClassName: UTF8String): TClass;
+begin
+   Result := GetRegisteredClass(AClassName);
+end;
+
+procedure TPlayer.DoDebugMake(Data: UTF8String);
+var
+   Creation: TThing;
+   Stream: TTextStream;
+begin
+   Assert(Length(Data) >= 2);
+   Assert(Data[1] = '"');
+   Assert(Data[Length(Data)] = '"');
+   Stream := TTextStreamFromString.Create(Copy(Data, 2, Length(Data) - 2), @GetRegisteredClassUTF8, @MakeAtomFromStream);
+   try
+      try
+         Creation := TThing.MakeFrom(Stream);
+      except
+         on Error: ETextStreamException do
+            Fail('The incantation fizzles as you hear a voice whisper "' + Error.Message + '".');
+      end;
+   finally
+      Stream.Free();
+   end;
+   Assert(Assigned(Creation));
+   Self.Add(Creation, tpCarried);
+   DoBroadcast([Self, Creation, Self], Self,
+               [C(M(@Self.GetDefiniteName)), SP,
+                MP(Self, M('manifests'), M('manifest')), SP,
+                M(@Creation.GetIndefiniteName), M('.')]);
+   SendMessage('Poof! ' + Creation.GetPresenceStatement(Self, psThereIsAThingHere));
+end;
+
+procedure TPlayer.DoDebugListClasses(Superclass: TClass);
+var
+   RegisteredClassName: RawByteString;
+begin
+   SendMessage('The following classes are known:');
+   for RegisteredClassName in GetRegisteredClasses(Superclass) do // $R-
+      SendMessage(' - ' + RegisteredClassName);
+end;
 {$ENDIF}
 
 procedure TPlayer.DoHelp();
 begin
    SendMessage('Welcome to CuddlyWorld!'+ #10 +
-                 'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
-                 'More elaborate constructions are also possible. You can "take something", or "put something in something else", for instance.' + #10 +
-                 'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
-                 'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''". ' + 'Please be descriptive and include as much information as possible about how to reproduce the bug. Thanks!' + #10 +
-                 'Have fun!');
+               'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
+               'More elaborate constructions are also possible. You can "take something", or "put something in something else", for instance.' + #10 +
+               'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
+               'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''". ' + 'Please be descriptive and include as much information as possible about how to reproduce the bug. Thanks!' + #10 +
+               'Have fun!');
 end;
 
 procedure TPlayer.DoQuit();
@@ -970,7 +931,7 @@ begin
                SendMessage('You try to pick yourself up but end up ' + ThingPositionToString(Position) + ' ' + TargetSurface.GetDefiniteName(Self) + '.');
             end
             else
-               SendMessage('Haw can one pick oneself up?');
+               SendMessage('How can one pick oneself up?');
          end
          else
          begin
@@ -2304,13 +2265,5 @@ begin
 end;
 
 initialization
-   Assign(FailedCommandLog, 'failed-commands.log');
-   {$I-} Append(FailedCommandLog); {$I+}
-   if (IOResult = 2) then
-     Rewrite(FailedCommandLog);
-   GlobalThingCollector := TThingCollector.Create();
 {$INCLUDE registrations/player.inc}
-finalization
-   GlobalThingCollector.Free();
-   Close(FailedCommandLog);
 end.

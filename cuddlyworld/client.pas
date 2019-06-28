@@ -106,12 +106,12 @@ begin
          FPlayer.DoLook();
          WriteFrame('');
       end;
-      FPlayer.ReportFailedCommands := True;
    except
       on E: EExternal do raise;
       on E: Exception do
       begin // for debugging
          WriteFrame('You feel a disturbance in the force that whispers "' + E.Message + '".');
+         WriteFrame('');
          Writeln('');
          Writeln('While connecting user "' + Username + '", the following exception was raised:');
          Writeln(E.Message);
@@ -125,12 +125,13 @@ begin
    WriteFrame('> ' + Message);
    try
       FWorld.SetDirty();
-      FPlayer.Perform(Message);
+      FWorld.Perform(Message, FPlayer);
    except
       on EExternal do raise;
       on E: Exception do
       begin // for debugging
          WriteFrame('You feel a disturbance in the force that whispers "' + E.Message + '".');
+         WriteFrame('');
          Writeln('');
          Writeln('While processing "' + Message + '", the following exception was raised:');
          Writeln(E.Message);
@@ -148,7 +149,6 @@ procedure TCuddlyWorldClient.HandleForceDisconnect();
 begin
    WriteFrame('Switching to new connection...');
    FPlayer.Abandon();
-   FPlayer.ReportFailedCommands := False;
    FPlayer := nil;
    Disconnect();
 end;

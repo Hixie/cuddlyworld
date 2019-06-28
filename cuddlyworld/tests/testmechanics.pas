@@ -57,15 +57,12 @@ type
    TTestWorld = class(TWorld)
      FStartLocation: TAtom;
      procedure AddPlayer(Player: TPlayer); override;
-   end;
-
-   TTestPlayer = class(TPlayer)
-     procedure Perform(Message: UTF8String); override;
+     procedure Perform(Command: UTF8String; Player: TPlayer); override;
    end;
 
 type
    TInitWorld = function(): TWorld is nested;
-   TRunWorld = procedure (TestPlayer: TPlayer; Proxy: TTestProxy) is nested;
+   TRunWorld = procedure (TestWorld: TWorld; TestPlayer: TPlayer; Proxy: TTestProxy) is nested;
 
 procedure RunMechanicsHarness(InitTest: TInitWorld; RunTest: TRunWorld; SaveWorld: Boolean);
 
@@ -314,16 +311,15 @@ begin
 end;
 
 
-procedure TTestPlayer.Perform(Message: UTF8String);
-begin
-{$IFDEF VERBOSE}   Writeln('# > ' + Message); {$ENDIF}
-   inherited;
-end;
-
-
 procedure TTestWorld.AddPlayer(Player: TPlayer);
 begin
    FStartLocation.Add(Player, tpOn);
+   inherited;
+end;
+
+procedure TTestWorld.Perform(Command: UTF8String; Player: TPlayer);
+begin
+{$IFDEF VERBOSE}   Writeln('# > ' + Message); {$ENDIF}
    inherited;
 end;
 
@@ -347,11 +343,11 @@ begin
    Failed := False;
    try
       try
-         TestPlayer := TTestPlayer.Create('Tester', '', gRobot);
+         TestPlayer := TPlayer.Create('Tester', '', gRobot);
          TestPlayer.Adopt(@Proxy.HandleAvatarMessage, @Proxy.HandleForceDisconnect);
          TestWorld.AddPlayer(TestPlayer);
          TestPlayer.AnnounceAppearance();
-         RunTest(TestPlayer, Proxy);
+         RunTest(TestWorld, TestPlayer, Proxy);
          Proxy.ExpectDone();
       except
          on E: ETestError do

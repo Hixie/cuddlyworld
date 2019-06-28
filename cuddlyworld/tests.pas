@@ -4,7 +4,7 @@ program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, lists, physics, player, locations, things, grammarian, cuddlycamp, world, threshold,
-   testmechanics, testmechanics1, testmechanics2, testmechanics3,
+   testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4,
    base64encoder, client; // client is used just to make sure it gets compiled when compiling tests
 
 procedure TestBase64Encoder();
@@ -47,7 +47,7 @@ begin
    Failed := False;
    try
       try
-         TestPlayer := TTestPlayer.Create('Tester', '', gRobot);
+         TestPlayer := TPlayer.Create('Tester', '', gRobot);
          TestPlayer.Adopt(@Proxy.HandleAvatarMessage, @Proxy.HandleForceDisconnect);
          TestWorld.AddPlayer(TestPlayer);
          TestPlayer.AnnounceAppearance();
@@ -56,13 +56,13 @@ begin
          Proxy.Test('Starting location');
          Proxy.ExpectString('Room');
          Proxy.WaitUntilString('');
-         TestPlayer.Perform('look');
+         TestWorld.Perform('look', TestPlayer);
          Proxy.ExpectDone();
 
          Proxy.ExpectString('(the embroidered bag of holding labeled Tester)');
          Proxy.ExpectString('You already have that.');
          Proxy.ExpectString('');
-         TestPlayer.Perform('take all, and bag');
+         TestWorld.Perform('take all, and bag', TestPlayer);
 
          { test round-tripping }
          Proxy.Test('Round-tripping');
@@ -140,7 +140,7 @@ begin
 
    Failed := False;
 
-   SetLength(Strings, 4);
+   SetLength(Strings, 4); // $DFA- for Strings
    Strings[0] := 'the';
    Strings[1] := 'green';
    Strings[2] := 'lantern';
@@ -470,11 +470,11 @@ end;
 begin
    Writeln('CuddlyWorld Tests initializing...');
    RegisterStorableClass(TTestWorld);
-   RegisterStorableClass(TTestPlayer);
    {$IFDEF DEBUG} Writeln('CuddlyWorld debugging enabled.'); {$ENDIF}
    TestBase64Encoder();
    TestMatcher();
    TestLists();
+   TestMechanics4.TestMechanics4();
    TestMechanics3.TestMechanics3();
    TestMechanics2.TestMechanics2();
    TestMechanics1.TestMechanics1();

@@ -157,8 +157,10 @@ THINGS
     + floors at threshold locations should be entirely ignored if we would have to disambiguate
       between multiple kinds of floors
  + while on a door you can't see the ground, but "l d" shows you the ground
+ + a room that contains a ceiling that contains an important piece of scenery doesn't describe
+   that scenery (but the same thing as a part of the ground works fine because you're on the ground).
  + "except"
- + "read sign at east path" for "Arrivals Circle"->"ground"->"stone pedestal"->"AnthonyH": Which sign do you mean, the big stone to the east at the east-leading path, the north-pointing thick wooden sign, the light pink crystal sign to the south, the west-pointing stainless-steel sign, or the southwest-pointing shining silicon metalloid sign?
+ + "read sign at east path" for "Arrivals Circle"->"ground"->"stone pedestal"->"Fred": Which sign do you mean, the big stone to the east at the east-leading path, the north-pointing thick wooden sign, the light pink crystal sign to the south, the west-pointing stainless-steel sign, or the southwest-pointing shining silicon metalloid sign?
  + "read first sign"
  + shaking something that is part of something else (e.g. shaking the rim of the bag) should just say it's part of something else, not say it "cannot be moved"
     -- especially for the rim of the bag of holding, which can clearly be moved
@@ -209,6 +211,7 @@ THINGS
  + if you're in some thing X (or on something in some thing X), and you find X, it tells you about X's parent, which you can't reference.
    It should instead say something like "you're in the X" or some such.
  + "look on" should list what's on something (maybe including things like engravings?)
+ + "examine inside" should work like "look in"
  + things claim to be "part of the ground" when they are partOf the ground and you try to take them, which looks weird.
  + need to support the idea of an arch being over something
  + "empty bag"
@@ -238,6 +241,7 @@ THINGS
        How to open the sun is not readily apparent.
        > close sun
        The sun is not open.
+ + If there's a plastic fork, a plastic knife, and a plastic spoon, "take plastic silverware set" should take all three, not ask which one. If there's a plastic fork and knife, and a metal fork and knife, "take silverware set" should ask which one, plastic or metal, not take all four.
 
 
 NETWORK
