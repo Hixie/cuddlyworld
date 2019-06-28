@@ -18,6 +18,7 @@
    SUBCLASS = class(SUPERCLASS)
     protected
       FSurface: TThing;
+      class function CreateFromProperties(Properties: TTextStreamProperties): SUBCLASS; override;
     public
       constructor Create(CONSTRUCTORARGUMENTDECLARATIONS Ground: TThing);
       constructor Read(Stream: TReadStream); override;
@@ -48,6 +49,47 @@ begin
    Stream.WriteReference(FSurface);
 end;
 
+class function SUBCLASS.CreateFromProperties(Properties: TTextStreamProperties): SUBCLASS;
+var
+   StreamedLandmarks: TStreamedLandmarks;
+{$IF SUPERCLASS=TNamedLocation}
+   Name: UTF8String;
+   DefiniteName, IndefiniteName, Description: UTF8String;
+   Ground: TThing;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnDefiniteName, DefiniteName) and
+          Properties.HandleUniqueStringProperty(pnIndefiniteName, IndefiniteName) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          TThing.HandleUniqueThingProperty(Properties, pnGround, Ground, TThing) and {BOGUS Hint: Local variable "Ground" does not seem to be initialized}
+          HandleLandmarkProperties(Properties, StreamedLandmarks)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnDefiniteName, pnIndefiniteName, pnDescription, pnGround]);
+   Result := Create(Name, DefiniteName, IndefiniteName, Description, Ground);
+{$ELSEIF SUPERCLASS=TSlavedLocation}
+   Master: TThing;
+   Position: TThingPosition;
+   Ground: TThing;
+begin
+   while (not Properties.Done) do
+   begin
+      if (TThing.HandleUniqueThingProperty(Properties, pnMaster, Master, TThing) and {BOGUS Hint: Local variable "Master" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingPosition>(pnPosition, Position) and {BOGUS Hint: Local variable "Position" does not seem to be initialized}
+          TThing.HandleUniqueThingProperty(Properties, pnGround, Ground, TThing) and {BOGUS Hint: Local variable "Ground" does not seem to be initialized}
+          HandleLandmarkProperties(Properties, StreamedLandmarks)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnMaster, pnPosition, pnGround]);
+   Result := Create(Master, Position, Ground);
+{$ELSE}
+ {$FATAL Unknown SUPERCLASS value.}
+{$ENDIF}
+   StreamedLandmarks.Apply(Result);
+end;
+      
 procedure SUBCLASS.EnumerateObtrusiveObstacles(List: TThingList);
 begin
    inherited;

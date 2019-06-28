@@ -60,7 +60,7 @@ function InitEden: TWorld;
 var
    World: TCuddlyWorld;
    SkyBox, Room1, Room2, DoorwayLocation, Tunnel, TunnelEnd, Bedroom, Cave: TLocation;
-   Thing, Sky, Sun, Bed, Pillow, Stars: TThing;
+   Thing, Sky, Sun, Bed, Pillow, Stars, Ceiling: TThing;
    Doorway: TThresholdThing;
 begin
    World := TCuddlyWorld.Create();
@@ -77,7 +77,7 @@ begin
 
    Room2 := TGroundLocation.Create('Back Room', 'a back room', 'the back room', 'Nothing is particularly noteworthy about this second location.', CreateEarthSurface());
    Room2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
-
+   
    Doorway := TDoorWay.Create('doorway', 'unnotable? doorway/doorways', 'The doorway has no notable features.', cdSouth,
                               TDoor.Create('door', 'wooden? (open:1 closed:2)* door/doors', 
                                           TDoorSide.Create('side', 'varnished? (front:1)? side/sides', 'the door is varnished.'),
@@ -87,12 +87,12 @@ begin
    DoorwayLocation.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
    Tunnel := TGroundLocation.Create('Tunnel Trail', 'a tunnel trail', 'the tunnel trail', 'The tunnel has many turns.', CreateEarthSurface());
-   TunnelEnd := TGroundLocation.Create('Tunnel End', 'a tunnel end', 'the tunnel end', 'The tunnel end room has white walls. There are stairs leading up here.', CreateEarthSurface());
+   TunnelEnd := TGroundLocation.Create('Tunnel End', 'a tunnel end', 'the tunnel end', 'The tunnel end room has white walls.', CreateEarthSurface());
 
    Bedroom := TGroundLocation.Create('Bedroom', 'a bedroom', 'the bedroom', 'The bedroom is a large room. On the ceiling are some stars.', CreateStoneSurface());
    Bed := TDescribedPhysicalThing.Create('bed', 'bed/beds', 'The bed is medium-sized bed.', tmPonderous, tsBig);
    Pillow := TDescribedPhysicalThing.Create('pillow', '((car? pillow/pillows) car/cars)@', 'The pillow has drawings of cars on it.', tmLight, tsSmall);
-   Stars := TFeature.Create('stars', '(ceiling/ceilings star/stars)@', 'The ceiling has stars on it.');
+   Stars := TFeature.Create('stars', '(ceiling/ceilings star/stars)#', 'The ceiling has stars on it.');
 
    Bedroom.GetSurface().Add(Bed, tpOn);
    Bed.GetSurface().Add(Pillow, tpOn);
@@ -104,6 +104,9 @@ begin
    Bedroom.Add(Stars, tpPartOfImplicit);
 
    Cave := TGroundLocation.Create('Cave', 'a cave', 'the cave', 'The cave is round and dark.', CreateEarthSurface());
+   Ceiling := TScenery.Create('ceiling', '(round dark)* (ceiling/ceilings roof/rooves roof/roofs)@', 'The ceiling is dark and round, just like the rest of the cave.');
+   Cave.Add(Ceiling, tpPartOfImplicit);
+   Cave.AddLandmark(cdUp, Ceiling, [loPermissibleNavigationTarget, loConsiderDirectionUnimportantWhenFindingChildren]);
    Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
    Cave.GetSurface().Add(Thing, tpOn);
    Thing.Add(TDescribedPhysicalThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
@@ -129,10 +132,11 @@ begin
    Thing.Add(TDescribedPhysicalThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils (silverware set/sets)&)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
    Cave.GetSurface().Add(TSpade.Create(), tpOn);
 
+   Bedroom.GetSurface().Add(TOpening.Create('stairs', 'stair/stairs', 'The stairs lead down.', Cave, tsGigantic), tpSurfaceOpening);
+   Ceiling.Add(TOpening.Create('stairs', 'stair/stairs', 'The stairs lead up.', Bedroom, tsGigantic), tpSurfaceOpening);
+
    ConnectLocations(Room1, cdSouth, Tunnel, [loPermissibleNavigationTarget, loAutoDescribe]);
    ConnectLocations(Tunnel, cdSouth, TunnelEnd, [loPermissibleNavigationTarget, loAutoDescribe]);
-   Bedroom.GetSurface().Add(TOpening.Create('stairs', 'stair/stairs', 'The stairs lead down.', TunnelEnd, tsGigantic), tpSurfaceOpening);
-   ConnectLocations(TunnelEnd, cdUp, Bedroom);
    ConnectLocations(Tunnel, cdWest, Cave, [loPermissibleNavigationTarget, loAutoDescribe]);
 
    World.AddLocation(Room1);

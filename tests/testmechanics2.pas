@@ -44,7 +44,7 @@ procedure TestMechanics2();
       Result := World;
    end;
 
-   procedure RunTest(TestPlayer: TPlayer; Proxy: TTestProxy);
+   procedure RunTest(TestWorld: TWorld; TestPlayer: TPlayer; Proxy: TTestProxy);
 
       procedure RunCommand(Command: UTF8String; Responses: array of UTF8String);
       var
@@ -53,7 +53,7 @@ procedure TestMechanics2();
          for Response in Responses do
             Proxy.ExpectString(Response);
          Proxy.ExpectString('');
-         TestPlayer.Perform(Command);
+         TestWorld.Perform(Command, TestPlayer);
          Proxy.ExpectDone();
       end;
 

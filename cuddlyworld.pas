@@ -195,7 +195,7 @@ begin
    repeat
       Write('> ');
       Readln(S);
-      FPlayer.Perform(S);
+      FWorld.Perform(S, FPlayer);
       EmptyDisposalQueue();
       SaveWorld();
    until Aborted;

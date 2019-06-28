@@ -331,9 +331,9 @@ var
 begin
    Assert(Length(MasterList) = Length(SlaveList));
    Assert(Length(MasterList) > 0);
-   SetLength(NewMasterList, Length(MasterList));
+   SetLength(NewMasterList, Length(MasterList)); // $DFA- for NewMasterList
    NewMasterList[0] := MasterList[0];
-   SetLength(NewSlaveList, Length(SlaveList));
+   SetLength(NewSlaveList, Length(SlaveList)); // $DFA- for NewSlaveList
    NewSlaveList[0] := SlaveList[0];
    Index := 1;
    Count := 1;

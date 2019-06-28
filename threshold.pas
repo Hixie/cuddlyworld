@@ -5,7 +5,7 @@ unit threshold;
 interface
 
 uses
-   locations, things, thingdim, grammarian, matcher, storable, physics, messages;
+   locations, things, thingdim, grammarian, matcher, storable, physics, messages, textstream;
 
 type
    TRelativePerspectivePosition = (rppFront, rppBack, rppHere);
@@ -18,6 +18,7 @@ type
      var
       FFrontSideFacesDirection: TCardinalDirection;
       function LocatePerspective(Perspective: TAvatar): TRelativePerspectivePosition;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TThresholdThing; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
@@ -33,6 +34,7 @@ type
     protected
       FFrontSideDescription: UTF8String;
       FBackSideDescription: UTF8String;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TStaticThresholdThing; override;
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -48,6 +50,7 @@ type
       const tpConsiderForDoorPosition = tpIn; // if you try to use this, it'll turn into tpOfficialDoorPosition
       const tpOfficialDoorPosition = tpInstalledIn; // this must have at most one TDoor that is tpOfficialDoorPosition at any one time
       const tpOnGround = tpOn;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TDoorWay; override;
       function GetDoor(): TDoor; // or nil if there isn't one
       function GetCouldBeDoor(Thing: TThing; ThingPosition: TThingPosition): Boolean;
       procedure Removed(Thing: TThing); override;
@@ -91,6 +94,7 @@ type
     // of including both in the overall description is ugly).
     protected
       FFrontSide, FBackSide: TDoorSide;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TDoor; override;
       function GetDoorWay(): TDoorWay; // or nil if the door isn't in a doorway
       // GetLock() could work a similar way
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
@@ -136,6 +140,8 @@ type
    end;
 
    TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
+    protected
+      class function CreateFromProperties(Properties: TTextStreamProperties): TThresholdLocation; override;
     public
       constructor Create(Landmark: TThing; Surface: TThing);
       function GetTitle(Perspective: TAvatar): UTF8String; override;
@@ -153,15 +159,15 @@ type
 
 // XXX wall with a hole in it... wall without a hole in it... wall that can be hit to make a hole in it...
 
-function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing = nil; Flags: TLocation.TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
+function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing = nil; Flags: TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
 // if you omit loAutoDescribe from the last argument, then the threshold won't be mentioned in descriptions of rooms that contain it
 
 implementation
 
 uses
-   lists, exceptions, broadcast;
+   lists, exceptions, broadcast, typinfo;
 
-function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing; Flags: TLocation.TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
+function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TThresholdThing; Surface: TThing; Flags: TLandmarkOptions = [loAutoDescribe]): TThresholdLocation;
 begin
    if (not Assigned(Surface)) then
       Surface := TThresholdSurface.Create('floor', 'flat? (ground/grounds floor/floors)@', 'The floor is flat.');
@@ -171,21 +177,6 @@ begin
    Result.AddLandmark(Threshold.FrontSideFacesDirection, FrontLocation, [loAutoDescribe, loPermissibleNavigationTarget, loNotVisibleFromBehind]);
    BackLocation.AddLandmark(Threshold.FrontSideFacesDirection, Result, Flags);
    Result.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], BackLocation, [loAutoDescribe, loPermissibleNavigationTarget, loNotVisibleFromBehind]);
-end;
-
-
-constructor TStaticThresholdThing.Read(Stream: TReadStream);
-begin
-   inherited;
-   FFrontSideDescription := Stream.ReadString();
-   FBackSideDescription := Stream.ReadString();
-end;
-
-procedure TStaticThresholdThing.Write(Stream: TWriteStream);
-begin
-   inherited;
-   Stream.WriteString(FFrontSideDescription);
-   Stream.WriteString(FBackSideDescription);
 end;
 
 
@@ -207,28 +198,63 @@ begin
    Stream.WriteCardinal(Cardinal(FFrontSideFacesDirection));
 end;
 
+class function TThresholdThing.CreateFromProperties(Properties: TTextStreamProperties): TThresholdThing;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   FrontDirection: TCardinalDirection;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.specialize HandleUniqueEnumProperty<TCardinalDirection>(pnFrontDirection, FrontDirection) and {BOGUS Hint: Local variable "FrontDirection" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnFrontDirection]);
+   Result := Create(Name, Pattern, Description, FrontDirection);
+   StreamedChildren.Apply(Result);
+end;
+
 function TThresholdThing.LocatePerspective(Perspective: TAvatar): TRelativePerspectivePosition;
 var
+   Ancestor: TAtom;
    SubjectiveInformation: TSubjectiveInformation;
    Direction, CandidateDirection: TCardinalDirection;
 begin
-   SubjectiveInformation := Perspective.Locate(Self);
-   if (PopCnt(Cardinal(SubjectiveInformation.Directions)) <> 1) then
+   Ancestor := Self;
+   Assert(Ancestor is TThing); // because we are a TThing
+   repeat
+      Ancestor := (Ancestor as TThing).Parent;
+   until (not (Ancestor is TThing)) or (Ancestor = Perspective);
+   if (Ancestor = Perspective) then
    begin
-      // e.g. if you're right there at the archway or whatever
-      // or if there's a trapdoor on some object instead of it being a directional landmark
-      // we assume that if we can't find Perspective at all, that we're here somehow
       Result := rppHere;
    end
    else
    begin
-      for CandidateDirection in SubjectiveInformation.Directions do
-         Direction := CandidateDirection; // there can only be one at this point, so this should be enough
-      Assert(Direction in [FFrontSideFacesDirection, cdReverse[FFrontSideFacesDirection]]);
-      if (Direction = FFrontSideFacesDirection) then
-         Result := rppBack
+      SubjectiveInformation := Perspective.Locate(Self);
+      if (PopCnt(Cardinal(SubjectiveInformation.Directions)) <> 1) then
+      begin
+         // e.g. if you're right there at the archway or whatever
+         // or if there's a trapdoor on some object instead of it being a directional landmark
+         // we assume that if we can't find Perspective at all, that we're here somehow
+         Result := rppHere;
+      end
       else
-         Result := rppFront;
+      begin
+         for CandidateDirection in SubjectiveInformation.Directions do
+            Direction := CandidateDirection; // there can only be one at this point, so this should be enough
+         Assert(Direction in [FFrontSideFacesDirection, cdReverse[FFrontSideFacesDirection]]);
+         if (Direction = FFrontSideFacesDirection) then
+            Result := rppBack
+         else
+            Result := rppFront;
+      end;
    end;
 end;
 
@@ -237,6 +263,48 @@ begin
    Result := True;
 end;
 
+
+constructor TStaticThresholdThing.Read(Stream: TReadStream);
+begin
+   inherited;
+   FFrontSideDescription := Stream.ReadString();
+   FBackSideDescription := Stream.ReadString();
+end;
+
+procedure TStaticThresholdThing.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteString(FFrontSideDescription);
+   Stream.WriteString(FBackSideDescription);
+end;
+
+class function TStaticThresholdThing.CreateFromProperties(Properties: TTextStreamProperties): TStaticThresholdThing;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description, FrontDescription, BackDescription: UTF8String;
+   FrontDirection: TCardinalDirection;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.HandleUniqueStringProperty(pnFrontDescription, FrontDescription) and
+          Properties.HandleUniqueStringProperty(pnBackDescription, BackDescription) and
+          Properties.specialize HandleUniqueEnumProperty<TCardinalDirection>(pnFrontDirection, FrontDirection) and {BOGUS Hint: Local variable "FrontDirection" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnFrontDirection]);
+   Result := Create(Name, Pattern, Description, FrontDirection);
+   if (Properties.Seen(pnFrontDescription)) then
+      Result.FrontSideDescription := FrontDescription;
+   if (Properties.Seen(pnBackDescription)) then
+      Result.BackSideDescription := BackDescription;
+   StreamedChildren.Apply(Result);
+end;
 
 function TStaticThresholdThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
@@ -269,6 +337,30 @@ begin
       Add(Door, tpOfficialDoorPosition);
       Assert(Door.Position in tpArguablyInside);
    end;
+end;
+
+class function TDoorWay.CreateFromProperties(Properties: TTextStreamProperties): TDoorWay;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description: UTF8String;
+   FrontDirection: TCardinalDirection;
+   DoorValue: TThing = nil;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.specialize HandleUniqueEnumProperty<TCardinalDirection>(pnFrontDirection, FrontDirection) and {BOGUS Hint: Local variable "FrontDirection" does not seem to be initialized}
+          TThing.HandleUniqueThingProperty(Properties, pnDoor, DoorValue, TDoor) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnFrontDirection]);
+   Result := Create(Name, Pattern, Description, FrontDirection, DoorValue as TDoor);
+   StreamedChildren.Apply(Result);
 end;
 
 function TDoorWay.GetDoor(): TDoor;
@@ -832,6 +924,31 @@ begin
    Stream.WriteReference(FBackSide);
 end;
 
+class function TDoor.CreateFromProperties(Properties: TTextStreamProperties): TDoor;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   FrontSide, BackSide: TThing;
+   MassValue: TThingMass = tmHeavy;
+   SizeValue: TThingSize = tsMassive;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          TThing.HandleUniqueThingProperty(Properties, pnFrontSide, FrontSide, TDoorSide) and {BOGUS Hint: Local variable "FrontSide" does not seem to be initialized}
+          TThing.HandleUniqueThingProperty(Properties, pnBackSide, BackSide, TDoorSide) and {BOGUS Hint: Local variable "BackSide" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingMass>(pnMass, MassValue) and
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnFrontSide, pnBackSide]);
+   Result := Create(Name, Pattern, FrontSide as TDoorSide, BackSide as TDoorSide, MassValue, SizeValue);
+   StreamedChildren.Apply(Result);
+end;
+
 function TDoor.GetDoorWay(): TDoorWay;
 begin
    if ((FParent is TDoorWay) and (FPosition = (FParent as TDoorWay).tpOfficialDoorPosition)) then
@@ -1192,6 +1309,22 @@ end;
 constructor TThresholdLocation.Create(Landmark: TThing; Surface: TThing);
 begin
    inherited Create(Landmark, tpAtImplicit, Surface);
+end;
+
+class function TThresholdLocation.CreateFromProperties(Properties: TTextStreamProperties): TThresholdLocation;
+var
+   Landmark, Surface: TThing;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (TThing.HandleUniqueThingProperty(Properties, pnLandmark, Landmark, TThing) and {BOGUS Hint: Local variable "Landmark" does not seem to be initialized}
+          TThing.HandleUniqueThingProperty(Properties, pnSurface, Surface, TThing)) then {BOGUS Hint: Local variable "Surface" does not seem to be initialized}
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnLandmark, pnSurface]);
+   Result := Create(Landmark, Surface);
+   StreamedChildren.Apply(Result);
 end;
 
 function TThresholdLocation.GetTitle(Perspective: TAvatar): UTF8String;

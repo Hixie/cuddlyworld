@@ -5,7 +5,7 @@ unit locations;
 interface
 
 uses
-   storable, physics, grammarian, thingdim, messages;
+   storable, physics, grammarian, thingdim, messages, textstream;
 
 type
    TNamedLocation = class(TLocation)
@@ -14,6 +14,7 @@ type
       FDefiniteName: UTF8String;
       FIndefiniteName: UTF8String;
       FDescription: UTF8String;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TNamedLocation; override;
     public
       constructor Create(Name, DefiniteName, IndefiniteName, Description: UTF8String);
       constructor Read(Stream: TReadStream); override;
@@ -27,6 +28,7 @@ type
    TSlavedLocation = class(TLocation)
     protected
       FMaster: TThing;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TSlavedLocation; override;
     public
       constructor Create(Master: TThing; Position: TThingPosition);
       constructor Read(Stream: TReadStream); override;
@@ -99,6 +101,26 @@ begin
    Stream.WriteString(FDescription);
 end;
 
+class function TNamedLocation.CreateFromProperties(Properties: TTextStreamProperties): TNamedLocation;
+var
+   Name: UTF8String;
+   DefiniteName, IndefiniteName, Description: UTF8String;
+   StreamedLandmarks: TStreamedLandmarks;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnDefiniteName, DefiniteName) and
+          Properties.HandleUniqueStringProperty(pnIndefiniteName, IndefiniteName) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          HandleLandmarkProperties(Properties, StreamedLandmarks)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnDefiniteName, pnIndefiniteName, pnDescription]);
+   Result := Create(Name, DefiniteName, IndefiniteName, Description);
+   StreamedLandmarks.Apply(Result);
+end;
+
 function TNamedLocation.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := FName;
@@ -137,6 +159,24 @@ procedure TSlavedLocation.Write(Stream: TWriteStream);
 begin
    inherited;
    Stream.WriteReference(FMaster);
+end;
+
+class function TSlavedLocation.CreateFromProperties(Properties: TTextStreamProperties): TSlavedLocation;
+var
+   Master: TThing;
+   Position: TThingPosition;
+   StreamedLandmarks: TStreamedLandmarks;
+begin
+   while (not Properties.Done) do
+   begin
+      if (TThing.HandleUniqueThingProperty(Properties, pnMaster, Master, TThing) and {BOGUS Hint: Local variable "Master" does not seem to be initialized}
+          Properties.specialize HandleUniqueEnumProperty<TThingPosition>(pnPosition, Position) and {BOGUS Hint: Local variable "Position" does not seem to be initialized}
+          HandleLandmarkProperties(Properties, StreamedLandmarks)) then
+       Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnMaster, pnPosition]);
+   Result := Create(Master, Position);
+   StreamedLandmarks.Apply(Result);
 end;
 
 function TSlavedLocation.GetName(Perspective: TAvatar): UTF8String;

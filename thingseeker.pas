@@ -124,6 +124,13 @@ type
      public
       class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String); override;
    end;
+   TAndOfClause = class(TAbstractJoiningPreconditionFilterClause)
+     protected
+      class function IsMatch(Candidate, Condition: TThing): Boolean; override;
+      function GetClausePrefix(): UTF8String; override;
+     public
+      class procedure ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String); override;
+   end;
    TAndInClause = class(TAbstractJoiningPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
@@ -225,6 +232,12 @@ type
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; override;
    end;
    TFromClause = class(TAbstractPreconditionFilterClause)
+     protected
+      class function IsMatch(Candidate, Condition: TThing): Boolean; override;
+      function GetClausePrefix(): UTF8String; override;
+     public
+   end;
+   TOfClause = class(TAbstractPreconditionFilterClause)
      protected
       class function IsMatch(Candidate, Condition: TThing): Boolean; override;
       function GetClausePrefix(): UTF8String; override;
@@ -809,6 +822,22 @@ begin
 end;
 
 
+class function TAndOfClause.IsMatch(Candidate, Condition: TThing): Boolean;
+begin
+   Result := TOfClause.IsMatch(Candidate, Condition);
+end;
+
+function TAndOfClause.GetClausePrefix(): UTF8String;
+begin
+   Result := 'and of';
+end;
+
+class procedure TAndOfClause.ReportFailedMatch(Tokens: TTokens; ClauseStart, CurrentToken: Cardinal; Verb: UTF8String);
+begin
+   Fail('I don''t see anything of "' + Tokens[CurrentToken] + '".');
+end;
+
+
 class function TAndInClause.IsMatch(Candidate, Condition: TThing): Boolean;
 begin
    Result := TInClause.IsMatch(Candidate, Condition);
@@ -1318,6 +1347,25 @@ end;
 function TFromClause.GetClausePrefix(): UTF8String;
 begin
    Result := 'from';
+end;
+
+
+class function TOfClause.IsMatch(Candidate, Condition: TThing): Boolean;
+begin
+   Assert(Assigned(Candidate));
+   Assert(Assigned(Candidate.Parent));
+   Assert(Assigned(Condition));
+   if (Candidate.Parent = Condition) then
+   begin
+      Result := Candidate.Position in tpArguablyOf;
+   end
+   else
+      Result := False;
+end;
+
+function TOfClause.GetClausePrefix(): UTF8String;
+begin
+   Result := 'of';
 end;
 
 
@@ -2065,7 +2113,7 @@ var
    const
       MaxTokensInClause = 5;
 
-      function TryClause(CandidateTokens: array of UTF8String; out NextClauseLength: Cardinal): Boolean;
+      function TryClause(CandidateTokens: array of UTF8String; out NextClauseLength: Cardinal): Boolean; {BOGUS Hint: Value parameter "CandidateTokens" is assigned but never used}
       begin
          Assert(CandidateTokens[MaxTokensInClause] = '');
          Assert(CandidateTokens[0] <> '');
@@ -2089,7 +2137,7 @@ var
    const
       EOT = ''; _ = EOT; { to make the constant below prettier }
       { order by length of Tokens, then alphabetically }
-      ClauseConfigurations: array[0..34] of TClauseConfiguration = (
+      ClauseConfigurations: array[0..37] of TClauseConfiguration = (
          (Tokens: (',', 'and', 'that', 'are', 'not',           EOT); ClauseClass: TAndThatAreNotClause;     EndingClauseKind: eckNormal),
          (Tokens: (',', 'and', 'that', 'is', 'not',            EOT); ClauseClass: TAndThatIsNotClause;      EndingClauseKind: eckNormal),
          (Tokens: (',', 'and', 'are', 'not',                 _,EOT); ClauseClass: TAndThatAreNotClause;     EndingClauseKind: eckNormal),
@@ -2102,6 +2150,7 @@ var
          (Tokens: (',', 'and', 'from',                     _,_,EOT); ClauseClass: TAndFromClause;           EndingClauseKind: eckNormal),
          (Tokens: (',', 'and', 'in',                       _,_,EOT); ClauseClass: TAndInClause;             EndingClauseKind: eckNormal),
          (Tokens: (',', 'and', 'is',                       _,_,EOT); ClauseClass: TAndThatIsClause;         EndingClauseKind: eckNormal),
+         (Tokens: (',', 'and', 'of',                       _,_,EOT); ClauseClass: TAndOfClause;             EndingClauseKind: eckNormal),
          (Tokens: (',', 'and', 'on',                       _,_,EOT); ClauseClass: TAndOnClause;             EndingClauseKind: eckNormal),
          (Tokens: ('and', 'are', 'not',                    _,_,EOT); ClauseClass: TAndThatAreNotClause;     EndingClauseKind: eckNormal),
          (Tokens: ('and', 'is', 'not',                     _,_,EOT); ClauseClass: TAndThatIsNotClause;      EndingClauseKind: eckNormal),
@@ -2115,6 +2164,7 @@ var
          (Tokens: ('and', 'from',                        _,_,_,EOT); ClauseClass: TAndFromClause;           EndingClauseKind: eckNormal),
          (Tokens: ('and', 'in',                          _,_,_,EOT); ClauseClass: TAndInClause;             EndingClauseKind: eckNormal),
          (Tokens: ('and', 'is',                          _,_,_,EOT); ClauseClass: TAndThatIsClause;         EndingClauseKind: eckNormal),
+         (Tokens: ('and', 'of',                          _,_,_,EOT); ClauseClass: TAndOfClause;             EndingClauseKind: eckNormal),
          (Tokens: ('and', 'on',                          _,_,_,EOT); ClauseClass: TAndOnClause;             EndingClauseKind: eckNormal),
          (Tokens: ('that', 'are',                        _,_,_,EOT); ClauseClass: TThatAreClause;           EndingClauseKind: eckNormal),
          (Tokens: ('that', 'is',                         _,_,_,EOT); ClauseClass: TThatIsClause;            EndingClauseKind: eckNormal),
@@ -2123,6 +2173,7 @@ var
          (Tokens: ('but',                              _,_,_,_,EOT); ClauseClass: TButClause;               EndingClauseKind: eckNormal),
          (Tokens: ('from',                             _,_,_,_,EOT); ClauseClass: TFromClause;              EndingClauseKind: eckNormal),
          (Tokens: ('in',                               _,_,_,_,EOT); ClauseClass: TInClause;                EndingClauseKind: eckIn),
+         (Tokens: ('of',                               _,_,_,_,EOT); ClauseClass: TOfClause;                EndingClauseKind: eckNormal),
          (Tokens: ('on',                               _,_,_,_,EOT); ClauseClass: TOnClause;                EndingClauseKind: eckOn),
          (Tokens: ('plus',                             _,_,_,_,EOT); ClauseClass: TPlusClause;              EndingClauseKind: eckNormal)
       );

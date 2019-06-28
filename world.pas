@@ -5,7 +5,7 @@ unit world;
 interface
 
 uses
-   storable, lists, physics, player;
+   storable, lists, physics, player, grammarian;
 
 type
    TWorld = class(TStorable) // @RegisterStorableClass
@@ -24,6 +24,7 @@ type
       procedure AddPlayer(Player: TPlayer); virtual; { these must added to the world before this method is called (derived classes can override this method to do that) }
       function GetPlayer(Name: UTF8String): TPlayer;
       function GetPlayerCount(): Cardinal;
+      procedure Perform(Command: UTF8String; Player: TPlayer); virtual; // overriden by tests
       procedure CheckForDisconnectedPlayers();
       procedure SetDirty();
       procedure Saved();
@@ -33,7 +34,11 @@ type
 implementation
 
 uses
-   sysutils;
+   sysutils, thingseeker;
+
+var
+   FailedCommandLog: Text;
+   GlobalThingCollector: TThingCollector; // used in parser.inc
 
 constructor TWorld.Create();
 begin
@@ -137,6 +142,89 @@ begin
    FDirty := False;
 end;
 
+procedure TWorld.Perform(Command: UTF8String; Player: TPlayer);
+var
+   Tokens, OriginalTokens: TTokens;
+   CurrentToken: Cardinal;
+
+   {$INCLUDE parser.inc}
+
+var
+   Action: TAction;
+   More: Boolean;
+   Atom: TAtom;
+   Location: UTF8String;
+begin
+   try
+      OriginalTokens := Tokenise(Command);
+      Tokens := TokeniseCanonically(Command);
+      Assert(Length(OriginalTokens) = Length(Tokens));
+      if (Length(Tokens) = 0) then
+         Exit;
+      CurrentToken := 0;
+      repeat
+         { This is suboptimal, but it's not clear how else to do it.
+           The parsing is dependent on the world's state. To support
+           things like "drop all then take all", we have to execute
+           the actions as we parse them. However, this means that "a
+           then b then" will do a, then fail to do b and complain
+           about the trailing then, which isn't ideal.
+         }
+         Action.Verb := avNone;
+         try
+            More := ParseAction(Action);
+            Player.ExecuteAction(Action);
+         finally
+            case Action.Verb of
+             avTake: Action.TakeSubject.Free();
+             avPut: Action.PutSubject.Free();
+             avMove: Action.MoveSubject.Free();
+             avPush: Action.PushSubject.Free();
+             avRemove: Action.RemoveSubject.Free();
+             avPress: Action.PressSubject.Free();
+             avShake: Action.ShakeSubject.Free();
+             avTalk: Dispose(Action.TalkMessage);
+             {$IFDEF DEBUG}
+             avDebugThings: Action.DebugThings.Free();
+             avDebugMake: Dispose(Action.DebugMakeData);
+             {$ENDIF}
+            end;
+         end;
+         Player.SendRawMessage('');
+      until not More;
+   except
+      on E: EParseError do
+      begin
+         Location := '"' + Player.Name + '"';
+         Atom := Player.Parent;
+         try
+            while (Assigned(Atom)) do
+            begin
+               Location := '"' + Atom.GetName(Player) + '"->' + Location;
+               if (Atom is TThing) then
+                  Atom := (Atom as TThing).Parent
+               else
+                  Atom := nil;
+            end;
+         except
+           on EExternal do raise;
+           on E: Exception do Location := '(while finding location: ' + E.Message + ')';
+         end;
+         Writeln(FailedCommandLog, '"', Command, '" for ' + Location + ': ', E.Message);
+         Player.SendRawMessage(E.Message);
+         Player.SendRawMessage('');
+      end;
+   end;
+end;
+   
 initialization
 {$INCLUDE registrations/world.inc}
+   Assign(FailedCommandLog, 'failed-commands.log');
+   {$I-} Append(FailedCommandLog); {$I+}
+   if (IOResult = 2) then
+     Rewrite(FailedCommandLog);
+   GlobalThingCollector := TThingCollector.Create();
+finalization
+   GlobalThingCollector.Free();
+   Close(FailedCommandLog);
 end.

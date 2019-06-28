@@ -5,10 +5,11 @@ unit physics;
 interface
 
 uses
-   storable, lists, grammarian, thingdim, messages;
+   storable, lists, grammarian, thingdim, messages, textstream;
 
 type
    TAtom = class;
+   TAtomClass = class of TAtom;
    TInternalAtomList = specialize TStorableList<TAtom>;
    TThing = class;
    TInternalThingList = specialize TStorableList<TThing>;
@@ -85,18 +86,46 @@ type
                                 psOnThatSpecialThing { find (something far away) -- only if parent is TThing, not TLocation });
 
 type
-   TPlacementStyle = (psRoughly, psCarefully);
+   TStreamedChildren = record
+    private
+      FChildren: array of TThing;
+      FPositions: array of TThingPosition;
+    public
+      procedure AddChild(Child: TThing; Position: TThingPosition);
+      procedure Apply(Parent: TAtom);
+   end;
+
+   TLandmarkOptions = set of (loAutoDescribe, // include landmark in descriptions of the room [1]
+                              loPermissibleNavigationTarget, // whether you can travel that way; only the first landmark in each direction is allowed to be loPermissibleNavigationTarget, otherwise direction navigation would be ambiguous
+                              loThreshold, // whether FindThing and FindMatchingThings should traverse (ExplicitlyReferenced logic doesn't use this since it looks everywhere) [1]
+                              loVisibleFromFarAway, // for e.g. mountains
+                              loNotVisibleFromBehind, // for e.g. surfaces so that they're not visible from below
+                              loConsiderDirectionUnimportantWhenFindingChildren); // so that "find hole" doesn't say "below"
+   // [1]: Don't include a landmark in more than one direction at a time if they are marked with either of these
+
+   TStreamedLandmarks = record
+    private
+      FDirections: array of TCardinalDirection;
+      FLandmarks: array of TAtom;
+      FOptions: array of TLandmarkOptions;
+    public
+      procedure AddLandmark(Direction: TCardinalDirection; Atom: TAtom; Options: TLandmarkOptions);
+      procedure Apply(Parent: TLocation);
+   end;
 
 type
+   TPlacementStyle = (psRoughly, psCarefully);
    TThingReporter = procedure (Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber) of object;
-
+   
    TAtom = class(TStorable)
     {$IFDEF DEBUG}
     private
-      FIntegritySelf: TAtom; // set to Self by constructors, set to nil by destructor
+      FIntegritySelf: PtrUInt; // set to nil on allocation, PtrUInt(Self) by constructors, High(PtrUInt) by destructor
     {$ENDIF}
     protected
       FChildren: TThingList;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TAtom; virtual; abstract;
+      class function HandleChildProperties(Properties: TTextStreamProperties; var Values: TStreamedChildren): Boolean;
       procedure Removed(Thing: TThing); virtual;
       function IsChildTraversable(Child: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; virtual;
       {$IFOPT C+} procedure AssertChildPositionOk(Thing: TThing; Position: TThingPosition); virtual; {$ENDIF}
@@ -175,7 +204,6 @@ type
       {$IFDEF DEBUG} function Debug(): UTF8String; virtual; {$ENDIF}
    end;
 
-   PThing = ^TThing;
    TThing = class(TAtom)
     protected
       FParent: TAtom;
@@ -186,6 +214,8 @@ type
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class function MakeFrom(Stream: TTextStream): TThing;
+      class function HandleUniqueThingProperty(Properties: TTextStreamProperties; PossibleName: UTF8String; var Value: TThing; Superclass: TThingClass): Boolean;
 
       // Moving things around
       procedure GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass); override;
@@ -263,6 +293,7 @@ type
    TAvatar = class(TThing)
     protected
       function IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean; override;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TAtom; override;
     public
       procedure DoLook(); virtual; abstract;
       procedure AvatarMessage(Message: TMessage); virtual; abstract;
@@ -304,14 +335,6 @@ type
    {$ENDIF}
 
    TLocation = class(TAtom)
-    public
-     type
-      TLandmarkOptions = set of (loAutoDescribe, // include landmark in descriptions of the room
-                                 loPermissibleNavigationTarget, // whether you can travel that way; only the first landmark in each direction is allowed to be loPermissibleNavigationTarget, otherwise direction navigation would be ambiguous
-                                 loThreshold, // whether FindThing and FindMatchingThings should traverse (ExplicitlyReferenced logic doesn't use this since it looks everywhere)
-                                 loVisibleFromFarAway, // for e.g. mountains
-                                 loNotVisibleFromBehind, // for e.g. surfaces so that they're not visible from below
-                                 loConsiderDirectionUnimportantWhenFindingChildren); // so that "find hole" doesn't say "below"
     protected
      type
       PDirectionalLandmark = ^TDirectionalLandmark;
@@ -321,10 +344,11 @@ type
         Atom: TAtom;
       end;
      const
-      loImportantLandmarks = [loAutoDescribe, loThreshold]; // don't include the same atom in more than one direction if you use these
+      loImportantLandmarks = [loAutoDescribe, loThreshold]; // don't include the same atom in more than one direction if you use either of these
      var
       FImportantLandmarks: array of PDirectionalLandmark; // pointers into FDirectionalLandmarks with loImportantLandmarks
       FDirectionalLandmarks: array[TCardinalDirection] of array of TDirectionalLandmark;
+      class function HandleLandmarkProperties(Properties: TTextStreamProperties; var Values: TStreamedLandmarks): Boolean;
       function CanFindInDirection(Direction: TCardinalDirection; Atom: TAtom): Boolean;
       function FindThingDirectionalTraverser(Thing: TThing; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; var SubjectiveInformation: TSubjectiveInformation): Boolean; virtual;
       {$IFDEF DEBUG} procedure AssertDirectionHasDestination(Direction: TCardinalDirection; Atom: TAtom); {$ENDIF}
@@ -333,6 +357,9 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class function MakeFrom(Stream: TTextStream): TLocation;
+      class function HandleUniqueLocationProperty(Properties: TTextStreamProperties; PossibleName: UTF8String; var Value: TLocation): Boolean;
+      
       function HasLandmark(Direction: TCardinalDirection): Boolean;
       procedure AddLandmark(Direction: TCardinalDirection; Atom: TAtom; Options: TLandmarkOptions);
       procedure AddSurroundings(Atom: TAtom; const Directions: TCardinalDirectionSet = cdCompasDirection);
@@ -354,8 +381,39 @@ type
       function FindThing(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean; out SubjectiveInformation: TSubjectiveInformation): Boolean; override;
    end;
 
+function MakeAtomFromStream(AClassName: UTF8String; Stream: TTextStream): TObject;
+
 procedure ForceTravel(Traveller: TThing; Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 procedure ForceTravel(Traveller: TThing; Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
+
+const // keywords used in "debug make" commands
+   pnBackDescription = 'backDescription';
+   pnBackSide = 'backSide';
+   pnCannotMoveExcuse = 'cannotMoveExcuse';
+   pnDefiniteName = 'definiteName';
+   pnDescription = 'description';
+   pnDestination = 'destination';
+   pnDoor = 'door';
+   pnFindDescription = 'findDescription';
+   pnFrontDirection = 'frontDirection';
+   pnFrontDescription = 'frontDescription';
+   pnFrontSide = 'frontSide';
+   pnGround = 'ground';
+   pnIndefiniteName = 'indefiniteName';
+   pnIngredients = 'ingredients';
+   pnMass = 'mass';
+   pnMaster = 'master';
+   pnMaxSize = 'maxSize';
+   pnName = 'name';
+   pnLandmark = 'landmark';
+   pnOpened = 'opened';
+   pnPattern = 'pattern';
+   pnPileClass = 'pileClass';
+   pnPosition = 'position';
+   pnSize = 'size';
+   pnSurface = 'surface';
+   pnUnderDescription = 'underDescription';
+   pnWriting = 'writing';
 
 { Note [travel]:
     Navigation works as follows:
@@ -394,7 +452,7 @@ procedure ForceTravel(Traveller: TThing; Destination: TAtom; Position: TThingPos
     should not go back up the tree, since that risks an infinite loop
     (or at least a lot of redundant work). }
 
-procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLocation.TLandmarkOptions = [loPermissibleNavigationTarget]); // Calls AddLandmark in both directions as necessary (if a landmark already exists, then it is skipped). Verifies that a symmetric connection has been made.
+procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLandmarkOptions = [loPermissibleNavigationTarget]); // Calls AddLandmark in both directions as necessary (if a landmark already exists, then it is skipped). Verifies that a symmetric connection has been made.
 
 procedure QueueForDisposal(Atom: TAtom);
 procedure EmptyDisposalQueue();
@@ -599,10 +657,58 @@ begin
 end;
 
 
+procedure TStreamedChildren.AddChild(Child: TThing; Position: TThingPosition);
+begin
+   Assert(Length(FChildren) = Length(FPositions));
+   SetLength(FChildren, Length(FChildren) + 1);
+   SetLength(FPositions, Length(FChildren) + 1);
+   FChildren[High(FChildren)] := Child;
+   FPositions[High(FPositions)] := Position;
+end;
+
+procedure TStreamedChildren.Apply(Parent: TAtom);
+var
+   Index: Cardinal;
+begin
+   Assert(Length(FChildren) = Length(FPositions));
+   if (Length(FChildren) > 0) then
+      for Index := Low(FChildren) to High(FChildren) do
+         Parent.Add(FChildren[Index], FPositions[Index]);
+   SetLength(FChildren, 0);
+   SetLength(FPositions, 0);
+end;
+
+
+procedure TStreamedLandmarks.AddLandmark(Direction: TCardinalDirection; Atom: TAtom; Options: TLandmarkOptions);
+begin
+   Assert(Length(FLandmarks) = Length(FDirections));
+   Assert(Length(FLandmarks) = Length(FOptions));
+   SetLength(FDirections, Length(FLandmarks) + 1);
+   SetLength(FLandmarks, Length(FLandmarks) + 1);
+   SetLength(FOptions, Length(FLandmarks) + 1);
+   FDirections[High(FDirections)] := Direction;
+   FLandmarks[High(FLandmarks)] := Atom;
+   FOptions[High(FOptions)] := Options;
+end;
+
+procedure TStreamedLandmarks.Apply(Parent: TLocation);
+var
+   Index: Cardinal;
+begin
+   Assert(Length(FLandmarks) = Length(FDirections));
+   Assert(Length(FLandmarks) = Length(FOptions));
+   for Index := Low(FLandmarks) to High(FLandmarks) do // $R-
+      Parent.AddLandmark(FDirections[Index], FLandmarks[Index], FOptions[Index]);
+   SetLength(FDirections, 0);
+   SetLength(FLandmarks, 0);
+   SetLength(FOptions, 0);
+end;
+
+
 constructor TAtom.Create();
 begin
    {$IFDEF DEBUG}
-    FIntegritySelf := Self;
+    FIntegritySelf := PtrUInt(Self);
    {$ENDIF}
    inherited;
    FChildren := TThingList.Create([slOwner]);
@@ -611,9 +717,12 @@ end;
 destructor TAtom.Destroy();
 begin
    {$IFDEF DEBUG}
-    Assert(Assigned(FIntegritySelf), 'Tried to free an already-freed TAtom');
-    Assert(FIntegritySelf = Self);
-    FIntegritySelf := nil;
+   if (FIntegritySelf > 0) then
+   begin
+      Assert(FIntegritySelf < High(PtrUInt), 'Tried to free an already-freed TAtom');
+      Assert(FIntegritySelf = PtrUInt(Self), 'Evidence of heap corruption detected');
+      FIntegritySelf := High(PtrUInt);
+   end;
    {$ENDIF}
    FChildren.Free();
    inherited;
@@ -622,7 +731,7 @@ end;
 constructor TAtom.Read(Stream: TReadStream);
 begin
    {$IFDEF DEBUG}
-    FIntegritySelf := Self;
+    FIntegritySelf := PtrUInt(Self);
    {$ENDIF}
    inherited;
    FChildren := Stream.ReadObject() as TThingList;
@@ -634,14 +743,59 @@ begin
    Stream.WriteObject(FChildren);
 end;
 
+class function TAtom.HandleChildProperties(Properties: TTextStreamProperties; var Values: TStreamedChildren): Boolean;
+var
+   Position: TThingPosition;
+   Child: TThing;
+   Stream: TTextStream;
+begin
+   if (Properties.Name = 'child') then
+   begin
+      Stream := Properties.Accept();
+      Position := Stream.specialize GetEnum<TThingPosition>();
+      Stream.ExpectPunctuation(',');
+      Child := TThing.MakeFrom(Stream);
+      Values.AddChild(Child, Position);
+      Properties.Advance();
+      Result := False;
+   end
+   else
+      Result := True;
+end;
+
+function MakeAtomFromStream(AClassName: UTF8String; Stream: TTextStream): TObject;
+var
+   AClass: StorableClass;
+   Atom: TAtom;
+   Properties: TTextStreamProperties;
+begin
+   AClass := GetRegisteredClass(AClassName);
+   if (not Assigned(AClass)) then
+      Stream.Fail(AClassName + ' is not a known class');
+   if (not AClass.InheritsFrom(TAtom)) then
+      Stream.Fail(AClassName + ' is not a TAtom');
+   Properties := TTextStreamProperties.Create(Stream);
+   try
+      Atom := TAtomClass(AClass).CreateFromProperties(Properties);
+      if (not Properties.Done) then
+         Stream.Fail('Could not parse property "' + Properties.Name + '"');
+   finally
+      Properties.Free();
+   end;
+   Result := Atom;
+end;
+
 {$IFOPT C+}
 procedure TAtom.AssertChildPositionOk(Thing: TThing; Position: TThingPosition);
 var
+   TempPosition: TThingPosition;
    Child: TThing;
 begin
+   TempPosition := tpIn;
+   Assert((Position <> tpIn) or (GetInside(TempPosition) = Self), 'Tried to put something inside something without an inside');
    if (Position in tpOpening) then
       for Child in FChildren do
-         Assert(not (Child.FPosition in tpOpening), 'Can''t have two things that are the tpOpening of another thing. See note in grammarian.pas.');
+         Assert(not (Child.FPosition in tpOpening), 'Can''t have two things that are the tpOpening of another thing (see note in grammarian.pas)');
 end;
 {$ENDIF}
 
@@ -663,15 +817,10 @@ end;
 procedure TAtom.Add(Thing: TThing; Position: TThingPosition);
 {$IFOPT C+}
 var
-   TempPosition: TThingPosition;
    ParentSearch: TAtom;
 {$ENDIF}
 begin
-   {$IFOPT C+}
-     TempPosition := tpIn;
-     Assert((Position <> tpIn) or (GetInside(TempPosition) = Self), 'tried to put something inside something without an inside');
-     AssertChildPositionOk(Thing, Position);
-   {$ENDIF}
+   {$IFOPT C+} AssertChildPositionOk(Thing, Position); {$ENDIF}
    if (Assigned(Thing.FParent)) then
       Thing.FParent.Remove(Thing);
    Assert(not Assigned(Thing.FParent));
@@ -694,17 +843,12 @@ var
    OldParent: TAtom;
    ActualThing: TThing;
    {$IFOPT C+}
-   TempPosition: TThingPosition;
    ParentSearch: TAtom;
    {$ENDIF}
 begin
    Assert(Thing.FList <> FChildren);
    ActualThing := Thing.Current;
-   {$IFOPT C+}
-     TempPosition := tpIn;
-     Assert((Position <> tpIn) or (GetInside(TempPosition) = Self), 'tried to put something inside something without an inside');
-     AssertChildPositionOk(ActualThing, Position);
-   {$ENDIF}
+   {$IFOPT C+} AssertChildPositionOk(ActualThing, Position); {$ENDIF}
    Assert(Assigned(ActualThing));
    OldParent := ActualThing.FParent;
    FChildren.AdoptItem(Thing);
@@ -1172,6 +1316,32 @@ begin
    Stream.WriteCardinal(Cardinal(FPosition));
 end;
 
+class function TThing.MakeFrom(Stream: TTextStream): TThing;
+var
+   RawResult: TObject;
+begin
+   Assert(Assigned(Stream));
+   RawResult := Stream.GetObject();
+   if (not Assigned(RawResult) or not (RawResult is TThing)) then
+      Fail('A ' + RawResult.ClassName + ' is not a thing');
+   Result := RawResult as TThing;
+end;
+
+class function TThing.HandleUniqueThingProperty(Properties: TTextStreamProperties; PossibleName: UTF8String; var Value: TThing; Superclass: TThingClass): Boolean;
+begin
+   if (Properties.Name = PossibleName) then
+   begin
+      Properties.EnsureNotSeen(PossibleName);
+      Value := TThing.MakeFrom(Properties.Accept());
+      if ((Value.ClassType <> Superclass) and (not Value.InheritsFrom(Superclass))) then
+         Properties.Fail('Value of "' + PossibleName + '" must be a subclass of "' + Superclass.ClassName + '"');
+      Properties.Advance();
+      Result := False;
+   end
+   else
+      Result := True;
+end;
+
 procedure TThing.GetNearbyThingsByClass(List: TThingList; FromOutside: Boolean; Filter: TThingClass);
 var
    Child: TThing;
@@ -1391,7 +1561,7 @@ end;
 function TThing.GetLookUnder(Perspective: TAvatar): UTF8String;
 begin
    Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + IsAre(IsPlural(Perspective)) + ' ' + ThingPositionToString(FPosition) + ' ' + FParent.GetDefiniteName(Perspective) + '.';
-   // Consider actually looking cdDown from here, somehow
+   // Consider actually looking cdDown from here, somehow. (Would be particularly useful for e.g. TScenery used as a ceiling.)
 end;
 
 function TThing.GetLookTowardsDirection(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
@@ -1704,12 +1874,14 @@ end;
 
 function TThing.CanReach(Subject: TAtom; Perspective: TAvatar; var Message: TMessage): Boolean;
 
+   {$IFOPT C+}
    function GetRootFor(Atom: TAtom): TAtom; // for assertions only
    begin
       while (Atom is TThing) do
          Atom := (Atom as TThing).Parent;
       Result := Atom;
    end;
+   {$ENDIF}
 
 var
    SelfRoot: TAtom;
@@ -2008,6 +2180,13 @@ end;
 {$ENDIF}
 
 
+class function TAvatar.CreateFromProperties(Properties: TTextStreamProperties): TAtom;
+begin
+   Properties.Fail('Cannot create avatars');
+   Assert(False);
+   Result := nil; // cannot be reached
+end;
+
 function TAvatar.IsImplicitlyReferenceable(Perspective: TAvatar; PropertyFilter: TThingFeatures): Boolean;
 begin
    if (Perspective = Self) then
@@ -2164,6 +2343,53 @@ begin
             Stream.WriteReference(FDirectionalLandmarks[Direction][Index].Atom);
          end;
    end;
+end;
+
+class function TLocation.HandleLandmarkProperties(Properties: TTextStreamProperties; var Values: TStreamedLandmarks): Boolean;
+var
+   Direction: TCardinalDirection;
+   Destination: TLocation;
+   Options: TLandmarkOptions;
+   Stream: TTextStream;
+begin
+   if (Properties.Name = 'landmark') then
+   begin
+      Stream := Properties.Accept();
+      Direction := Stream.specialize GetEnum<TCardinalDirection>();
+      Stream.ExpectPunctuation(',');
+      Destination := TLocation.MakeFrom(Stream);
+      Stream.ExpectPunctuation(',');
+      Options := Stream.specialize GetSet<TLandmarkOptions>();
+      Values.AddLandmark(Direction, Destination, Options);
+      Properties.Advance();
+      Result := False;
+   end
+   else
+      Result := True;
+end;
+
+class function TLocation.MakeFrom(Stream: TTextStream): TLocation;
+var
+   RawResult: TObject;
+begin
+   Assert(Assigned(Stream));
+   RawResult := Stream.GetObject();
+   if (not Assigned(RawResult) or not (RawResult is TLocation)) then
+      Fail('A ' + RawResult.ClassName + ' is not a locatino');
+   Result := RawResult as TLocation;
+end;
+
+class function TLocation.HandleUniqueLocationProperty(Properties: TTextStreamProperties; PossibleName: UTF8String; var Value: TLocation): Boolean;
+begin
+   if (Properties.Name = PossibleName) then
+   begin
+      Properties.EnsureNotSeen(PossibleName);
+      Value := TLocation.MakeFrom(Properties.Accept());
+      Properties.Advance();
+      Result := False;
+   end
+   else
+      Result := True;
 end;
 
 function TLocation.HasLandmark(Direction: TCardinalDirection): Boolean;
@@ -2617,7 +2843,7 @@ begin
 end;
 
 
-procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLocation.TLandmarkOptions = [loPermissibleNavigationTarget]);
+procedure ConnectLocations(SourceLocation: TLocation; Direction: TCardinalDirection; Destination: TLocation; Options: TLandmarkOptions = [loPermissibleNavigationTarget]);
 
    procedure ConnectLocationsOneWay(A: TLocation; Direction: TCardinalDirection; B: TLocation);
    begin
