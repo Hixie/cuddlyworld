@@ -287,8 +287,8 @@ procedure TestMechanics1();
       Olympus.GetSurface().Add(TOpening.Create('opening', 'opening/openings', 'The opening is circular.', FlowerRoom, tsGigantic), tpSurfaceOpening);
       ConnectLocations(FlowerRoom, cdUp, Olympus);
 
-      Camp.AddSurroundings(CampForest, cdCompasDirection - [cdNorth]);
-      Cliff.AddSurroundings(CampForest, cdCompasDirection - [cdNorthEast, cdNorth, cdNorthWest]);
+      Camp.AddSurroundings(CampForest, cdCompassDirection - [cdNorth]);
+      Cliff.AddSurroundings(CampForest, cdCompassDirection - [cdNorthEast, cdNorth, cdNorthWest]);
 
       World.AddLocation(Camp);
       World.AddLocation(Cliff);
