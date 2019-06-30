@@ -33,13 +33,13 @@ procedure TestMechanics3();
       Sky.Add(Thing, tpEmbedded);
       Thing2 := TFeature.Create('colours', '(colour/colours color/colors)@', 'The colours of the rainbow are so pretty in the sky.');
       Thing.Add(Thing2, tpPartOfImplicit);
-      Thing := TScenery.Create('sun', '(sun/suns star/stars)@', 'The sun is bright and blessed.');
+      Thing := TScenery.Create('sun', '(sun/suns star/stars)@', 'The sun is giving us bright and blessed days.');
       Sky.Add(Thing, tpEmbedded);
       SkyBox := TBackdrop.Create(Sky, tpAtImplicit);
       Song.AddLocation(SkyBox);
 
       { World }
-      Land := TGroundLocation.Create('World', 'World', 'a world', 'The world is wonderful.', CreateEarthSurface());
+      Land := TGroundLocation.Create('World', 'the world', 'a world', 'The world is wonderful.', CreateEarthSurface());
       Land.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
       Thing := TDescribedPhysicalThing.Create('trees of green', '((tree/trees (of green)?) (green tree/trees))@', 'The trees are green.', tmLudicrous, tsMassive);
       Land.GetSurface().Add(Thing, tpPlantedIn);
@@ -85,7 +85,7 @@ procedure TestMechanics3();
       RunCommand('take all', ['People going by: Taken.', 'You fumble the people going by.', 'Colours: The colours are on the faces.']); // should this take the bush? XXX
       RunCommand('enter bag', ['That would prove rather challenging given where the bag of holding is relative to yourself.']);
       RunCommand('drop bag', ['Dropped.']);
-      RunCommand('enter bag', ['In the bag of holding (at World)', 'The bag has the name "Tester" embroidered around its rim.']);
+      RunCommand('enter bag', ['In the bag of holding (at the world)', 'The bag has the name "Tester" embroidered around its rim.']);
       RunCommand('exit bag', ['I don''t understand how to exit "bag".']); // XXX
       RunCommand('exit', ['World', 'The world is wonderful. There are trees of green here. There is a rose bush here.', 'There are people going by here.', 'There is a bag of holding here.']);
       RunCommand('take bag', ['Taken.']);
