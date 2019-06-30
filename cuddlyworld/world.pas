@@ -25,6 +25,7 @@ type
       function GetPlayer(Name: UTF8String): TPlayer;
       function GetPlayerCount(): Cardinal;
       procedure Perform(Command: UTF8String; Player: TPlayer); virtual; // overriden by tests
+      procedure ExecuteAction(const Action: TAction; Player: TPlayer);
       procedure CheckForDisconnectedPlayers();
       procedure SetDirty();
       procedure Saved();
@@ -34,11 +35,12 @@ type
 implementation
 
 uses
-   sysutils, thingseeker;
+   sysutils, thingseeker
+   {$IFDEF DEBUG}, broadcast, textstream, typedump, arrayutils {$ENDIF}; // typedump and arrayutils are used in parser.inc
 
 var
    FailedCommandLog: Text;
-   GlobalThingCollector: TThingCollector; // used in parser.inc
+   GlobalThingCollector: TThingCollector; // from thingseeker; used in parser.inc
 
 constructor TWorld.Create();
 begin
@@ -173,7 +175,7 @@ begin
          Action.Verb := avNone;
          try
             More := ParseAction(Action);
-            Player.ExecuteAction(Action);
+            ExecuteAction(Action, Player);
          finally
             case Action.Verb of
              avTake: Action.TakeSubject.Free();
@@ -214,6 +216,130 @@ begin
          Player.SendRawMessage(E.Message);
          Player.SendRawMessage('');
       end;
+   end;
+end;
+
+{$IFDEF DEBUG}
+function GetRegisteredClassUTF8(AClassName: UTF8String): TClass;
+begin
+   Result := GetRegisteredClass(AClassName);
+end;
+{$ENDIF}
+
+procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
+
+   {$IFDEF DEBUG}
+   procedure DoDebugLocations();
+   var
+      Location: TLocation;
+   begin
+      Player.SendMessage('Locations:');
+      for Location in FLocations do
+         Player.SendMessage(' - ' + Location.GetName(Player));
+   end;
+
+   procedure DoDebugMake(Data: UTF8String);
+   var
+      Creation: TAtom;
+      Stream: TTextStream;
+   begin
+      Assert(Length(Data) >= 2);
+      Assert(Data[1] = '"');
+      Assert(Data[Length(Data)] = '"');
+      Stream := TTextStreamFromString.Create(Copy(Data, 2, Length(Data) - 2), @GetRegisteredClassUTF8, @MakeAtomFromStream);
+      try
+         try
+            Creation := Stream.specialize GetObject<TAtom>();
+         except
+            on Error: ETextStreamException do
+               Fail('The incantation fizzles as you hear a voice whisper "' + Error.Message + '".');
+         end;
+      finally
+         Stream.Free();
+      end;
+      Assert(Assigned(Creation));
+      if (Creation is TLocation) then
+      begin
+         AddLocation(TLocation(Creation));
+         Player.SendMessage('Hocus Pocus! ' + Capitalise(Creation.GetDefiniteName(Player)) + ' now exists.');
+      end
+      else
+      if (Creation is TThing) then
+      begin
+         Player.Add(TThing(Creation), tpCarried);
+         DoBroadcast([Player, Creation, Player], Player,
+                     [C(M(@Player.GetDefiniteName)), SP,
+                      MP(Player, M('manifests'), M('manifest')), SP,
+                      M(@Creation.GetIndefiniteName), M('.')]);
+         Player.SendMessage('Poof! ' + TThing(Creation).GetPresenceStatement(Player, psThereIsAThingHere));
+      end
+      else
+      begin
+         Creation.Free();
+         Fail('');
+      end;
+   end;
+   {$ENDIF}
+
+   procedure DoHelp();
+   begin
+      Player.SendMessage(
+         'Welcome to CuddlyWorld!'+ #10 +
+         'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
+         'More elaborate constructions are also possible. You can "take something", or "put something in something else", for instance.' + #10 +
+         'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
+         'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''". ' + 'Please be descriptive and include as much information as possible about how to reproduce the bug. Thanks!' + #10 +
+         'Have fun!'
+      );
+   end;
+
+   procedure DoQuit();
+   begin
+      Player.SendMessage(':-(');
+   end;
+
+begin
+   case Action.Verb of
+    avLook: Player.DoLook();
+    avLookDirectional: Player.SendMessage(Player.Parent.GetRepresentative().GetLookTowardsDirection(Player, Action.LookDirection));
+    avLookAt: Player.SendMessage(Action.LookAtSubject.GetLookAt(Player));
+    avExamine: Player.SendMessage(Action.ExamineSubject.GetExamine(Player));
+    avRead: Player.SendMessage(Action.ReadSubject.GetDescriptionWriting(Player));
+    avLookUnder: Player.DoLookUnder(Action.LookUnder);
+    avLookIn: Player.SendMessage(Action.LookIn.GetLookIn(Player));
+    avInventory: Player.DoInventory();
+    avFind: Player.DoFind(Action.FindSubject);
+    avGo: Player.DoNavigation(Action.GoDirection);
+    avEnter: Player.DoNavigation(Action.EnterSubject, tpIn, Action.EnterRequiredAbilities);
+    avClimbOn: Player.DoNavigation(Action.ClimbOnSubject, tpOn, Action.ClimbOnRequiredAbilities);
+    avTake: Player.DoTake(Action.TakeSubject);
+    avPut: Player.DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
+    avMove: Player.DoMove(Action.MoveSubject, Action.MoveTarget, Action.MoveAmbiguous, Action.MovePosition);
+    avPush: Player.DoPush(Action.PushSubject, Action.PushDirection);
+    avRemove: Player.DoRemove(Action.RemoveSubject, Action.RemoveFromPosition, Action.RemoveFromObject);
+    avPress: Player.DoPress(Action.PressSubject);
+    avShake: Player.DoShake(Action.ShakeSubject);
+    avDig: Player.DoDig(Action.DigTarget, Action.DigSpade);
+    avDigDirection: Player.DoDig(Action.DigDirection, Action.DigSpade);
+    avOpen: Player.DoOpen(Action.OpenTarget);
+    avClose: Player.DoClose(Action.CloseTarget);
+    avTalk: Player.DoTalk(Action.TalkTarget, Action.TalkMessage^, Action.TalkVolume);
+    avDance: Player.DoDance();
+    {$IFDEF DEBUG}
+    avDebugStatus: Player.DoDebugStatus();
+    avDebugLocations: DoDebugLocations();
+    avDebugLocation: Player.DoDebugLocation();
+    avDebugThings: Player.DoDebugThings(Action.DebugThings);
+    avDebugThing: Player.DoDebugThing(Action.DebugThing);
+    avDebugTeleport: Player.DoDebugTeleport(Action.DebugTarget);
+    avDebugMake: DoDebugMake(Action.DebugMakeData^);
+    avDebugConnect: Player.DoDebugConnect(Action.DebugConnectDirection, Action.DebugConnectTarget, Action.DebugConnectOptions);
+    avDebugListClasses: Player.DoDebugListClasses(Action.DebugSuperclass);
+    {$ENDIF}
+    avHelp: DoHelp();
+    avQuit: DoQuit();
+   else
+    raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
    end;
 end;
    

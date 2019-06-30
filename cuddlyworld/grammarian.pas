@@ -39,7 +39,7 @@ type
 
 const
    cdAllDirections = [Low(TCardinalDirection) .. High(TCardinalDirection)];
-   cdCompasDirection = [cdNorth .. cdNorthWest];
+   cdCompassDirection = [cdNorth .. cdNorthWest];
    cdPhysicalDirections = [cdNorth .. cdDown];
    cdReverse: array [TCardinalDirection] of TCardinalDirection = (cdSouth, cdSouthWest, cdWest, cdNorthWest, cdNorth, cdNorthEast, cdEast, cdSouthEast, cdDown, cdUp, cdIn, cdOut);
 
