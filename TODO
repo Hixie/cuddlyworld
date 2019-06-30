@@ -150,7 +150,8 @@ PLAYER INTERACTION
  + "i,d" doesn't work, but "i;d" does
  + similarly, "enter hole, look up, look down, exit hole" doesn't parse right
  + "put bag on me" works... not sure exactly what to do with that
- + "take" and "drop" and "move" and so on don't give much detail in their broadcast -- they're all done by TAtom.Moved() which just says "x moved the y."
+ + "take" and "drop" and "move" and so on don't give much detail in their broadcast -- they're all done by TAtom.Moved() which just says "x moves the y."
+ + "push all to Hixie" (where Hixie is in the room) pushes Hixie to Hixie (and starts asserting all over the place).
 
 THINGS
  + floors at threshold locations should be visible to all
@@ -242,6 +243,7 @@ THINGS
        > close sun
        The sun is not open.
  + If there's a plastic fork, a plastic knife, and a plastic spoon, "take plastic silverware set" should take all three, not ask which one. If there's a plastic fork and knife, and a metal fork and knife, "take silverware set" should ask which one, plastic or metal, not take all four.
+ + "push ... to ..." doesn't check that the target isn't on the list of things to push
 
 
 NETWORK

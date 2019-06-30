@@ -83,7 +83,7 @@
    end;
 
    type
-      TDirectionOptions = set of (optAllowDefiniteArticle, optRequireCompasDirection);
+      TDirectionOptions = set of (optAllowDefiniteArticle, optRequireCompassDirection);
 
    function TryDirection(out Direction: TCardinalDirection; Options: TDirectionOptions): Boolean;
    var
@@ -174,7 +174,7 @@
          Inc(CurrentToken);
          Direction := cdNorthWest;
       end
-      else if ((not FoundDefiniteArticle) and (not (optRequireCompasDirection in Options))) then
+      else if ((not FoundDefiniteArticle) and (not (optRequireCompassDirection in Options))) then
       begin
          if ((Tokens[CurrentToken] = 'up') or (Tokens[CurrentToken] = 'u')) then
          begin
@@ -205,13 +205,31 @@
       if (Tokens[CurrentToken] = Preposition) then
       begin
          Inc(CurrentToken);
-         if ((not CanEnd()) and (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompasDirection]))) then
+         if ((not CanEnd()) and (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompassDirection]))) then
             Result := True
          else
             Dec(CurrentToken);
       end;
    end;
 
+   function GetLocation(out Target: TAtom): Boolean;
+   var
+      Location: TLocation;
+   begin
+      Assert(not CanEnd());
+      EnsureNoPunctuation();
+      for Location in FLocations do
+      begin
+         if (TryMatch(CurrentToken, Tokens, TokeniseCanonically(Location.GetName(Player)))) then
+         begin
+            Target := Location;
+            Result := True;
+            Exit;
+         end;
+      end;
+      Result := False;
+   end;
+      
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
    function GetThing(out Thing: TThing; EndingClauses: TEndingClauseKinds; VerbString: UTF8String): Boolean;
@@ -510,7 +528,7 @@
             Fail('What do you want to find?');
          if (not GetThing(Action.FindSubject, [], 'find')) then
          begin
-            if (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompasDirection])) then
+            if (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompassDirection])) then
             begin
                if (CanEnd()) then
                   Fail(Capitalise(CardinalDirectionToDefiniteString(Direction)) + ' is ' + CardinalDirectionToDirectionString(Direction) + ', obviously. I have a keen sense of direction that you can rely on.')
@@ -1243,6 +1261,8 @@
    end;
 
    function GetBug(var Action: TAction): Boolean;
+   var
+      LandmarkOption: TLandmarkOption;
    begin
       if (Tokens[CurrentToken] = 'bug') then
       begin
@@ -1265,7 +1285,19 @@
                if (not CanEnd()) then
                begin
                   EnsureNoPunctuation();
-                  Fail('Syntax: "debug status"');
+                  Fail('Syntax: debug status');
+               end;
+            end
+            else
+            if (Tokens[CurrentToken] = 'locations') then
+            begin
+               Inc(CurrentToken);
+               Result := True;
+               Action.Verb := avDebugLocations;
+               if (not CanEnd()) then
+               begin
+                  EnsureNoPunctuation();
+                  Fail('Syntax: debug locations');
                end;
             end
             else
@@ -1277,7 +1309,7 @@
                if (not CanEnd()) then
                begin
                   EnsureNoPunctuation();
-                  Fail('Syntax: "debug location"');
+                  Fail('Syntax: debug location');
                end;
             end
             else
@@ -1292,7 +1324,10 @@
                   if (not GetThings(Action.DebugThings, [aisSelf, aisSurroundings], [], 'debug', 'There''s nothing implicitly accessible here. Use "debug things" to get a list of explicitly accessible things.')) then
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                   if (not CanEnd()) then
-                     Fail('Syntax: "debug things <things>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThings.GetLongDefiniteString(Player, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+                  begin      
+                     EnsureNoPunctuation();
+                     Fail('The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThings.GetLongDefiniteString(Player, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+                  end;       
                end;
             end
             else
@@ -1302,39 +1337,104 @@
                Result := True;
                Action.Verb := avDebugThing;
                if (CanEnd()) then
-                  Fail('Syntax: "debug thing <thing>"');
+                  Fail('Syntax: debug thing <thing>');
                if (not GetThing(Action.DebugThing, [], 'debug')) then
                   Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                if (not CanEnd()) then
-                  Fail('Syntax: "debug thing <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThing.GetDefiniteName(Player) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+               begin
+                  EnsureNoPunctuation();
+                  Fail('The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThing.GetDefiniteName(Player) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+               end;
             end
             else
             if (Tokens[CurrentToken] = 'teleport') then
             begin
-               // XXX also support specifiying position to teleport to
                Inc(CurrentToken);
                Result := True;
                Action.Verb := avDebugTeleport;
                if (CanEnd()) then
-                  Fail('Syntax: "debug teleport <thing>"');
-               if (not GetThing(Action.DebugTarget, [], 'debug')) then
-                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
+                  Fail('Syntax: debug teleport <thing or location>');
+               if ((not GetLocation(Action.DebugTarget)) and (not GetThing(Action.DebugTarget, [], 'debug'))) then
+                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things or "debug locations" to get a list of accessible locations.');
                if (not CanEnd()) then
-                  Fail('Syntax: "debug teleport <thing>". The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugTarget.GetDefiniteName(Player) + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
+               begin
+                  EnsureNoPunctuation();
+                  Fail('The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugTarget.GetDefiniteName(Player) + '; use "debug things" to get a list of accessible things or "debug locations" to get a list of accessible locations if that isn''t what you meant.');
+               end;
             end
             else
             if (Tokens[CurrentToken] = 'make') then
             begin
                Inc(CurrentToken);
-               if (not IsQuote()) then
-                  Fail('Syntax: "debug make ''<object serialization>''"');
+               Result := False;
+               if (IsQuote()) then
+               begin
+                  Inc(CurrentToken);
+                  if (CanEnd()) then
+                  begin
+                     Result := True;
+                     Action.Verb := avDebugMake;
+                     New(Action.DebugMakeData);
+                     Action.DebugMakeData^ := Tokens[CurrentToken - 1];
+                  end
+                  else
+                     EnsureNoPunctuation();
+               end;
+               if (not Result) then
+                  Fail('Syntax: debug make ''new ...''');
+            end
+            else
+            if (Tokens[CurrentToken] = 'connect') then
+            begin
                Inc(CurrentToken);
-               if (not CanEnd()) then
-                  Fail('Syntax: "debug make ''<object serialization>''"');
-               Result := True;
-               Action.Verb := avDebugMake;
-               New(Action.DebugMakeData);
-               Action.DebugMakeData^ := Tokens[CurrentToken - 1];
+               Result := False;
+               if ((not CanEnd()) and TryDirection(Action.DebugConnectDirection, [optAllowDefiniteArticle])) then
+               begin
+                  if ((not CanEnd()) and (Tokens[CurrentToken] = 'to')) then
+                  begin
+                     Inc(CurrentToken);
+                     if (not CanEnd()) then
+                     begin
+                        {$IFOPT C+} Action.DebugConnectTarget := nil; {$ENDIF}
+                        if ((not GetLocation(Action.DebugConnectTarget)) and (not GetThing(Action.DebugConnectTarget, [], 'debug'))) then
+                           Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things or "debug locations" to get a list of accessible locations.');
+                        Assert(Assigned(Action.DebugConnectTarget));
+                        if ((not CanEnd()) and (Tokens[CurrentToken] = 'with')) then
+                        begin
+                           Inc(CurrentToken);
+                           Action.DebugConnectOptions := [];
+                           while (not CanEnd()) do
+                           begin
+                              if (not specialize ParseEnumValue<TLandmarkOption>(Tokens[CurrentToken], LandmarkOption)) then
+                                 break;
+                              Include(Action.DebugConnectOptions, LandmarkOption);
+                              Inc(CurrentToken);
+                           end;
+                           if ((Action.DebugConnectOptions = []) or (not CanEnd())) then
+                           begin
+                              Fail('Flags must be a space-separated list of one or more of: ' +
+                                   Join(specialize ListValues<TLandmarkOption>(), ', ') +
+                                   ' (default is "loAutoDescribe loPermissibleNavigationTarget").');
+                           end;      
+                        end
+                        else
+                        begin
+                           Action.DebugConnectOptions := [loAutoDescribe, loPermissibleNavigationTarget];
+                        end;
+                        if (CanEnd()) then
+                        begin
+                           Result := True;
+                           Action.Verb := avDebugConnect;
+                        end;
+                     end;
+                  end;
+               end;
+               if (not Result) then
+               begin
+                  if (not CanEnd()) then
+                     EnsureNoPunctuation();
+                  Fail('Syntax: debug connect <direction> to <thing or location> [with <flags>]');
+               end;
             end
             else     
             if (Tokens[CurrentToken] = 'classes') then
@@ -1369,17 +1469,17 @@
                   end;
                end;
                if (not Result) then
-                  Fail('Syntax: "debug classes of things" or "debug classes of locations"');
+                  Fail('Syntax: debug classes of <"things" or "locations">');
                Result := True;
             end
             else
             begin
                EnsureNoPunctuation();
-               Fail('Unrecognised debug command.');
+               Fail('Unrecognised debug command. Try just "debug" for a list.');
             end;
          end
          else
-            Fail('Syntax: "debug <command>", where <command> is one of "status", "location", "things [<things>]", "thing <thing>", "teleport <thing>", "make ''...''", "classes of things", "classes of locations".');
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "locations", "location", "things [<things>]", "thing <thing>", "teleport <thing or location>", "make ''new ...''", "connect <direction> to <thing or location> [with <flags>]", "classes of things", or "classes of locations".');
       end
       else
       {$ENDIF}

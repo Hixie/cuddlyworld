@@ -26,7 +26,8 @@ type
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avPushTo, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
                   avTalk, avDance,
-                  {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugThings, avDebugThing, avDebugTeleport, avDebugMake, avDebugListClasses, {$ENDIF}
+                  {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugLocations, avDebugThings, avDebugThing,
+                                 avDebugTeleport, avDebugMake, avDebugConnect, avDebugListClasses, {$ENDIF}
                   avHelp, avQuit);
 
    TAction = record
@@ -58,11 +59,13 @@ type
       avDance: ();
       {$IFDEF DEBUG}
       avDebugStatus: ();
+      avDebugLocations: ();
       avDebugLocation: ();
       avDebugThings: (DebugThings: TThingList);
       avDebugThing: (DebugThing: TThing);
       avDebugTeleport: (DebugTarget: TAtom);
       avDebugMake: (DebugMakeData: PUTF8String);
+      avDebugConnect: (DebugConnectDirection: TCardinalDirection; DebugConnectTarget: TAtom; DebugConnectOptions: TLandmarkOptions);
       avDebugListClasses: (DebugSuperclass: TClass);
       {$ENDIF}
       avHelp: ();
@@ -79,46 +82,20 @@ type
       FOnMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: UTF8String; { transient }
-      procedure DoFind(Subject: TThing);
-      procedure DoLookUnder(Subject: TThing);
-      procedure DoNavigation(Target: TThing; ThingPosition: TThingPosition; RequiredAbilities: TNavigationAbilities);
-      procedure DoNavigation(Direction: TCardinalDirection);
-      procedure DoTake(Subject: TThingList);
-      procedure DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
-      procedure DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous: Boolean; ThingPosition: TThingPosition);
-      procedure DoPush(Subject: TThingList; Direction: TCardinalDirection);
-      procedure DoRemove(Subject: TThingList; RequiredPosition: TThingPosition; RequiredParent: TThing);
-      procedure DoPress(Subject: TThingList);
-      procedure DoShake(Subject: TThingList);
-      procedure DoDig(Target: TThing; Spade: TThing);
-      procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
-      procedure DoOpen(Subject: TThing);
-      procedure DoClose(Subject: TThing);
-      procedure DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
-      procedure DoDance();
-      {$IFDEF DEBUG}
-      procedure DoDebugStatus();
-      procedure DoDebugLocation();
-      procedure DoDebugThings(Things: TThingList);
-      procedure DoDebugThing(Thing: TThing);
-      procedure DoDebugTeleport(Target: TAtom);
-      procedure DoDebugMake(Data: UTF8String);
-      procedure DoDebugListClasses(Superclass: TClass);
-      {$ENDIF}
-      procedure DoHelp();
-      procedure DoQuit();
       function CanCarryThing(Thing: TThing; var Message: TMessage): Boolean;
       function CanPushThing(Thing: TThing; var Message: TMessage): Boolean;
       function CanShakeThing(Thing: TThing; var Message: TMessage): Boolean;
       procedure DoPutInternal(CurrentSubject: TThing; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
       procedure SetContext(Context: UTF8String);
       procedure ResetContext();
+      {$IFDEF DEBUG}
+      function DebugGetCurrentLocation(): TLocation;
+      {$ENDIF}
     public
       constructor Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
-      procedure ExecuteAction(var Action: TAction);
       procedure DoLook(); override;
       procedure DoInventory();
       procedure AvatarMessage(Message: TMessage); override;
@@ -155,6 +132,32 @@ type
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
       function GetUsername(): UTF8String;
       function GetPassword(): UTF8String;
+      procedure DoFind(Subject: TThing);
+      procedure DoLookUnder(Subject: TThing);
+      procedure DoNavigation(Target: TThing; ThingPosition: TThingPosition; RequiredAbilities: TNavigationAbilities);
+      procedure DoNavigation(Direction: TCardinalDirection);
+      procedure DoTake(Subject: TThingList);
+      procedure DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
+      procedure DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous: Boolean; ThingPosition: TThingPosition);
+      procedure DoPush(Subject: TThingList; Direction: TCardinalDirection);
+      procedure DoRemove(Subject: TThingList; RequiredPosition: TThingPosition; RequiredParent: TThing);
+      procedure DoPress(Subject: TThingList);
+      procedure DoShake(Subject: TThingList);
+      procedure DoDig(Target: TThing; Spade: TThing);
+      procedure DoDig(Direction: TCardinalDirection; Spade: TThing);
+      procedure DoOpen(Subject: TThing);
+      procedure DoClose(Subject: TThing);
+      procedure DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
+      procedure DoDance();
+      {$IFDEF DEBUG}
+      procedure DoDebugStatus();
+      procedure DoDebugLocation();
+      procedure DoDebugThings(Things: TThingList);
+      procedure DoDebugThing(Thing: TThing);
+      procedure DoDebugTeleport(Target: TAtom);
+      procedure DoDebugListClasses(Superclass: TClass);
+      procedure DoDebugConnect(Direction: TCardinalDirection; Target: TAtom; Options: TLandmarkOptions);
+      {$ENDIF}
       procedure Adopt(AOnMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
       property Name: UTF8String read FName;
@@ -173,7 +176,7 @@ var
 implementation
 
 uses
-   sysutils, exceptions, broadcast, things, textstream;
+   sysutils, exceptions, broadcast, things;
 
 constructor TPlayer.Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
 var
@@ -211,51 +214,6 @@ begin
    Stream.WriteCardinal(Cardinal(FGender));
 end;
 
-procedure TPlayer.ExecuteAction(var Action: TAction);
-begin
-   case Action.Verb of
-    avLook: DoLook();
-    avLookDirectional: SendMessage(FParent.GetRepresentative().GetLookTowardsDirection(Self, Action.LookDirection));
-    avLookAt: SendMessage(Action.LookAtSubject.GetLookAt(Self));
-    avExamine: SendMessage(Action.ExamineSubject.GetExamine(Self));
-    avRead: SendMessage(Action.ReadSubject.GetDescriptionWriting(Self));
-    avLookUnder: DoLookUnder(Action.LookUnder);
-    avLookIn: SendMessage(Action.LookIn.GetLookIn(Self));
-    avInventory: DoInventory();
-    avFind: DoFind(Action.FindSubject);
-    avGo: DoNavigation(Action.GoDirection);
-    avEnter: DoNavigation(Action.EnterSubject, tpIn, Action.EnterRequiredAbilities);
-    avClimbOn: DoNavigation(Action.ClimbOnSubject, tpOn, Action.ClimbOnRequiredAbilities);
-    avTake: DoTake(Action.TakeSubject);
-    avPut: DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
-    avMove: DoMove(Action.MoveSubject, Action.MoveTarget, Action.MoveAmbiguous, Action.MovePosition);
-    avPush: DoPush(Action.PushSubject, Action.PushDirection);
-    avRemove: DoRemove(Action.RemoveSubject, Action.RemoveFromPosition, Action.RemoveFromObject);
-    avPress: DoPress(Action.PressSubject);
-    avShake: DoShake(Action.ShakeSubject);
-    avDig: DoDig(Action.DigTarget, Action.DigSpade);
-    avDigDirection: DoDig(Action.DigDirection, Action.DigSpade);
-    avOpen: DoOpen(Action.OpenTarget);
-    avClose: DoClose(Action.CloseTarget);
-    avTalk: DoTalk(Action.TalkTarget, Action.TalkMessage^, Action.TalkVolume);
-    avDance: DoDance();
-    {$IFDEF DEBUG}
-    avDebugStatus: DoDebugStatus();
-    avDebugLocation: DoDebugLocation();
-    avDebugThings: DoDebugThings(Action.DebugThings);
-    avDebugThing: DoDebugThing(Action.DebugThing);
-    avDebugTeleport: DoDebugTeleport(Action.DebugTarget);
-    avDebugMake: DoDebugMake(Action.DebugMakeData^);
-    avDebugListClasses: DoDebugListClasses(Action.DebugSuperclass);
-    {$ENDIF}
-    avHelp: DoHelp();
-    avQuit: DoQuit();
-   else
-    raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
-   end;
-   Assert(FContext = '');
-end;
-
 procedure TPlayer.DoLook();
 begin
    SendMessage(FParent.GetRepresentative().GetLook(Self));
@@ -279,6 +237,20 @@ begin
       StatusReport(Self);
 end;
 
+function TPlayer.DebugGetCurrentLocation(): TLocation;
+var
+   Location: TAtom;
+begin
+   Location := Self;
+   while (Assigned(Location) and (Location is TThing)) do
+      Location := (Location as TThing).Parent;
+   if (not Assigned(Location)) then
+      Fail('Player is in an orphan TThing tree!');
+   if (not (Location is TLocation)) then
+      Fail('Player is in a TThing tree that is not rooted by a TLocation!');
+   Result := TLocation(Location);
+end;
+
 procedure TPlayer.DoDebugLocation();
 
    function PresenceModeToString(const PresenceMode: TGetPresenceStatementMode): UTF8String;
@@ -296,23 +268,11 @@ procedure TPlayer.DoDebugLocation();
    end;
 
 var
-   Location: TAtom;
+   Location: TLocation;
    Direction: TCardinalDirection;
    PresenceMode: TGetPresenceStatementMode;
 begin
-   Location := Self;
-   while (Assigned(Location) and (Location is TThing)) do
-      Location := (Location as TThing).Parent;
-   if (not Assigned(Location)) then
-   begin
-      SendMessage('Player is in an orphan TThing tree!');
-      exit;
-   end;
-   if (not (Location is TLocation)) then
-   begin
-      SendMessage('Player is in a TThing tree that is not rooted by a TLocation!');
-      exit;
-   end;
+   Location := DebugGetCurrentLocation();
    SendMessage('GetLook:' + WithNewlineIfMultiline(Location.GetLook(Self)));
    SendMessage('GetLookAt:' + WithNewlineIfMultiline(Location.GetLookAt(Self)));
    SendMessage('GetLookTowardsDirection:');
@@ -339,6 +299,7 @@ begin
    // for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do
    //   SendMessage('  ' + PresenceModeToString(PresenceMode) + ':' + WithNewlineIfMultiline(Location.GetDescriptionRemoteBrief(Self, PresenceMode, cdIn)));
    // SendMessage('GetDescriptionRemoteDetailed:' + WithNewlineIfMultiline(Location.GetDescriptionRemoteDetailed(Self, cdIn)));
+   // XXX we should list all the landmarks with their options
 end;
 
 procedure TPlayer.DoDebugThings(Things: TThingList);
@@ -361,8 +322,9 @@ begin
          { there's always at least one thing: us }
       end;
       Assert(Things.Length > 0);
+      SendMessage('Things:');
       for Thing in Things do
-         SendMessage(Thing.GetName(Self) + ': ' + Thing.GetLongDefiniteName(Self));
+         SendMessage(' - ' + Thing.GetName(Self) + ': ' + Thing.GetLongDefiniteName(Self));
    finally
       if (Collect) then
          Things.Free();
@@ -394,39 +356,6 @@ begin
    end;
 end;
 
-function GetRegisteredClassUTF8(AClassName: UTF8String): TClass;
-begin
-   Result := GetRegisteredClass(AClassName);
-end;
-
-procedure TPlayer.DoDebugMake(Data: UTF8String);
-var
-   Creation: TThing;
-   Stream: TTextStream;
-begin
-   Assert(Length(Data) >= 2);
-   Assert(Data[1] = '"');
-   Assert(Data[Length(Data)] = '"');
-   Stream := TTextStreamFromString.Create(Copy(Data, 2, Length(Data) - 2), @GetRegisteredClassUTF8, @MakeAtomFromStream);
-   try
-      try
-         Creation := TThing.MakeFrom(Stream);
-      except
-         on Error: ETextStreamException do
-            Fail('The incantation fizzles as you hear a voice whisper "' + Error.Message + '".');
-      end;
-   finally
-      Stream.Free();
-   end;
-   Assert(Assigned(Creation));
-   Self.Add(Creation, tpCarried);
-   DoBroadcast([Self, Creation, Self], Self,
-               [C(M(@Self.GetDefiniteName)), SP,
-                MP(Self, M('manifests'), M('manifest')), SP,
-                M(@Creation.GetIndefiniteName), M('.')]);
-   SendMessage('Poof! ' + Creation.GetPresenceStatement(Self, psThereIsAThingHere));
-end;
-
 procedure TPlayer.DoDebugListClasses(Superclass: TClass);
 var
    RegisteredClassName: RawByteString;
@@ -435,22 +364,20 @@ begin
    for RegisteredClassName in GetRegisteredClasses(Superclass) do // $R-
       SendMessage(' - ' + RegisteredClassName);
 end;
+
+procedure TPlayer.DoDebugConnect(Direction: TCardinalDirection; Target: TAtom; Options: TLandmarkOptions);
+var
+   Location: TLocation;
+begin
+   Assert(Assigned(Target));
+   Location := DebugGetCurrentLocation();
+   Assert(Assigned(Location));
+   if ((loPermissibleNavigationTarget in Options) and Assigned(Location.GetAtomForDirectionalNavigation(Direction))) then
+      Fail('There is already a passage in that direction.');
+   Location.AddLandmark(Direction, Target, Options);
+   SendMessage('Abracadabra!');
+end;
 {$ENDIF}
-
-procedure TPlayer.DoHelp();
-begin
-   SendMessage('Welcome to CuddlyWorld!'+ #10 +
-               'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
-               'More elaborate constructions are also possible. You can "take something", or "put something in something else", for instance.' + #10 +
-               'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
-               'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''". ' + 'Please be descriptive and include as much information as possible about how to reproduce the bug. Thanks!' + #10 +
-               'Have fun!');
-end;
-
-procedure TPlayer.DoQuit();
-begin
-   SendMessage(':-(');
-end;
 
 procedure TPlayer.SetContext(Context: UTF8String);
 begin
@@ -1105,13 +1032,13 @@ procedure TPlayer.DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous:
       begin
          { There is no way you can push something onto something else if it's not already on something }
          Result := False;
-         Exit;
+         exit;
       end;
       { can slide onto something we're holding }
       if ((Surface is TThing) and ((Surface as TThing).Parent = Self) and ((Surface as TThing).Position = tpCarried)) then
       begin
          Result := True;
-         Exit;
+         exit;
       end;
       { next see if we're trying to move the thing off something else onto it (i.e. pushing onto an ancestor) }
       { note we have to stop if we get to something that is not on something, e.g. you can't push from on a plate that is in a bag onto the table the bag is on }
@@ -1123,7 +1050,7 @@ procedure TPlayer.DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous:
              ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tfCanHaveThingsPushedOn in (Surface as TThing).GetFeatures()))) then
          begin
             Result := True;
-            Exit;
+            exit;
          end;
       until ((not (Ancestor is TThing)) or
              (((Ancestor as TThing).Position in tpSeparate) and { tpIn is ok in the case where things can be pushed in/out from/to parent }
@@ -1139,13 +1066,13 @@ procedure TPlayer.DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous:
       begin
          { There is no way you can push something into something else if it's not on something }
          Result := False;
-         Exit;
+         exit;
       end;
       { can slide into something we're holding }
       if ((Surface is TThing) and ((Surface as TThing).Parent = Self) and ((Surface as TThing).Position = tpCarried)) then
       begin
          Result := True;
-         Exit;
+         exit;
       end;
       { next see if we're trying to move the thing off something else into it (i.e. pushing into an ancestor) }
       { note we have to stop if we get to something that is not on something, e.g. you can't push from on a plate that is in a bag into the chest that the bag is in }
@@ -1157,7 +1084,7 @@ procedure TPlayer.DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous:
              ((Surface is TThing) and ((Surface as TThing).Parent = Ancestor) and (tfCanHaveThingsPushedIn in (Surface as TThing).GetFeatures()))) then
          begin
             Result := True;
-            Exit;
+            exit;
          end;
       until ((not (Ancestor is TThing)) or
              (((Ancestor as TThing).Position in tpSeparate) and { tpIn is ok in the case where things can be pushed in/out from/to parent }
@@ -2105,12 +2032,12 @@ var
       Count := 0;
       Word := Tokens[Start];
       if (ConsumeTerminal('us', [gnPlural])) then
-         Exit
+         exit
       else
       if (Perspective = Self) then
       begin
          if (ConsumeTerminal('me', [gnSingular])) then
-            Exit;
+            exit;
       end
       else
       begin
@@ -2118,15 +2045,15 @@ var
          if (ConsumeAndEnd('other')) then
          begin
             GrammaticalNumber := [gnSingular];
-            Exit;
+            exit;
          end
          else
          if (ConsumeTerminal('them', [gnPlural]) or ConsumeTerminal('others', [gnPlural])) then
-            Exit;
+            exit;
       end;
       Assert(GrammaticalNumber = []);
       if (ConsumeAndEnd(Canonicalise(FName), [gnSingular])) then
-         Exit;
+         exit;
       case FGender of
          gMale:
             begin
@@ -2141,7 +2068,7 @@ var
                    ConsumeAndEnd('people', [gnPlural]) or
                    ConsumeAndEnd('humans', [gnPlural]) or
                    ConsumeAndEnd('males', [gnPlural])) then
-                  Exit;
+                  exit;
             end;
          gFemale:
             begin
@@ -2156,7 +2083,7 @@ var
                    ConsumeAndEnd('people', [gnPlural]) or
                    ConsumeAndEnd('humans', [gnPlural]) or
                    ConsumeAndEnd('females', [gnPlural])) then
-                  Exit;
+                  exit;
             end;
          gThirdGender:
             begin
@@ -2165,7 +2092,7 @@ var
                    ConsumeAndEnd('persons', [gnPlural]) or
                    ConsumeAndEnd('people', [gnPlural]) or
                    ConsumeAndEnd('humans', [gnPlural])) then
-                  Exit;
+                  exit;
             end;
          gRobot:
             begin
@@ -2176,13 +2103,13 @@ var
                    ConsumeAndEnd('people', [gnPlural]) or
                    ConsumeAndEnd('robots', [gnPlural]) or
                    ConsumeAndEnd('bots', [gnPlural])) then
-                  Exit;
+                  exit;
             end;
          gOrb:
             begin
                if (ConsumeAndEnd('orb', [gnSingular]) or
                    ConsumeAndEnd('orbs', [gnPlural])) then
-                  Exit;
+                  exit;
             end;
          gHive:
             begin
@@ -2191,19 +2118,19 @@ var
                   if (ReachedEnd) then
                   begin
                      GrammaticalNumber := [gnSingular];
-                     Exit;
+                     exit;
                   end
                   else
                   begin
                      if (ConsumeAndEnd('minds', [gnPlural])) then
                      begin
-                        Exit;
+                        exit;
                      end
                      else
                      begin
                         GrammaticalNumber := [gnSingular];
                         if (ConsumeAndEnd('mind')) then
-                           Exit;
+                           exit;
                      end;
                   end;
                end
@@ -2211,7 +2138,7 @@ var
                if (ConsumeAndEnd('hives', [gnPlural]) or
                    ConsumeAndEnd('hive-mind', [gnSingular]) or
                    ConsumeAndEnd('hive-minds', [gnPlural])) then
-                  Exit;
+                  exit;
             end;
         else
          Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
@@ -2220,12 +2147,12 @@ var
       begin
          if (ConsumeAndEnd('player', [gnSingular]) or
              ConsumeAndEnd('players', [gnPlural])) then
-            Exit;
+            exit;
       end;
       if (ConsumeNonTerminal('named', ReachedEnd)) then
       begin
          if (ConsumeAndEnd(Canonicalise(FName), [gnSingular])) then
-            Exit;
+            exit;
       end;
    end;
 
