@@ -1426,6 +1426,16 @@ procedure TestMechanics1();
        Proxy.ExpectString('');
        TestWorld.Perform('shake plastic spoon in pile and from a spoon', TestPlayer);
 
+       Proxy.ExpectString('Moved into the hole.'); // XXX
+       Proxy.ExpectString('You fill the hole with the pile of earth.');
+       Proxy.ExpectString('');
+       TestWorld.Perform('push the pile of earth into the hole', TestPlayer);
+
+       Proxy.ExpectString('(the ground)');
+       Proxy.ExpectString('With much effort, you dig a huge hole.');
+       Proxy.ExpectString('');
+       TestWorld.Perform('dig with the spade that is metal', TestPlayer);
+
        Proxy.SkipEverything();
        TestWorld.Perform('drop all', TestPlayer);
        Proxy.StopSkipping();
