@@ -431,6 +431,7 @@
                Fail('What do you want to look for?');
             if (not GetThing(Action.FindSubject, [], 'look for')) then
             begin
+               // Action.FindSubject is invalid here but it doesn't matter because we immediately throw
                if (TryDirection(Direction, [optAllowDefiniteArticle])) then
                   Fail('I don''t understand how to look for a direction.')
                else
@@ -461,6 +462,7 @@
             Fail('What do you want to examine?');
          if (not GetThing(Action.ExamineSubject, [], 'examine')) then
          begin
+            // Action.ExamineSubject is invalid here but it doesn't matter because we immediately throw
             if (TryDirection(Direction, [optAllowDefiniteArticle])) then
                Fail('That''s a direction, I don''t know how to examine it.')
             else
@@ -486,6 +488,7 @@
             Fail('A fine notion, but what do you want to read?');
          if (not GetThing(Action.ReadSubject, [], 'read')) then
          begin
+            // Action.ReadSubject is invalid here but it doesn't matter because we immediately throw
             if (TryDirection(Direction, [optAllowDefiniteArticle])) then
                Fail('That''s a direction, I don''t know how to read it.')
             else
@@ -528,6 +531,7 @@
             Fail('What do you want to find?');
          if (not GetThing(Action.FindSubject, [], 'find')) then
          begin
+            // Action.FindSubject is invalid here but it doesn't matter because we immediately throw
             if (TryDirection(Direction, [optAllowDefiniteArticle, optRequireCompassDirection])) then
             begin
                if (CanEnd()) then
@@ -591,21 +595,21 @@
          Action.Verb := avEnter;
          if (CanEnd()) then
             Fail('What do you want to enter?');
-         if (GetThing(Action.EnterSubject, [], 'enter')) then
+         if (not GetThing(Action.EnterSubject, [], 'enter')) then
          begin
-            if (not CanEnd()) then
-            begin
-               EnsureNoPunctuation();
-               Fail('I don''t understand how to enter things "' + OriginalTokens[CurrentToken] + '".');
-            end;
-            Details := Player.Locate(Action.EnterSubject);
-            Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
-         end
-         else
-         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
-            Fail('That''s a direction, I don''t know how to enter it.')
-         else
-            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+            // Action.EnterSubject is invalid here but it doesn't matter because we immediately throw
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
+               Fail('That''s a direction, I don''t know how to enter it.')
+            else
+               Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         end;
+         if (not CanEnd()) then
+         begin
+            EnsureNoPunctuation();
+            Fail('I don''t understand how to enter things "' + OriginalTokens[CurrentToken] + '".');
+         end;
+         Details := Player.Locate(Action.EnterSubject);
+         Action.EnterRequiredAbilities := Details.RequiredAbilitiesToNavigate;
       end
       else
          Result := False;
@@ -870,7 +874,10 @@
                      if (CanEnd()) then
                         Fail('What do you want to move things out of?');
                      if (not GetThing(Action.RemoveFromObject, [], 'move things out of')) then
+                     begin
+                        // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
                         Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+                     end;
                      if (not CanEnd()) then
                         Fail('I don''t understand how to move things out of things "' + OriginalTokens[CurrentToken] + '".');
                   end
@@ -898,7 +905,10 @@
                         Fail('What do you want to move things off?');
                   end;
                   if (not GetThing(Action.RemoveFromObject, [], 'move things off')) then
+                  begin
+                     // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+                  end;
                   if (not CanEnd()) then
                      Fail('I don''t understand how to move things off things "' + OriginalTokens[CurrentToken] + '".');
                end;
@@ -1054,6 +1064,8 @@
    function GetDig(var Action: TAction): Boolean;
    var
       Message: UTF8String;
+      PotentialTarget: TThing;
+      PotentialDirection: TCardinalDirection;
       GotThing: Boolean;
    begin
       if (Tokens[CurrentToken] = 'dig') then
@@ -1066,10 +1078,17 @@
          GotThing := False;
          if (not CanEnd()) then
          begin
-            if (TryDirection(Action.DigDirection, [])) then
-               Action.Verb := avDigDirection
+            if (TryDirection(PotentialDirection, [])) then
+            begin
+               Action.Verb := avDigDirection;
+               Action.DigDirection := PotentialDirection;
+            end
             else
-               GotThing := GetThing(Action.DigTarget, [], 'dig');
+            begin
+               GotThing := GetThing(PotentialTarget, [], 'dig');
+               if (GotThing) then
+                  Action.DigTarget := PotentialTarget;
+            end;
             if (not CanEnd()) then
             begin
                if (GetPrepositionThing('with', [], 'dig', Action.DigSpade)) then
@@ -1168,6 +1187,7 @@
    function GetOpen(var Action: TAction): Boolean;
    var
       Message: UTF8String;
+      PotentialTarget: TThing;
       GotThing: Boolean;
    begin
       if (Tokens[CurrentToken] = 'open') then
@@ -1179,7 +1199,9 @@
          GotThing := False;
          if (not CanEnd()) then
          begin
-            GotThing := GetThing(Action.OpenTarget, [], 'open');
+            GotThing := GetThing(PotentialTarget, [], 'open');
+            if (GotThing) then
+               Action.OpenTarget := PotentialTarget; 
             if (not CanEnd()) then
             begin
                if (GotThing) then
@@ -1207,6 +1229,7 @@
    function GetClose(var Action: TAction): Boolean;
    var
       Message: UTF8String;
+      PotentialTarget: TThing;
       GotThing: Boolean;
    begin
       if (Tokens[CurrentToken] = 'close') then
@@ -1218,7 +1241,9 @@
          GotThing := False;
          if (not CanEnd()) then
          begin
-            GotThing := GetThing(Action.CloseTarget, [], 'close');
+            GotThing := GetThing(PotentialTarget, [], 'close');
+            if (GotThing) then
+               Action.CloseTarget := PotentialTarget;
             if (not CanEnd()) then
             begin
                if (GotThing) then
@@ -1339,7 +1364,10 @@
                if (CanEnd()) then
                   Fail('Syntax: debug thing <thing>');
                if (not GetThing(Action.DebugThing, [], 'debug')) then
+               begin
+                  // Action.DebugThing is invalid here but it doesn't matter because we immediately throw
                   Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
+               end;
                if (not CanEnd()) then
                begin
                   EnsureNoPunctuation();
@@ -1349,13 +1377,17 @@
             else
             if (Tokens[CurrentToken] = 'teleport') then
             begin
+               // XXX should change to "debug teleport [foo] to bar [as tpFooBar]"; foo defaults to "me" and tpFooBar defaults to tpOn
                Inc(CurrentToken);
                Result := True;
                Action.Verb := avDebugTeleport;
                if (CanEnd()) then
                   Fail('Syntax: debug teleport <thing or location>');
                if ((not GetLocation(Action.DebugTarget)) and (not GetThing(Action.DebugTarget, [], 'debug'))) then
+               begin
+                  // Action.DebugTarget is invalid here but it doesn't matter because we immediately throw
                   Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things or "debug locations" to get a list of accessible locations.');
+               end;
                if (not CanEnd()) then
                begin
                   EnsureNoPunctuation();
@@ -1397,7 +1429,10 @@
                      begin
                         {$IFOPT C+} Action.DebugConnectTarget := nil; {$ENDIF}
                         if ((not GetLocation(Action.DebugConnectTarget)) and (not GetThing(Action.DebugConnectTarget, [], 'debug'))) then
+                        begin
+                           // Action.DebugConnectTarget is invalid here but it doesn't matter because we immediately throw
                            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things or "debug locations" to get a list of accessible locations.');
+                        end;
                         Assert(Assigned(Action.DebugConnectTarget));
                         if ((not CanEnd()) and (Tokens[CurrentToken] = 'with')) then
                         begin
