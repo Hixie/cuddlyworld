@@ -669,19 +669,19 @@
          Action.TakeSubject := nil;
          if (CanEnd()) then
             Fail('What do you want to take?');
-         if (GetThings(Action.TakeSubject, [aisSurroundings], [], 'take')) then
+         if (not GetThings(Action.TakeSubject, [aisSurroundings], [], 'take')) then
          begin
-            if (not CanEnd()) then
-            begin
-               EnsureNoPunctuation();
-               Fail('I don''t understand how to take things "' + OriginalTokens[CurrentToken] + '".');
-            end;
+            // Action.TakeSubject is not valid here, but that doesn't matter as we immediately throw.
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
+               Fail('That''s a direction, I don''t know how to take it.')
+            else
+               Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
          end
-         else
-         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
-            Fail('That''s a direction, I don''t know how to take it.')
-         else
-            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         if (not CanEnd()) then
+         begin
+            EnsureNoPunctuation();
+            Fail('I don''t understand how to take things "' + OriginalTokens[CurrentToken] + '".');
+         end;
       end;
    end;
 
@@ -723,58 +723,58 @@
          Action.PutSubject := nil;
          if (CanEnd()) then
             Fail(WhatQ);
-         if (GetThings(Action.PutSubject, [aisSelf], [eckIn, eckOn], Verb, 'You have nothing to ' + Verb + ' anywhere.')) then
+         if (not GetThings(Action.PutSubject, [aisSelf], [eckIn, eckOn], Verb, 'You have nothing to ' + Verb + ' anywhere.')) then
          begin
-            if (CanEnd()) then
-            begin
-               if (Player.Position in tpContained) then
-               begin
-                  Action.PutPosition := tpIn;
-                  Action.PutTarget := Player.Parent.GetInside(Action.PutPosition)
-                  {$IFOPT C+} ; Assert(Assigned(Action.PutTarget)); Action.PutTarget := Action.PutTarget {$ENDIF} // because otherwise, where are _we_??
-                                                                           .GetSurface();
-                  Assert(Assigned(Action.PutTarget)); // things always have surfaces
-               end
-               else
-               begin
-                  Action.PutPosition := tpOn;
-                  Action.PutTarget := Player.Parent.GetRepresentative().GetSurface();
-                  if (not Assigned(Action.PutTarget)) then
-                     Action.PutTarget := Player.Parent;
-               end;
-               Assert(Assigned(Action.PutTarget));
-               if (Action.PutCare = psCarefully) then
-                  Player.AutoDisambiguated(ThingPositionToString(Action.PutPosition) + ' ' + Action.PutTarget.GetDefiniteName(Player));
-            end
+            // Action.PutSubject is not valid here, but that doesn't matter as we immediately throw.
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
+               Fail(DirectionQ)
             else
-            if (GetPrepositionThing('onto', [], Verb + ' things', Action.PutTarget) or
-                GetCompoundPrepositionThing(['on', 'to'], [], Verb + ' things', 'on', Action.PutTarget) or
-                GetPrepositionThing('on', [], Verb + ' things', Action.PutTarget)) then
-            begin
-               Action.PutPosition := tpOn;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to ' + Verb + ' things on other things "' + OriginalTokens[CurrentToken] + '".');
-            end
-            else
-            if (GetPrepositionThing('into', [], Verb + ' things', Action.PutTarget) or
-                GetCompoundPrepositionThing(['in', 'to'], [], Verb + ' things', 'in', Action.PutTarget) or
-                GetPrepositionThing('in', [], Verb + ' things', Action.PutTarget) or
-                GetPrepositionThing('inside', [], Verb + ' things', Action.PutTarget)) then
+               Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         end;
+         if (CanEnd()) then
+         begin
+            if (Player.Position in tpContained) then
             begin
                Action.PutPosition := tpIn;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to ' + Verb + ' things in other things "' + OriginalTokens[CurrentToken] + '".');
+               Action.PutTarget := Player.Parent.GetInside(Action.PutPosition)
+               {$IFOPT C+} ; Assert(Assigned(Action.PutTarget)); Action.PutTarget := Action.PutTarget {$ENDIF} // because otherwise, where are _we_??
+                                                                        .GetSurface();
+               Assert(Assigned(Action.PutTarget)); // things always have surfaces
             end
             else
             begin
-               Fail('I don''t understand how to ' + Verb + ' things "' + OriginalTokens[CurrentToken] + '".');
+               Action.PutPosition := tpOn;
+               Action.PutTarget := Player.Parent.GetRepresentative().GetSurface();
+               if (not Assigned(Action.PutTarget)) then
+                  Action.PutTarget := Player.Parent;
             end;
+            Assert(Assigned(Action.PutTarget));
+            if (Action.PutCare = psCarefully) then
+               Player.AutoDisambiguated(ThingPositionToString(Action.PutPosition) + ' ' + Action.PutTarget.GetDefiniteName(Player));
          end
          else
-         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
-            Fail(DirectionQ)
+         if (GetPrepositionThing('onto', [], Verb + ' things', Action.PutTarget) or
+             GetCompoundPrepositionThing(['on', 'to'], [], Verb + ' things', 'on', Action.PutTarget) or
+             GetPrepositionThing('on', [], Verb + ' things', Action.PutTarget)) then
+         begin
+            Action.PutPosition := tpOn;
+            if (not CanEnd()) then
+               Fail('I don''t understand how to ' + Verb + ' things on other things "' + OriginalTokens[CurrentToken] + '".');
+         end
          else
-            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         if (GetPrepositionThing('into', [], Verb + ' things', Action.PutTarget) or
+             GetCompoundPrepositionThing(['in', 'to'], [], Verb + ' things', 'in', Action.PutTarget) or
+             GetPrepositionThing('in', [], Verb + ' things', Action.PutTarget) or
+             GetPrepositionThing('inside', [], Verb + ' things', Action.PutTarget)) then
+         begin
+            Action.PutPosition := tpIn;
+            if (not CanEnd()) then
+               Fail('I don''t understand how to ' + Verb + ' things in other things "' + OriginalTokens[CurrentToken] + '".');
+         end
+         else
+         begin
+            Fail('I don''t understand how to ' + Verb + ' things "' + OriginalTokens[CurrentToken] + '".');
+         end;
       end;
    end;
 
@@ -820,119 +820,119 @@
             Result := True;
          end
          else
-         if (GetThings(Action.MoveSubject, [aisSurroundings, aisSelf], [eckIn, eckOn], 'move')) then
+         if (not GetThings(Action.MoveSubject, [aisSurroundings, aisSelf], [eckIn, eckOn], 'move')) then
          begin
-            Action.Verb := avMove;
-            Action.MoveAmbiguous := False; // Fail, set the MovePosition, or reset MoveAmbiguous to True before exitting this
-            Result := True;
-            if (CanEnd()) then
+            // Action.MoveSubject is not valid here, but that doesn't matter as we immediately throw.
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         end;
+         Action.Verb := avMove;
+         Action.MoveAmbiguous := False; // Fail, set the MovePosition, or reset MoveAmbiguous to True before exitting this
+         Result := True;
+         if (CanEnd()) then
+         begin
+            Action.MoveTarget := nil;
+            Action.MovePosition := tpOn;
+         end
+         else
+         if (GetPrepositionThing('onto', [], 'move things', Action.MoveTarget) or
+             GetPrepositionThing('over', [], 'move things', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['on', 'to'], [], 'move things', 'onto', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['on'], [], 'move things', 'onto', Action.MoveTarget)) then
+         begin
+            Action.MovePosition := tpOn;
+            if (not CanEnd()) then
+               Fail('I don''t understand how to move things onto other things "' + OriginalTokens[CurrentToken] + '".');
+         end
+         else
+         if (GetPrepositionThing('into', [], 'move things', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['in', 'to'], [], 'move things', 'into', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['in'], [], 'move things', 'into', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['to', 'inside', 'of'], [], 'move things', 'into', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['to', 'inside'], [], 'move things', 'into', Action.MoveTarget)) then
+         begin
+            Action.MovePosition := tpIn;
+            if (not CanEnd()) then
+               Fail('I don''t understand how to move things into other things "' + OriginalTokens[CurrentToken] + '".');
+         end
+         else
+         if (GetPrepositionThing('to', [], 'move things', Action.MoveTarget)) then
+         begin
+            if (not CanEnd()) then
+               Fail('I don''t understand how to move things to other things "' + OriginalTokens[CurrentToken] + '".');
+            Action.MoveAmbiguous := True;
+         end
+         else
+         if (Tokens[CurrentToken] = 'out') then
+         begin
+            Inc(CurrentToken);
+            Assert(@Action.MoveSubject = @Action.RemoveSubject);
+            Action.Verb := avRemove;
+            Action.RemoveFromPosition := tpIn;
+            Action.RemoveFromObject := nil;
+            if (not CanEnd()) then
             begin
-               Action.MoveTarget := nil;
-               Action.MovePosition := tpOn;
-            end
-            else
-            if (GetPrepositionThing('onto', [], 'move things', Action.MoveTarget) or
-                GetPrepositionThing('over', [], 'move things', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on', 'to'], [], 'move things', 'onto', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on'], [], 'move things', 'onto', Action.MoveTarget)) then
-            begin
-               Action.MovePosition := tpOn;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to move things onto other things "' + OriginalTokens[CurrentToken] + '".');
-            end
-            else
-            if (GetPrepositionThing('into', [], 'move things', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in', 'to'], [], 'move things', 'into', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in'], [], 'move things', 'into', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside', 'of'], [], 'move things', 'into', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside'], [], 'move things', 'into', Action.MoveTarget)) then
-            begin
-               Action.MovePosition := tpIn;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to move things into other things "' + OriginalTokens[CurrentToken] + '".');
-            end
-            else
-            if (GetPrepositionThing('to', [], 'move things', Action.MoveTarget)) then
-            begin
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to move things to other things "' + OriginalTokens[CurrentToken] + '".');
-               Action.MoveAmbiguous := True;
-            end
-            else
-            if (Tokens[CurrentToken] = 'out') then
-            begin
-               Inc(CurrentToken);
-               Assert(@Action.MoveSubject = @Action.RemoveSubject);
-               Action.Verb := avRemove;
-               Action.RemoveFromPosition := tpIn;
-               Action.RemoveFromObject := nil;
-               if (not CanEnd()) then
+               if (Tokens[CurrentToken] = 'of') then
                begin
-                  if (Tokens[CurrentToken] = 'of') then
-                  begin
-                     Inc(CurrentToken);
-                     if (CanEnd()) then
-                        Fail('What do you want to move things out of?');
-                     if (not GetThing(Action.RemoveFromObject, [], 'move things out of')) then
-                     begin
-                        // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
-                        Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
-                     end;
-                     if (not CanEnd()) then
-                        Fail('I don''t understand how to move things out of things "' + OriginalTokens[CurrentToken] + '".');
-                  end
-                  else
-                  begin
-                     EnsureNoPunctuation();
-                     Fail('I don''t understand how to move things out "' + OriginalTokens[CurrentToken] + '".');
-                  end;
-               end;
-            end
-            else
-            if (Tokens[CurrentToken] = 'off') then
-            begin
-               Inc(CurrentToken);
-               Assert(@Action.MoveSubject = @Action.RemoveSubject);
-               Action.Verb := avRemove;
-               Action.RemoveFromPosition := tpOn;
-               Action.RemoveFromObject := nil;
-               if (not CanEnd()) then
-               begin
-                  if (Tokens[CurrentToken] = 'of') then
-                  begin
-                     Inc(CurrentToken);
-                     if (CanEnd()) then
-                        Fail('What do you want to move things off?');
-                  end;
-                  if (not GetThing(Action.RemoveFromObject, [], 'move things off')) then
+                  Inc(CurrentToken);
+                  if (CanEnd()) then
+                     Fail('What do you want to move things out of?');
+                  if (not GetThing(Action.RemoveFromObject, [], 'move things out of')) then
                   begin
                      // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
                   end;
                   if (not CanEnd()) then
-                     Fail('I don''t understand how to move things off things "' + OriginalTokens[CurrentToken] + '".');
-               end;
-            end
-            else
-            if (TryDirection(Action.PushDirection, []) or
-                TryPrepositionDirection('to', Action.PushDirection) or
-                TryPrepositionDirection('towards', Action.PushDirection)) then
-            begin
-               Assert(@Action.MoveSubject = @Action.PushSubject);
-               Action.Verb := avPush;
-               if (not CanEnd()) then
+                     Fail('I don''t understand how to move things out of things "' + OriginalTokens[CurrentToken] + '".');
+               end
+               else
                begin
                   EnsureNoPunctuation();
-                  Fail('I don''t understand how to move things in a direction "' + OriginalTokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to move things out "' + OriginalTokens[CurrentToken] + '".');
                end;
-            end
-            else
-            begin
-               Fail('I don''t understand how to move things "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         if (Tokens[CurrentToken] = 'off') then
+         begin
+            Inc(CurrentToken);
+            Assert(@Action.MoveSubject = @Action.RemoveSubject);
+            Action.Verb := avRemove;
+            Action.RemoveFromPosition := tpOn;
+            Action.RemoveFromObject := nil;
+            if (not CanEnd()) then
+            begin
+               if (Tokens[CurrentToken] = 'of') then
+               begin
+                  Inc(CurrentToken);
+                  if (CanEnd()) then
+                     Fail('What do you want to move things off?');
+               end;
+               if (not GetThing(Action.RemoveFromObject, [], 'move things off')) then
+               begin
+                  // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
+                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+               end;
+               if (not CanEnd()) then
+                  Fail('I don''t understand how to move things off things "' + OriginalTokens[CurrentToken] + '".');
+            end;
+         end
+         else
+         if (TryDirection(Action.PushDirection, []) or
+             TryPrepositionDirection('to', Action.PushDirection) or
+             TryPrepositionDirection('towards', Action.PushDirection)) then
+         begin
+            Assert(@Action.MoveSubject = @Action.PushSubject);
+            Action.Verb := avPush;
+            if (not CanEnd()) then
+            begin
+               EnsureNoPunctuation();
+               Fail('I don''t understand how to move things in a direction "' + OriginalTokens[CurrentToken] + '".');
+            end;
+         end
+         else
+         begin
+            Fail('I don''t understand how to move things "' + OriginalTokens[CurrentToken] + '".');
+         end;
       end
       else
          Result := False;
@@ -947,85 +947,85 @@
          Inc(CurrentToken);
          if (CanEnd()) then
             Fail('Push what in what direction?');
-         if (GetThings(Action.PushSubject, [aisSurroundings], [eckIn, eckOn], 'push')) then
+         if (not GetThings(Action.PushSubject, [aisSurroundings], [eckIn, eckOn], 'push')) then
          begin
-            Action.Verb := avPush;
-            Result := True;
-            if (CanEnd()) then
+            // Action.PushSubject is not valid here, but that doesn't matter as we immediately throw.
+            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         end;
+         Action.Verb := avPush;
+         Result := True;
+         if (CanEnd()) then
+         begin
+            Assert(@Action.PushSubject = @Action.PressSubject);
+            Action.Verb := avPress;
+         end
+         else
+         if (GetPrepositionThing('onto', [], 'push things', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['on', 'to'], [], 'push things', 'onto', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['on'], [], 'push things', 'onto', Action.MoveTarget)) then
+         begin
+            Assert(@Action.PushSubject = @Action.MoveSubject);
+            Action.Verb := avMove;
+            Action.MoveAmbiguous := False;
+            Action.MovePosition := tpOn;
+            if (not CanEnd()) then
+               Fail('I don''t understand how to push things onto other things "' + OriginalTokens[CurrentToken] + '".');
+         end
+         else
+         if (GetPrepositionThing('into', [], 'push things', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['in', 'to'], [], 'push things', 'into', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['in'], [], 'push things', 'into', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['to', 'inside', 'of'], [], 'push things', 'into', Action.MoveTarget) or
+             GetCompoundPrepositionThing(['to', 'inside'], [], 'push things', 'into', Action.MoveTarget)) then
+         begin
+            Assert(@Action.PushSubject = @Action.MoveSubject);
+            Action.Verb := avMove;
+            Action.MoveAmbiguous := False;
+            Action.MovePosition := tpIn;
+            if (not CanEnd()) then
+               Fail('I don''t understand how to push things into other things "' + OriginalTokens[CurrentToken] + '".');
+         end
+         else
+         if (GetPrepositionThing('to', [], 'push things', Action.MoveTarget)) then
+         begin
+            // XXX should probably change this to use MoveAmbiguous = True
+            PositionOverride := tpIn;
+            if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
             begin
-               Assert(@Action.PushSubject = @Action.PressSubject);
-               Action.Verb := avPress;
-            end
-            else
-            if (GetPrepositionThing('onto', [], 'push things', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on', 'to'], [], 'push things', 'onto', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['on'], [], 'push things', 'onto', Action.MoveTarget)) then
-            begin
-               Assert(@Action.PushSubject = @Action.MoveSubject);
-               Action.Verb := avMove;
-               Action.MoveAmbiguous := False;
-               Action.MovePosition := tpOn;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to push things onto other things "' + OriginalTokens[CurrentToken] + '".');
-            end
-            else
-            if (GetPrepositionThing('into', [], 'push things', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in', 'to'], [], 'push things', 'into', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['in'], [], 'push things', 'into', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside', 'of'], [], 'push things', 'into', Action.MoveTarget) or
-                GetCompoundPrepositionThing(['to', 'inside'], [], 'push things', 'into', Action.MoveTarget)) then
-            begin
+               // XXX could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
+               Player.AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Player));
                Assert(@Action.PushSubject = @Action.MoveSubject);
                Action.Verb := avMove;
                Action.MoveAmbiguous := False;
                Action.MovePosition := tpIn;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to push things into other things "' + OriginalTokens[CurrentToken] + '".');
             end
             else
-            if (GetPrepositionThing('to', [], 'push things', Action.MoveTarget)) then
             begin
-               // XXX should probably change this to use MoveAmbiguous = True
-               PositionOverride := tpIn;
-               if (Assigned(Action.MoveTarget.GetInside(PositionOverride))) then
-               begin
-                  // XXX could mention PositionOverride - '(inside hut, on floor)' - if we could also parse that
-                  Player.AutoDisambiguated('inside ' + Action.MoveTarget.GetDefiniteName(Player));
-                  Assert(@Action.PushSubject = @Action.MoveSubject);
-                  Action.Verb := avMove;
-                  Action.MoveAmbiguous := False;
-                  Action.MovePosition := tpIn;
-               end
-               else
-               begin
-                  Player.AutoDisambiguated('on ' + Action.MoveTarget.GetDefiniteName(Player));
-                  Assert(@Action.PushSubject = @Action.MoveSubject);
-                  Action.Verb := avMove;
-                  Action.MoveAmbiguous := False;
-                  Action.MovePosition := tpOn;
-               end;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to push things to other things "' + OriginalTokens[CurrentToken] + '".');
-            end
-            else
-            if (TryDirection(Action.PushDirection, []) or
-                TryPrepositionDirection('to', Action.PushDirection) or
-                TryPrepositionDirection('towards', Action.PushDirection)) then
-            begin
-               if (not CanEnd()) then
-               begin
-                  EnsureNoPunctuation();
-                  Fail('I don''t understand how to push things in a direction "' + OriginalTokens[CurrentToken] + '".');
-               end;
-            end
-            else
+               Player.AutoDisambiguated('on ' + Action.MoveTarget.GetDefiniteName(Player));
+               Assert(@Action.PushSubject = @Action.MoveSubject);
+               Action.Verb := avMove;
+               Action.MoveAmbiguous := False;
+               Action.MovePosition := tpOn;
+            end;
+            if (not CanEnd()) then
+               Fail('I don''t understand how to push things to other things "' + OriginalTokens[CurrentToken] + '".');
+         end
+         else
+         if (TryDirection(Action.PushDirection, []) or
+             TryPrepositionDirection('to', Action.PushDirection) or
+             TryPrepositionDirection('towards', Action.PushDirection)) then
+         begin
+            if (not CanEnd()) then
             begin
                EnsureNoPunctuation();
-               Fail('I don''t understand how to push things "' + OriginalTokens[CurrentToken] + '".');
+               Fail('I don''t understand how to push things in a direction "' + OriginalTokens[CurrentToken] + '".');
             end;
          end
          else
-            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         begin
+            EnsureNoPunctuation();
+            Fail('I don''t understand how to push things "' + OriginalTokens[CurrentToken] + '".');
+         end;
       end
       else
          Result := False;
@@ -1043,19 +1043,19 @@
          Action.ShakeSubject := nil;
          if (CanEnd()) then
             Fail('What do you want to shake?');
-         if (GetThings(Action.ShakeSubject, [aisSurroundings, aisSelf], [], 'shake')) then
+         if (not GetThings(Action.ShakeSubject, [aisSurroundings, aisSelf], [], 'shake')) then
          begin
-            if (not CanEnd()) then
-            begin
-               EnsureNoPunctuation();
-               Fail('I don''t understand how to shake things "' + OriginalTokens[CurrentToken] + '".');
-            end;
-         end
-         else
-         if (TryDirection(Direction, [optAllowDefiniteArticle])) then
-            Fail('That''s a direction, I don''t know how to shake it.')
-         else
-            Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+            // Action.ShakeSubject is not valid here, but that doesn't matter as we immediately throw.
+            if (TryDirection(Direction, [optAllowDefiniteArticle])) then
+               Fail('That''s a direction, I don''t know how to shake it.')
+            else
+               Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+         end;
+         if (not CanEnd()) then
+         begin
+            EnsureNoPunctuation();
+            Fail('I don''t understand how to shake things "' + OriginalTokens[CurrentToken] + '".');
+         end;
       end
       else
          Result := False;
@@ -1347,7 +1347,10 @@
                if (not CanEnd()) then
                begin
                   if (not GetThings(Action.DebugThings, [aisSelf, aisSurroundings], [], 'debug', 'There''s nothing implicitly accessible here. Use "debug things" to get a list of explicitly accessible things.')) then
+                  begin
+                     // Action.DebugThings is not valid here, but that doesn't matter as we immediately throw.
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
+                  end;
                   if (not CanEnd()) then
                   begin      
                      EnsureNoPunctuation();
