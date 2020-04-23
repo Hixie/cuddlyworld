@@ -676,7 +676,7 @@
                Fail('That''s a direction, I don''t know how to take it.')
             else
                Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
-         end
+         end;
          if (not CanEnd()) then
          begin
             EnsureNoPunctuation();
