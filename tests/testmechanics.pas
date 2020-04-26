@@ -129,7 +129,6 @@ begin
         ekSkip: Found := True;
         ekDisconnected: Error := 'expected to be disconnected but got "' + Message + '"';
         ekRecordingStart: Error := 'expected to start seeing a previously recorded session but got "' + Message + '"';
-        else Error := 'Unknown expectation';
       end;
       if (not Found) then
       begin

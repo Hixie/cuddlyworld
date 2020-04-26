@@ -104,7 +104,6 @@ begin
       case FDirection of
        tdForward: FCurrentListNode := FCurrentListNode^.Next;
        tdReverse: FCurrentListNode := FCurrentListNode^.Previous;
-       else Assert(False, 'unknown direction');
       end;
    end
    else
@@ -128,9 +127,6 @@ begin
       case FDirection of
         tdForward: Result := Assigned(FCurrentListNode^.Next);
         tdReverse: Result := Assigned(FCurrentListNode^.Previous);
-       else       
-         Assert(False, 'unknown direction');
-         Result := False;
       end;
    end;
    {$IFOPT C+} FList.CheckLength(); {$ENDIF}
@@ -159,7 +155,6 @@ begin
    case FDirection of
     tdForward: FCurrentListNode := FCurrentListNode^.Next;
     tdReverse: FCurrentListNode := FCurrentListNode^.Previous;
-    else Assert(False, 'unknown direction');
    end;
    FAdvanced := True;
    FList.InternalRemoveItem(Node);
@@ -368,7 +363,6 @@ begin
           else
              Empty();
        end;
-    else Assert(False, 'unknown direction');
    end;
    {$IFOPT C+} CheckLength(); {$ENDIF}
 end;
@@ -547,7 +541,6 @@ begin
    case TTraversalDirection(Enumerator.FDirection) of
     tdForward: Enumerator.FCurrentListNode := Enumerator.FCurrentListNode^.Next;
     tdReverse: Enumerator.FCurrentListNode := Enumerator.FCurrentListNode^.Previous;
-    else Assert(False, 'unknown direction');
    end;
    Enumerator.FAdvanced := True;
    { Then update source list }
@@ -741,9 +734,6 @@ begin
    case Direction of
      tdForward: Result := TEnumerator.Create(Self, FFirstNode, Direction);
      tdReverse: Result := TEnumerator.Create(Self, FLastNode, Direction);
-    else
-      Assert(False, 'unknown direction');
-      Result := nil;
    end;
 end;
 

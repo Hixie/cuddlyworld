@@ -199,8 +199,6 @@ begin
               TokeniserState := tsWordStart;
            end;
           end;
-      else
-       Assert(False, 'Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
       end;
       Inc(Index);
    end;
@@ -219,8 +217,6 @@ begin
         else
            PushToken('""')
      end;
-   else
-    Assert(False, 'Tokeniser reached bogus state ' + IntToStr(Ord(TokeniserState)));
    end;
 end;
 
@@ -505,9 +501,6 @@ begin
      cdDown: Result := 'down';
      cdOut: Result := 'out';
      cdIn: Result := 'in';
-    else
-      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
-      Result := '<error>';
    end;
 end;
 
@@ -526,9 +519,6 @@ begin
      cdDown: Result := 'below';
      cdOut: Result := 'outside';
      cdIn: Result := 'inside';
-    else
-      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
-      Result := '<error>';
    end;
 end;
 
@@ -549,9 +539,6 @@ begin
      cdDown: Result := 'below';
      cdOut: Result := 'to the outside';
      cdIn: Result := 'inwards'; // probably doesn't make much sense
-    else
-      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
-      Result := '<error>';
    end;
 end;
 
@@ -570,9 +557,6 @@ begin
      cdDown: Result := cdUp;
      cdOut: Result := cdIn;
      cdIn: Result := cdOut;
-    else
-      Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
-      Result := cdOut;
    end;
 end;
 
@@ -588,9 +572,6 @@ begin
      tpInstalledIn: Result := 'installed in';
      tpCarried: Result := 'being carried by';
      tpPlantedInImplicit, tpPlantedIn: Result := 'planted in';
-    else
-      Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
-      Result := '<error>';
    end;
 end;
 
@@ -608,9 +589,6 @@ begin
      tpSurfaceOpening, tpInstalledIn, tpIn, tpEmbedded: Result := 'into';
      tpCarried: Result := 'so that it is carried by'; // assert instead?
      tpPlantedInImplicit, tpPlantedIn: Result := 'so that it is planted in';
-    else
-      Assert(False, 'Unknown thing position ' + IntToStr(Ord(Position)));
-      Result := '<error>';
    end;
 end;
 

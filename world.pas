@@ -190,6 +190,8 @@ begin
              avDebugThings: Action.DebugThings.Free();
              avDebugMake: Dispose(Action.DebugMakeData);
              {$ENDIF}
+            else
+               ; // not all verbs have allocated memory
             end;
          end;
          Player.SendRawMessage('');

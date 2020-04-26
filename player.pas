@@ -258,9 +258,6 @@ procedure TPlayer.DoDebugLocation();
          psOnThatThingIsAThing { nested look }: Result := 'psOnThatThingIsAThing';
          psTheThingIsOnThatThing { find }: Result := 'psTheThingIsOnThatThing';
          psOnThatSpecialThing { find (something far away) -- only if parent is TThing, not TLocation }: Result := 'psOnThatSpecialThing';
-       else
-         Assert(False);
-         Result := '<error>';
       end;
    end;
 
@@ -460,9 +457,6 @@ begin
    case FGender of
      gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
      gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
-    else
-      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-      Result := '<error>';
    end;
 end;
 
@@ -474,9 +468,6 @@ begin
    case FGender of
      gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
      gHive: Result := 'The ' + Capitalise(FName);
-    else
-      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-      Result := '<error>';
    end;
 end;
 
@@ -499,9 +490,6 @@ begin
      gThirdGender: Result := 's/he';
      gRobot, gOrb: Result := 'it';
      gHive: Result := 'they';
-    else
-      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-      Result := '<error>';
    end;
 end;
 
@@ -516,9 +504,6 @@ begin
      gThirdGender: Result := 'him/her';
      gRobot, gOrb: Result := 'it';
      gHive: Result := 'them';
-    else
-      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-      Result := '<error>';
    end;
 end;
 
@@ -533,9 +518,6 @@ begin
      gThirdGender: Result := 'him/herself';
      gRobot, gOrb: Result := 'itself';
      gHive: Result := 'themselves';
-    else
-      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-      Result := '<error>';
    end;
 end;
 
@@ -550,9 +532,6 @@ begin
      gThirdGender: Result := 'his/hers';
      gRobot, gOrb: Result := 'its';
      gHive: Result := 'theirs';
-    else
-      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-      Result := '<error>';
    end;
 end;
 
@@ -567,9 +546,6 @@ begin
      gThirdGender: Result := 'his/her';
      gRobot, gOrb: Result := 'its';
      gHive: Result := 'their';
-    else
-      Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-      Result := '<error>';
    end;
 end;
 
@@ -607,9 +583,6 @@ begin
         gRobot: Result := 'You are operating within standard parameters, ' + FName + '.';
         gOrb: Result := 'You are a beautiful orb of light, ' + FName + ', floating in the air.';
         gHive: Result := 'You are quite the hive, ' + FName + '.';
-       else
-         Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-         Result := '<error>';
       end;
    end
    else
@@ -621,9 +594,6 @@ begin
         gRobot: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a robot of no consequence.';
         gOrb: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a floating orb of light of no consequence.';
         gHive: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a hive mind of no consequence.';
-       else
-         Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
-         Result := '<error>';
       end;
       if (not HasConnectedPlayer) then
       begin
@@ -631,8 +601,6 @@ begin
            gMale, gFemale, gThirdGender, gHive: Result := Result + ' ' + Capitalise(GetPossessiveAdjective(Perspective)) + ' eyes look into the distance, as if ' + GetSubjectPronoun(Perspective) + ' ' + TernaryConditional('isn''t', 'aren''t', IsPlural(Perspective)) + ' really here.';
            gRobot: Result := Result + ' It appears to be currently powered down, though you see no visible means of turning it on.';
            gOrb: Result := Result + ' The light is currently quite dim.';
-          else
-            Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
          end;
       end;
    end;
@@ -989,8 +957,6 @@ begin
          case (Care) of
            psCarefully: MessageText := 'Placed';
            psRoughly: MessageText := 'Dropped';
-          else
-             Assert(False);
          end;
          if (Target <> FParent.GetSurface()) then
             MessageText := MessageText + ' ' + ThingPositionToString(ThingPosition) + ' ' + Target.GetDefiniteName(Self);
@@ -1712,8 +1678,6 @@ begin
     tvWhispering: begin SingularVerb := 'whispers'; PluralVerb := 'whisper'; end;
     tvSpeaking: begin SingularVerb := 'says'; PluralVerb := 'say'; end;
     tvShouting: begin SingularVerb := 'shouts'; PluralVerb := 'shout'; end;
-   else
-    raise Exception.Create('Unknown volume: ' + IntToStr(Ord(Volume)));
    end;
    if (Assigned(Target)) then
    begin
@@ -2124,8 +2088,6 @@ var
                    ConsumeAndEnd('hive-minds', [gnPlural])) then
                   exit;
             end;
-        else
-         Assert(False, 'Unknown gender ' + IntToStr(Cardinal(FGender)));
       end;
       if (GrammaticalNumber <> [gnPlural]) then
       begin
