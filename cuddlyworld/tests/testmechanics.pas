@@ -323,7 +323,6 @@ begin
    inherited;
 end;
 
-
 procedure RunMechanicsHarness(InitTest: TInitWorld; RunTest: TRunWorld; SaveWorld: Boolean);
 var
    TestWorld: TWorld;
@@ -341,6 +340,7 @@ begin
    end;
    TestWorld := InitTest();
    Failed := False;
+   RaiseMaxFrameCount := maxint;
    try
       try
          TestPlayer := TPlayer.Create('Tester', '', gRobot);

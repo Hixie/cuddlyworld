@@ -1865,9 +1865,9 @@ var
                      GotWhitelist := True;
                      FindMatchingThingsOptions := [];
                      if (FromOutside) then
-                        Include(FindMatchingThingsOptions, foFromOutside);
+                        Include(FindMatchingThingsOptions, fomFromOutside);
                      if (aisSelf in Scope) then
-                        Include(FindMatchingThingsOptions, foIncludePerspectiveChildren);
+                        Include(FindMatchingThingsOptions, fomIncludePerspectiveChildren);
                      Root.FindMatchingThings(Perspective, FindMatchingThingsOptions, tpCountsForAll, [], Whitelist);
                   end;
                   CurrentClause.SelfCensor(Whitelist);
@@ -2008,9 +2008,9 @@ var
             FCurrentBestThingList := TThingList.Create();
          Assert(FCurrentBestThingList.Length = 0);
          Root := Perspective.GetSurroundingsRoot(FromOutside);
-         FindMatchingThingsOptions := [foIncludePerspectiveChildren];
+         FindMatchingThingsOptions := [fomIncludePerspectiveChildren];
          if (FromOutside) then
-            Include(FindMatchingThingsOptions, foFromOutside);
+            Include(FindMatchingThingsOptions, fomFromOutside);
          Root.FindMatchingThings(Perspective, FindMatchingThingsOptions, tpEverything, tfEverything, FCurrentBestThingList);
          AppendClause(ClauseClass.Create(1, tsmPickAll, Flags, FCurrentBestThingList, OriginalTokens[CurrentToken - 1]));
          FCurrentBestThingList := nil;

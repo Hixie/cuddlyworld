@@ -547,8 +547,8 @@ begin
      cdNorthWest: Result := 'to the northwest';
      cdUp: Result := 'above';
      cdDown: Result := 'below';
-     cdOut: Result := 'outside'; // probably doesn't make much sense
-     cdIn: Result := 'inside'; // probably doesn't make much sense
+     cdOut: Result := 'to the outside';
+     cdIn: Result := 'inwards'; // probably doesn't make much sense
     else
       Assert(False, 'Unknown cardinal direction ' + IntToStr(Ord(CardinalDirection)));
       Result := '<error>';

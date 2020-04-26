@@ -59,32 +59,10 @@ end;
 function InitEden: TWorld;
 var
    World: TCuddlyWorld;
-   SkyBox, Room1, Room2, DoorwayLocation, Tunnel, TunnelEnd, Bedroom, Cave: TLocation;
-   Thing, Sky, Sun, Bed, Pillow, Stars, Ceiling: TThing;
-   Doorway: TThresholdThing;
+   Tunnel, TunnelEnd, Bedroom, Cave: TLocation;
+   Thing, Bed, Pillow, Stars, Ceiling: TThing;
 begin
    World := TCuddlyWorld.Create();
-
-   Sky := TScenery.Create('sky', 'blue? sky/skies', 'The sky is clear.');
-   Sun := TScenery.Create('sun', '(sun/suns star/stars)@', 'The sun is bright.');
-   (Sky as TScenery).Opened := True;
-   Sky.Add(Sun, tpEmbedded);
-   SkyBox := TBackdrop.Create(Sky, tpAtImplicit);
-   World.AddLocation(SkyBox);
-
-   Room1 := TGroundLocation.Create('Room', 'a room', 'the room', 'Nothing is particularly noteworthy about this location.', CreateEarthSurface());
-   Room1.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
-
-   Room2 := TGroundLocation.Create('Back Room', 'a back room', 'the back room', 'Nothing is particularly noteworthy about this second location.', CreateEarthSurface());
-   Room2.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
-   
-   Doorway := TDoorWay.Create('doorway', 'unnotable? doorway/doorways', 'The doorway has no notable features.', cdSouth,
-                              TDoor.Create('door', 'wooden? (open:1 closed:2)* door/doors', 
-                                          TDoorSide.Create('side', 'varnished? (front:1)? side/sides', 'the door is varnished.'),
-                                          TDoorSide.Create('side', '((scratched? (back:1)? side/sides) scratch/scratches)@', 'the door has a big scratch, as if made by a wolf.')));
-
-   DoorwayLocation := ConnectThreshold(Room1, Room2, Doorway);
-   DoorwayLocation.AddLandmark(cdUp, Sky, [loVisibleFromFarAway]);
 
    Tunnel := TGroundLocation.Create('Tunnel Trail', 'a tunnel trail', 'the tunnel trail', 'The tunnel has many turns.', CreateEarthSurface());
    TunnelEnd := TGroundLocation.Create('Tunnel End', 'a tunnel end', 'the tunnel end', 'The tunnel end room has white walls.', CreateEarthSurface());
@@ -135,18 +113,14 @@ begin
    Bedroom.GetSurface().Add(TOpening.Create('stairs', 'stair/stairs', 'The stairs lead down.', Cave, tsGigantic), tpSurfaceOpening);
    Ceiling.Add(TOpening.Create('stairs', 'stair/stairs', 'The stairs lead up.', Bedroom, tsGigantic), tpSurfaceOpening);
 
-   ConnectLocations(Room1, cdSouth, Tunnel, [loPermissibleNavigationTarget, loAutoDescribe]);
    ConnectLocations(Tunnel, cdSouth, TunnelEnd, [loPermissibleNavigationTarget, loAutoDescribe]);
    ConnectLocations(Tunnel, cdWest, Cave, [loPermissibleNavigationTarget, loAutoDescribe]);
 
-   World.AddLocation(Room1);
-   World.AddLocation(Room2);
-   World.AddLocation(DoorwayLocation);
    World.AddLocation(Tunnel);
    World.AddLocation(TunnelEnd);
    World.AddLocation(Bedroom);
    World.AddLocation(Cave);
-   World.StartingLocation := Room1.GetSurface();
+   World.StartingLocation := Cave.GetSurface();
    Assert(Assigned(World.StartingLocation));
    World.StartingPosition := tpOn;
 
