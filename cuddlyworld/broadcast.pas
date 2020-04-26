@@ -155,6 +155,7 @@ begin
     bpkPluralCheck: begin ClearBroadcastPart(BroadcastPart^.DataPluralSingularPart); ClearBroadcastPart(BroadcastPart^.DataPluralPluralPart); end;
     bpkPerspectivePluralCheck: begin ClearBroadcastPart(BroadcastPart^.DataPerspectivePluralSingularPart); ClearBroadcastPart(BroadcastPart^.DataPerspectivePluralPluralPart); end;
     bpkCallbackPluralCheckMethod: begin ClearBroadcastPart(BroadcastPart^.DataCallbackPluralCheckMethodSingularPart); ClearBroadcastPart(BroadcastPart^.DataCallbackPluralCheckMethodPluralPart); end;
+    else ; // other types don't allocate memory
    end;
    Dispose(BroadcastPart);
 end;

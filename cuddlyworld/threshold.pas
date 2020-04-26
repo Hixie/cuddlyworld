@@ -323,7 +323,7 @@ begin
             else
                Result := inherited;
          end;
-      else // rppHere
+      rppHere:
          Result := inherited;
    end;
 end;
@@ -649,6 +649,7 @@ begin
       case (LocatePerspective(Perspective)) of
          rppFront: Exclude(Directions, cdReverse[FFrontSideFacesDirection]);
          rppBack: Exclude(Directions, FFrontSideFacesDirection);
+         rppHere: ; // nothing to change
       end;
       Result := Capitalise(GetDefiniteName(Perspective)) + ' ' +
                 TernaryConditional('contains', 'contain', IsPlural(Perspective)) + ' ' +
@@ -779,6 +780,7 @@ begin
          case (LocatePerspective(Perspective)) of
             rppFront: Direction := cdReverse[FFrontSideFacesDirection];
             rppBack: Direction := FFrontSideFacesDirection;
+            rppHere: ; // cdIn is fine
          end;
       end;
       PositionOverride := tpOn;
@@ -816,7 +818,7 @@ begin
       end
       else
       begin
-         Assert(IsClear());
+         Assert(IsClear(), 'Something is mysteriously blocking the (closed!) door.');
          DoBroadcast([TheDoor, Perspective], Perspective, [C(M(@Perspective.GetDefiniteName)), SP,
                                                            MP(Perspective, M('opens'), M('open')), SP,
                                                            M(@TheDoor.GetDefiniteName), M('.')]);

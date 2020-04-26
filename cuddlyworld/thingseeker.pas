@@ -535,9 +535,6 @@ begin
               Assert(not (cfAllowExceptions in FFlags));
               Result := '';
            end;
-       else
-         Assert(False, 'unknown TThingSelectionMechanism');
-         Result := '<error>';
       end;
    end
    else
@@ -616,9 +613,6 @@ begin
           end;
           Result := False;
        end;
-    else
-      Assert(False, 'unknown thing selection mechanism');
-      Result := False;
    end;
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' ended with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Result=', Result); {$ENDIF}
 end;

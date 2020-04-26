@@ -47,7 +47,7 @@ begin
    NewLength := LengthFmt - Length(Args); // $R-
    for ArgIndex := Low(Args) to High(Args) do // $R-
       Inc(NewLength, Length(Args[ArgIndex]));
-   SetLength(Result, NewLength);
+   SetLength(Result, NewLength); {BOGUS Hint: Function result variable of a managed type does not seem to be initialized}
    FmtStart := 1;
    FmtIndex := 1;
    ArgIndex := Low(Args);

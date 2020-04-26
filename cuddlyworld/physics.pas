@@ -1479,7 +1479,9 @@ begin
    Context := FParent.GetRepresentative();
    if (Context is TThing) then
       case FPosition of
-       tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetDefiniteName(Perspective);
+         tpAmbiguousPartOfImplicit: Result := Result + ' of ' + Context.GetDefiniteName(Perspective);
+      else
+         ;
       end;
 end;
 
@@ -1496,6 +1498,8 @@ begin
        tpOnImplicit: Result := Result + ' on ' + Context.GetDefiniteName(Perspective);
        tpAtImplicit: Result := Result + ' at ' + Context.GetDefiniteName(Perspective);
        tpAroundImplicit: Result := Result + ' near ' + Context.GetDefiniteName(Perspective);
+      else
+         ;
       end;
 end;
 
@@ -2388,10 +2392,6 @@ begin
 end;
 
 procedure TLocation.AddLandmark(Direction: TCardinalDirection; Atom: TAtom; Options: TLandmarkOptions);
-{$IFOPT C+}
-var
-   Landmark: PDirectionalLandmark;
-{$ENDIF}
 begin
    Assert(Assigned(Atom));
    Assert((Atom is TLocation) or (Atom is TThing));
