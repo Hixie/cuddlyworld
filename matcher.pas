@@ -1704,13 +1704,13 @@ const
                end;
              '+':
                begin
-                  Assert(Length(Token) > 0);
+                  Assert(Length(Token) > 0, 'The "+" postfix operator must immediately follow a token.');
                   Push(TRepeatableTokenNode.Create(Token));
                   Token := '';
                end;
              '?':
                begin
-                  Assert(Length(Token) > 0);
+                  Assert(Length(Token) > 0, 'The "?" postfix operator must immediately follow a token.');
                   Push(TZeroOrMoreOrderedPatternNode.Create([TTokenNode.Create(Token)]));
                   Token := '';
                end;
@@ -1721,14 +1721,14 @@ const
                      Push(TTokenNode.Create(Token));
                      Token := '';
                   end;
-                  Assert(Length(List) > 0);
+                  Assert(Length(List) > 0, 'The "/" operator must not be used at the start of the list.');
                   if (CurrentVersion < Version) then
                   begin
                      List[High(List)].Free();
                      SetLength(List, Length(List)-1);
                   end;
                   Inc(CurrentVersion);
-                  Assert(CurrentVersion < kVersionCount);
+                  Assert(CurrentVersion < kVersionCount, 'The "/" operator is meaningless when used more than ' + IntToStr(kVersionCount - 1) + ' time(s) per token.');
                end;
              ':':
                begin
@@ -1809,8 +1809,6 @@ const
 //Writeln('<<EXIT LIST');
                Exit; // '(' above calls Parse() re-entrantly, this brings us back to the caller level
             end;
-          else
-            Assert(False, 'unknown parse mode');
          end;
 //Writeln('END INC');
          Inc(Index);

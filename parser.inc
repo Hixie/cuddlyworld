@@ -212,6 +212,7 @@
       end;
    end;
 
+   {$IFDEF DEBUG}
    function GetLocation(out Target: TAtom): Boolean;
    var
       Location: TLocation;
@@ -229,6 +230,16 @@
       end;
       Result := False;
    end;
+
+   function GetLocation(out Target: TLocation): Boolean;
+   var
+      Location: TAtom;
+   begin
+      Result := GetLocation(Location);
+      if (Result) then
+         Target := Location as TLocation;
+   end;
+   {$ENDIF}
       
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
@@ -658,11 +669,13 @@
       else
       if ((CurrentToken + 1 < Length(Tokens)) and (Tokens[CurrentToken] = 'pick') and (Tokens[CurrentToken+1] = 'up')) then
       begin
-         Result := True;
          Inc(CurrentToken, 2);
+         Result := True;
       end
       else
+      begin
          Result := False;
+      end;
       if (Result) then          
       begin
          Action.Verb := avTake;
@@ -824,114 +837,118 @@
          begin
             // Action.MoveSubject is not valid here, but that doesn't matter as we immediately throw.
             Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
-         end;
-         Action.Verb := avMove;
-         Action.MoveAmbiguous := False; // Fail, set the MovePosition, or reset MoveAmbiguous to True before exitting this
-         Result := True;
-         if (CanEnd()) then
-         begin
-            Action.MoveTarget := nil;
-            Action.MovePosition := tpOn;
          end
          else
-         if (GetPrepositionThing('onto', [], 'move things', Action.MoveTarget) or
-             GetPrepositionThing('over', [], 'move things', Action.MoveTarget) or
-             GetCompoundPrepositionThing(['on', 'to'], [], 'move things', 'onto', Action.MoveTarget) or
-             GetCompoundPrepositionThing(['on'], [], 'move things', 'onto', Action.MoveTarget)) then
          begin
-            Action.MovePosition := tpOn;
-            if (not CanEnd()) then
-               Fail('I don''t understand how to move things onto other things "' + OriginalTokens[CurrentToken] + '".');
-         end
-         else
-         if (GetPrepositionThing('into', [], 'move things', Action.MoveTarget) or
-             GetCompoundPrepositionThing(['in', 'to'], [], 'move things', 'into', Action.MoveTarget) or
-             GetCompoundPrepositionThing(['in'], [], 'move things', 'into', Action.MoveTarget) or
-             GetCompoundPrepositionThing(['to', 'inside', 'of'], [], 'move things', 'into', Action.MoveTarget) or
-             GetCompoundPrepositionThing(['to', 'inside'], [], 'move things', 'into', Action.MoveTarget)) then
-         begin
-            Action.MovePosition := tpIn;
-            if (not CanEnd()) then
-               Fail('I don''t understand how to move things into other things "' + OriginalTokens[CurrentToken] + '".');
-         end
-         else
-         if (GetPrepositionThing('to', [], 'move things', Action.MoveTarget)) then
-         begin
-            if (not CanEnd()) then
-               Fail('I don''t understand how to move things to other things "' + OriginalTokens[CurrentToken] + '".');
-            Action.MoveAmbiguous := True;
-         end
-         else
-         if (Tokens[CurrentToken] = 'out') then
-         begin
-            Inc(CurrentToken);
-            Assert(@Action.MoveSubject = @Action.RemoveSubject);
-            Action.Verb := avRemove;
-            Action.RemoveFromPosition := tpIn;
-            Action.RemoveFromObject := nil;
-            if (not CanEnd()) then
+            Action.Verb := avMove;
+            // Action.MoveSubject is set above
+            Action.MoveAmbiguous := False; // we must Fail, set the MovePosition, or reset MoveAmbiguous to True before exitting this
+            Result := True;
+            if (CanEnd()) then
             begin
-               if (Tokens[CurrentToken] = 'of') then
+               Action.MoveTarget := nil;
+               Action.MovePosition := tpOn;
+            end
+            else
+            if (GetPrepositionThing('onto', [], 'move things', Action.MoveTarget) or
+                GetPrepositionThing('over', [], 'move things', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on', 'to'], [], 'move things', 'onto', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['on'], [], 'move things', 'onto', Action.MoveTarget)) then
+            begin
+               Action.MovePosition := tpOn;
+               if (not CanEnd()) then
+                  Fail('I don''t understand how to move things onto other things "' + OriginalTokens[CurrentToken] + '".');
+            end
+            else
+            if (GetPrepositionThing('into', [], 'move things', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in', 'to'], [], 'move things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['in'], [], 'move things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside', 'of'], [], 'move things', 'into', Action.MoveTarget) or
+                GetCompoundPrepositionThing(['to', 'inside'], [], 'move things', 'into', Action.MoveTarget)) then
+            begin
+               Action.MovePosition := tpIn;
+               if (not CanEnd()) then
+                  Fail('I don''t understand how to move things into other things "' + OriginalTokens[CurrentToken] + '".');
+            end
+            else
+            if (GetPrepositionThing('to', [], 'move things', Action.MoveTarget)) then
+            begin
+               if (not CanEnd()) then
+                  Fail('I don''t understand how to move things to other things "' + OriginalTokens[CurrentToken] + '".');
+               Action.MoveAmbiguous := True;
+            end
+            else
+            if (Tokens[CurrentToken] = 'out') then
+            begin
+               Inc(CurrentToken);
+               Assert(@Action.MoveSubject = @Action.RemoveSubject);
+               Action.Verb := avRemove;
+               Action.RemoveFromPosition := tpIn;
+               Action.RemoveFromObject := nil;
+               if (not CanEnd()) then
                begin
-                  Inc(CurrentToken);
-                  if (CanEnd()) then
-                     Fail('What do you want to move things out of?');
-                  if (not GetThing(Action.RemoveFromObject, [], 'move things out of')) then
+                  if (Tokens[CurrentToken] = 'of') then
+                  begin
+                     Inc(CurrentToken);
+                     if (CanEnd()) then
+                        Fail('What do you want to move things out of?');
+                     if (not GetThing(Action.RemoveFromObject, [], 'move things out of')) then
+                     begin
+                        // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
+                        Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
+                     end;
+                     if (not CanEnd()) then
+                        Fail('I don''t understand how to move things out of things "' + OriginalTokens[CurrentToken] + '".');
+                  end
+                  else
+                  begin
+                     EnsureNoPunctuation();
+                     Fail('I don''t understand how to move things out "' + OriginalTokens[CurrentToken] + '".');
+                  end;
+               end;
+            end
+            else
+            if (Tokens[CurrentToken] = 'off') then
+            begin
+               Inc(CurrentToken);
+               Assert(@Action.MoveSubject = @Action.RemoveSubject);
+               Action.Verb := avRemove;
+               Action.RemoveFromPosition := tpOn;
+               Action.RemoveFromObject := nil;
+               if (not CanEnd()) then
+               begin
+                  if (Tokens[CurrentToken] = 'of') then
+                  begin
+                     Inc(CurrentToken);
+                     if (CanEnd()) then
+                        Fail('What do you want to move things off?');
+                  end;
+                  if (not GetThing(Action.RemoveFromObject, [], 'move things off')) then
                   begin
                      // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
                   end;
                   if (not CanEnd()) then
-                     Fail('I don''t understand how to move things out of things "' + OriginalTokens[CurrentToken] + '".');
-               end
-               else
+                     Fail('I don''t understand how to move things off things "' + OriginalTokens[CurrentToken] + '".');
+               end;
+            end
+            else
+            if (TryDirection(Action.PushDirection, []) or
+                TryPrepositionDirection('to', Action.PushDirection) or
+                TryPrepositionDirection('towards', Action.PushDirection)) then
+            begin
+               Assert(@Action.MoveSubject = @Action.PushSubject);
+               Action.Verb := avPush;
+               if (not CanEnd()) then
                begin
                   EnsureNoPunctuation();
-                  Fail('I don''t understand how to move things out "' + OriginalTokens[CurrentToken] + '".');
+                  Fail('I don''t understand how to move things in a direction "' + OriginalTokens[CurrentToken] + '".');
                end;
-            end;
-         end
-         else
-         if (Tokens[CurrentToken] = 'off') then
-         begin
-            Inc(CurrentToken);
-            Assert(@Action.MoveSubject = @Action.RemoveSubject);
-            Action.Verb := avRemove;
-            Action.RemoveFromPosition := tpOn;
-            Action.RemoveFromObject := nil;
-            if (not CanEnd()) then
+            end
+            else
             begin
-               if (Tokens[CurrentToken] = 'of') then
-               begin
-                  Inc(CurrentToken);
-                  if (CanEnd()) then
-                     Fail('What do you want to move things off?');
-               end;
-               if (not GetThing(Action.RemoveFromObject, [], 'move things off')) then
-               begin
-                  // Action.RemoveFromObject is invalid here but it doesn't matter because we immediately throw
-                  Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here.');
-               end;
-               if (not CanEnd()) then
-                  Fail('I don''t understand how to move things off things "' + OriginalTokens[CurrentToken] + '".');
+               Fail('I don''t understand how to move things "' + OriginalTokens[CurrentToken] + '".');
             end;
-         end
-         else
-         if (TryDirection(Action.PushDirection, []) or
-             TryPrepositionDirection('to', Action.PushDirection) or
-             TryPrepositionDirection('towards', Action.PushDirection)) then
-         begin
-            Assert(@Action.MoveSubject = @Action.PushSubject);
-            Action.Verb := avPush;
-            if (not CanEnd()) then
-            begin
-               EnsureNoPunctuation();
-               Fail('I don''t understand how to move things in a direction "' + OriginalTokens[CurrentToken] + '".');
-            end;
-         end
-         else
-         begin
-            Fail('I don''t understand how to move things "' + OriginalTokens[CurrentToken] + '".');
          end;
       end
       else
@@ -1416,7 +1433,7 @@
                      EnsureNoPunctuation();
                end;
                if (not Result) then
-                  Fail('Syntax: debug make ''new ...''');
+                  Fail('Syntax: debug make ''...''');
             end
             else
             if (Tokens[CurrentToken] = 'connect') then
@@ -1425,6 +1442,29 @@
                Result := False;
                if ((not CanEnd()) and TryDirection(Action.DebugConnectDirection, [optAllowDefiniteArticle])) then
                begin
+                  if ((CurrentToken + 1 < Length(Tokens)) and (Tokens[CurrentToken] = 'and') and (Tokens[CurrentToken+1] = 'back')) then
+                  begin
+                     Inc(CurrentToken, 2);
+                     Action.DebugConnectBidirectional := True;
+                  end
+                  else
+                  begin
+                     Action.DebugConnectBidirectional := False;
+                  end;
+                  if ((not CanEnd()) and (Tokens[CurrentToken] = 'from')) then
+                  begin
+                     Inc(CurrentToken);
+                     if (not GetLocation(Action.DebugConnectSource)) then
+                     begin
+                        // Action.DebugConnectSource is invalid here but it doesn't matter because we immediately throw
+                        Fail('I don''t know about any location called "' + OriginalTokens[CurrentToken] + '". Use "debug locations" to get a list of accessible locations.');
+                     end;
+                  end
+                  else
+                  begin
+                     Action.DebugConnectSource := Player.DebugGetCurrentLocation();
+                  end;
+                  Assert(Assigned(Action.DebugConnectSource));
                   if ((not CanEnd()) and (Tokens[CurrentToken] = 'to')) then
                   begin
                      Inc(CurrentToken);
@@ -1471,7 +1511,7 @@
                begin
                   if (not CanEnd()) then
                      EnsureNoPunctuation();
-                  Fail('Syntax: debug connect <direction> to <thing or location> [with <flags>]');
+                  Fail('Syntax: debug connect <direction> [and back] [from <location>] to <thing or location> [with <flags>]');
                end;
             end
             else     
@@ -1517,7 +1557,7 @@
             end;
          end
          else
-            Fail('Syntax: "debug <command>", where <command> is one of "status", "locations", "location", "things [<things>]", "thing <thing>", "teleport <thing or location>", "make ''new ...''", "connect <direction> to <thing or location> [with <flags>]", "classes of things", or "classes of locations".');
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "locations", "location", "things [<things>]", "thing <thing>", "teleport <thing or location>", "make ''...''", "connect <direction> [and back] [from <location>] to <thing or location> [with <flags>]", "classes of things", or "classes of locations".');
       end
       else
       {$ENDIF}

@@ -60,7 +60,7 @@ type
       procedure EnumerateObtrusiveObstacles(List: TThingList); override;
       procedure ProxiedEnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
       procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
-      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
+      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; Options: TFindThingOptions): Boolean; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Put(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
@@ -154,7 +154,7 @@ type
       procedure EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter); override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       procedure ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
-      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean; override;
+      function ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; Options: TFindThingOptions): Boolean; override;
    end;
 
 // XXX wall with a hole in it... wall without a hole in it... wall that can be hit to make a hole in it...
@@ -171,8 +171,8 @@ function ConnectThreshold(FrontLocation, BackLocation: TLocation; Threshold: TTh
 begin
    if (not Assigned(Surface)) then
       Surface := TThresholdSurface.Create('floor', 'flat? (ground/grounds floor/floors)@', 'The floor is flat.');
-   Flags := Flags + [loPermissibleNavigationTarget, loThreshold];
    Result := TThresholdLocation.Create(Threshold, Surface);
+   Flags := Flags + [loPermissibleNavigationTarget, loThreshold];
    FrontLocation.AddLandmark(cdReverse[Threshold.FrontSideFacesDirection], Result, Flags);
    Result.AddLandmark(Threshold.FrontSideFacesDirection, FrontLocation, [loAutoDescribe, loPermissibleNavigationTarget, loNotVisibleFromBehind]);
    BackLocation.AddLandmark(Threshold.FrontSideFacesDirection, Result, Flags);
@@ -429,7 +429,7 @@ begin
    end;      
 end;
 
-function TDoorWay.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
+function TDoorWay.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; Options: TFindThingOptions): Boolean;
 var
    Obstacles: TThingList;
    Obstacle: TThing;
@@ -440,7 +440,7 @@ begin
    Obstacles := GetObtrusiveObstacles();
    try
       for Obstacle in Obstacles do // should we check IsChildTraversable() ?
-         if (Obstacle.ProxiedFindThingTraverser(Thing, Perspective, FromOutside)) then
+         if (Obstacle.ProxiedFindThingTraverser(Thing, Perspective, Options)) then
          begin
             Result := True;
             exit;
@@ -1401,9 +1401,9 @@ begin
    inherited;
 end;
 
-function TThresholdLocation.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; FromOutside: Boolean): Boolean;
+function TThresholdLocation.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; Options: TFindThingOptions): Boolean;
 begin
-   Result := FMaster.ProxiedFindThingTraverser(Thing, Perspective, FromOutside);
+   Result := FMaster.ProxiedFindThingTraverser(Thing, Perspective, Options);
 end;
 
 procedure TThresholdLocation.ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);

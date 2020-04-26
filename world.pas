@@ -238,45 +238,122 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
          Player.SendMessage(' - ' + Location.GetName(Player));
    end;
 
+   procedure DoDebugConnect(Direction: TCardinalDirection; Location: TLocation; Target: TAtom; Options: TLandmarkOptions; Bidirectional: Boolean);
+   begin
+      Assert(Assigned(Target));
+      Assert(Assigned(Location));
+      if (loPermissibleNavigationTarget in Options) then
+      begin
+         if (Location.HasLandmark(Direction)) then
+         begin
+            Fail('Cannot connect the ' + CardinalDirectionToString(Direction) + ' exit of ' + Location.GetDefiniteName(Player) + ', ' + Location.GetAtomForDirectionalNavigation(Direction).GetLongDefiniteName(Player) + ' is already in that direction.');
+         end;    
+      end;       
+      Location.AddLandmark(Direction, Target, Options);
+      if (loPermissibleNavigationTarget in Options) then
+      begin
+         DoBroadcast([Location], Player,
+                     [C(M(@Player.GetDefiniteName)), SP, MP(Player, M('opens'), M('open')), SP,
+                      M('a passage'), SP, M(CardinalDirectionToDirectionString(Direction)), SP,
+                      M('leading towards'), SP, M(@Target.GetIndefiniteName), M('.')]);
+         Player.SendMessage('Abracadabra! Going ' + CardinalDirectionToString(Direction) + ' from ' + Location.GetLongDefiniteName(Player) + ' now leads to ' + Target.GetLongDefiniteName(Player) + '.');
+      end
+      else
+      begin
+         DoBroadcast([Location], Player,
+                     [C(M(CardinalDirectionToString(Direction))), SP, M('there'), MP(Target, M('is'), M('are')), SP,
+                      M('now'), SP, M(@Target.GetIndefiniteName), M('.')]);
+         Player.SendMessage('Abracadabra! ' + Capitalise(CardinalDirectionToString(Direction)) + ' of ' + Location.GetLongDefiniteName(Player) + ' there ' + IsAre(Target.IsPlural(Player)) + ' now ' + Target.GetIndefiniteName(Player) + '.');
+      end;
+      if (Bidirectional) then
+      begin
+         if (not (Target is TLocation)) then
+            Fail('Cannot connect a directional exit from ' + Target.GetIndefiniteName(Player) + ', since ' + Target.GetSubjectPronoun(Player) + ' is not a location.');
+         DoDebugConnect(cdReverse[Direction], Target as TLocation, Location, Options, False);
+      end;
+   end;
+
    procedure DoDebugMake(Data: UTF8String);
    var
       Creation: TAtom;
       Stream: TTextStream;
+      Message: UTF8String;
+      LocationA: TLocation;
+      LocationB: TAtom;
+      Direction: TCardinalDirection;
+      Options: TLandmarkOptions;
+      Bidirectional: Boolean;
    begin
       Assert(Length(Data) >= 2);
       Assert(Data[1] = '"');
       Assert(Data[Length(Data)] = '"');
       Stream := TTextStreamFromString.Create(Copy(Data, 2, Length(Data) - 2), @GetRegisteredClassUTF8, @MakeAtomFromStream);
       try
-         try
-            Creation := Stream.specialize GetObject<TAtom>();
-         except
-            on Error: ETextStreamException do
-               Fail('The incantation fizzles as you hear a voice whisper "' + Error.Message + '".');
-         end;
+         repeat
+            if (Stream.PeekIdentifier() = 'new') then
+            begin
+               try
+                  Creation := Stream.specialize GetObject<TAtom>();
+               except
+                  on Error: ETextStreamException do
+                     Fail('The incantation fizzles as you hear a voice whisper "' + Error.Message + '".');
+               end;
+               Assert(Assigned(Creation));
+               if (Creation is TLocation) then
+               begin
+                  AddLocation(TLocation(Creation));
+                  Player.SendMessage('Hocus Pocus! ' + Capitalise(Creation.GetDefiniteName(Player)) + ' now exists.');
+               end
+               else
+               if (Creation is TThing) then
+               begin
+                  Player.Add(TThing(Creation), tpCarried);
+                  DoBroadcast([Player, Creation, Player], Player,
+                              [C(M(@Player.GetDefiniteName)), SP,
+                               MP(Player, M('manifests'), M('manifest')), SP,
+                               M(@Creation.GetIndefiniteName), M('.')]);
+                  Player.SendMessage('Poof! ' + TThing(Creation).GetPresenceStatement(Player, psThereIsAThingHere));
+               end
+               else
+               begin
+                  Assert(False); // Should not be possible
+                  Message := 'You create ' + Creation.GetIndefiniteName(Player) + ', but then, for lack of anything better to do, ' + Creation.GetLongDefiniteName(Player) + ' vanishes.';
+                  Creation.Free();
+                  Fail(Message);
+               end;
+               if (Stream.PeekToken() <> tkEndOfFile) then
+                  Stream.ExpectPunctuation(';');
+            end
+            else
+            if (Stream.GotIdentifier('connect')) then
+            begin
+               LocationA := Stream.specialize GetObject<TLocation>();
+               Stream.ExpectPunctuation(',');
+               Direction := Stream.specialize GetEnum<TCardinalDirection>();
+               Stream.ExpectPunctuation(',');
+               LocationB := Stream.specialize GetObject<TAtom>();
+               Stream.ExpectPunctuation(',');
+               Options := Stream.specialize GetSet<TLandmarkOptions>();
+               if (Stream.PeekPunctuation() = ',') then
+               begin
+                  Stream.ExpectPunctuation(',');
+                  Stream.ExpectIdentifier('bidirectional');
+                  Bidirectional := True;
+               end
+               else
+               begin
+                  Bidirectional := False;
+               end;
+               Stream.ExpectPunctuation(';');
+               DoDebugConnect(Direction, LocationA, LocationB, Options, Bidirectional);
+            end
+            else
+            begin
+               Stream.FailExpected('"new" or "connect"');
+            end;
+         until Stream.PeekToken() = tkEndOfFile;
       finally
          Stream.Free();
-      end;
-      Assert(Assigned(Creation));
-      if (Creation is TLocation) then
-      begin
-         AddLocation(TLocation(Creation));
-         Player.SendMessage('Hocus Pocus! ' + Capitalise(Creation.GetDefiniteName(Player)) + ' now exists.');
-      end
-      else
-      if (Creation is TThing) then
-      begin
-         Player.Add(TThing(Creation), tpCarried);
-         DoBroadcast([Player, Creation, Player], Player,
-                     [C(M(@Player.GetDefiniteName)), SP,
-                      MP(Player, M('manifests'), M('manifest')), SP,
-                      M(@Creation.GetIndefiniteName), M('.')]);
-         Player.SendMessage('Poof! ' + TThing(Creation).GetPresenceStatement(Player, psThereIsAThingHere));
-      end
-      else
-      begin
-         Creation.Free();
-         Fail('');
       end;
    end;
    {$ENDIF}
@@ -333,7 +410,7 @@ begin
     avDebugThing: Player.DoDebugThing(Action.DebugThing);
     avDebugTeleport: Player.DoDebugTeleport(Action.DebugTarget);
     avDebugMake: DoDebugMake(Action.DebugMakeData^);
-    avDebugConnect: Player.DoDebugConnect(Action.DebugConnectDirection, Action.DebugConnectTarget, Action.DebugConnectOptions);
+    avDebugConnect: DoDebugConnect(Action.DebugConnectDirection, Action.DebugConnectSource, Action.DebugConnectTarget, Action.DebugConnectOptions, Action.DebugConnectBidirectional);
     avDebugListClasses: Player.DoDebugListClasses(Action.DebugSuperclass);
     {$ENDIF}
     avHelp: DoHelp();

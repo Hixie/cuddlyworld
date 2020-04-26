@@ -65,7 +65,7 @@ type
       avDebugThing: (DebugThing: TThing);
       avDebugTeleport: (DebugTarget: TAtom);
       avDebugMake: (DebugMakeData: PUTF8String);
-      avDebugConnect: (DebugConnectDirection: TCardinalDirection; DebugConnectTarget: TAtom; DebugConnectOptions: TLandmarkOptions);
+      avDebugConnect: (DebugConnectDirection: TCardinalDirection; DebugConnectSource: TLocation; DebugConnectTarget: TAtom; DebugConnectOptions: TLandmarkOptions; DebugConnectBidirectional: Boolean);
       avDebugListClasses: (DebugSuperclass: TClass);
       {$ENDIF}
       avHelp: ();
@@ -88,9 +88,6 @@ type
       procedure DoPutInternal(CurrentSubject: TThing; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
       procedure SetContext(Context: UTF8String);
       procedure ResetContext();
-      {$IFDEF DEBUG}
-      function DebugGetCurrentLocation(): TLocation;
-      {$ENDIF}
     public
       constructor Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
       destructor Destroy(); override;
@@ -156,7 +153,7 @@ type
       procedure DoDebugThing(Thing: TThing);
       procedure DoDebugTeleport(Target: TAtom);
       procedure DoDebugListClasses(Superclass: TClass);
-      procedure DoDebugConnect(Direction: TCardinalDirection; Target: TAtom; Options: TLandmarkOptions);
+      function DebugGetCurrentLocation(): TLocation; // used by parser.inc
       {$ENDIF}
       procedure Adopt(AOnMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
@@ -315,9 +312,9 @@ begin
       begin
          Root := GetSurroundingsRoot(FromOutside);
          Things := TThingList.Create();
-         FindMatchingThingsOptions := [foIncludePerspectiveChildren, foIncludeNonImplicits];
+         FindMatchingThingsOptions := [fomIncludePerspectiveChildren, fomIncludeNonImplicits];
          if (FromOutside) then
-            Include(FindMatchingThingsOptions, foFromOutside);
+            Include(FindMatchingThingsOptions, fomFromOutside);
          Root.FindMatchingThings(Self, FindMatchingThingsOptions, tpEverything, [], Things);
          { there's always at least one thing: us }
       end;
@@ -363,19 +360,6 @@ begin
    SendMessage('The following classes are known:');
    for RegisteredClassName in GetRegisteredClasses(Superclass) do // $R-
       SendMessage(' - ' + RegisteredClassName);
-end;
-
-procedure TPlayer.DoDebugConnect(Direction: TCardinalDirection; Target: TAtom; Options: TLandmarkOptions);
-var
-   Location: TLocation;
-begin
-   Assert(Assigned(Target));
-   Location := DebugGetCurrentLocation();
-   Assert(Assigned(Location));
-   if ((loPermissibleNavigationTarget in Options) and Assigned(Location.GetAtomForDirectionalNavigation(Direction))) then
-      Fail('There is already a passage in that direction.');
-   Location.AddLandmark(Direction, Target, Options);
-   SendMessage('Abracadabra!');
 end;
 {$ENDIF}
 
@@ -1904,17 +1888,17 @@ begin
    try
       FindMatchingThingsOptions := [];
       if (aisSelf in Scope) then
-         Include(FindMatchingThingsOptions, foIncludePerspectiveChildren);
+         Include(FindMatchingThingsOptions, fomIncludePerspectiveChildren);
       if (aisSurroundings in Scope) then
       begin
          Root := GetSurroundingsRoot(FromOutside);
          if (FromOutside) then
-            Include(FindMatchingThingsOptions, foFromOutside);
+            Include(FindMatchingThingsOptions, fomFromOutside);
       end
       else
       begin
          Root := Self;
-         Include(FindMatchingThingsOptions, foFromOutside);
+         Include(FindMatchingThingsOptions, fomFromOutside);
       end;
       Root.FindMatchingThings(Self, FindMatchingThingsOptions, tpEverything, FeatureFilter, List);
       if (List.Length > 0) then

@@ -54,9 +54,14 @@ begin
 
          { Starting room test }
          Proxy.Test('Starting location');
-         Proxy.ExpectString('Room');
+         Proxy.ExpectString('Cave');
          Proxy.WaitUntilString('');
          TestWorld.Perform('look', TestPlayer);
+         Proxy.ExpectDone();
+
+         Proxy.ExpectString('Tunnel Trail');
+         Proxy.WaitUntilString('');
+         TestWorld.Perform('east', TestPlayer);
          Proxy.ExpectDone();
 
          Proxy.ExpectString('(the embroidered bag of holding labeled Tester)');
