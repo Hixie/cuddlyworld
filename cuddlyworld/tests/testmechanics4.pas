@@ -31,7 +31,6 @@ procedure TestMechanics4();
       begin
          for Response in Responses do
             Proxy.ExpectString(Response);
-         Proxy.ExpectString('');
          TestWorld.Perform(Command, TestPlayer);
          Proxy.ExpectDone();
       end;
@@ -68,7 +67,6 @@ procedure TestMechanics4();
       begin
          for Response in Responses do
             Proxy.ExpectString(Response);
-         Proxy.ExpectString('');
          TestWorld.Perform(Command, TestPlayer);
          Proxy.ExpectDone();
       end;

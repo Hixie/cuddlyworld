@@ -194,7 +194,8 @@ begin
                ; // not all verbs have allocated memory
             end;
          end;
-         Player.SendRawMessage('');
+         if (More) then
+            Player.SendRawMessage('');
       until not More;
    except
       on E: EParseError do
@@ -216,7 +217,6 @@ begin
          end;
          Writeln(FailedCommandLog, '"', Command, '" for ' + Location + ': ', E.Message);
          Player.SendRawMessage(E.Message);
-         Player.SendRawMessage('');
       end;
    end;
 end;
@@ -320,7 +320,7 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
                begin
                   Assert(False); // Should not be possible
                   Message := 'You create ' + Creation.GetIndefiniteName(Player) + ', but then, for lack of anything better to do, ' + Creation.GetLongDefiniteName(Player) + ' vanishes.';
-                  Creation.Free();
+                  Creation.Free(); // XXX this will leave an invalid pointer in the named object table if the creation was named
                   Fail(Message);
                end;
                if (Stream.PeekToken() <> tkEndOfFile) then

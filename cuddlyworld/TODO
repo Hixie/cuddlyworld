@@ -20,6 +20,8 @@ CODE HEALTH
  + refactor GetLookTowardsDirection and GetDescriptionRemoteDetailed/GetDescriptionRemoteBrief so that instead of the current
    system, there's one mechanism that walks the sight line in the relevant direction and returns a list of instructions
    for how to describe what the player can see
+ + if loVisibleFromFarAway forms a loop, seeking things will crash with stack overflow (simplest case is reflexive
+   landmarks with that flag, but it could be a longer cycle too)
 
 NAVIGATION
  + "find <name of neighboring location>" doesn't work

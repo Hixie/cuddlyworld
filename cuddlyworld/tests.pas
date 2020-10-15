@@ -55,18 +55,17 @@ begin
          { Starting room test }
          Proxy.Test('Starting location');
          Proxy.ExpectString('Cave');
-         Proxy.WaitUntilString('');
+         Proxy.SkipEverything();
          TestWorld.Perform('look', TestPlayer);
-         Proxy.ExpectDone();
+         Proxy.StopSkipping();
 
          Proxy.ExpectString('Tunnel Trail');
-         Proxy.WaitUntilString('');
+         Proxy.SkipEverything();
          TestWorld.Perform('east', TestPlayer);
-         Proxy.ExpectDone();
+         Proxy.StopSkipping();
 
          Proxy.ExpectString('(the embroidered bag of holding labeled Tester)');
          Proxy.ExpectString('You already have that.');
-         Proxy.ExpectString('');
          TestWorld.Perform('take all, and bag', TestPlayer);
 
          { test round-tripping }
