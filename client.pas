@@ -38,6 +38,10 @@ implementation
 uses
    sysutils;
 
+const
+   ResponseFrameHeader = #$01; // first byte of sequences of frames that represent responses; first frame is echo.
+   EndOfResponse = #$02; // contents of trailing frame after response
+
 constructor TCuddlyWorldClient.Create(AListener: TListenerSocket; AWorld: TWorld);
 begin
    inherited Create(AListener);
@@ -122,7 +126,7 @@ end;
 
 procedure TCuddlyWorldClient.TryCommand(Message: UTF8String);
 begin
-   WriteFrame('> ' + Message);
+   WriteFrame(ResponseFrameHeader + '> ' + Message);
    try
       FWorld.SetDirty();
       FWorld.Perform(Message, FPlayer);
@@ -131,13 +135,13 @@ begin
       on E: Exception do
       begin // for debugging
          WriteFrame('You feel a disturbance in the force that whispers "' + E.Message + '".');
-         WriteFrame('');
          Writeln('');
          Writeln('While processing "' + Message + '", the following exception was raised:');
          Writeln(E.Message);
          DumpExceptionBackTrace(Output);
       end;
    end;
+   WriteFrame(EndOfResponse);
 end;
 
 procedure TCuddlyWorldClient.HandleAvatarMessage(Message: UTF8String);

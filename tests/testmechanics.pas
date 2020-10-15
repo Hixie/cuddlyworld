@@ -190,6 +190,12 @@ begin
        (FExpectations[FPosition].AdvanceWhenFound <> False) or
        (FExpectations[FPosition].SkipUntilFound <> False)) then
    begin
+      {$IFDEF VERBOSE}
+      Writeln('expectation kind was ', FExpectations[FPosition].Kind);
+      Writeln('target was ', FExpectations[FPosition].Target);
+      Writeln('advance was ', FExpectations[FPosition].AdvanceWhenFound);
+      Writeln('skip was ', FExpectations[FPosition].SkipUntilFound);
+      {$ENDIF}
       raise ETestError.Create('Failed in test ' + FTest + ': wasn''t skipping when told to stop skipping.');
    end;
    FExpectations[FPosition].AdvanceWhenFound := True;
