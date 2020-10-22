@@ -5,7 +5,7 @@ unit threshold;
 interface
 
 uses
-   locations, things, thingdim, grammarian, matcher, storable, physics, messages, textstream;
+   locations, things, thingdim, grammarian, matcher, storable, physics, messages, textstream, properties;
 
 type
    TRelativePerspectivePosition = (rppFront, rppBack, rppHere);
@@ -23,6 +23,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function CanTraverse(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar): Boolean; virtual;
       property FrontSideFacesDirection: TCardinalDirection read FFrontSideFacesDirection write FFrontSideFacesDirection;
    end;
@@ -38,6 +39,7 @@ type
     public
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
       property FrontSideDescription: UTF8String read FFrontSideDescription write FFrontSideDescription;
       property BackSideDescription: UTF8String read FBackSideDescription write FBackSideDescription;
@@ -56,6 +58,7 @@ type
       procedure Removed(Thing: TThing); override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection; Door: TDoor = nil);
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function IsClear(): Boolean; virtual;
       procedure EnumerateObtrusiveObstacles(List: TThingList); override;
       procedure ProxiedEnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside: Boolean; Reporter: TThingReporter); override;
@@ -107,6 +110,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; FrontSide, BackSide: TDoorSide; AMass: TThingMass = tmHeavy; ASize: TThingSize = tsMassive);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); override;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
@@ -144,6 +148,7 @@ type
       class function CreateFromProperties(Properties: TTextStreamProperties): TThresholdLocation; override;
     public
       constructor Create(Landmark: TThing; Surface: TThing);
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
       function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
       function GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String; override;
@@ -218,6 +223,15 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnFrontDirection]);
    Result := Create(Name, Pattern, Description, FrontDirection);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TThresholdThing.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnFrontDirection, ptDirection);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TThresholdThing.LocatePerspective(Perspective: TAvatar): TRelativePerspectivePosition;
@@ -306,6 +320,17 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TStaticThresholdThing.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnFrontDescription, ptString);
+   Describer.AddProperty(pnBackDescription, ptString);
+   Describer.AddProperty(pnFrontDescription, ptDirection);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 function TStaticThresholdThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    case (LocatePerspective(Perspective)) of
@@ -361,6 +386,16 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnFrontDirection]);
    Result := Create(Name, Pattern, Description, FrontDirection, DoorValue as TDoor);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TDoorWay.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnFrontDirection, ptDirection);
+   Describer.AddProperty(pnDoor, ptDoor);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TDoorWay.GetDoor(): TDoor;
@@ -951,6 +986,17 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TDoor.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnFrontSide, ptDoorSide);
+   Describer.AddProperty(pnBackSide, ptDoorSide);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 function TDoor.GetDoorWay(): TDoorWay;
 begin
    if ((FParent is TDoorWay) and (FPosition = (FParent as TDoorWay).tpOfficialDoorPosition)) then
@@ -1316,7 +1362,6 @@ end;
 class function TThresholdLocation.CreateFromProperties(Properties: TTextStreamProperties): TThresholdLocation;
 var
    Landmark, Surface: TThing;
-   StreamedChildren: TStreamedChildren;
 begin
    while (not Properties.Done) do
    begin
@@ -1326,7 +1371,12 @@ begin
    end;
    Properties.EnsureSeen([pnLandmark, pnSurface]);
    Result := Create(Landmark, Surface);
-   StreamedChildren.Apply(Result);
+end;
+
+class procedure TThresholdLocation.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnLandmark, ptThing);
+   Describer.AddProperty(pnSurface, ptThing);
 end;
 
 function TThresholdLocation.GetTitle(Perspective: TAvatar): UTF8String;

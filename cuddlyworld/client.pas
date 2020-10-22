@@ -77,6 +77,12 @@ begin
       Exit;
    end;
    Username := Copy(Message, 1, Index-1);
+   if (Username = '') then
+   begin
+      WriteFrame('Username cannot be blank.');
+      Disconnect();
+      Exit;
+   end;
    Password := Copy(Message, Index+1, Length(Message)-Index);
    try
       PotentialPlayer := FWorld.GetPlayer(Username) as TPlayer;
