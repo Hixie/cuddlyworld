@@ -5,10 +5,10 @@ unit things;
 interface
 
 uses
-   storable, physics, messages, thingdim, grammarian, matcher, textstream;
+   storable, physics, messages, thingdim, grammarian, matcher, textstream, properties;
 
 type
-   TNamedThing = class (TThing)
+   TNamedThing = class(TThing)
     protected
       FName, FCachedLongName: UTF8String;
       FCachedLongNameMatcherFlags: TMatcherFlags;
@@ -21,6 +21,7 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetName(Perspective: TAvatar): UTF8String; override;
       function GetLongName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
@@ -30,7 +31,7 @@ type
    end;
 
    // things that have a description
-   TDescribedThing = class (TNamedThing)
+   TDescribedThing = class(TNamedThing)
     protected
       FDescription: UTF8String;
       class function CreateFromProperties(Properties: TTextStreamProperties): TDescribedThing; override;
@@ -38,11 +39,12 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
    end;
 
    // Things that have a specific mass and size
-   TPhysicalThing = class (TNamedThing)
+   TPhysicalThing = class(TNamedThing)
     protected
       FMass: TThingMass;
       FSize: TThingSize;
@@ -51,6 +53,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Mass: TThingMass; Size: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       property Mass: TThingMass read FMass write FMass;
@@ -66,6 +69,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
    end;
 
@@ -75,6 +79,7 @@ type
       class function CreateFromProperties(Properties: TTextStreamProperties): TFeature; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
@@ -90,6 +95,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function IsOpen(): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; override;
@@ -109,6 +115,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
@@ -120,6 +127,7 @@ type
       class function CreateFromProperties(Properties: TTextStreamProperties): TOpening; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetLookUnder(Perspective: TAvatar): UTF8String; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -135,6 +143,7 @@ type
       class function CreateFromProperties(Properties: TTextStreamProperties): TSurface; override;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var MEssage: TMessage): TNavigationInstruction; override;
       function GetRepresentative(): TAtom; override;
@@ -174,6 +183,7 @@ type
       class function CreateFromProperties(Properties: TTextStreamProperties): TSpade; override;
     public
       constructor Create();
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetFeatures(): TThingFeatures; override;
       function CanDig(Target: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
@@ -186,6 +196,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Writing: UTF8String; AMass: TThingMass; ASize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetFeatures(): TThingFeatures; override;
       function GetDescriptionWriting(Perspective: TAvatar): UTF8String; override;
    end;
@@ -204,6 +215,7 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; MaxSize: TThingSize);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
@@ -224,6 +236,7 @@ type
       constructor Create(Description: UTF8String; Size: TThingSize; PileClass: TPileClass);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; override;
       function GetDescriptionState(Perspective: TAvatar): UTF8String; override;
@@ -253,6 +266,7 @@ type
       constructor Create(SingularIngredients: array of UTF8String; PluralIngredients: array of UTF8String; Description: UTF8String; AMass: TThingMass; ASize: TThingSize); { ingredient must be canonical plural form }
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function GetLookUnder(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionIn(Perspective: TAvatar; Options: TGetDescriptionChildrenOptions; Prefix: UTF8String): UTF8String; override;
@@ -269,6 +283,7 @@ type
       class function CreateFromProperties(Properties: TTextStreamProperties): TEarthPile; override;
     public
       constructor Create(ASize: TThingSize);
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
    end;
 
 implementation
@@ -339,6 +354,13 @@ begin
    Properties.EnsureSeen([pnName, pnPattern]);
    Result := Create(Name, Pattern);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TNamedThing.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TNamedThing.GetMatcherFlags(Perspective: TAvatar): TMatcherFlags;
@@ -458,6 +480,14 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TDescribedThing.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 function TDescribedThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
@@ -505,6 +535,15 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnMass, pnSize]);
    Result := Create(Name, Pattern, MassValue, SizeValue);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TPhysicalThing.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TPhysicalThing.GetIntrinsicMass(): TThingMass;
@@ -560,6 +599,16 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TDescribedPhysicalThing.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 function TDescribedPhysicalThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    Result := FDescription;
@@ -600,6 +649,14 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnDescription]);
    Result := Create(Name, Pattern, Description);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TFeature.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 
@@ -662,6 +719,20 @@ begin
    if (Properties.Seen(pnOpened)) then
       Result.Opened := OpenedValue;
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TScenery.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnUnderDescription, ptString);
+   Describer.AddProperty(pnFindDescription, ptString);
+   Describer.AddProperty(pnCannotMoveExcuse, ptString);
+   Describer.AddProperty(pnOpened, ptBoolean);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TScenery.IsOpen(): Boolean;
@@ -756,6 +827,17 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TLocationProxy.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnDestination, ptLocation);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 function TLocationProxy.GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
 begin
    Result := Capitalise(GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('leads', 'lead', IsPlural(Perspective)) + ' ' + CardinalDirectionToString(Direction) + '.';
@@ -813,6 +895,16 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnSize, pnDestination]);
    Result := Create(Name, Pattern, Description, Destination, SizeValue);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TOpening.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnDestination, ptLocation);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
@@ -903,6 +995,16 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnDescription]);
    Result := Create(Name, Pattern, Description, MassValue, SizeValue);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TSurface.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TSurface.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
@@ -1121,6 +1223,11 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TSpade.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 function TSpade.GetFeatures(): TThingFeatures;
 begin
    Result := inherited GetFeatures() + [tfCanDig];
@@ -1171,6 +1278,15 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnMaxSize]);
    Result := Create(Name, Pattern, Description, MaxSizeValue);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TBag.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnMaxSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TBag.GetIntrinsicMass(): TThingMass;
@@ -1254,6 +1370,14 @@ begin
    Properties.EnsureSeen([pnDescription, pnSize, pnPileClass]);
    Result := Create(Description, SizeValue, PileClassValue);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure THole.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnPileClass, ptPileClass);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function THole.GetTitle(Perspective: TAvatar): UTF8String;
@@ -1687,6 +1811,15 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TPile.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnIngredients, ptIngredients);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 function TPile.GetOutsideSizeManifest(): TThingSizeManifest;
 begin
    Result := inherited GetOutsideSizeManifest() + GetInsideSizeManifest();
@@ -1764,6 +1897,12 @@ begin
    StreamedChildren.Apply(Result);
 end;
 
+class procedure TEarthPile.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
 
 constructor TSign.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Writing: UTF8String; AMass: TThingMass; ASize: TThingSize);
 begin
@@ -1807,6 +1946,17 @@ begin
    Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnWriting, pnMass, pnSize]);
    Result := Create(Name, Pattern, Description, Writing, MassValue, SizeValue);
    StreamedChildren.Apply(Result);
+end;
+
+class procedure TSign.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnWriting, ptString);
+   Describer.AddProperty(pnMass, ptMass);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
 end;
 
 function TSign.GetFeatures(): TThingFeatures;

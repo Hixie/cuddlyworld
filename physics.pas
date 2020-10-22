@@ -5,7 +5,7 @@ unit physics;
 interface
 
 uses
-   storable, lists, grammarian, thingdim, messages, textstream;
+   storable, lists, grammarian, thingdim, messages, textstream, properties;
 
 type
    TAtom = class;
@@ -138,6 +138,7 @@ type
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); virtual;
 
       // Moving things around
       function GetObtrusiveObstacles(): TThingList; // these are the children that can be shaken loose
@@ -384,38 +385,10 @@ type
    end;
 
 function MakeAtomFromStream(AClass: TClass; Stream: TTextStream): TObject;
+function GetRegisteredAtomClass(AClassName: UTF8String): TClass;
 
 procedure ForceTravel(Traveller: TThing; Destination: TAtom; Direction: TCardinalDirection; Perspective: TAvatar);
 procedure ForceTravel(Traveller: TThing; Destination: TAtom; Position: TThingPosition; Perspective: TAvatar);
-
-const // keywords used in "debug make" commands
-   pnBackDescription = 'backDescription';
-   pnBackSide = 'backSide';
-   pnCannotMoveExcuse = 'cannotMoveExcuse';
-   pnDefiniteName = 'definiteName';
-   pnDescription = 'description';
-   pnDestination = 'destination';
-   pnDoor = 'door';
-   pnFindDescription = 'findDescription';
-   pnFrontDirection = 'frontDirection';
-   pnFrontDescription = 'frontDescription';
-   pnFrontSide = 'frontSide';
-   pnGround = 'ground';
-   pnIndefiniteName = 'indefiniteName';
-   pnIngredients = 'ingredients';
-   pnMass = 'mass';
-   pnMaster = 'master';
-   pnMaxSize = 'maxSize';
-   pnName = 'name';
-   pnLandmark = 'landmark';
-   pnOpened = 'opened';
-   pnPattern = 'pattern';
-   pnPileClass = 'pileClass';
-   pnPosition = 'position';
-   pnSize = 'size';
-   pnSurface = 'surface';
-   pnUnderDescription = 'underDescription';
-   pnWriting = 'writing';
 
 { Note [travel]:
     Navigation works as follows:
@@ -755,7 +728,7 @@ var
    Child: TThing;
    Stream: TTextStream;
 begin
-   if (Properties.Name = 'child') then
+   if (Properties.Name = pnChild) then
    begin
       Stream := Properties.Accept();
       Position := Stream.specialize GetEnum<TThingPosition>();
@@ -767,6 +740,10 @@ begin
    end
    else
       Result := True;
+end;
+
+class procedure TAtom.DescribeProperties(Describer: TPropertyDescriber);
+begin
 end;
 
 function MakeAtomFromStream(AClass: TClass; Stream: TTextStream): TObject;
@@ -787,6 +764,18 @@ begin
    end;
    Result := Atom;
 end;
+
+{$IFDEF DEBUG}
+function GetRegisteredAtomClass(AClassName: UTF8String): TClass;
+var
+   Candidate: StorableClass;
+begin
+   Result := nil;
+   Candidate := GetRegisteredClass(AClassName);
+   if ((Candidate <> nil) and Candidate.InheritsFrom(TAtom)) then
+      Result := TAtomClass(Candidate);
+end;
+{$ENDIF}
 
 {$IFOPT C+}
 procedure TAtom.AssertChildPositionOk(Thing: TThing; Position: TThingPosition);
@@ -2357,7 +2346,7 @@ var
    Options: TLandmarkOptions;
    Stream: TTextStream;
 begin
-   if (Properties.Name = 'landmark') then
+   if (Properties.Name = pnLandmark) then
    begin
       Stream := Properties.Accept();
       Direction := Stream.specialize GetEnum<TCardinalDirection>();

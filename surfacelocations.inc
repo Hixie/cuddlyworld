@@ -23,6 +23,7 @@
       constructor Create(CONSTRUCTORARGUMENTDECLARATIONS Ground: TThing);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       procedure EnumerateObtrusiveObstacles(List: TThingList); override;
       function GetSurface(): TThing; override;
    end;
@@ -88,6 +89,14 @@ begin
  {$FATAL Unknown SUPERCLASS value.}
 {$ENDIF}
    StreamedLandmarks.Apply(Result);
+end;
+
+class procedure SUBCLASS.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnMaster, ptThing);
+   Describer.AddProperty(pnPosition, ptThingPosition);
+   Describer.AddProperty(pnGround, ptThing);
+   Describer.AddProperty(pnLandmark, ptLandmark);
 end;
       
 procedure SUBCLASS.EnumerateObtrusiveObstacles(List: TThingList);

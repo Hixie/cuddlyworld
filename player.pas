@@ -27,7 +27,7 @@ type
                   avTake, avPut, avMove, avPush, avPushTo, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
                   avTalk, avDance,
                   {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugLocations, avDebugThings, avDebugThing,
-                                 avDebugTeleport, avDebugMake, avDebugConnect, avDebugListClasses, {$ENDIF}
+                                 avDebugTeleport, avDebugMake, avDebugConnect, avDebugListClasses, avDebugDescribeClass, {$ENDIF}
                   avHelp, avQuit);
 
    TAction = record
@@ -67,6 +67,7 @@ type
       avDebugMake: (DebugMakeData: PUTF8String);
       avDebugConnect: (DebugConnectDirection: TCardinalDirection; DebugConnectSource: TLocation; DebugConnectTarget: TAtom; DebugConnectOptions: TLandmarkOptions; DebugConnectBidirectional: Boolean);
       avDebugListClasses: (DebugSuperclass: TClass);
+      avDebugDescribeClass: (DebugDescribeClass: TAtomClass);
       {$ENDIF}
       avHelp: ();
       avQuit: ();

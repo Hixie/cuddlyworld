@@ -35,12 +35,31 @@ type
 implementation
 
 uses
-   sysutils, thingseeker
+   sysutils, thingseeker, properties
    {$IFDEF DEBUG}, broadcast, textstream, typedump, arrayutils {$ENDIF}; // typedump and arrayutils are used in parser.inc
 
 var
    FailedCommandLog: Text;
    GlobalThingCollector: TThingCollector; // from thingseeker; used in parser.inc
+
+type
+   TDirectPlayerPropertyDescriber = class(TPropertyDescriber)
+    private
+      FPlayer: TPlayer;
+    public
+      constructor Create(Player: TPlayer);
+      procedure AddProperty(Name: UTF8String; PropertyType: UTF8String); override;
+   end;
+
+constructor TDirectPlayerPropertyDescriber.Create(Player: TPlayer);
+begin
+   FPlayer := Player;
+end;      
+
+procedure TDirectPlayerPropertyDescriber.AddProperty(Name: UTF8String; PropertyType: UTF8String);
+begin
+   FPlayer.SendMessage(' - ' + Name + ': ' + PropertyType);
+end;
 
 constructor TWorld.Create();
 begin
@@ -221,13 +240,6 @@ begin
    end;
 end;
 
-{$IFDEF DEBUG}
-function GetRegisteredClassUTF8(AClassName: UTF8String): TClass;
-begin
-   Result := GetRegisteredClass(AClassName);
-end;
-{$ENDIF}
-
 procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
 
    {$IFDEF DEBUG}
@@ -274,7 +286,7 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
          DoDebugConnect(cdReverse[Direction], Target as TLocation, Location, Options, False);
       end;
    end;
-
+   
    procedure DoDebugMake(Data: UTF8String);
    var
       Creation: TAtom;
@@ -289,7 +301,7 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
       Assert(Length(Data) >= 2);
       Assert(Data[1] = '"');
       Assert(Data[Length(Data)] = '"');
-      Stream := TTextStreamFromString.Create(Copy(Data, 2, Length(Data) - 2), @GetRegisteredClassUTF8, @MakeAtomFromStream);
+      Stream := TTextStreamFromString.Create(Copy(Data, 2, Length(Data) - 2), @GetRegisteredAtomClass, @MakeAtomFromStream);
       try
          repeat
             if (Stream.PeekIdentifier() = 'new') then
@@ -358,6 +370,16 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
          Stream.Free();
       end;
    end;
+
+   procedure DoDebugDescribeClass(AClass: TAtomClass);
+   var
+      Describer: TPropertyDescriber;
+   begin
+      Player.SendMessage('Properties available on ' + AClass.ClassName + ':');
+      Describer := TDirectPlayerPropertyDescriber.Create(Player);
+      AClass.DescribeProperties(Describer);
+      Describer.Free();
+   end;
    {$ENDIF}
 
    procedure DoHelp();
@@ -414,6 +436,7 @@ begin
     avDebugMake: DoDebugMake(Action.DebugMakeData^);
     avDebugConnect: DoDebugConnect(Action.DebugConnectDirection, Action.DebugConnectSource, Action.DebugConnectTarget, Action.DebugConnectOptions, Action.DebugConnectBidirectional);
     avDebugListClasses: Player.DoDebugListClasses(Action.DebugSuperclass);
+    avDebugDescribeClass: DoDebugDescribeClass(Action.DebugDescribeClass);
     {$ENDIF}
     avHelp: DoHelp();
     avQuit: DoQuit();

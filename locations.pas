@@ -5,7 +5,7 @@ unit locations;
 interface
 
 uses
-   storable, physics, grammarian, thingdim, messages, textstream;
+   storable, physics, grammarian, thingdim, messages, textstream, properties;
 
 type
    TNamedLocation = class(TLocation)
@@ -19,6 +19,7 @@ type
       constructor Create(Name, DefiniteName, IndefiniteName, Description: UTF8String);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetName(Perspective: TAvatar): UTF8String; override;
       function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
@@ -33,6 +34,7 @@ type
       constructor Create(Master: TThing; Position: TThingPosition);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetName(Perspective: TAvatar): UTF8String; override;
       function GetDefiniteName(Perspective: TAvatar): UTF8String; override;
       function GetIndefiniteName(Perspective: TAvatar): UTF8String; override;
@@ -121,6 +123,15 @@ begin
    StreamedLandmarks.Apply(Result);
 end;
 
+class procedure TNamedLocation.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnDefiniteName, ptString);
+   Describer.AddProperty(pnIndefiniteName, ptString);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnLandmark, ptLandmark);
+end;
+
 function TNamedLocation.GetName(Perspective: TAvatar): UTF8String;
 begin
    Result := FName;
@@ -177,6 +188,13 @@ begin
    Properties.EnsureSeen([pnMaster, pnPosition]);
    Result := Create(Master, Position);
    StreamedLandmarks.Apply(Result);
+end;
+
+class procedure TSlavedLocation.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnMaster, ptThing);
+   Describer.AddProperty(pnPosition, ptThingPosition);
+   Describer.AddProperty(pnLandmark, ptLandmark);
 end;
 
 function TSlavedLocation.GetName(Perspective: TAvatar): UTF8String;

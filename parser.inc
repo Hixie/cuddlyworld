@@ -1525,17 +1525,27 @@
                   Inc(CurrentToken);
                   if (not CanEnd()) then
                   begin
-                     if (Tokens[CurrentToken] = 'things') then
+                     if (OriginalTokens[CurrentToken] = 'TAtom') then
                      begin
-                        Inc(CurrentToken);
+                        Action.DebugSuperclass := TAtom;
+                     end
+                     else
+                     if (OriginalTokens[CurrentToken] = 'TThing') then
+                     begin
                         Action.DebugSuperclass := TThing;
                      end
                      else
-                     if (Tokens[CurrentToken] = 'locations') then
+                     if (OriginalTokens[CurrentToken] = 'TLocation') then
                      begin
-                        Inc(CurrentToken);
                         Action.DebugSuperclass := TLocation;
+                     end
+                     else
+                     begin
+                        Action.DebugSuperclass := TAtomClass(GetRegisteredAtomClass(OriginalTokens[CurrentToken]));
                      end;
+                     if (not Assigned(Action.DebugSuperclass)) then
+                        Fail('Unrecognized class ("' + OriginalTokens[CurrentToken] + '"). Use "debug classes of TAtom" to get a list of classes.');
+                     Inc(CurrentToken);
                      if (not CanEnd()) then
                      begin
                         EnsureNoPunctuation();
@@ -1547,7 +1557,36 @@
                   end;
                end;
                if (not Result) then
-                  Fail('Syntax: debug classes of <"things" or "locations">');
+                  Fail('Syntax: debug classes of <class>');
+               Result := True;
+            end
+            else
+            if (Tokens[CurrentToken] = 'describe') then
+            begin
+               Inc(CurrentToken);
+               Result := False;
+               Action.Verb := avDebugDescribeClass;
+               if (not CanEnd() and (Tokens[CurrentToken] = 'class')) then
+               begin
+                  Inc(CurrentToken);
+                  if (not CanEnd()) then
+                  begin
+                     Action.DebugDescribeClass := TAtomClass(GetRegisteredAtomClass(OriginalTokens[CurrentToken]));
+                     if (not Assigned(Action.DebugDescribeClass)) then
+                        Fail('Unrecognized class ("' + OriginalTokens[CurrentToken] + '"). Use "debug classes of TAtom" to get a list of classes that can be described.');
+                     Inc(CurrentToken);
+                     if (not CanEnd()) then
+                     begin
+                        EnsureNoPunctuation();
+                     end
+                     else
+                     begin
+                        Result := True;
+                     end;
+                  end;
+               end;
+               if (not Result) then
+                  Fail('Syntax: debug describe class <class>. Use "debug classes of TAtom" to get a list of classes that can be described.');
                Result := True;
             end
             else
@@ -1557,7 +1596,7 @@
             end;
          end
          else
-            Fail('Syntax: "debug <command>", where <command> is one of "status", "locations", "location", "things [<things>]", "thing <thing>", "teleport <thing or location>", "make ''...''", "connect <direction> [and back] [from <location>] to <thing or location> [with <flags>]", "classes of things", or "classes of locations".');
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "locations", "location", "things [<things>]", "thing <thing>", "teleport <thing or location>", "make ''...''", "connect <direction> [and back] [from <location>] to <thing or location> [with <flags>]", "classes of <class>", or "describe class <class>".');
       end
       else
       {$ENDIF}
