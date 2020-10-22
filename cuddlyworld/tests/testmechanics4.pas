@@ -77,7 +77,7 @@ procedure TestMechanics4();
       RunCommand(
          'debug make ''' +
          'new TBackdrop named skybox {' +
-         '  master: new TScenery named sky {' +
+         '  source: new TScenery named sky {' +
          '    name: "sky";' +
          '    pattern: "blue? sky/skies";' +
          '    description: "The sky is clear.";' +

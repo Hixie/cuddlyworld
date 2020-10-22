@@ -228,12 +228,12 @@ type
    TFlagNode = class(TPatternNode)
     protected
      FFlag: TMatcherFlag;
-     FSlaveNode: TPatternNode;
+     FSecondaryNode: TPatternNode;
      procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
      procedure ReportTokens(Callback: TTokenReporterCallback); override;
      procedure FixTokenIDs(Callback: TTokenFinderCallback); override;
     public
-     constructor Create(Flag: TMatcherFlag; SlaveNode: TPatternNode);
+     constructor Create(Flag: TMatcherFlag; SecondaryNode: TPatternNode);
      destructor Destroy(); override;
    end;
    TChildrenPatternNode = class(TPatternNode)
@@ -278,19 +278,19 @@ type
      procedure HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False); override;
    end;
 
-procedure DualQuickSort(var MasterList, SlaveList: TTokens); forward;
-procedure DualQuickSort(var MasterList, SlaveList: TTokens; L, R: Integer); forward;
+procedure DualQuickSort(var PrimaryList, SecondaryList: TTokens); forward;
+procedure DualQuickSort(var PrimaryList, SecondaryList: TTokens; L, R: Integer); forward;
 
-procedure DualQuickSort(var MasterList, SlaveList: TTokens);
+procedure DualQuickSort(var PrimaryList, SecondaryList: TTokens);
 begin
-   Assert(Low(MasterList) >= Low(Integer));
-   Assert(High(MasterList) <= High(Integer));
-   Assert(Length(MasterList) = Length(SlaveList));
-   if (Length(MasterList) > 1) then
-      DualQuickSort(MasterList, SlaveList, Low(MasterList), High(MasterList)); // $R-
+   Assert(Low(PrimaryList) >= Low(Integer));
+   Assert(High(PrimaryList) <= High(Integer));
+   Assert(Length(PrimaryList) = Length(SecondaryList));
+   if (Length(PrimaryList) > 1) then
+      DualQuickSort(PrimaryList, SecondaryList, Low(PrimaryList), High(PrimaryList)); // $R-
 end;
 
-procedure DualQuickSort(var MasterList, SlaveList: TTokens; L, R: Integer);
+procedure DualQuickSort(var PrimaryList, SecondaryList: TTokens; L, R: Integer);
 { based on QuickSort in rtl/objpas/classes/lists.inc }
 var
    I, J : Integer;
@@ -299,60 +299,60 @@ begin
    repeat
       I := L;
       J := R;
-      P := MasterList[(L + R) div 2];
+      P := PrimaryList[(L + R) div 2];
       repeat
-         while (P > MasterList[I]) do
+         while (P > PrimaryList[I]) do
             I := I + 1; // $R-
-         while (P < MasterList[J]) do
+         while (P < PrimaryList[J]) do
             J := J - 1; // $R-
          if (I <= J) then
          begin
-            Q := MasterList[I];
-            MasterList[I] := MasterList[J];
-            MasterList[J] := Q;
-            Q := SlaveList[I];
-            SlaveList[I] := SlaveList[J];
-            SlaveList[J] := Q;
+            Q := PrimaryList[I];
+            PrimaryList[I] := PrimaryList[J];
+            PrimaryList[J] := Q;
+            Q := SecondaryList[I];
+            SecondaryList[I] := SecondaryList[J];
+            SecondaryList[J] := Q;
             I := I + 1; // $R-
             J := J - 1; // $R-
          end;
       until (I > J);
       if (L < J) then
-         DualQuickSort(MasterList, SlaveList, L, J);
+         DualQuickSort(PrimaryList, SecondaryList, L, J);
       L := I;
    until (I >= R);
 end;
 
-procedure DualRemoveDuplicates(var MasterList, SlaveList: TTokens);
+procedure DualRemoveDuplicates(var PrimaryList, SecondaryList: TTokens);
 var
    Index, Count: Cardinal;
-   NewMasterList, NewSlaveList: TTokens;
+   NewPrimaryList, NewSecondaryList: TTokens;
    Last: UTF8String;
 begin
-   Assert(Length(MasterList) = Length(SlaveList));
-   Assert(Length(MasterList) > 0);
-   SetLength(NewMasterList, Length(MasterList)); // $DFA- for NewMasterList
-   NewMasterList[0] := MasterList[0];
-   SetLength(NewSlaveList, Length(SlaveList)); // $DFA- for NewSlaveList
-   NewSlaveList[0] := SlaveList[0];
+   Assert(Length(PrimaryList) = Length(SecondaryList));
+   Assert(Length(PrimaryList) > 0);
+   SetLength(NewPrimaryList, Length(PrimaryList)); // $DFA- for NewPrimaryList
+   NewPrimaryList[0] := PrimaryList[0];
+   SetLength(NewSecondaryList, Length(SecondaryList)); // $DFA- for NewSecondaryList
+   NewSecondaryList[0] := SecondaryList[0];
    Index := 1;
    Count := 1;
-   Last := MasterList[0];
-   while (Index < Length(MasterList)) do
+   Last := PrimaryList[0];
+   while (Index < Length(PrimaryList)) do
    begin
-      if (MasterList[Index] <> Last) then
+      if (PrimaryList[Index] <> Last) then
       begin
-         Last := MasterList[Index];
-         NewMasterList[Count] := Last;
-         NewSlaveList[Count] := SlaveList[Index];
+         Last := PrimaryList[Index];
+         NewPrimaryList[Count] := Last;
+         NewSecondaryList[Count] := SecondaryList[Index];
          Inc(Count);
       end;
       Inc(Index);
    end;
-   SetLength(NewMasterList, Count);
-   MasterList := NewMasterList;
-   SetLength(NewSlaveList, Count);
-   SlaveList := NewSlaveList;
+   SetLength(NewPrimaryList, Count);
+   PrimaryList := NewPrimaryList;
+   SetLength(NewSecondaryList, Count);
+   SecondaryList := NewSecondaryList;
 end;
 
 procedure AddTransition(State: PState; Token: TByteCode; TargetState: PState; BlockDuplicates: Boolean);
@@ -442,28 +442,28 @@ begin
 end;
 
 
-constructor TFlagNode.Create(Flag: TMatcherFlag; SlaveNode: TPatternNode);
+constructor TFlagNode.Create(Flag: TMatcherFlag; SecondaryNode: TPatternNode);
 begin
    inherited Create();
    Assert(Flag < kFlagCount);
    FFlag := Flag;
-   Assert(Assigned(SlaveNode));
-   FSlaveNode := SlaveNode;
+   Assert(Assigned(SecondaryNode));
+   FSecondaryNode := SecondaryNode;
 end;
 
 destructor TFlagNode.Destroy(); 
 begin
-   FSlaveNode.Free();
+   FSecondaryNode.Free();
 end;
 
 procedure TFlagNode.ReportTokens(Callback: TTokenReporterCallback);
 begin
-   FSlaveNode.ReportTokens(Callback);
+   FSecondaryNode.ReportTokens(Callback);
 end;
 
 procedure TFlagNode.FixTokenIDs(Callback: TTokenFinderCallback);
 begin
-   FSlaveNode.FixTokenIDs(Callback);
+   FSecondaryNode.FixTokenIDs(Callback);
 end;
 
 procedure TFlagNode.HookStates(StartState: PState; TargetState: PState; GetNewState: TGetStateCallback; BlockDuplicates: Boolean = False);
@@ -478,7 +478,7 @@ begin
    }
    MiddleState := GetNewState();
    AddTransition(StartState, mtFlagMin + FFlag, MiddleState, BlockDuplicates); // $R-
-   FSlaveNode.HookStates(MiddleState, TargetState, GetNewState, BlockDuplicates); // XXX should BlockDuplicates be specified here?
+   FSecondaryNode.HookStates(MiddleState, TargetState, GetNewState, BlockDuplicates); // XXX should BlockDuplicates be specified here?
    if (StartState <> TargetState) then
       AddTransition(StartState, mtNegativeFlagMin + FFlag, TargetState, BlockDuplicates); // $R-
 end;

@@ -5,10 +5,10 @@
  {$DEFINE SUBCLASS:=TSurfaceNamedLocation}
  {$DEFINE CONSTRUCTORARGUMENTDECLARATIONS:=Name, DefiniteName, IndefiniteName, Description: UTF8String;}
  {$DEFINE CONSTRUCTORARGUMENTNAMES:=Name, DefiniteName, IndefiniteName, Description}
-{$ELSEIF SUPERCLASS=TSlavedLocation}
- {$DEFINE SUBCLASS:=TSurfaceSlavedLocation}
- {$DEFINE CONSTRUCTORARGUMENTDECLARATIONS:=Master: TThing; Position: TThingPosition;}
- {$DEFINE CONSTRUCTORARGUMENTNAMES:=Master, Position}
+{$ELSEIF SUPERCLASS=TProxyLocation}
+ {$DEFINE SUBCLASS:=TSurfaceProxyLocation}
+ {$DEFINE CONSTRUCTORARGUMENTDECLARATIONS:=Source: TThing; Position: TThingPosition;}
+ {$DEFINE CONSTRUCTORARGUMENTNAMES:=Source, Position}
 {$ELSE}
  {$FATAL Unknown SUPERCLASS value.}
 {$ENDIF}
@@ -70,21 +70,21 @@ begin
    end;
    Properties.EnsureSeen([pnName, pnDefiniteName, pnIndefiniteName, pnDescription, pnGround]);
    Result := Create(Name, DefiniteName, IndefiniteName, Description, Ground);
-{$ELSEIF SUPERCLASS=TSlavedLocation}
-   Master: TThing;
+{$ELSEIF SUPERCLASS=TProxyLocation}
+   Source: TThing;
    Position: TThingPosition;
    Ground: TThing;
 begin
    while (not Properties.Done) do
    begin
-      if (TThing.HandleUniqueThingProperty(Properties, pnMaster, Master, TThing) and {BOGUS Hint: Local variable "Master" does not seem to be initialized}
+      if (TThing.HandleUniqueThingProperty(Properties, pnSource, Source, TThing) and {BOGUS Hint: Local variable "Source" does not seem to be initialized}
           Properties.specialize HandleUniqueEnumProperty<TThingPosition>(pnPosition, Position) and {BOGUS Hint: Local variable "Position" does not seem to be initialized}
           TThing.HandleUniqueThingProperty(Properties, pnGround, Ground, TThing) and {BOGUS Hint: Local variable "Ground" does not seem to be initialized}
           HandleLandmarkProperties(Properties, StreamedLandmarks)) then
        Properties.FailUnknownProperty();
    end;
-   Properties.EnsureSeen([pnMaster, pnPosition, pnGround]);
-   Result := Create(Master, Position, Ground);
+   Properties.EnsureSeen([pnSource, pnPosition, pnGround]);
+   Result := Create(Source, Position, Ground);
 {$ELSE}
  {$FATAL Unknown SUPERCLASS value.}
 {$ENDIF}
@@ -93,7 +93,7 @@ end;
 
 class procedure SUBCLASS.DescribeProperties(Describer: TPropertyDescriber);
 begin
-   Describer.AddProperty(pnMaster, ptThing);
+   Describer.AddProperty(pnSource, ptThing);
    Describer.AddProperty(pnPosition, ptThingPosition);
    Describer.AddProperty(pnGround, ptThing);
    Describer.AddProperty(pnLandmark, ptLandmark);

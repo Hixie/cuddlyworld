@@ -143,7 +143,7 @@ type
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
-   TThresholdLocation = class(TSurfaceSlavedLocation) // @RegisterStorableClass
+   TThresholdLocation = class(TSurfaceProxyLocation) // @RegisterStorableClass
     protected
       class function CreateFromProperties(Properties: TTextStreamProperties): TThresholdLocation; override;
     public
@@ -1343,12 +1343,12 @@ begin
    if (Result and
           Assigned(FParent) and
           (FParent is TThresholdLocation) and
-          ((FParent as TThresholdLocation).FMaster is TDoorway) and
-          Assigned(((FParent as TThresholdLocation).FMaster as TDoorway).GetDoor()) and
-          not ((FParent as TThresholdLocation).FMaster as TDoorway).IsOpen()) then
+          ((FParent as TThresholdLocation).FSource is TDoorway) and
+          Assigned(((FParent as TThresholdLocation).FSource as TDoorway).GetDoor()) and
+          not ((FParent as TThresholdLocation).FSource as TDoorway).IsOpen()) then
    begin
       // can't put something inside a closed doorway, whether it could itself be a door or not
-      Message := TMessage.Create(mkClosed, ((FParent as TThresholdLocation).FMaster as TDoorway).GetDescriptionNoInside(Perspective));
+      Message := TMessage.Create(mkClosed, ((FParent as TThresholdLocation).FSource as TDoorway).GetDescriptionNoInside(Perspective));
       Result := False;
    end;
 end;
@@ -1386,27 +1386,27 @@ end;
 
 function TThresholdLocation.GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String;
 begin
-   Result := FMaster.GetPresenceStatement(Perspective, psThereIsAThingThere);
+   Result := FSource.GetPresenceStatement(Perspective, psThereIsAThingThere);
 end;
 
 function TThresholdLocation.GetDescriptionHere(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Directions: TCardinalDirectionSet = cdAllDirections; Context: TAtom = nil): UTF8String;
 begin
-   Assert(Assigned(FMaster));
-   if (Context <> FMaster) then
-      Result := FMaster.GetDescriptionSelf(Perspective) + WithNewlineIfMultiline(inherited)
+   Assert(Assigned(FSource));
+   if (Context <> FSource) then
+      Result := FSource.GetDescriptionSelf(Perspective) + WithNewlineIfMultiline(inherited)
    else
       Result := inherited;
 end;
 
 function TThresholdLocation.GetDescriptionRemoteBrief(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String;
 begin
-   Result := FMaster.GetDescriptionDirectional(Perspective, Mode, Direction);
+   Result := FSource.GetDescriptionDirectional(Perspective, Mode, Direction);
 end;
 
 function TThresholdLocation.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String;
 begin
    Exclude(Options, lpNamesTarget);
-   Result := FMaster.GetDescriptionRemoteDetailed(Perspective, Direction, LeadingPhrase, Options);
+   Result := FSource.GetDescriptionRemoteDetailed(Perspective, Direction, LeadingPhrase, Options);
 end;
 
 function TThresholdLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String;
@@ -1449,28 +1449,28 @@ end;
 procedure TThresholdLocation.EnumerateExplicitlyReferencedThingsDirectional(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; Distance: Cardinal; Direction: TCardinalDirection; Reporter: TThingReporter);
 begin
    if (Distance > 0) then
-      FMaster.ProxiedEnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
+      FSource.ProxiedEnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, True, Reporter);
    inherited;
 end;
 
 function TThresholdLocation.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; Options: TFindThingOptions): Boolean;
 begin
-   Result := FMaster.ProxiedFindThingTraverser(Thing, Perspective, Options);
+   Result := FSource.ProxiedFindThingTraverser(Thing, Perspective, Options);
 end;
 
 procedure TThresholdLocation.ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
 begin
-   FMaster.ProxiedFindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
+   FSource.ProxiedFindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
 end;
 
 function TThresholdLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
 begin
    Assert(Message.IsValid);
-   Assert(Assigned(FMaster));
-   if ((FMaster is TThresholdThing) and (FMaster as TThresholdThing).CanTraverse(Traveller, Direction, Perspective)) then
+   Assert(Assigned(FSource));
+   if ((FSource is TThresholdThing) and (FSource as TThresholdThing).CanTraverse(Traveller, Direction, Perspective)) then
    begin
-      DisambiguationOpening := FMaster;
-      NotificationList.AppendItem(FMaster);
+      DisambiguationOpening := FSource;
+      NotificationList.AppendItem(FSource);
       Result := GetAtomForDirectionalNavigation(Direction);
       if (Assigned(Result)) then
          Result := Result.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList)
@@ -1479,7 +1479,7 @@ begin
    end
    else
    begin
-      Message := TMessage.Create(mkClosed, FMaster.GetDescriptionNoInside(Perspective));
+      Message := TMessage.Create(mkClosed, FSource.GetDescriptionNoInside(Perspective));
       Result := nil;
    end;
 end;
