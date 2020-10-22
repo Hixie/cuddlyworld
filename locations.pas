@@ -26,12 +26,12 @@ type
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
    end;
 
-   TSlavedLocation = class(TLocation)
+   TProxyLocation = class(TLocation)
     protected
-      FMaster: TThing;
-      class function CreateFromProperties(Properties: TTextStreamProperties): TSlavedLocation; override;
+      FSource: TThing;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TProxyLocation; override;
     public
-      constructor Create(Master: TThing; Position: TThingPosition);
+      constructor Create(Source: TThing; Position: TThingPosition);
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
@@ -45,8 +45,8 @@ type
 {$DEFINE PART:=Interface}
 {$DEFINE SUPERCLASS:=TNamedLocation}
 {$INCLUDE surfacelocations.inc} // defines TSurfaceNamedLocation
-{$DEFINE SUPERCLASS:=TSlavedLocation}
-{$INCLUDE surfacelocations.inc} // defines TSurfaceSlavedLocation
+{$DEFINE SUPERCLASS:=TProxyLocation}
+{$INCLUDE surfacelocations.inc} // defines TSurfaceProxyLocation
 {$UNDEF SUPERCLASS}
 {$UNDEF PART}
 
@@ -63,7 +63,7 @@ type
       procedure Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
    end;
 
-   TBackdrop = class(TSlavedLocation) // @RegisterStorableClass
+   TBackdrop = class(TProxyLocation) // @RegisterStorableClass
     // XXX should assert that nobody can enter this one except using 'debug teleport'
    end;
 
@@ -153,78 +153,78 @@ begin
 end;
 
 
-constructor TSlavedLocation.Create(Master: TThing; Position: TThingPosition);
+constructor TProxyLocation.Create(Source: TThing; Position: TThingPosition);
 begin
    inherited Create();
-   FMaster := Master;
-   Add(FMaster, Position);
+   FSource := Source;
+   Add(FSource, Position);
 end;
 
-constructor TSlavedLocation.Read(Stream: TReadStream);
+constructor TProxyLocation.Read(Stream: TReadStream);
 begin
    inherited;
-   Stream.ReadReference(@Pointer(FMaster));
+   Stream.ReadReference(@Pointer(FSource));
 end;
 
-procedure TSlavedLocation.Write(Stream: TWriteStream);
+procedure TProxyLocation.Write(Stream: TWriteStream);
 begin
    inherited;
-   Stream.WriteReference(FMaster);
+   Stream.WriteReference(FSource);
 end;
 
-class function TSlavedLocation.CreateFromProperties(Properties: TTextStreamProperties): TSlavedLocation;
+class function TProxyLocation.CreateFromProperties(Properties: TTextStreamProperties): TProxyLocation;
 var
-   Master: TThing;
+   Source: TThing;
    Position: TThingPosition;
    StreamedLandmarks: TStreamedLandmarks;
 begin
    while (not Properties.Done) do
    begin
-      if (TThing.HandleUniqueThingProperty(Properties, pnMaster, Master, TThing) and {BOGUS Hint: Local variable "Master" does not seem to be initialized}
+      if (TThing.HandleUniqueThingProperty(Properties, pnSource, Source, TThing) and {BOGUS Hint: Local variable "Source" does not seem to be initialized}
           Properties.specialize HandleUniqueEnumProperty<TThingPosition>(pnPosition, Position) and {BOGUS Hint: Local variable "Position" does not seem to be initialized}
           HandleLandmarkProperties(Properties, StreamedLandmarks)) then
        Properties.FailUnknownProperty();
    end;
-   Properties.EnsureSeen([pnMaster, pnPosition]);
-   Result := Create(Master, Position);
+   Properties.EnsureSeen([pnSource, pnPosition]);
+   Result := Create(Source, Position);
    StreamedLandmarks.Apply(Result);
 end;
 
-class procedure TSlavedLocation.DescribeProperties(Describer: TPropertyDescriber);
+class procedure TProxyLocation.DescribeProperties(Describer: TPropertyDescriber);
 begin
-   Describer.AddProperty(pnMaster, ptThing);
+   Describer.AddProperty(pnSource, ptThing);
    Describer.AddProperty(pnPosition, ptThingPosition);
    Describer.AddProperty(pnLandmark, ptLandmark);
 end;
 
-function TSlavedLocation.GetName(Perspective: TAvatar): UTF8String;
+function TProxyLocation.GetName(Perspective: TAvatar): UTF8String;
 begin
-   Result := FMaster.GetName(Perspective);
+   Result := FSource.GetName(Perspective);
 end;
 
-function TSlavedLocation.GetDefiniteName(Perspective: TAvatar): UTF8String;
+function TProxyLocation.GetDefiniteName(Perspective: TAvatar): UTF8String;
 begin
-   Result := FMaster.GetDefiniteName(Perspective);
+   Result := FSource.GetDefiniteName(Perspective);
 end;
 
-function TSlavedLocation.GetIndefiniteName(Perspective: TAvatar): UTF8String;
+function TProxyLocation.GetIndefiniteName(Perspective: TAvatar): UTF8String;
 begin
-   Result := FMaster.GetIndefiniteName(Perspective);
+   Result := FSource.GetIndefiniteName(Perspective);
 end;
 
-function TSlavedLocation.IsPlural(Perspective: TAvatar): Boolean;
+function TProxyLocation.IsPlural(Perspective: TAvatar): Boolean;
 begin
-   Result := FMaster.IsPlural(Perspective);
+   Result := FSource.IsPlural(Perspective);
 end;
 
-function TSlavedLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String;
+function TProxyLocation.GetContextFragment(Perspective: TAvatar; PertinentPosition: TThingPosition; Context: TAtom = nil): UTF8String;
 var
    Ancestor: TAtom;
 begin
    Ancestor := Context;
    while (Ancestor is TThing) do
    begin
-      if (Ancestor = FMaster) then
+      if (Ancestor = FSource) then
       begin
          Result := '';
          exit;
@@ -237,7 +237,7 @@ end;
 {$DEFINE PART:=Implementation}
 {$DEFINE SUPERCLASS:=TNamedLocation}
 {$INCLUDE surfacelocations.inc}
-{$DEFINE SUPERCLASS:=TSlavedLocation}
+{$DEFINE SUPERCLASS:=TProxyLocation}
 {$INCLUDE surfacelocations.inc}
 {$UNDEF SUPERCLASS}
 {$UNDEF PART}

@@ -72,7 +72,7 @@ type
       function AcceptsJoins(Peer: TAbstractClause): Boolean; virtual; abstract;
       procedure RegisterJoin(Peer: TAbstractJoiningClause); virtual; abstract;
       function AcceptsFilter(Peer: TAbstractClause; out CanContinue: Boolean): Boolean; virtual;
-      procedure SelfCensor(Whitelist: TThingList); virtual;
+      procedure SelfCensor(Allowlist: TThingList); virtual;
       function Select(): Boolean; virtual;
       procedure Process(); virtual; abstract;
       procedure Add(Next: TAbstractClause);
@@ -617,16 +617,16 @@ begin
 {$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.Select() for a ', ClassName, ' ended with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Result=', Result); {$ENDIF}
 end;
 
-procedure TAbstractClause.SelfCensor(Whitelist: TThingList);
+procedure TAbstractClause.SelfCensor(Allowlist: TThingList);
 var
    E: TThingList.TEnumerator;
 begin
-{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.SelfCensor() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Whitelist=', Whitelist.GetDefiniteString(nil, 'and')); {$ENDIF}
+{$IFDEF DEBUG_SEEKER} Writeln('TAbstractClause.SelfCensor() for a ', ClassName, ' with FThings=', FThings.GetDefiniteString(nil, 'and'), '; Allowlist=', Allowlist.GetDefiniteString(nil, 'and')); {$ENDIF}
    E := FThings.GetEnumerator();
    try
       while (E.MoveNext()) do
       begin
-         if (not Whitelist.Contains(E.Current)) then
+         if (not Allowlist.Contains(E.Current)) then
             E.Remove();
       end;
    finally
@@ -1823,9 +1823,9 @@ var
    procedure Collapse(FirstClause: TAbstractClause; out Things: TThingList; out Disambiguate: Boolean);
    var
       CurrentClause, LastClause: TAbstractClause;
-      FromOutside, GotWhitelist: Boolean;
+      FromOutside, GotAllowlist: Boolean;
       Root: TAtom;
-      WhiteList: TThingList;
+      Allowlist: TThingList;
       FindMatchingThingsOptions: TFindMatchingThingsOptions;
    begin
       Assert(FirstClause is TStartClause);
@@ -1840,13 +1840,13 @@ var
       if (not (optAllowMultiples in Options)) then
          (FirstClause as TStartClause).PreCheckNoMultiples(Perspective, Verb);
       CurrentClause := LastClause;
-      GotWhitelist := False;
+      GotAllowlist := False;
       try
          repeat
             try
                if ((cfRemoveHiddenThings in CurrentClause.FFlags) and (Scope <> [])) then
                begin
-                  if (not GotWhitelist) then
+                  if (not GotAllowlist) then
                   begin
                      if (aisSurroundings in Scope) then
                         Root := Perspective.GetSurroundingsRoot(FromOutside)
@@ -1855,16 +1855,16 @@ var
                         Root := Perspective
                      else
                         Assert(False, 'unexpected TAllImpliedScope value');
-                     Whitelist := TThingList.Create();
-                     GotWhitelist := True;
+                     Allowlist := TThingList.Create();
+                     GotAllowlist := True;
                      FindMatchingThingsOptions := [];
                      if (FromOutside) then
                         Include(FindMatchingThingsOptions, fomFromOutside);
                      if (aisSelf in Scope) then
                         Include(FindMatchingThingsOptions, fomIncludePerspectiveChildren);
-                     Root.FindMatchingThings(Perspective, FindMatchingThingsOptions, tpCountsForAll, [], Whitelist);
+                     Root.FindMatchingThings(Perspective, FindMatchingThingsOptions, tpCountsForAll, [], Allowlist);
                   end;
-                  CurrentClause.SelfCensor(Whitelist);
+                  CurrentClause.SelfCensor(Allowlist);
                end;
                if (CurrentClause.Select()) then
                   Disambiguate := True;
@@ -1876,8 +1876,8 @@ var
             CurrentClause := CurrentClause.FPrevious;
          until not Assigned(CurrentClause);
       finally
-         if (GotWhitelist) then
-            Whitelist.Free();
+         if (GotAllowlist) then
+            Allowlist.Free();
       end;
       if (not (optAllowMultiples in Options)) then
          (FirstClause as TStartClause).PostCheckNoMultiples(Perspective, Verb);
