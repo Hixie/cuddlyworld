@@ -58,7 +58,8 @@ procedure TestMechanics4();
       RunCommand('debug teleport land', ['Land', 'The land is a land. To the north is the undisclosed location.', 'There is a wooden sign here.']);
       RunCommand('debug teleport sign', ['On the wooden sign (at the land)', 'The sign has some text burnt into it.', 'The land is a land. To the north is the undisclosed location.']);
       RunCommand('debug make ''new TScenery { name: "test"; pattern: "test/tests"; description: "The test is a test."; }''', ['Poof! There is a test here.']);
-      RunCommand('debug describe class TScenery', ['Properties available on TScenery:', ' - name: string', ' - pattern: pattern', ' - description: string', ' - underDescription: string', ' - findDescription: string', ' - cannotMoveExcuse: string', ' - opened: enum:boolean', ' - mass: enum:mass', ' - size: enum:size', ' - child: child*']);
+      RunCommand('debug describe class TScenery', ['Properties available on TScenery:', ' - name: string', ' - pattern: pattern', ' - description: string', ' - underDescription: string', ' - findDescription: string', ' - cannotMoveExcuse: string', ' - opened: boolean', ' - mass: enum:TThingMass', ' - size: enum:TThingSize', ' - child: child*']);
+      RunCommand('debug describe enum TThingMass', ['Enum values available on TThingMass:', ' - tmLight', ' - tmHeavy', ' - tmPonderous', ' - tmLudicrous']);
    end;
 
    procedure RunTest2(TestWorld: TWorld; TestPlayer: TPlayer; Proxy: TTestProxy);

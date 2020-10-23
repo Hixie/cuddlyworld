@@ -1565,28 +1565,84 @@
             begin
                Inc(CurrentToken);
                Result := False;
-               Action.Verb := avDebugDescribeClass;
-               if (not CanEnd() and (Tokens[CurrentToken] = 'class')) then
-               begin
-                  Inc(CurrentToken);
-                  if (not CanEnd()) then
+               if (not CanEnd()) then
+               begin 
+                  if (Tokens[CurrentToken] = 'class') then
                   begin
-                     Action.DebugDescribeClass := TAtomClass(GetRegisteredAtomClass(OriginalTokens[CurrentToken]));
-                     if (not Assigned(Action.DebugDescribeClass)) then
-                        Fail('Unrecognized class ("' + OriginalTokens[CurrentToken] + '"). Use "debug classes of TAtom" to get a list of classes that can be described.');
                      Inc(CurrentToken);
+                     Action.Verb := avDebugDescribeClass;
                      if (not CanEnd()) then
                      begin
-                        EnsureNoPunctuation();
-                     end
-                     else
-                     begin
-                        Result := True;
+                        Action.DebugDescribeClass := TAtomClass(GetRegisteredAtomClass(OriginalTokens[CurrentToken]));
+                        if (not Assigned(Action.DebugDescribeClass)) then
+                           Fail('Unrecognized class ("' + OriginalTokens[CurrentToken] + '"). Use "debug classes of TAtom" to get a list of classes that can be described.');
+                        Inc(CurrentToken);
+                        if (not CanEnd()) then
+                        begin
+                           EnsureNoPunctuation();
+                        end
+                        else
+                        begin
+                           Result := True;
+                        end;
                      end;
+                     if (not Result) then
+                        Fail('Syntax: debug describe class <class>. Use "debug classes of TAtom" to get a list of classes that can be described.');
+                  end
+                  else
+                  if (Tokens[CurrentToken] = 'enum') then
+                  begin
+                     Inc(CurrentToken);
+                     Action.Verb := avDebugDescribeEnum;
+                     Action.DebugDescribeEnumTypeInfo := nil;
+                     if (not CanEnd()) then
+                     begin
+                        if (OriginalTokens[CurrentToken] = 'Boolean') then
+                        begin
+                           Action.DebugDescribeEnumTypeInfo := TypeInfo(Boolean);
+                        end
+                        else
+                        if (OriginalTokens[CurrentToken] = 'TCardinalDirection') then
+                        begin
+                           Action.DebugDescribeEnumTypeInfo := TypeInfo(TCardinalDirection);
+                        end
+                        else
+                        if (OriginalTokens[CurrentToken] = 'TThingMass') then
+                        begin
+                           Action.DebugDescribeEnumTypeInfo := TypeInfo(TThingMass);
+                        end
+                        else
+                        if (OriginalTokens[CurrentToken] = 'TThingSize') then
+                        begin
+                           Action.DebugDescribeEnumTypeInfo := TypeInfo(TThingSize);
+                        end
+                        else
+                        if (OriginalTokens[CurrentToken] = 'TThingPosition') then
+                        begin
+                           Action.DebugDescribeEnumTypeInfo := TypeInfo(TThingPosition);
+                        end;
+                        // When adding more, update the list below.
+                        if (Assigned(Action.DebugDescribeEnumTypeInfo)) then
+                        begin
+                            Inc(CurrentToken);
+                            if (not CanEnd()) then
+                            begin
+                               EnsureNoPunctuation();
+                            end
+                            else
+                            begin
+                               Result := True;
+                            end;
+                         end;
+                     end;
+                     if (not Result) then
+                        Fail('Syntax: "debug describe enum <enum>", where <enum> is one of "Boolean", "TCardinalDirection", "TThingMass", "TThingSize", "TThingPosition".');
+                  end
+                  else
+                  begin
+                     Fail('Syntax: "debug describe class <class>" or "debug describe enum <enum>".');
                   end;
                end;
-               if (not Result) then
-                  Fail('Syntax: debug describe class <class>. Use "debug classes of TAtom" to get a list of classes that can be described.');
                Result := True;
             end
             else
@@ -1596,7 +1652,7 @@
             end;
          end
          else
-            Fail('Syntax: "debug <command>", where <command> is one of "status", "locations", "location", "things [<things>]", "thing <thing>", "teleport <thing or location>", "make ''...''", "connect <direction> [and back] [from <location>] to <thing or location> [with <flags>]", "classes of <class>", or "describe class <class>".');
+            Fail('Syntax: "debug <command>", where <command> is one of "status", "locations", "location", "things [<things>]", "thing <thing>", "teleport <thing or location>", "make ''...''", "connect <direction> [and back] [from <location>] to <thing or location> [with <flags>]", "classes of <class>", "describe class <class>", or "describe enum <enum>".');
       end
       else
       {$ENDIF}

@@ -35,7 +35,7 @@ type
 implementation
 
 uses
-   sysutils, thingseeker, properties
+   sysutils, thingseeker, properties, typinfo, thingdim // typinfo and thingdim are used in parser.inc
    {$IFDEF DEBUG}, broadcast, textstream, typedump, arrayutils {$ENDIF}; // typedump and arrayutils are used in parser.inc
 
 var
@@ -380,6 +380,36 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
       AClass.DescribeProperties(Describer);
       Describer.Free();
    end;
+
+   procedure DoDebugDescribeEnum(AEnumTypeInfo: PTypeInfo);
+
+      function AlignToPtr(P: Pointer): Pointer; inline;
+      begin
+         {$IFDEF FPC_REQUIRES_PROPER_ALIGNMENT}
+           Result := Align(P,SizeOf(P));
+         {$ELSE FPC_REQUIRES_PROPER_ALIGNMENT}
+           Result := P;
+         {$ENDIF FPC_REQUIRES_PROPER_ALIGNMENT}
+      end;
+
+   var
+      TypeData: PTypeData;
+      Index: Integer;
+      Current: PShortString;
+   begin
+      Assert(AEnumTypeInfo^.Kind = tkEnumeration);
+      Player.SendMessage('Enum values available on ' + AEnumTypeInfo^.Name + ':');
+      TypeData := GetTypeData(AEnumTypeInfo);
+      Index := TypeData^.MinValue;
+      Player.SendMessage(' - ' + TypeData^.NameList);
+      Current := @TypeData^.NameList;
+      while (Index < TypeData^.MaxValue) do
+      begin
+         Current := PShortString(AlignToPtr(Pointer(Current)+Length(Current^)+1));
+         Player.SendMessage(' - ' + Current^);
+         Inc(Index);
+      end;
+   end;
    {$ENDIF}
 
    procedure DoHelp();
@@ -437,6 +467,7 @@ begin
     avDebugConnect: DoDebugConnect(Action.DebugConnectDirection, Action.DebugConnectSource, Action.DebugConnectTarget, Action.DebugConnectOptions, Action.DebugConnectBidirectional);
     avDebugListClasses: Player.DoDebugListClasses(Action.DebugSuperclass);
     avDebugDescribeClass: DoDebugDescribeClass(Action.DebugDescribeClass);
+    avDebugDescribeEnum: DoDebugDescribeEnum(Action.DebugDescribeEnumTypeInfo);
     {$ENDIF}
     avHelp: DoHelp();
     avQuit: DoQuit();
