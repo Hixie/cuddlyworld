@@ -5,7 +5,7 @@ unit player;
 interface
 
 uses
-   storable, physics, grammarian, messages, lists, thingdim, thingseeker;
+   storable, physics, grammarian, messages, lists, thingdim, thingseeker, typinfo;
 
 const
    MaxCarryMass = tmPonderous; { not inclusive }
@@ -26,8 +26,8 @@ type
                   avGo, avEnter, avClimbOn,
                   avTake, avPut, avMove, avPush, avPushTo, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
                   avTalk, avDance,
-                  {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugLocations, avDebugThings, avDebugThing,
-                                 avDebugTeleport, avDebugMake, avDebugConnect, avDebugListClasses, avDebugDescribeClass, {$ENDIF}
+                  {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugLocations, avDebugThings, avDebugThing, avDebugTeleport,
+                                 avDebugMake, avDebugConnect, avDebugListClasses, avDebugDescribeClass, avDebugDescribeEnum, {$ENDIF}
                   avHelp, avQuit);
 
    TAction = record
@@ -68,6 +68,7 @@ type
       avDebugConnect: (DebugConnectDirection: TCardinalDirection; DebugConnectSource: TLocation; DebugConnectTarget: TAtom; DebugConnectOptions: TLandmarkOptions; DebugConnectBidirectional: Boolean);
       avDebugListClasses: (DebugSuperclass: TClass);
       avDebugDescribeClass: (DebugDescribeClass: TAtomClass);
+      avDebugDescribeEnum: (DebugDescribeEnumTypeInfo: PTypeInfo);
       {$ENDIF}
       avHelp: ();
       avQuit: ();
