@@ -203,6 +203,7 @@ THINGS
  + "look closer" should ask what part you want to look closer at ("look closer" "what do you want to look closer at?" "look closer at tree" "do you want to examine the leaf, or the branch?"
  + "look through opening"
  + "look in bag" tells you you see a bag. maybe we need a different method for looking at the inside of something than the outside of something. See also the TODO regarding whether things like bags should have surfaces.
+ + "look up" from inside a hole in a room with an up landmark sky sees the sky, but "examine sun" etc doesn't work (even though it works when on the ground in that room)
  + "take all there is"
  + "take all again"
  + "take leaves with spade"
@@ -228,8 +229,8 @@ THINGS
     - the pile should vanish when there's only one of them left
     - the pile can be clever, e.g. a pile of money should summarise the value of tender (coins, bills) in the pile
  + tpAutoDescribeDirectional seems a bit dubious. Maybe use an lo* constant instead, or something? does that even make sense?
- + find hole says "The hole is below, in the ground." but "below" sounds a bit weird.
- + "read sky" should say "in" not "on" -- maybe base this on whether something has a surface? consider book (in), bag (on)
+ + find hole says "The hole is in the flat ground." which sounds a bit weird.
+ + "read sky" should say "in" not "on" -- maybe base this on whether something has a surface? consider book (in), bag (on) (could also be related to "at the playground" vs "in the shop")
  + "hang door in doorway", maybe have a tpHangingFrom which "hang" defaults to trying?
  + add a tpStuckTo for notes, then autodisambiguate whether something should be put tpOn or tpStuckTo
     - notes vs buckets being put "on" a door mean different things

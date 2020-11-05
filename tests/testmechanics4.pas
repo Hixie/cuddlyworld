@@ -171,6 +171,12 @@ procedure TestMechanics4();
       RunCommand('out', ['Doorway between a room and a back room', 'The doorway has no notable features. To the north is a room. To the south is a back room.']);
       RunCommand('south', ['Back Room', 'Nothing is particularly noteworthy about this second location. To the north is a doorway.']);
       RunCommand('move into doorway', ['(through the doorway)', 'Room', 'Nothing is particularly noteworthy about this location. To the south is a doorway. To the north is the land.']);
+      RunCommand('say "hello"', ['You say "hello".']);
+      RunCommand('say ''hello''', ['You say "hello".']);
+      RunCommand('say "he\llo"', ['You say "he\llo".']);
+      RunCommand('say ''he\llo''', ['You say "hello".']);
+      RunCommand('say ''he\''', ['You say "he''".']);
+      RunCommand('say ''he\', ['You say "he".']);
    end;
 
 begin

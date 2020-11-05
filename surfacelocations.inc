@@ -93,10 +93,21 @@ end;
 
 class procedure SUBCLASS.DescribeProperties(Describer: TPropertyDescriber);
 begin
+{$IF SUPERCLASS=TNamedLocation}
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnDefiniteName, ptString);
+   Describer.AddProperty(pnIndefiniteName, ptString);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnGround, ptThing);
+   Describer.AddProperty(pnLandmark, ptLandmark);
+{$ELSEIF SUPERCLASS=TProxyLocation}
    Describer.AddProperty(pnSource, ptThing);
    Describer.AddProperty(pnPosition, ptThingPosition);
    Describer.AddProperty(pnGround, ptThing);
    Describer.AddProperty(pnLandmark, ptLandmark);
+{$ELSE}
+ {$FATAL Unknown SUPERCLASS value.}
+{$ENDIF}
 end;
       
 procedure SUBCLASS.EnumerateObtrusiveObstacles(List: TThingList);

@@ -65,6 +65,8 @@ type
 
    TBackdrop = class(TProxyLocation) // @RegisterStorableClass
     // XXX should assert that nobody can enter this one except using 'debug teleport'
+    public
+      function GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String; override;
    end;
 
 
@@ -274,6 +276,13 @@ begin
    if (not Assigned(Result)) then
       Result := FDirectionalLandmarks[cdDown][0].Atom;
    Assert(Assigned(Result));
+end;
+
+
+function TBackdrop.GetDescriptionRemoteDetailed(Perspective: TAvatar; Direction: TCardinalDirection; LeadingPhrase: UTF8String; Options: TLeadingPhraseOptions): UTF8String;
+begin
+   Result := LeadingPhrase + ', you see ' + FSource.GetDefiniteName(Perspective) + '.' +
+             WithNewlineIfNotEmpty(FSource.GetBasicDescription(Perspective, psThereIsAThingThere, cdAllDirections - [ReverseCardinalDirection(Direction)]));
 end;
 
 
