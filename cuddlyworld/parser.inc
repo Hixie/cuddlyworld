@@ -1620,8 +1620,12 @@
                         if (OriginalTokens[CurrentToken] = 'TThingPosition') then
                         begin
                            Action.DebugDescribeEnumTypeInfo := TypeInfo(TThingPosition);
-                        end;
-                        // When adding more, update the list below.
+                        end
+                        else
+                        if (OriginalTokens[CurrentToken] = 'TLandmarkOption') then
+                        begin
+                           Action.DebugDescribeEnumTypeInfo := TypeInfo(TLandmarkOption);
+                        end; // When adding more, update the list below.
                         if (Assigned(Action.DebugDescribeEnumTypeInfo)) then
                         begin
                             Inc(CurrentToken);
@@ -1636,7 +1640,7 @@
                          end;
                      end;
                      if (not Result) then
-                        Fail('Syntax: "debug describe enum <enum>", where <enum> is one of "Boolean", "TCardinalDirection", "TThingMass", "TThingSize", "TThingPosition".');
+                        Fail('Syntax: "debug describe enum <enum>", where <enum> is one of "Boolean", "TCardinalDirection", "TThingMass", "TThingSize", "TThingPosition", "TLandmarkOption".');
                   end
                   else
                   begin

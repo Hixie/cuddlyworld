@@ -101,7 +101,7 @@ type
    TLandmarkOption = (loAutoDescribe, // include landmark in descriptions of the room (works for locations; works for things if their position is in tpAutoDescribeDirectional) [1]
                       loPermissibleNavigationTarget, // whether you can travel that way; only the first landmark in each direction is allowed to be loPermissibleNavigationTarget, otherwise direction navigation would be ambiguous
                       loThreshold, // whether FindThing and FindMatchingThings should traverse (ExplicitlyReferenced logic doesn't use this since it looks everywhere) [1]
-                      loVisibleFromFarAway, // for e.g. mountains // XXX leads to infinite loops if reflexive
+                      loVisibleFromFarAway, // whether to traverse multiple locations; for e.g. mountains (leads to infinite loops if reflexive)
                       loNotVisibleFromBehind, // for e.g. surfaces so that they're not visible from below
                       loConsiderDirectionUnimportantWhenFindingChildren); // so that "find hole" doesn't say "below"
    // [1]: Don't include a landmark in more than one direction at a time if they are marked with either of these
@@ -2682,14 +2682,18 @@ begin
                   Include(SubjectiveInformation.RequiredAbilitiesToNavigate, naDebugTeleport)
                else
                   Include(SubjectiveInformation.RequiredAbilitiesToNavigate, naWalk); // XXX we're just assuming that everything is walkable
-                  // long term we should add ability to set this to naFly, naJump, naWalk, or combinations thereof
+               // long term we should add ability to set this to naFly, naJump, naWalk, or combinations thereof
+               Exit;
             end;
          end;
       end;
    for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
    begin
       if (FindThingDirectionalTraverser(Thing, Perspective, 0, Direction, Options, SubjectiveInformation)) then
+      begin  
          Result := True;
+         Exit;
+      end;
    end;
 end;
 
@@ -2705,8 +2709,7 @@ function TLocation.FindThingDirectionalTraverser(Thing: TThing; Perspective: TAv
          for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do // $R-
          begin
             CandidateOptions := FDirectionalLandmarks[CurrentDirection][Index].Options;
-            if ((not (loThreshold in CandidateOptions)) and // XXX why?
-                ((not MustBeVisibleFromFarAway) or (loVisibleFromFarAway in CandidateOptions)) and
+            if (((not MustBeVisibleFromFarAway) or (loVisibleFromFarAway in CandidateOptions)) and
                 ((not Reversed) or (not (loNotVisibleFromBehind in CandidateOptions)))) then
             begin
                CandidateAtom := FDirectionalLandmarks[CurrentDirection][Index].Atom;
@@ -2785,7 +2788,7 @@ procedure TLocation.EnumerateExplicitlyReferencedThingsDirectional(Tokens: TToke
          for Index := Low(FDirectionalLandmarks[CurrentDirection]) to High(FDirectionalLandmarks[CurrentDirection]) do // $R-
          begin
             CandidateOptions := FDirectionalLandmarks[CurrentDirection][Index].Options;
-            if ((not (loThreshold in CandidateOptions)) and // XXX why?
+            if ((not (loThreshold in CandidateOptions)) and // EnumerateExplicitlyReferencedThings takes care of these, we don't want to duplicate them
                 ((not MustBeVisibleFromFarAway) or (loVisibleFromFarAway in CandidateOptions)) and
                 ((not Reversed) or (not (loNotVisibleFromBehind in CandidateOptions)))) then
             begin
@@ -2823,7 +2826,20 @@ procedure TLocation.EnumerateExplicitlyReferencedThingsDirectional(Tokens: TToke
 begin
    Assert(Distance < High(Distance));
    if (Distance > 0) then
+   begin
+      // This handles landmarks that are between the source and us, but that are
+      // on the "incoming" side. For example, B in the following situation
+      // assuming that x is looking east towards the other location. A would be
+      // seen from the first room but B can only be seen if we're looking
+      // "backwards" from the second location even though it should be
+      // considered as visible from x. (A and B are landmarks.)
+      //
+      //   +---+    +---+
+      //   | x A -- B   |
+      //   +---+    +---+
+      //
       Internal(cdReverse[Direction], Distance > 1, True);
+   end;
    Internal(Direction, Distance > 0, False);
 end;
 

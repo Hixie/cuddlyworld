@@ -152,9 +152,10 @@ var
    end;
 
 type
-   TTokeniserState = (tsWordStart, tsWordBody, tsQuoted, tsDoubleQuoted);
+   TTokeniserState = (tsWordStart, tsWordBody, tsQuoted, tsQuotedEscape, tsQuotedWithEscapes, tsDoubleQuoted);
 var
    TokeniserState: TTokeniserState;
+   Buffer: UTF8String;
 begin
    SetLength(Result, 0);
    Start := 1;
@@ -188,6 +189,30 @@ begin
                  PushToken('""');
               TokeniserState := tsWordStart;
            end;
+           '\': begin
+              if (Start < Index) then
+                 Buffer := UTF8String(S[Start..Index-1])
+              else
+                 Buffer := '';
+              TokeniserState := tsQuotedEscape;
+           end;
+          end;
+       tsQuotedEscape:
+          begin
+             Start := Index;
+             TokeniserState := tsQuotedWithEscapes;
+          end;
+       tsQuotedWithEscapes:
+          case S[Index] of
+           '''': begin
+              Assert(Start < Index);
+              PushToken('"' + Buffer + UTF8String(S[Start..Index-1]) + '"');
+              TokeniserState := tsWordStart;
+           end;
+           '\': begin
+              Buffer := Buffer + UTF8String(S[Start..Index-1]);
+              TokeniserState := tsQuotedEscape;
+           end;
           end;
        tsDoubleQuoted:
           case S[Index] of
@@ -206,11 +231,18 @@ begin
     tsWordStart: ;
     tsWordBody: PushToken(Canonicaliser(S[Start..Index-1]));
     tsQuoted: begin
-        if (Start < Index) then
-           PushToken('"' + UTF8String(S[Start..Index-1]) + '"')
-        else
-           PushToken('""')
-     end;
+          if (Start < Index) then
+             PushToken('"' + UTF8String(S[Start..Index-1]) + '"')
+          else
+             PushToken('""')
+       end;
+    tsQuotedEscape: PushToken('"' + Buffer + '"');
+    tsQuotedWithEscapes: begin
+          if (Start < Index) then
+             PushToken('"' + Buffer + UTF8String(S[Start..Index-1]) + '"')
+          else
+             PushToken('"' + Buffer + '"');
+       end;
     tsDoubleQuoted: begin
         if (Start < Index) then
            PushToken('"' + UTF8String(S[Start..Index-1]) + '"')
