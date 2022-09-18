@@ -162,7 +162,7 @@ begin
    end
    else
    begin
-      FPlayer := TPlayer.Create(Username, Password, gOrb);
+      FPlayer := TPlayer.Create(Username, Password, pSingularThey);
       FPlayer.Adopt(@Self.HandleAvatarMessage, @Self.HandleForceDisconnect);
       FWorld.AddPlayer(FPlayer); { this puts it into the world }
       FPlayer.AnnounceAppearance();

@@ -4,7 +4,7 @@ program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, lists, physics, player, locations, things, grammarian, cuddlycamp, world, threshold,
-   testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4,
+   testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4, testmechanics5,
    base64encoder, client; // client is used just to make sure it gets compiled when compiling tests
 
 procedure TestBase64Encoder();
@@ -47,7 +47,7 @@ begin
    Failed := False;
    try
       try
-         TestPlayer := TPlayer.Create('Tester', '', gRobot);
+         TestPlayer := TPlayer.Create('Tester', '', pIt);
          TestPlayer.Adopt(@Proxy.HandleAvatarMessage, @Proxy.HandleForceDisconnect);
          TestWorld.AddPlayer(TestPlayer);
          TestPlayer.AnnounceAppearance();
@@ -478,6 +478,7 @@ begin
    TestBase64Encoder();
    TestMatcher();
    TestLists();
+   TestMechanics5.TestMechanics5();
    TestMechanics4.TestMechanics4();
    TestMechanics3.TestMechanics3();
    TestMechanics2.TestMechanics2();

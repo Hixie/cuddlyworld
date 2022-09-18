@@ -94,7 +94,7 @@ procedure TestMechanics4();
          '  position: tpAtImplicit;' +
          '};' +
          'new TThresholdLocation named doorway {' +
-         '  landmark: new TDoorWay {' +
+         '  passageWay: new TDoorWay {' +
          '    name: "doorway";' +
          '    pattern: "unnotable? doorway/doorways";' +
          '    description: "The doorway has no notable features.";' +

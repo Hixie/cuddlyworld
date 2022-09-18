@@ -17,7 +17,7 @@ const
    MaxCarryCount = 10; { not inclusive }
 
 type
-   TGender = (gMale, gFemale, gThirdGender, gRobot, gOrb, gHive);
+   TPronouns = (pHe, pShe, pSingularThey, pPluralThey, pIt, pZe);
 
    TTalkVolume = (tvWhispering, tvSpeaking, tvShouting);
 
@@ -80,7 +80,7 @@ type
    TPlayer = class(TAvatar) // @RegisterStorableClass
     protected
       FName, FPassword: UTF8String;
-      FGender: TGender;
+      FPronouns: TPronouns;
       FOnMessage: TMessageEvent; { transient }
       FOnForceDisconnect: TForceDisconnectEvent; { transient }
       FContext: UTF8String; { transient }
@@ -91,7 +91,7 @@ type
       procedure SetContext(Context: UTF8String);
       procedure ResetContext();
     public
-      constructor Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
+      constructor Create(AName: UTF8String; APassword: UTF8String; APronouns: TPronouns);
       destructor Destroy(); override;
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
@@ -160,7 +160,7 @@ type
       procedure Adopt(AOnMessage: TMessageEvent; AOnForceDisconnect: TForceDisconnectEvent);
       procedure Abandon();
       property Name: UTF8String read FName;
-      property Gender: TGender read FGender write FGender;
+      property Pronouns: TPronouns read FPronouns write FPronouns;
    end;
 
    TPlayerList = specialize TStorableList<TPlayer>; // @RegisterStorableClass
@@ -177,14 +177,14 @@ implementation
 uses
    sysutils, exceptions, broadcast, things;
 
-constructor TPlayer.Create(AName: UTF8String; APassword: UTF8String; AGender: TGender);
+constructor TPlayer.Create(AName: UTF8String; APassword: UTF8String; APronouns: TPronouns);
 var
    Bag: TBag;
 begin
    inherited Create();
    FName := AName;
    FPassword := APassword;
-   FGender := AGender;
+   FPronouns := APronouns;
    Bag := TBag.Create('bag of holding', '(embroidered (bag/bags (of holding)?) (labeled ' + Capitalise(AName) + '))&', 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous);
    Bag.Add(TScenery.Create('rim', '(rim/rims (bag? rim/rims))@', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '".'), tpAmbiguousPartOfImplicit); { the weird pattern is to avoid putting "bag" in the canonical description }
    Add(Bag, tpCarried);
@@ -202,7 +202,7 @@ begin
    inherited;
    FName := Stream.ReadString();
    FPassword := Stream.ReadString();
-   FGender := TGender(Stream.ReadCardinal());
+   FPronouns := TPronouns(Stream.ReadCardinal());
 end;
 
 procedure TPlayer.Write(Stream: TWriteStream);
@@ -210,7 +210,7 @@ begin
    inherited;
    Stream.WriteString(FName);
    Stream.WriteString(FPassword);
-   Stream.WriteCardinal(Cardinal(FGender));
+   Stream.WriteCardinal(Cardinal(FPronouns));
 end;
 
 procedure TPlayer.DoLook();
@@ -453,24 +453,12 @@ end;
 
 function TPlayer.GetIndefiniteName(Perspective: TAvatar): UTF8String;
 begin
-   if (Perspective = Self) then
-      Result := 'you'
-   else
-   case FGender of
-     gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
-     gHive: Result := IndefiniteArticle(FName) + ' ' + Capitalise(FName);
-   end;
+   Result := GetName(Perspective);
 end;
 
 function TPlayer.GetDefiniteName(Perspective: TAvatar): UTF8String;
 begin
-   if (Perspective = Self) then
-      Result := 'you'
-   else
-   case FGender of
-     gMale, gFemale, gThirdGender, gRobot, gOrb: Result := Capitalise(FName);
-     gHive: Result := 'The ' + Capitalise(FName);
-   end;
+   Result := GetName(Perspective);
 end;
 
 function TPlayer.GetLongDefiniteName(Perspective: TAvatar): UTF8String;
@@ -486,12 +474,13 @@ begin
    if (Perspective = Self) then
       Result := 'you'
    else
-   case FGender of
-     gMale: Result := 'he';
-     gFemale: Result := 'she';
-     gThirdGender: Result := 's/he';
-     gRobot, gOrb: Result := 'it';
-     gHive: Result := 'they';
+   case FPronouns of
+     pHe: Result := 'he';
+     pShe: Result := 'she';
+     pSingularThey: Result := 'they';
+     pPluralThey: Result := 'they';
+     pIt: Result := 'it';
+     pZe: Result := 'ze';
    end;
 end;
 
@@ -500,12 +489,13 @@ begin
    if (Perspective = Self) then
       Result := 'you'
    else
-   case FGender of
-     gMale: Result := 'him';
-     gFemale: Result := 'her';
-     gThirdGender: Result := 'him/her';
-     gRobot, gOrb: Result := 'it';
-     gHive: Result := 'them';
+   case FPronouns of
+     pHe: Result := 'him';
+     pShe: Result := 'her';
+     pSingularThey: Result := 'them';
+     pPluralThey: Result := 'them';
+     pIt: Result := 'it';
+     pZe: Result := 'zer';
    end;
 end;
 
@@ -514,12 +504,13 @@ begin
    if (Perspective = Self) then
       Result := 'yourself'
    else
-   case FGender of
-     gMale: Result := 'himself';
-     gFemale: Result := 'herself';
-     gThirdGender: Result := 'him/herself';
-     gRobot, gOrb: Result := 'itself';
-     gHive: Result := 'themselves';
+   case FPronouns of
+     pHe: Result := 'himself';
+     pShe: Result := 'herself';
+     pSingularThey: Result := 'themself';
+     pPluralThey: Result := 'themselves';
+     pIt: Result := 'itself';
+     pZe: Result := 'zerself';
    end;
 end;
 
@@ -528,12 +519,13 @@ begin
    if (Perspective = Self) then
       Result := 'yours'
    else
-   case FGender of
-     gMale: Result := 'his';
-     gFemale: Result := 'hers';
-     gThirdGender: Result := 'his/hers';
-     gRobot, gOrb: Result := 'its';
-     gHive: Result := 'theirs';
+   case FPronouns of
+     pHe: Result := 'his';
+     pShe: Result := 'hers';
+     pSingularThey: Result := 'theirs';
+     pPluralThey: Result := 'theirs';
+     pIt: Result := 'its';
+     pZe: Result := 'zirs';
    end;
 end;
 
@@ -542,12 +534,13 @@ begin
    if (Perspective = Self) then
       Result := 'your'
    else
-   case FGender of
-     gMale: Result := 'his';
-     gFemale: Result := 'her';
-     gThirdGender: Result := 'his/her';
-     gRobot, gOrb: Result := 'its';
-     gHive: Result := 'their';
+   case FPronouns of
+     pHe: Result := 'his';
+     pShe: Result := 'her';
+     pSingularThey: Result := 'their';
+     pPluralThey: Result := 'their';
+     pIt: Result := 'its';
+     pZe: Result := 'zer';
    end;
 end;
 
@@ -556,7 +549,7 @@ begin
    if (Perspective = Self) then
       Result := True
    else
-      Result := FGender in [gHive];
+      Result := FPronouns in [pPluralThey];
 end;
 
 function TPlayer.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String;
@@ -576,35 +569,10 @@ end;
 
 function TPlayer.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
-   if (Perspective = Self) then
+   Result := Capitalise(GetDefiniteName(Perspective)) + ' ' + TernaryConditional('is', 'are', IsPlural(Perspective)) + ' a player.';
+   if (not HasConnectedPlayer) then
    begin
-      case FGender of
-        gMale: Result := 'You are quite the man, ' + FName + '.';
-        gFemale: Result := 'You look quite the woman, ' + FName + '.';
-        gThirdGender: Result := 'You look quite fine, ' + FName + ', yes, indeed. Quite fine.';
-        gRobot: Result := 'You are operating within standard parameters, ' + FName + '.';
-        gOrb: Result := 'You are a beautiful orb of light, ' + FName + ', floating in the air.';
-        gHive: Result := 'You are quite the hive, ' + FName + '.';
-      end;
-   end
-   else
-   begin
-      case FGender of
-        gMale: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a man of no consequence.';
-        gFemale: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a woman of no consequence.';
-        gThirdGender: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a person of no consequence.';
-        gRobot: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a robot of no consequence.';
-        gOrb: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a floating orb of light of no consequence.';
-        gHive: Result := Capitalise(GetDefiniteName(Perspective)) + ' is a hive mind of no consequence.';
-      end;
-      if (not HasConnectedPlayer) then
-      begin
-         case FGender of
-           gMale, gFemale, gThirdGender, gHive: Result := Result + ' ' + Capitalise(GetPossessiveAdjective(Perspective)) + ' eyes look into the distance, as if ' + GetSubjectPronoun(Perspective) + ' ' + TernaryConditional('isn''t', 'aren''t', IsPlural(Perspective)) + ' really here.';
-           gRobot: Result := Result + ' It appears to be currently powered down, though you see no visible means of turning it on.';
-           gOrb: Result := Result + ' The light is currently quite dim.';
-         end;
-      end;
+      Result := Result + ' ' + Capitalise(GetPossessiveAdjective(Perspective)) + ' eyes look into the distance, as if ' + GetSubjectPronoun(Perspective) + ' ' + TernaryConditional('isn''t', 'aren''t', IsPlural(Perspective)) + ' really here.';
    end;
 end;
 
@@ -1914,6 +1882,8 @@ function TPlayer.IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; P
 var
    Word: UTF8String;
 
+   // Return true and move to next word if this is a mtch.
+   // Sets Aborted to true on last word.
    function Consume(const Candidate: UTF8String; out Aborted: Boolean): Boolean;
    begin
       Result := False;
@@ -1933,17 +1903,31 @@ var
       end;
    end;
 
+   // Return true and move to next word if this is a mtch.
+   // Sets Aborted to true on last word.
+   // Updates GrammaticalNumber to WouldBeGrammaticalNumber if this is a match.
+   function Consume(const Candidate: UTF8String; out Aborted: Boolean; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
+   begin
+      Result := Consume(Candidate, Aborted);
+      if (Result) then
+         GrammaticalNumber := WouldBeGrammaticalNumber;
+   end;
+
+   // Move to next word if word is a match, return true if that was the last word.
    function ConsumeAndEnd(const Candidate: UTF8String): Boolean;
    begin
       Consume(Candidate, Result);
    end;
 
+   // Move to next word if word is a match, return true if that was the last word, updating GrammaticalNumber to WouldBeGrammaticalNumber.
    function ConsumeAndEnd(const Candidate: UTF8String; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
    begin
       if (Consume(Candidate, Result)) then
          GrammaticalNumber := WouldBeGrammaticalNumber;
    end;
 
+   // Return true if word is a match, updating GrammaticalNumber to WouldBeGrammaticalNumber.
+   // Caller must not attempt to consume additional words if this returns true.
    function ConsumeTerminal(const Candidate: UTF8String; const WouldBeGrammaticalNumber: TGrammaticalNumber): Boolean;
    begin
       if (Word = Candidate) then
@@ -1956,16 +1940,12 @@ var
          Result := False;
    end;
 
-   function ConsumeNonTerminal(const Candidate: UTF8String; out Aborted: Boolean): Boolean;
+   // Return true if word is a match and this is not the last word.
+   function ConsumeNonTerminal(const Candidate: UTF8String): Boolean;
    begin
       Result := False;
-      if (Start + Count + 1 >= Length(Tokens)) then
+      if (Start + Count + 1 < Length(Tokens)) then
       begin
-         Aborted := True;
-      end
-      else
-      begin
-         Aborted := False;
          if (Word = Candidate) then
          begin
             Result := True;
@@ -1977,7 +1957,7 @@ var
 
    procedure InternalParse();
    var
-      ReachedEnd: Boolean;
+      Aborted: Boolean;
    begin
       Count := 0;
       Word := Tokens[Start];
@@ -1986,121 +1966,61 @@ var
       else
       if (Perspective = Self) then
       begin
+         if (ConsumeNonTerminal('other')) then
+            exit;
          if (ConsumeTerminal('me', [gnSingular])) then
             exit;
       end
       else
       begin
          Assert(Perspective <> Self);
-         if (ConsumeAndEnd('other')) then
-         begin
-            GrammaticalNumber := [gnSingular];
-            exit;
-         end
-         else
          if (ConsumeTerminal('them', [gnPlural]) or ConsumeTerminal('others', [gnPlural])) then
             exit;
+         ConsumeNonTerminal('other');
       end;
       Assert(GrammaticalNumber = []);
-      if (ConsumeAndEnd(Canonicalise(FName), [gnSingular])) then
+      if (ConsumeTerminal(Canonicalise(FName), [gnSingular])) then
          exit;
-      case FGender of
-         gMale:
-            begin
-               if (ConsumeAndEnd('boy', [gnSingular]) or 
-                   ConsumeAndEnd('man', [gnSingular]) or
-                   ConsumeAndEnd('person', [gnSingular]) or
-                   ConsumeAndEnd('human', [gnSingular]) or
-                   ConsumeAndEnd('male', [gnSingular]) or
-                   ConsumeAndEnd('boys', [gnPlural]) or
-                   ConsumeAndEnd('men', [gnPlural]) or
-                   ConsumeAndEnd('persons', [gnPlural]) or
-                   ConsumeAndEnd('people', [gnPlural]) or
-                   ConsumeAndEnd('humans', [gnPlural]) or
-                   ConsumeAndEnd('males', [gnPlural])) then
-                  exit;
-            end;
-         gFemale:
-            begin
-               if (ConsumeAndEnd('girl', [gnSingular]) or
-                   ConsumeAndEnd('woman', [gnSingular]) or
-                   ConsumeAndEnd('person', [gnSingular]) or
-                   ConsumeAndEnd('human', [gnSingular]) or
-                   ConsumeAndEnd('female', [gnSingular]) or
-                   ConsumeAndEnd('girls', [gnPlural]) or
-                   ConsumeAndEnd('women', [gnPlural]) or
-                   ConsumeAndEnd('persons', [gnPlural]) or
-                   ConsumeAndEnd('people', [gnPlural]) or
-                   ConsumeAndEnd('humans', [gnPlural]) or
-                   ConsumeAndEnd('females', [gnPlural])) then
-                  exit;
-            end;
-         gThirdGender:
-            begin
-               if (ConsumeAndEnd('person', [gnSingular]) or
-                   ConsumeAndEnd('human', [gnSingular]) or
-                   ConsumeAndEnd('persons', [gnPlural]) or
-                   ConsumeAndEnd('people', [gnPlural]) or
-                   ConsumeAndEnd('humans', [gnPlural])) then
-                  exit;
-            end;
-         gRobot:
-            begin
-               if (ConsumeAndEnd('person', [gnSingular]) or
-                   ConsumeAndEnd('robot', [gnSingular]) or
-                   ConsumeAndEnd('bot', [gnSingular]) or
-                   ConsumeAndEnd('persons', [gnPlural]) or
-                   ConsumeAndEnd('people', [gnPlural]) or
-                   ConsumeAndEnd('robots', [gnPlural]) or
-                   ConsumeAndEnd('bots', [gnPlural])) then
-                  exit;
-            end;
-         gOrb:
-            begin
-               if (ConsumeAndEnd('orb', [gnSingular]) or
-                   ConsumeAndEnd('orbs', [gnPlural])) then
-                  exit;
-            end;
-         gHive:
-            begin
-               if (Consume('hive', ReachedEnd)) then
-               begin
-                  if (ReachedEnd) then
-                  begin
-                     GrammaticalNumber := [gnSingular];
-                     exit;
-                  end
-                  else
-                  begin
-                     if (ConsumeAndEnd('minds', [gnPlural])) then
-                     begin
-                        exit;
-                     end
-                     else
-                     begin
-                        GrammaticalNumber := [gnSingular];
-                        if (ConsumeAndEnd('mind')) then
-                           exit;
-                     end;
-                  end;
-               end
-               else
-               if (ConsumeAndEnd('hives', [gnPlural]) or
-                   ConsumeAndEnd('hive-mind', [gnSingular]) or
-                   ConsumeAndEnd('hive-minds', [gnPlural])) then
-                  exit;
-            end;
+      Aborted := False;
+      if (Consume('human', Aborted, [gnSingular]) or
+          Consume('humans', Aborted, [gnPlural]) or
+          ((FPronouns = pHe) and
+           (Consume('boy', Aborted, [gnSingular]) or 
+            Consume('boys', Aborted, [gnPlural]) or
+            Consume('man', Aborted, [gnSingular]) or
+            Consume('men', Aborted, [gnPlural]) or
+            Consume('male', Aborted, [gnSingular]) or
+            Consume('males', Aborted, [gnPlural]))) or
+          ((FPronouns = pShe) and
+           (Consume('girl', Aborted, [gnSingular]) or
+            Consume('girls', Aborted, [gnPlural]) or
+            Consume('woman', Aborted, [gnSingular]) or
+            Consume('women', Aborted, [gnPlural]) or
+            Consume('female', Aborted, [gnSingular]) or
+            Consume('females', Aborted, [gnPlural])))) then
+      begin
+         if (Aborted) then
+            exit;
       end;
+      Assert(not Aborted);
       if (GrammaticalNumber <> [gnPlural]) then
       begin
-         if (ConsumeAndEnd('player', [gnSingular]) or
-             ConsumeAndEnd('players', [gnPlural])) then
-            exit;
+         if (Consume('person', Aborted, [gnSingular]) or
+             Consume('persons', Aborted, [gnPlural]) or
+             Consume('people', Aborted, [gnPlural]) or
+             Consume('player', Aborted, [gnSingular]) or
+             Consume('players', Aborted, [gnPlural])) then
+         begin
+            if (Aborted) then
+               exit;
+         end;
       end;
-      if (ConsumeNonTerminal('named', ReachedEnd)) then
+      Assert(not Aborted);
+      if ((GrammaticalNumber <> []) and (ConsumeNonTerminal('named') or ConsumeNonTerminal('called'))) then
       begin
-         if (ConsumeAndEnd(Canonicalise(FName), [gnSingular])) then
+         if (ConsumeTerminal(Canonicalise(FName), GrammaticalNumber)) then
             exit;
+         GrammaticalNumber := [];
       end;
    end;
 

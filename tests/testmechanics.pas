@@ -339,7 +339,7 @@ begin
    if (SaveWorld) then
    begin
       TestWorld := InitTest();
-      TestWorld.AddPlayer(TPlayer.Create('Flathead', 'zorkmid', gMale));
+      TestWorld.AddPlayer(TPlayer.Create('Flathead', 'zorkmid', pHe));
       StoreObjectToFile(kWorldFileName, TestWorld, kSaveDataVersion);
       TestWorld.Free();
    end;
@@ -348,7 +348,7 @@ begin
    RaiseMaxFrameCount := maxint;
    try
       try
-         TestPlayer := TPlayer.Create('Tester', '', gRobot);
+         TestPlayer := TPlayer.Create('Tester', '', pIt);
          TestPlayer.Adopt(@Proxy.HandleAvatarMessage, @Proxy.HandleForceDisconnect);
          TestWorld.AddPlayer(TestPlayer);
          TestPlayer.AnnounceAppearance();

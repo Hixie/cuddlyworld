@@ -147,7 +147,7 @@ type
     protected
       class function CreateFromProperties(Properties: TTextStreamProperties): TThresholdLocation; override;
     public
-      constructor Create(Landmark: TThing; Surface: TThing);
+      constructor Create(PassageWay: TThing; Surface: TThing);
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
       function GetLookTowardsDirectionDefault(Perspective: TAvatar; Direction: TCardinalDirection): UTF8String; override;
@@ -1354,29 +1354,33 @@ begin
 end;
 
 
-constructor TThresholdLocation.Create(Landmark: TThing; Surface: TThing);
+constructor TThresholdLocation.Create(PassageWay: TThing; Surface: TThing);
 begin
-   inherited Create(Landmark, tpAtImplicit, Surface);
+   inherited Create(PassageWay, tpAtImplicit, Surface);
 end;
 
 class function TThresholdLocation.CreateFromProperties(Properties: TTextStreamProperties): TThresholdLocation;
 var
-   Landmark, Surface: TThing;
+   PassageWay, Surface: TThing;
+   StreamedLandmarks: TStreamedLandmarks;
 begin
    while (not Properties.Done) do
    begin
-      if (TThing.HandleUniqueThingProperty(Properties, pnLandmark, Landmark, TThing) and {BOGUS Hint: Local variable "Landmark" does not seem to be initialized}
-          TThing.HandleUniqueThingProperty(Properties, pnSurface, Surface, TThing)) then {BOGUS Hint: Local variable "Surface" does not seem to be initialized}
+      if (TThing.HandleUniqueThingProperty(Properties, pnPassageWay, PassageWay, TThing) and {BOGUS Hint: Local variable "PassageWay" does not seem to be initialized}
+          TThing.HandleUniqueThingProperty(Properties, pnSurface, Surface, TThing) and {BOGUS Hint: Local variable "Surface" does not seem to be initialized}
+          HandleLandmarkProperties(Properties, StreamedLandmarks)) then
        Properties.FailUnknownProperty();
    end;
-   Properties.EnsureSeen([pnLandmark, pnSurface]);
-   Result := Create(Landmark, Surface);
+   Properties.EnsureSeen([pnPassageWay, pnSurface]);
+   Result := Create(PassageWay, Surface);
+   StreamedLandmarks.Apply(Result);
 end;
 
 class procedure TThresholdLocation.DescribeProperties(Describer: TPropertyDescriber);
 begin
-   Describer.AddProperty(pnLandmark, ptThing);
+   Describer.AddProperty(pnPassageWay, ptThing);
    Describer.AddProperty(pnSurface, ptThing);
+   Describer.AddProperty(pnLandmark, ptLandmark);
 end;
 
 function TThresholdLocation.GetTitle(Perspective: TAvatar): UTF8String;

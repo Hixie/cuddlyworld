@@ -252,7 +252,7 @@ THINGS
 
 NETWORK
  + password command?
- + gender command / "i am male", "i am a robot", "i am a hive mind" / UI?
+ + pronun command / "i am male", "i use singular they pronouns" / UI?
  + If you send too much data at once, the socket's write buffer is filled, which causes the socket to have an exception (ETryAgain), which causes the game to abort.
  + Sometimes the server just dies silently (killed by the kernel?).
 
