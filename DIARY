@@ -1,0 +1,481 @@
+Day 1
+=====
+Wrote the front-end code. Installed the compiler for the back-end code.
+Game UI comes up, but doesn't connect (no back-end).
+
+
+Day 2
+=====
+Wrote the networking back-end.
+Game UI connects to the back-end server, and messages can be sent in
+both directions.
+
+
+Day 3
+=====
+Wrote the message parser for "look", "go", "take", "drop".  There are
+no locations or objects, so trying to do anything crashes the
+server. However, the server correctly responds when told to do
+something that makes no sense, e.g. "look under north". Changed the
+front-end game UI to be more usable after the first very brief
+usability test, by moving the input line to below the last output line
+instead of having it at the bottom of the screen.
+
+
+Day 4
+=====
+Hooked up navigation, description, surfaces, and finding objects.
+Created the first room and the first objects.  Things like "look under
+me", "examine ground", "go north", "look south", "enter ground" all
+work. "Take" and "Drop" are still not fully implemented, though they
+are fully parsed, including finding the relevant objects and implying
+the right targets when appropriate.
+
+
+Day 5
+=====
+Taking and dropping objects. Fixed a number of issues exposed by
+people being able to pick up other people. Tweaked the UI to ask for
+username/password. Tweaked players to have a name based on that.
+
+
+Day 6
+=====
+Persisting the world across server shutdown and reload.
+
+
+Day 7
+=====
+Players now survive disconnect/reconnect using username/password. Made
+the streaming format be versioned, so that new features can be added
+without having to blow out the entire world. Players can now talk to
+each other. The game is now a very strange IM client.
+
+Day 8
+=====
+Refactored the code that handles looking in and around things.
+
+
+Day 9
+=====
+Changed the two starting locations. Started adding code to give things
+mass and size.
+
+
+Day 10
+======
+Added consistency checks to the streaming code. Fixed some compiler
+warnings. Invented piles. Made it possible to "move" things, and to
+move oneself onto things. Fixed a number of minor issues. Found many
+more.
+
+
+Break
+=====
+Had some users play with it; one found a server-crashing bug.
+
+
+Day 11
+======
+Maintenance day! Fixed server-crashing bug, and made the login code a
+little more resistant to bugs. Added "pick up", "carry", "yell" as
+synonyms for existing verbs. Various minor bug fixes, e.g. duplicate
+text in descriptions of the inside of objects and grammatical
+issues. Added support for synonyms for some of the objects in the game
+("pile of leaves" is now also "leaf"; "forest" is now also
+"tree"). Added "find" verb which says where something is. Split the
+game from the creation of the database; there's now a "genesis" step
+that generates the world database. Put everything in
+Subversion. Changed the way commands are parsed so that each
+subcommand is executed before the rest is parsed, so that if the world
+changes in between two commands, the result still makes sense. Two
+clear examples of this would be "drop x; n; take x" would take x even
+though you were now not in the room that "x" was in, and "s; take all"
+would not take things in the new room since the "all" would have been
+resolved prior to the navigation. Added "bug" and "help" commands.
+
+
+Day 12
+======
+The log now includes more detail about where unknown command where
+given, to aid debugging. The room titles for objects are now a little
+clearer. The messages around entering things, putting things in
+things, and moving things are all a little saner. You can no longer
+make things disappear by putting them on things that are themselves on
+the first thing.
+
+
+Day 13
+======
+Added support for pushing objects across location boundaries. Added
+code for spades and holes. You can now dig a hole in the ground with a
+spade. Haven't been able to figure out exactly how to make it possible
+to dig a hole from inside a hole yet... where would the earth go? I'm
+thinking it might be time to introduce magic wands that can just make
+holes appear without the corresponding pile of dirt... Other changes
+today include fixes for a number of edge cases, like trying to climb
+onto a penny or enter a penny. Rationalised the mechanic for entering
+new rooms. Factored out the Mass and Size logic into its own unit
+(sharing code between Mass and Size).
+
+
+Day 14
+======
+Added command line history to the UI. Made it possible to fill in
+holes. Partially rewrote the code that decides whether you can push
+stuff around to make more sense. Made objects aware of whether they
+are open or closed. Made holes handle things being placed on them and
+having those things either hide the hole (if they're big enough) or
+fall into the hole (if they're smaller). Made holes able to handle
+being overfilled. Made it possible to uncover a hole if it's covered.
+
+
+Day 15
+======
+64 bit support (untested). Various minor fixes for holes, such as
+saying a hole is covered instead of closed, making piles cover full
+holes instead of filling them, etc. Started work on a regression
+testing framework.
+
+
+Day 16
+======
+Fleshed out regression testing framework. Made the Camp the starting
+location (previously it depended on the load order). Switched to $J-.
+
+
+Day 17
+======
+Made the child list order stable, and then made it so that when a hole
+overfills, the most recently added stuff is the stuff that pops out of
+the hole. Added support for multiword names for things. Fixed the
+parser code that was supposed to handle commas in lists of
+objects. Few minor other parser fixes. Added more tests. Tidied the
+build output.
+
+
+Day 18
+======
+Added "move x out", "move x off", "move x out of y", "move x off y".
+
+
+Day 19
+======
+Fixed the handling of "and" to properly handle sequences of objects
+and commands. Assuming an object is a "red and blue bowl", it should
+not correctly parse "take red and blue bowl and drop all", "take red
+and blue bowl and red and blue balloon and drop bowl", etc. Redesigned
+how announcements are made, so that e.g. filling a hole can be
+announced to all players.
+
+
+Day 20
+======
+Implemented shaking and pressing. Fixed some issues with digging,
+going down, and with the hole being "at" the ground. Added a bag to
+the player's inventory when starting. Made things aware of
+pronouns. Added server-side support for player genders. Made
+disambiguation list longer names than just the regular names to aid
+the player in referring to multiple objects.
+
+
+Day 21
+======
+Added a smartass answer for "quit". Checked whether the release build
+would be any faster (answer: yes, with the debugging checks disabled
+the tests run 100x faster).
+
+
+Day 22
+======
+Started creating rooms intended for more than testing, in particular
+the arrivals circle. Added Orb gender. Simplified the broadcast
+mechanism's targeting. Changed how navigation works when in and on
+objects so that you can move north while on the arrivals
+pedestal. Changed how "look" works when you're on something so that it
+shows the surroundings. Revamped the way things are made
+referenceable. Added the ability for proxy locations to effect change.
+Made TStaticThings able to be made plural. Improved how TScenery
+handles not being movable. Plus a variety of other minor fixes.
+
+
+Day 23
+======
+(Spread over several months.)
+Design for new synonym mechanism using a pattern description for thing
+names, which handled adjectives, etc, compiling to a mutating finite
+state machine. Work in progress; code doesn't yet compile again.
+
+
+Day 24
+======
+(Spread over a couple of weeks.)
+Implement a token matching system, which consists of a special grammar
+to express patterns, a parser for those patterns, a compiler to take
+the parsed patterns and turn them into state machines, a function to
+run the state machines, and the infrastructure to save the compiled
+patterns. Work in progress; as the matcher hasn't been plugged into
+the core game yet, the core game still doesn't yet compile again.
+
+
+Day 25
+======
+Rework things.pas and world.pas to work with the new pattern mechanic.
+Update the pattern mechanics to support singular and plural forms.
+Work in progress; the code is incomplete and none of this code has
+been tested yet.
+
+
+Day 26
+======
+(Spread over another couple of weeks, and including a number of false
+starts and abandoned attempts.)
+First draft of code to support more elaborate expressions for
+referring to things. Rework more of the code to use the new pattern
+mechanic.  Update the code to not echo the lowercased text when
+complaining.  Update to the latest compiler to work around a compiler
+bug. Compiled the code for the first time in 6 months!
+
+
+Day 27
+======
+Added a 'debug' command that lets us examine how things are matched.
+Added a mechanism that makes names get suffixed with what they are
+part of in some cases (e.g. "rim" "of bag"). This will need tuning a
+bit still. Various minor tweaks to recent new code.
+
+
+Day 28
+======
+Tweaks here and there: parsing fixes (e.g. made "drop all" work), more
+tests and debugging code, changes to thing manipulation (e.g. made it
+not possible to push ludicrously heavy items like the pedestal), fixed
+the "horizon" mechanism (it used to describe the ground), etc.
+
+
+Day 29
+======
+Reworked the pattern compiler code so that it could properly encode
+the canonical expansion in the pattern, and to provide some expansion
+opportunities for later. Add support for "the", "a", "an", "some",
+"every", "everything". Made the client and server negotiate a port,
+so that the server can more gracefully handle the case of the default
+port being in use. Various other small fixes.
+
+
+Day 30
+======
+Fixed handling of trailing "and"s and "then"s.
+
+
+Day 31
+======
+Prepared the way for filters in the thing seeker.
+
+
+Day 32
+======
+Adding support for "that is", as in "examine the arch that is blue".
+
+
+Day 33
+======
+Fixed some minor bugs in the code checked in the last few days. Added
+support for such gratuitous things like "take any three apples" or
+"take all that is blue" or "take the apple that is the blue one" or
+"drop all five bottles" or "examine one of the trees".
+
+
+Day 34
+======
+Added support for "but", as in "take all balloons but pink ones and
+blue ones and green one that is large". Also, added a command line
+mode.
+
+
+Day 35
+======
+Lots of error handling fixes in the thing seeker code; also, added
+support for "all that is" in a way that works.
+
+
+Day 36
+======
+More minor bug fixing, and minor UI polish.
+
+
+Day 37
+======
+Support for "and that is" and some minor code reorg.
+
+
+Day 38
+======
+Support "from", "and from". Made the server only save state when
+someone does something, not after every single byte received. Added
+the ability to track what was going on when a block was allocated.
+
+
+Day 39
+======
+Reorganise the code that handles "all" so that it is less magic,
+making it possible to control how things like "all from pile" work
+more easily. Simplified some other logic.
+
+
+Day 40
+======
+Rationalised how taking things from piles works (e.g. "take all from
+pile", or even "take coin" when there's a coin in the pile but you're
+not in the pile yourself, which didn't work before).
+
+
+Day 41
+======
+Support for "on", "in", "and on", "and in". Added support for ending
+clauses, so you can still say "put pot on fire". Made a lot of the
+"error" messages around this prettier.
+
+
+Day 42
+======
+Added support for "that are not", "plus", and various other such
+clauses. Even prettier messages.
+
+
+Day 43
+======
+(Really a short few minutes one evening.)
+Made "but" have slightly more intuitive results when used with all (as
+in, "take all knives but all silver and plastic" vs "take all knives
+but silver and all plastic")
+
+
+Day 43
+======
+(incomplete)
+Made the reporting of things in the thing seeker preserve their order.
+Made "the singular thing that is all something else" not be accepted.
+Allowed openings to be referred to as being inside their parent.
+
+
+Day 44
+======
+Implemented a linked list abstraction to simplify the code. Not yet
+integrated with the code.
+
+
+Day 45
+======
+Used the linked list abstraction to replace all the list manipulation
+in the code.
+
+
+Day 46
+======
+Minor bug fixes (fallout from the list stuff); also, fix the handling
+of singular and plurals in the thing seeker code so that "take people"
+can work unambiguously in the face of persons and peoples.
+
+
+Day 47
+======
+Improvements to the handling of "that are", "that are not", etc.
+
+
+Day 48
+======
+Added some signs to the arrival circle (along with support for signs
+and reading).
+
+
+Day 49
+======
+Minor code cleanup.
+
+
+Day 50
+======
+Made the UI nicer when there are multiple matching things but only one
+can be handled at a time (e.g. 'find stone', 'examine eastern').
+
+
+Day 51
+======
+Add more paths, prepare to go the next stage of plot. Reorganise the
+Eden code for when we add backdrops.
+
+
+Long Break
+==========
+Stopped working on the project for over a year while waiting for the
+WebSocket protocol specification to stabilize.
+
+
+Day 52
+======
+Update to the newer WebSocket protocol.
+
+
+Day 53
+======
+Relearn the source code after a long absence. Mark some comments with
+"XXX" to make them easier to find. Make locations support being
+plural. Make an IsAre() function to make is/are messages easier to
+write. Add a hook for checking whether things are reachable, as in not
+too far away, which will lay the groundwork for adding support for
+backdrops (locations that can be seen but not touched).
+
+
+Day 54
+======
+Lay more groundwork for backdrops: make the locations keep a list of
+things in each direction, rather than just a single thing. As
+side-effects: When there's an opening in the thing in a particular
+direction, try to go through that instead of through the
+aforementioned thing (think doors in walls, holes in the ground).
+Disambiguation when you go through something when going in a direction
+(e.g. "(through the hole in the ground)"). You can't have two openings
+in one surface. You can't shake piles.
+
+
+Day 55
+======
+More of the same tweaking for backdrops.
+
+
+Day 56
+======
+(spread over many months, lots more than one day's work)
+Annotate some warnings as being bogus, and make the warning filter
+more clever, to mute some new compiler warnings. Add the sky and sun
+backdrop, and make it possible to look into backdrops, reference
+backdrops, etc. Refactor the TLocation implementations. Change the way
+inter-location connections are set up. "debug teleport" command. Make
+"find" and "look under" commands cleverer.
+
+
+Day 57
+======
+Clean-up: Fix some compiler warnings, update the hashtable library,
+the storable library.
+
+
+Day 58
+======
+(spread over a few months, dunno how many actual days' work)
+Make looking up not see the floor of the room above. Create the
+concept of thresholds for items that sit between rooms and can be seen
+from both sides.
+
+
+Day 59
+======
+Fix a presentation error in the inventory code.
+
+
+Day 60
+======
+End of diary. Since the code base got integrated with other games',
+changes are happening upstream that I'm not really keeping track of
+anyway.

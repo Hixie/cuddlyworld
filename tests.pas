@@ -7,6 +7,9 @@ uses
    testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4, testmechanics5,
    base64encoder, client; // client is used just to make sure it gets compiled when compiling tests
 
+const
+   TestSaveFileName = '/tmp/tests.map.dat';
+
 procedure TestBase64Encoder();
 var
    Failed: Boolean = False;
@@ -39,6 +42,7 @@ var
    TestPlayer: TPlayer;
    Proxy: TTestProxy;
    Failed: Boolean;
+   OldF: File;
 begin
    Writeln('PLOT');
    Proxy := TTestProxy.Create();
@@ -70,9 +74,11 @@ begin
 
          { test round-tripping }
          Proxy.Test('Round-tripping');
-         StoreObjectToFile('/tmp/map.dat.$$$', TestWorld, kSaveDataVersion);
-         TestWorld2 := ReadObjectFromFile('/tmp/map.dat.$$$') as TWorld;
+         StoreObjectToFile(TestSaveFileName, TestWorld, kSaveDataVersion);
+         TestWorld2 := ReadObjectFromFile(TestSaveFileName) as TWorld;
          TestWorld2.Free();
+         Assign(OldF, TestSaveFileName);
+         {$I-} Erase(OldF); {$I+}
 
          Proxy.Test('End');
 
