@@ -498,11 +498,11 @@ procedure TStorableList.RemoveItem(Item: TItem);
 var
    Node: PListNode;
 begin
-   Assert(Assigned(Pointer(Item)));
-   Assert(Item is TItem.ClassType);
-   Assert(Assigned(FFirstNode));
-   Assert(Assigned(FLastNode));
-   Assert(FActiveEnumerators = 0);
+   Assert(Assigned(Pointer(Item)), 'TStorableList.RemoveItem called with nil item.');
+   Assert(Item is TItem.ClassType, 'TStorableList.RemoveItem called with item that is of the wrong class for this list.');
+   Assert(Assigned(FFirstNode), 'TStorableList.RemoveItem called when there is no first node.');
+   Assert(Assigned(FLastNode), 'TStorableList.RemoveItem called when there is no last node.');
+   Assert(FActiveEnumerators = 0, 'TStorableList.RemoveItem called while there is an active enumerator.');
    {$IFOPT C+} CheckLength(); {$ENDIF}
    Node := FFirstNode;
    while ({$IFOPT C+} Assigned(Node) and {$ENDIF} (Node^.Value <> Item)) do
