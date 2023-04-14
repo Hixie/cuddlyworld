@@ -152,7 +152,6 @@ PLAYER INTERACTION
  + "i,d" doesn't work, but "i;d" does
  + similarly, "enter hole, look up, look down, exit hole" doesn't parse right
  + "put bag on me" works... not sure exactly what to do with that
- + "take" and "drop" and "move" and so on don't give much detail in their broadcast -- they're all done by TAtom.Moved() which just says "x moves the y."
  + "push all to Hixie" (where Hixie is in the room) pushes Hixie to Hixie (and starts asserting all over the place).
  + If you're in a doorway, you don't get notified of people going through the door. (Nor do they get told about you.)
 
