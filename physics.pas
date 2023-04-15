@@ -2076,9 +2076,13 @@ end;
 
 procedure TThing.Moved(OldParent: TAtom; Care: TPlacementStyle; Perspective: TAvatar);
 begin
-   // XXX should be more specific about where things are going, e.g. 'takes x', 'drops x', 'puts x on y', 'moves x around' (if oldparent=newparent)
-   if (Self <> Perspective) then
-      DoBroadcast([OldParent, FParent], Perspective, [C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), M('.')]);
+   if (Self <> Perspective) then 
+   begin
+      DoBroadcast([OldParent, FParent], Perspective, [
+         C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), SP(),
+         M(ThingPositionToDirectionString(Position)), SP(), M(@FParent.GetDefiniteName), M('.')
+      ]);
+   end;
 end;
 
 procedure TThing.Shake(Perspective: TAvatar);
