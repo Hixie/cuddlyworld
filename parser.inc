@@ -257,7 +257,7 @@
          Target := Location as TLocation;
    end;
    {$ENDIF}
-      
+
    { You can assume that either CanEnd() is true or EnsureNoPunctuation() has been called just before this returns }
    { Do not call if CanEnd(). }
    function GetThing(out Thing: TThing; EndingClauses: TEndingClauseKinds; VerbString: UTF8String): Boolean;
@@ -426,7 +426,7 @@
       else
          Result := False;
    end;
- 
+
    function GetSelfDescriptionOrConsumeLeadingI(var Action: TAction): Boolean;
    var
       Pronouns: TPronouns;
@@ -437,7 +437,7 @@
          begin
             Inc(CurrentToken);
             if ((not CanEnd()) and (Tokens[CurrentToken] = Word2)) then
-            begin     
+            begin
                Inc(CurrentToken);
             end;
             Pronouns := CandidatePronouns;
@@ -445,7 +445,7 @@
          end
          else
          if (Tokens[CurrentToken] = Word1 + '/' + Word2) then
-         begin     
+         begin
             Inc(CurrentToken);
             Pronouns := CandidatePronouns;
             Result := True;
@@ -453,7 +453,7 @@
          else
             Result := False;
       end;
-      
+
    begin
       if (Tokens[CurrentToken] = 'i') then
       begin
@@ -479,7 +479,7 @@
                begin
                   Fail('You use singular what?');
                end
-               else  
+               else
                if (not GetPronouns('they', 'them', pSingularThey)) then
                begin
                   EnsureNoPunctuation();
@@ -862,7 +862,7 @@
       begin
          Result := False;
       end;
-      if (Result) then          
+      if (Result) then
       begin
          Action.Verb := avTake;
          Action.TakeSubject := nil;
@@ -1416,7 +1416,7 @@
          begin
             GotThing := GetThing(PotentialTarget, [], 'open');
             if (GotThing) then
-               Action.OpenTarget := PotentialTarget; 
+               Action.OpenTarget := PotentialTarget;
             if (not CanEnd()) then
             begin
                if (GotThing) then
@@ -1482,7 +1482,7 @@
       else
          Result := False;
    end;
- 
+
    function GetDance(var Action: TAction): Boolean;
    begin
       if (Tokens[CurrentToken] = 'dance') then
@@ -1567,10 +1567,10 @@
                      Fail('I can''t see any "' + OriginalTokens[CurrentToken] + '" here. Use "debug things" to get a list of accessible things.');
                   end;
                   if (not CanEnd()) then
-                  begin      
+                  begin
                      EnsureNoPunctuation();
                      Fail('The word "' + OriginalTokens[CurrentToken] + '" doesn''t seem to be part of the name of ' + Action.DebugThings.GetLongDefiniteString(Player, 'or') + '; use "debug things" to get a list of accessible things if that isn''t what you meant.');
-                  end;       
+                  end;
                end;
             end
             else
@@ -1691,7 +1691,7 @@
                               Fail('Flags must be a space-separated list of one or more of: ' +
                                    Join(specialize ListValues<TLandmarkOption>(), ', ') +
                                    ' (default is "loAutoDescribe loPermissibleNavigationTarget").');
-                           end;      
+                           end;
                         end
                         else
                         begin
@@ -1712,7 +1712,7 @@
                   Fail('Syntax: debug connect <direction> [and back] [from <location>] to <thing or location> [with <flags>]');
                end;
             end
-            else     
+            else
             if (Tokens[CurrentToken] = 'classes') then
             begin
                Inc(CurrentToken);
@@ -1764,7 +1764,7 @@
                Inc(CurrentToken);
                Result := False;
                if (not CanEnd()) then
-               begin 
+               begin
                   if (Tokens[CurrentToken] = 'class') then
                   begin
                      Inc(CurrentToken);

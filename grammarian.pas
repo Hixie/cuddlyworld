@@ -143,7 +143,7 @@ type
 function Identity(const S: UTF8String): UTF8String;
 begin
    Result := S;
-end;        
+end;
 
 function InternalTokenise(const S: UTF8String; const Canonicaliser: TStringFilter): TTokens;
 var
@@ -447,7 +447,7 @@ end;
 function Canonicalise(const S: UTF8String): UTF8String;
 begin
    Result := LowerCase(S);
-end;        
+end;
 
 function TernaryConditional(FalseResult, TrueResult: UTF8String; Condition: Boolean): UTF8String;
 begin

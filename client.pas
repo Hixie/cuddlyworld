@@ -36,7 +36,7 @@ type
 {$IFOPT C+}
 procedure TestClient();
 {$ENDIF}
-      
+
 implementation
 
 uses

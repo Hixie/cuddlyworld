@@ -4,7 +4,7 @@ program cuddlyworld;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, baseunix, client, corenetwork, exceptions,
-   storable, 
+   storable,
    physics, world, locations, player,
    cuddlycamp;
 
@@ -42,14 +42,14 @@ type
       FPlayer: TPlayer;
    end;
 
-var 
+var
    Aborted: Boolean = False;
 
 procedure SigIntHandler(Signal: Longint; Info: PSigInfo; Context: PSigContext); cdecl;
 begin
    Aborted := True;
 end;
-      
+
 constructor TMain.Create();
 var
    NewAction: PSigActionRec;
@@ -67,7 +67,7 @@ begin
    try
       NewAction^.sa_handler := @SigIntHandler;
       NewAction^.sa_flags := SA_ONESHOT;
-      {$ifdef Linux} NewAction^.sa_restorer := nil; {$endif} 
+      {$ifdef Linux} NewAction^.sa_restorer := nil; {$endif}
       FillByte(NewAction^.sa_mask, SizeOf(NewAction^.sa_mask), 0);
       if (fpSigAction(SIGINT, NewAction, nil) <> 0) then
          raise EKernelError.Create(fpGetErrNo);

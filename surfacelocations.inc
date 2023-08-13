@@ -109,7 +109,7 @@ begin
  {$FATAL Unknown SUPERCLASS value.}
 {$ENDIF}
 end;
-      
+
 procedure SUBCLASS.EnumerateChildren(List: TThingList; const PositionFilter: TThingPositionFilter);
 begin
    inherited;

@@ -353,7 +353,7 @@ end;
 function TStaticThresholdThing.GetDescriptionSelf(Perspective: TAvatar): UTF8String;
 begin
    case (LocatePerspective(Perspective)) of
-      rppFront: 
+      rppFront:
          begin
             if (FFrontSideDescription <> '') then
                Result := FFrontSideDescription
@@ -465,7 +465,7 @@ begin
          Obstacle.ProxiedEnumerateExplicitlyReferencedThings(Tokens, Start, Perspective, FromOutside, FromFarAway, Directions, Reporter);
    finally
       Obstacles.Free();
-   end;      
+   end;
 end;
 
 procedure TDoorWay.ProxiedFindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList);
@@ -480,7 +480,7 @@ begin
          Obstacle.ProxiedFindMatchingThings(Perspective, Options, PositionFilter, PropertyFilter, List);
    finally
       Obstacles.Free();
-   end;      
+   end;
 end;
 
 function TDoorWay.ProxiedFindThingTraverser(Thing: TThing; Perspective: TAvatar; Options: TFindThingOptions): Boolean;
@@ -501,7 +501,7 @@ begin
          end;
    finally
       Obstacles.Free();
-   end;      
+   end;
 end;
 
 function TDoorWay.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
@@ -635,7 +635,7 @@ begin
                    M(@GetDefiniteName), // the door way
                    M('. '),
                    C(M(@Thing.GetSubjectPronoun)), SP, // It
-                   MP(Thing, M('is'), M('are')), SP, // is 
+                   MP(Thing, M('is'), M('are')), SP, // is
                    M(TernaryConditional('closed', 'open', IsOpen())),
                    M('.')]);
    end;
@@ -749,7 +749,7 @@ begin
       end
       else
       begin
-         // Defer to the default behavior but 
+         // Defer to the default behavior but
          if ((lpMandatory in Options) or not (lpNamesTarget in Options)) then
             LeadingPhrase := LeadingPhrase + ','
          else
@@ -927,7 +927,7 @@ begin
             end;
          finally
             Obstacles.Free();
-         end;      
+         end;
          DoBroadcast([TheDoor, Perspective], Perspective, [C(M(@Perspective.GetDefiniteName)), SP,
                                                            MP(Perspective, M('closes'), M('close')), SP,
                                                            M(@TheDoor.GetDefiniteName), M('.')]);

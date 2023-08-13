@@ -119,7 +119,7 @@ begin
    World.AddLocation(ConnectThreshold(Tunnel, TunnelEnd, DoorFrame));
 
    World.AddLocation(ConnectStairs(Cave, Bedroom));
-   
+
    ConnectLocations(Tunnel, cdWest, Cave, [loPermissibleNavigationTarget, loAutoDescribe]);
 
    World.AddLocation(Tunnel);

@@ -638,7 +638,7 @@ begin
 end;
 
 procedure TPlayer.DoNavigation(Target: TThing; ThingPosition: TThingPosition; RequiredAbilities: TNavigationAbilities);
-var 
+var
    Message: TMessage;
 begin
    Assert(ThingPosition in [tpIn, tpOn], 'DoNavigation called with a ThingPosition that isn''t supported by ForceTravel');
@@ -1348,7 +1348,7 @@ begin
                   Message := TMessage.Create(mkBogus, '_ _ not _ _, _ _ _ _.',
                                                       [Capitalise(CurrentSubject.GetDefiniteName(Self)),
                                                        IsAre(CurrentSubject.IsPlural(Self)),
-                                                       ThingPositionToString(RequiredPosition), 
+                                                       ThingPositionToString(RequiredPosition),
                                                        RequiredParent.GetDefiniteName(Self),
                                                        CurrentSubject.GetSubjectPronoun(Self),
                                                        IsAre(CurrentSubject.IsPlural(Self)),
@@ -1992,7 +1992,7 @@ var
       if (Consume('human', Aborted, [gnSingular]) or
           Consume('humans', Aborted, [gnPlural]) or
           ((FPronouns = pHe) and
-           (Consume('boy', Aborted, [gnSingular]) or 
+           (Consume('boy', Aborted, [gnSingular]) or
             Consume('boys', Aborted, [gnPlural]) or
             Consume('man', Aborted, [gnSingular]) or
             Consume('men', Aborted, [gnPlural]) or

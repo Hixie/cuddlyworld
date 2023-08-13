@@ -54,7 +54,7 @@ type
 constructor TDirectPlayerPropertyDescriber.Create(Player: TPlayer);
 begin
    FPlayer := Player;
-end;      
+end;
 
 procedure TDirectPlayerPropertyDescriber.AddProperty(Name: UTF8String; PropertyType: UTF8String);
 begin
@@ -261,8 +261,8 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
          if (Location.HasLandmark(Direction)) then
          begin
             Fail('Cannot connect the ' + CardinalDirectionToString(Direction) + ' exit of ' + Location.GetDefiniteName(Player) + ', ' + Location.GetAtomForDirectionalNavigation(Direction).GetLongDefiniteName(Player) + ' is already in that direction.');
-         end;    
-      end;       
+         end;
+      end;
       Location.AddLandmark(Direction, Target, Options);
       if (loPermissibleNavigationTarget in Options) then
       begin
@@ -286,7 +286,7 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
          DoDebugConnect(cdReverse[Direction], Target as TLocation, Location, Options, False);
       end;
    end;
-   
+
    procedure DoDebugMake(Data: UTF8String);
    var
       Creation: TAtom;
@@ -478,7 +478,7 @@ begin
     raise Exception.Create('Unknown verb in ExecuteAction(): ' + IntToStr(Ord(Action.Verb)));
    end;
 end;
-   
+
 initialization
 {$INCLUDE registrations/world.inc}
    Assign(FailedCommandLog, 'failed-commands.log');

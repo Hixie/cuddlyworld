@@ -410,7 +410,7 @@ begin
       OurNode^.Value := TheirNode^.Value;
       OurNode^.Previous := FLastNode;
       OurNode^.Next := nil;
-      if (Assigned(FLastNode)) then     
+      if (Assigned(FLastNode)) then
       begin
          Assert(Assigned(FFirstNode));
          FLastNode^.Next := OurNode;

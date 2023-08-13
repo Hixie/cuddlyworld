@@ -127,7 +127,7 @@ type
    TPlacementStyle = (psRoughly, psCarefully);
    TThingReporter = procedure (Thing: TThing; Count: Cardinal; GrammaticalNumber: TGrammaticalNumber) of object;
    TThingCallback = procedure (Thing: TThing) is nested;
-   
+
    TAtom = class(TStorable)
     {$IFDEF DEBUG}
     private
@@ -302,7 +302,7 @@ type
       property Parent: TAtom read FParent;
       property Position: TThingPosition read FPosition write FPosition;
    end;
- 
+
    { Thing that can move of its own volition }
    TAvatar = class(TThing)
     protected
@@ -372,7 +372,7 @@ type
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       class function HandleUniqueLocationProperty(Properties: TTextStreamProperties; PossibleName: UTF8String; var Value: TLocation): Boolean;
-      
+
       function HasLandmark(Direction: TCardinalDirection): Boolean;
       procedure AddLandmark(Direction: TCardinalDirection; Atom: TAtom; Options: TLandmarkOptions);
       procedure AddSurroundings(Atom: TAtom; const Directions: TCardinalDirectionSet = cdCompassDirection);
@@ -568,7 +568,7 @@ begin
       begin
          Assert(Message.AsKind <> mkSuccess);
          Assert(Message.AsText <> '');
-         Message.PrefaceFailureTopic('_ cannot get onto _.', 
+         Message.PrefaceFailureTopic('_ cannot get onto _.',
                                      [Capitalise(Traveller.GetDefiniteName(Perspective)),
                                       Destination.GetDefiniteName(Perspective)]);
          Perspective.AvatarMessage(Message);
@@ -632,7 +632,7 @@ var
 procedure InitDisposalQueue();
 begin
    if (not Assigned(DisposalQueue)) then
-      DisposalQueue := TAtomList.Create([slOwner]); 
+      DisposalQueue := TAtomList.Create([slOwner]);
 end;
 
 procedure QueueForDisposal(Atom: TAtom);
@@ -1299,7 +1299,7 @@ begin
              'Children: ';
    ChildResult := '';
    for Child in FChildren do
-   begin     
+   begin
       if (ChildResult <> '') then
          ChildResult := ChildResult + '; ';
       ChildResult := ChildResult + Child.GetLongName(Perspective) + ' (' + ThingPositionToString(Child.Position) + ')';
@@ -2188,7 +2188,7 @@ end;
 
 procedure TThing.Moved(OldParent: TAtom; Care: TPlacementStyle; Perspective: TAvatar);
 begin
-   if (Self <> Perspective) then 
+   if (Self <> Perspective) then
    begin
       DoBroadcast([OldParent, FParent], Perspective, [
          C(M(@Perspective.GetDefiniteName)), MP(Perspective, M(' moves '), M(' move ')), M(@GetDefiniteName), SP(),
@@ -2820,7 +2820,7 @@ begin
    for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
    begin
       if (FindThingDirectionalTraverser(Thing, Perspective, 0, Direction, Options, SubjectiveInformation)) then
-      begin  
+      begin
          Result := True;
          Exit;
       end;
@@ -2969,7 +2969,7 @@ var
    Direction: TCardinalDirection;
    PresenceMode: TGetPresenceStatementMode;
 begin
-   Result := 
+   Result :=
       'GetLook:' + WithNewlineIfMultiline(GetLook(Perspective)) + #10 +
       'GetBasicDescription:'#10;
    for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do // GetBasicDescription only supports those two (and asserts otherwise)

@@ -451,7 +451,7 @@ begin
    FSecondaryNode := SecondaryNode;
 end;
 
-destructor TFlagNode.Destroy(); 
+destructor TFlagNode.Destroy();
 begin
    FSecondaryNode.Free();
 end;
@@ -495,7 +495,7 @@ begin
       FChildren[Index] := Children[Index];
 end;
 
-destructor TChildrenPatternNode.Destroy(); 
+destructor TChildrenPatternNode.Destroy();
 var
    Index: Cardinal;
 begin
@@ -1502,7 +1502,7 @@ var
          if (IsAcceptableBranch(Pattern^[CurrentIndex] {$IFDEF DEBUG_CANONICAL_MATCH}, Prefix + ' | ' {$ENDIF})) then
          begin
             NextState := Pattern^[CurrentIndex+1];
-            if (NextState <> mpsBlocked) then 
+            if (NextState <> mpsBlocked) then
             begin
                if (Pattern^[CurrentIndex] <= mtMaxTrueToken) then
                begin

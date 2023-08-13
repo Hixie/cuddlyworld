@@ -480,7 +480,7 @@ begin
    while (not Properties.Done) do
    begin
       if (Properties.HandleUniqueStringProperty(pnName, Name) and
-          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and    
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
           Properties.HandleUniqueStringProperty(pnDescription, Description) and
           HandleChildProperties(Properties, StreamedChildren)) then
          Properties.FailUnknownProperty();
@@ -979,7 +979,7 @@ begin
    Assert(Assigned(Traveller));
    if (CanEnter(Traveller, Direction, Perspective, Message)) then
    begin
-      DisambiguationOpening := Self;       
+      DisambiguationOpening := Self;
       Result := inherited; // defers to GetInside() below; TLocation.GetInside() gets the FDestination surface
    end
    else
@@ -1587,7 +1587,7 @@ function THole.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Assert(Message.IsValid);
    Result := False;
-   Message := TMessage.Create(mkBogus, '_ cannot move _. That does not make sense. Maybe try filling this hole in and digging a new one in the new location.', 
+   Message := TMessage.Create(mkBogus, '_ cannot move _. That does not make sense. Maybe try filling this hole in and digging a new one in the new location.',
                                        [Capitalise(Perspective.GetDefiniteName(Perspective)),
                                         GetIndefiniteName(Perspective)]);
 end;
@@ -1891,7 +1891,7 @@ var
       PluralIngredients[High(PluralIngredients)] := Plural;
       Assert(Length(SingularIngredients) = Length(PluralIngredients));
    end;
-   
+
    function HandleIngredientsProperty(): Boolean;
    var
       Stream: TTextStream;
@@ -1903,7 +1903,7 @@ var
          Properties.EnsureNotSeen(pnIngredients);
          Stream := Properties.Accept();
          while (True) do
-         begin      
+         begin
             Singular := Stream.GetString();
             Stream.ExpectPunctuation('/');
             Plural := Stream.GetString();
@@ -1918,7 +1918,7 @@ var
       else
          Result := True;
    end;
-      
+
 begin
    while (not Properties.Done) do
    begin

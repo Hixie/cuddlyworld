@@ -157,7 +157,7 @@ begin
    Strings[3] := 'glowing';
 
    TestID := 0;
-   
+
    CompilePattern('the', TestMatcher, OtherMatcher);
    RunCanonicalMatchTest(TestMatcher, 'the');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
@@ -324,7 +324,7 @@ begin
    RunMatcherTest(TestMatcher, ['d'], 0, 0);
    RunMatcherTest(TestMatcher, ['e'], 0, 0);
    TestMatcher.Free();
-   OtherMatcher.Free(); 
+   OtherMatcher.Free();
 
    SetLength(Strings, 3);
    Strings[0] := 'burning';
@@ -423,7 +423,7 @@ begin
    Check(not Enum1.MoveNext(), 'Test failed');
    Enum1.Free();
 
-   List1.AppendItem(Mol2);   
+   List1.AppendItem(Mol2);
    List2.AdoptList(List1);
    Enum1 := List1.GetEnumerator();
    Check(not Enum1.MoveNext(), 'Test failed');

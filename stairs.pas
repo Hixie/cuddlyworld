@@ -43,7 +43,7 @@ type
    TStairs = class(TScenery) // @RegisterStorableClass
       function GetTransportationDestination(Perspective: TAvatar): TTransportationInstruction; override;
    end;
-   
+
 // Same as ConnectLocations but puts a stairwell between them. Direction is always up/down.
 //
 // Return value must be added to the World. (If you see a memory leak on exit, you probably forgot to do that.)
@@ -182,7 +182,7 @@ begin
          ThePath := Path;
          if (Assigned(ThePath)) then
             LeadingPhrase := LeadingPhrase + ' past ' + ThePath.GetDefiniteName(Perspective);
-         Result := LeadingPhrase + ', ' + 
+         Result := LeadingPhrase + ', ' +
             Perspective.GetDefiniteName(Perspective) + ' ' +
             TernaryConditional('sees', 'see', Perspective.IsPlural(Perspective)) + ' ' +
             Surroundings.GetDefiniteName(Perspective) + '.' +
@@ -323,7 +323,7 @@ begin
    Assert(Assigned(Traveller));
    if (CanEnter(Traveller, Direction, Perspective, Message)) then
    begin
-      DisambiguationOpening := Self;       
+      DisambiguationOpening := Self;
       Result := FDestination.GetEntrance(Traveller, Direction, Perspective, PositionOverride, DisambiguationOpening, Message, NotificationList);
    end
    else
