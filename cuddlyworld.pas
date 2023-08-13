@@ -25,7 +25,7 @@ type
    end;
 
    TNetworkMain = class(TMain)
-      constructor Create();
+      constructor Create(Port: Word);
       destructor Destroy(); override;
       procedure Run(); override;
     protected
@@ -114,10 +114,10 @@ end;
 {$ENDIF}
 
 
-constructor TNetworkMain.Create();
+constructor TNetworkMain.Create(Port: Word);
 begin
-   inherited;
-   FServer := TCuddlyWorldServer.Create(10000, FWorld);
+   inherited Create();
+   FServer := TCuddlyWorldServer.Create(Port, FWorld);
 end;
 
 destructor TNetworkMain.Destroy();
@@ -201,8 +201,13 @@ begin
    until Aborted;
 end;
 
+const
+   PortVariable = 'CUDDLYWORLDPORT';
+   DefaultPort = 10000;
+
 var
    Main: TMain;
+   Port, Error: Word;
 begin
    {$IFDEF DEBUG}
       RegisterStorableClassSynonym('TTestWorld', TWorld);
@@ -213,7 +218,8 @@ begin
          if (ParamCount() <> 2) then
          begin
             Writeln('Usage: cuddlyworld [username password]');
-            Writeln('Without arguments, runs a WebSocket server on a port in the range 10000..10009.');
+            Writeln('Without arguments, runs a WebSocket server on the port given by the environment variable ', PortVariable ,'.');
+            Writeln('The default port if the variable is not set, is ', DefaultPort, '.');
             Writeln('With arguments, runs locally in single-user mode using the given username and password.');
          end
          else
@@ -223,7 +229,13 @@ begin
       end
       else
       begin
-         Main := TNetworkMain.Create();
+         Val(GetEnvironmentVariable(PortVariable), Port, Error);
+         if (Error <> 0) then
+         begin
+            Port := DefaultPort;
+         end;
+         Main := TNetworkMain.Create(Port);
+         Writeln('Server active on port ', Port, '.');
       end;
       try
          Main.Run();

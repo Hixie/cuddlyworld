@@ -342,6 +342,7 @@ begin
       TestWorld.AddPlayer(TPlayer.Create('Flathead', 'zorkmid', pHe));
       StoreObjectToFile(kWorldFileName, TestWorld, kSaveDataVersion);
       TestWorld.Free();
+      Writeln('** SAVED TEST WORLD TO ', kWorldFileName, '! Log in as "Flathead", password "zorkmid".');
    end;
    TestWorld := InitTest();
    Failed := False;

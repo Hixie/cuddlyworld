@@ -1190,7 +1190,7 @@ begin
       Result := mtNone;
 end;
 
-//{$DEFINE VERBOSE_MATCHES}
+// {$DEFINE VERBOSE_MATCHES} // this is highly verbose, you'll want to limit how much work the app does
 function TMatcher.Matches(Tokens: TTokens; Start: Cardinal; Flags: TMatcherFlags = 0): Cardinal;
 
    function IsAcceptableFlagTransition(TokenID: TByteCode): Boolean;
@@ -1306,7 +1306,7 @@ var
    Position, MatchLength, CurrentTransition: Cardinal;
    CurrentStateMachine, NextStateMachine, ChildStateMachine: PStateMachine;
    NextState, TokenID, CandidateTokenID: TByteCode;
-   Transitioned: Boolean;
+   Transitioned, NeedObliteration: Boolean;
 begin
    {$IFDEF VERBOSE_MATCHES}
       Writeln('Matches() starting...');
@@ -1331,10 +1331,13 @@ begin
    while (Assigned(StateMachines^.Next)) do
    begin
       { Follow mtFollow links and flag-based links first }
+      { We must follow these first because we have to keep following them until we get to the
+        complete set of states where the next viable transition is an actual token. }
+      { This is why we do these before the real tokens. }
       CurrentStateMachine := StateMachines^.Next;
       while (Assigned(CurrentStateMachine)) do
       begin
-         {$IFDEF VERBOSE_MATCHES} Writeln(' + State Machine ', IntToHex(PtrUInt(CurrentStateMachine), 8)); {$ENDIF}
+         {$IFDEF VERBOSE_MATCHES} Writeln(' + Following automatic links in state machine ', IntToHex(PtrUInt(CurrentStateMachine), 8)); {$ENDIF}
          Assert(CurrentStateMachine^.Pattern^.Data^[CurrentStateMachine^.State] = msfNormal); { we could have other state flags some day }
          Assert(CurrentStateMachine^.State + 1 <= High(CurrentTransition));
          CurrentTransition := CurrentStateMachine^.State + 1; // $R-
@@ -1376,13 +1379,13 @@ begin
       { Now follow the links that match the token, removing any state machines that don't have a match }
       if (Position > High(Tokens)) then
       begin
-         {$IFDEF VERBOSE_MATCHES} Writeln('   checking for mtNone'); {$ENDIF}
+         {$IFDEF VERBOSE_MATCHES} Writeln('- Reached end of token stream.'); {$ENDIF}
          TokenID := mtNone
       end
       else
       begin
          TokenID := GetTokenID(Tokens[Position]);
-         {$IFDEF VERBOSE_MATCHES} Writeln('   token "', Tokens[Position], '" has ID ', TokenID); {$ENDIF}
+         {$IFDEF VERBOSE_MATCHES} Writeln('- Next token is "', Tokens[Position], '" with ID ', IntToHex(TokenID, 2)); {$ENDIF}
       end;
       CurrentStateMachine := StateMachines^.Next;
       while (Assigned(CurrentStateMachine)) do
@@ -1399,6 +1402,7 @@ begin
             CurrentTransition := CurrentStateMachine^.State + 1; // $R-
             Transitioned := False;
             repeat
+               {$IFDEF VERBOSE_MATCHES} Writeln(' + Following automatic links in state machine ', IntToHex(PtrUInt(CurrentStateMachine), 8)); {$ENDIF}
                CandidateTokenID := CurrentStateMachine^.Pattern^.Data^[CurrentTransition];
                {$IFDEF VERBOSE_MATCHES} Writeln('    considering pattern entry with token ID: ', CandidateTokenID); {$ENDIF}
                if (CandidateTokenID = TokenID) then
@@ -1415,11 +1419,17 @@ begin
                   if (NextState <= mpsMaxTrueTransition) then
                   {$ENDIF}
                   begin
-                     CurrentStateMachine^.State := TByteCode(NextState and not mpsPreventDuplicatesMask);
-                     if (NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
+                     NeedObliteration := NextState and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask;
+                     ChildStateMachine := CurrentStateMachine;
+                     if (Transitioned or NeedObliteration) then
+                     begin
+                        ChildStateMachine := AppendStateMachine(ChildStateMachine);
+                     end;
+                     ChildStateMachine^.State := TByteCode(NextState and not mpsPreventDuplicatesMask);
+                     if (NeedObliteration) then
                      begin
                         Assert(CurrentTransition < High(TByteCode));
-                        ObliterateTransition(CurrentStateMachine^.Pattern, CurrentTransition+1); // $R-
+                        ObliterateTransition(ChildStateMachine^.Pattern, CurrentTransition+1); // $R-
                      end;
                      Transitioned := True;
                   end
@@ -1430,9 +1440,8 @@ begin
                   end;
                   {$ENDIF}
                end;
-               if (not Transitioned) then
-                  Inc(CurrentTransition, 2);
-            until ((Transitioned) or (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = mtStateEnd));
+               Inc(CurrentTransition, 2);
+            until (CurrentStateMachine^.Pattern^.Data^[CurrentTransition] = mtStateEnd);
             if (not Transitioned) then
                KillStateMachine(CurrentStateMachine);
          end;
@@ -1543,6 +1552,7 @@ begin
 {$IFDEF DEBUG_CANONICAL_MATCH} Writeln('   => ', Result); {$ENDIF}
 end;
 
+
 {$IFDEF DEBUG}
 function TMatcher.GetPatternDescription(): UTF8String;
 var
@@ -1552,7 +1562,7 @@ begin
    Index := 0;
    while (Index < FPatternLength) do
    begin
-      Result := Result + ' ' + IntToStr(Index) + ':' + #10;
+      Result := Result + ' ' + IntToHex(Index, 2) + ':' + #10;
       Inc(Index);
       repeat
          Result := Result + '   ';
@@ -1565,12 +1575,12 @@ begin
          if (FPattern^[Index] in [mtNegativeFlagMin .. mtNegativeFlagMax]) then
             Result := Result + 'NEGATIVE FLAG ' + IntToStr(1 shl (FPattern^[Index] - mtNegativeFlagMin))
          else
-            Result := Result + IntToStr(FPattern^[Index]) + ':"' + FOriginalTokens[FPattern^[Index]] + '"';
+            Result := Result + IntToHex(FPattern^[Index], 2) + ':"' + FOriginalTokens[FPattern^[Index]] + '"';
          Result := Result + ' -> ';
          if (FPattern^[Index+1] = mpsMatch) then
             Result := Result + 'MATCH'
          else
-            Result := Result + IntToStr(FPattern^[Index+1] and not mpsPreventDuplicatesMask);
+            Result := Result + IntToHex(FPattern^[Index+1] and not mpsPreventDuplicatesMask, 2);
          if (FPattern^[Index+1] and mpsPreventDuplicatesMask = mpsPreventDuplicatesMask) then
             Result := Result + ' (duplicates blocked)';
          Result := Result + #10;
@@ -1710,9 +1720,17 @@ const
                end;
              '?':
                begin
-                  Assert(Length(Token) > 0, 'The "?" postfix operator must immediately follow a token.');
-                  Push(TZeroOrMoreOrderedPatternNode.Create([TTokenNode.Create(Token)]));
-                  Token := '';
+                  Assert((Length(Token) > 0) or (Length(List) > 0), 'The "?" postfix operator must immediately follow a token.');
+                  if (Length(Token) > 0) then
+                  begin
+                     Push(TZeroOrMoreOrderedPatternNode.Create([TTokenNode.Create(Token)]));
+                     Token := '';
+                  end
+                  else
+                  begin
+                     Assert(not (List[High(List)] is TZeroOrMoreOrderedPatternNode), 'The "?" postfix operator cannot follow a "?" or "*" operator.');
+                     List[High(List)] := TZeroOrMoreOrderedPatternNode.Create([List[High(List)]]);
+                  end;
                end;
              '/':
                begin
@@ -1758,7 +1776,7 @@ const
 //Writeln('LIST END; SWITCHING TO TYPE CHECK');
                   Mode := pmListType;
                end;
-             '\': Mode := pmEscape;
+             '\': Mode := pmEscape; // '
              '@', '*', '#', '%', '&': EAssertionFailed.Create('List suffix used inappropriately.');
              else Token := Token + S[Index];
             end;
@@ -1886,7 +1904,7 @@ begin
              (Pos(':', S) > 0) or
              (Pos('(', S) > 0) or
              (Pos(')', S) > 0) or
-             (Pos('\', S) > 0) or
+             (Pos('\', S) > 0) or // '
              (Pos('@', S) > 0) or
              (Pos('*', S) > 0) or
              (Pos('#', S) > 0) or

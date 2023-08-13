@@ -44,7 +44,7 @@ NAVIGATION
  + announce when a player disconnects or reconnects
  + "look out" while on something on the ground talks about the ground. It should use the GetRepresentative() for the thing it's looking at
  + "look around" should do the same as look.
- + "down" when on something doesn't exit it (e.g. climb on a door, "down" says you can't go down)
+ + "down" when on something doesn't exit it (e.g. climb on a door, "down" says you can't go down). but make sure not to break down from stairs when fixing this.
  + "exits"
  + seriously consider making it impossible for a TAvatar to be anything but tpOn
     - this would mean that any object that can be entered would have to have a separate surface inside
@@ -59,6 +59,7 @@ NAVIGATION
  + "enter" doesn't work (should autodisambiguate enterable things)
  + "open north" doesn't work (should try checking atoms in that direction)
  + "open north door" doesn't work unless "north" is in the door name
+ + walking past someone on the stairs doesn't tell the person on the stairs
 
 DOOR BUGS
  + "find doorway" when in the threshold room should use the room's context fragment, rather than "The doorway is at the doorway."
@@ -83,6 +84,8 @@ DOOR BUGS
    | (inside the doorway)
    | Placed in the doorway.
    | You install a door installed in the doorway. It is closed.
+ + when the door is closed, you can climb a side of the door then go past the door directionality (e.g. climb a side, north)
+    - really the threshold room should be inaccessible when the door is closed.
 
 WORLD
  + we should still describe non-implicit things that are on implicit things
@@ -115,7 +118,19 @@ WORLD
  + "harvest forest": I don't understand how to "harvest".
  + "chop down forest": I don't understand how to "chop".
  + "repair", "unbreak system": I don't understand how to "unbreak".
-      
+
+ + Descriptions that walk up the chain of things being on things
+   should give more context (e.g. "The rim is part of the bag." to
+   avoid this mess:
+      On Tree (on the rim of the bag of holding, part of the bag of holding, on the hat block, on the eat block, in the bag of holding, on the is block, in the pile of earth, at a tunnel end)
+      Tree is a player.
+      Around the bag's rim is embroidered the name "Tree".
+      The bag has the name "Tree" embroidered around its rim.
+      This block is red and says "hat".
+      This block is blue and says "eat".
+      Tree is carrying:
+        A spade.
+
 PLOT
  + plot
 
@@ -154,6 +169,7 @@ PLAYER INTERACTION
  + "put bag on me" works... not sure exactly what to do with that
  + "push all to Hixie" (where Hixie is in the room) pushes Hixie to Hixie (and starts asserting all over the place).
  + If you're in a doorway, you don't get notified of people going through the door. (Nor do they get told about you.)
+ + "climb stairs" doesn't check if you're too big to fit through the opening the way that "up" and "down" do check.
 
 THINGS
  + floors at threshold locations should be visible to all
@@ -170,13 +186,14 @@ THINGS
     -- should probably just say "(by shaking the bag)" and defer up
     -- same with "take rim" --> "The rim of the bag of holding cannot be moved."
  + make orbs smaller but with no carrying capability
- + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle his via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there)
+ + you can move something onto something else even if that other thing is on something that couldn't handle the new total mass or volume. should we handle this via HandleAdd()? (take macguffin; have someone else walk onto it); maybe handle this by chaining CanPut() and friends up the parent chain, but we should have objects HandleAdd unexpected stuff anyway, for when you fumble it (since that doesn't check to see if you can put it there, and currently asserts -- e.g. after climbing on someone, then fumble something)
+ + fumbling doesn't check if there's room on the target, then asserts when there isn't. make the fumble be a tumble!
  + you can probably push something out of a hole even if you can't push it into a hole; see "// xxx" in player.pas DoRemove
  + when you're being carried by someone and you drop something, it ends up inside them. It should drop out of them.
  + when you drop something from the sky onto a ground surface that's full, it should drop onto something (the biggest non-full thing in a depth-first search?) on the ground surface
  + taking something with things on it should make the things fall off
  + throwing - "throw MacGuffin north": I don't understand how to "throw".
- + "push things off table" doesn't work (pushing things off)
+ + "push things off table" doesn't work (pushing things off), but game tells you "you would have to push ... off ... first"
  + see whether "put x in ground" does things differently when the ground has a hole that is covered (see "// xxx" in things.pas TSurface.GetInside)
  + "cover" a hole
  + TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
@@ -191,6 +208,7 @@ THINGS
  + support dangling parser - if we asked "which?" then accept a single GetThing() as a response (filtering only the previous matches) and resume parsing previous command
  + 'dig hole' should work
  + "fill hole" (with pile of earth) (by moving pile of earth into hole)
+ + "push pile and spade in hole" asserts because when it tries to move the spade, the pile no longer exists (or rather, has no parent)
  + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
  + "take a leaf" as a way to take a leaf from pile?
  + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
@@ -247,7 +265,12 @@ THINGS
        The sun is not open.
  + If there's a plastic fork, a plastic knife, and a plastic spoon, "take plastic silverware set" should take all three, not ask which one. If there's a plastic fork and knife, and a metal fork and knife, "take silverware set" should ask which one, plastic or metal, not take all four.
  + "push ... to ..." doesn't check that the target isn't on the list of things to push
-
+ + "climb on opening" doesn't have any problem putting you on the opening ("put foo on opening" also works)
+ + "put foo in opening" for stairwell doesn't work (asserts)
+ + "dig; drop bag; push all in hole" asserts (pile parent is nil) because it tries to push the bag into the hole after the hole stopped existing
+ + "dig; put all in pile; push all in hole" does a null deref deep in list code
+ + fill your inventory, climb on a player, take something else, asserts "Cannot put on parent."
+ + pushing something too big through an opening correctly checks sizes, but pushing it onto an opening does not.
 
 NETWORK
  + password command?

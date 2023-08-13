@@ -4,7 +4,7 @@ program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, lists, physics, player, locations, things, grammarian, cuddlycamp, world, threshold,
-   testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4, testmechanics5,
+   testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4, testmechanics5, testmechanics6,
    base64encoder, client; // client is used just to make sure it gets compiled when compiling tests
 
 const
@@ -157,7 +157,7 @@ begin
    Strings[3] := 'glowing';
 
    TestID := 0;
-
+   
    CompilePattern('the', TestMatcher, OtherMatcher);
    RunCanonicalMatchTest(TestMatcher, 'the');
    RunMatcherTest(TestMatcher, Strings, 0, 1);
@@ -190,7 +190,7 @@ begin
    RunMatcherTest(TestMatcher, Strings, 0, 4);
    RunMatcherTest(TestMatcher, Strings, 1, 3);
    RunMatcherTest(TestMatcher, Strings, 2, 0);
-   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   RunMatcherTest(TestMatcher, Strings, 3, 1); // 20
    TestMatcher.Free();
    OtherMatcher.Free();
 
@@ -199,7 +199,7 @@ begin
    RunMatcherTest(TestMatcher, Strings, 0, 3);
    RunMatcherTest(TestMatcher, Strings, 1, 2);
    RunMatcherTest(TestMatcher, Strings, 2, 1);
-   RunMatcherTest(TestMatcher, Strings, 3, 1);
+   RunMatcherTest(TestMatcher, Strings, 3, 1); // 25
    TestMatcher.Free();
    OtherMatcher.Free();
 
@@ -291,6 +291,41 @@ begin
    TestMatcher.Free();
    OtherMatcher.Free();
 
+   CompilePattern('test (foo bar)@?', TestMatcher, OtherMatcher);
+   RunMatcherTest(TestMatcher, ['test'], 0, 1);
+   RunMatcherTest(TestMatcher, ['foo', 'bar'], 0, 0);
+   RunMatcherTest(TestMatcher, ['test', 'foo', 'bar'], 0, 2);
+   RunMatcherTest(TestMatcher, ['test', 'bar', 'foo'], 0, 2);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('test (foo bar)@? baz', TestMatcher, OtherMatcher);
+   RunMatcherTest(TestMatcher, ['test', 'baz'], 0, 2);
+   RunMatcherTest(TestMatcher, ['foo', 'bar', 'baz'], 0, 0);
+   RunMatcherTest(TestMatcher, ['test', 'foo', 'bar', 'baz'], 0, 0);
+   RunMatcherTest(TestMatcher, ['test', 'bar', 'foo', 'baz'], 0, 0);
+   RunMatcherTest(TestMatcher, ['test', 'foo', 'baz'], 0, 3);
+   RunMatcherTest(TestMatcher, ['test', 'bar', 'baz'], 0, 3);
+   TestMatcher.Free();
+   OtherMatcher.Free();
+
+   CompilePattern('((test a d) (test b) test (test a c))@', TestMatcher, OtherMatcher);
+   RunMatcherTest(TestMatcher, ['test'], 0, 1); // test 88
+   RunMatcherTest(TestMatcher, ['test', 'a'], 0, 1);
+   RunMatcherTest(TestMatcher, ['test', 'a', 'c'], 0, 3);
+   RunMatcherTest(TestMatcher, ['test', 'a', 'd'], 0, 3);
+   RunMatcherTest(TestMatcher, ['test', 'b'], 0, 2);
+   RunMatcherTest(TestMatcher, ['test', 'c'], 0, 1);
+   RunMatcherTest(TestMatcher, ['test', 'd'], 0, 1);
+   RunMatcherTest(TestMatcher, ['test', 'e'], 0, 1);
+   RunMatcherTest(TestMatcher, ['a'], 0, 0);
+   RunMatcherTest(TestMatcher, ['b'], 0, 0);
+   RunMatcherTest(TestMatcher, ['c'], 0, 0);
+   RunMatcherTest(TestMatcher, ['d'], 0, 0);
+   RunMatcherTest(TestMatcher, ['e'], 0, 0);
+   TestMatcher.Free();
+   OtherMatcher.Free(); 
+
    SetLength(Strings, 3);
    Strings[0] := 'burning';
    Strings[1] := 'container';
@@ -305,7 +340,7 @@ begin
    RunMatcherTest(TestMatcher, Strings, 1, 2, 6); // flags 1 and 2 set
    RunMatcherTest(TestMatcher, Strings, 2, 1, 6); // flags 1 and 2 set
    RunCanonicalMatchTest(OtherMatcher, 'burning containers', 5); // flags 0 and 2 set
-   RunMatcherTest(OtherMatcher, Strings, 0, 1, 5); // flags 0 and 2 set // test 86
+   RunMatcherTest(OtherMatcher, Strings, 0, 1, 5); // flags 0 and 2 set
    RunMatcherTest(OtherMatcher, Strings, 1, 0, 5); // flags 0 and 2 set
    RunMatcherTest(OtherMatcher, Strings, 2, 0, 5); // flags 0 and 2 set
    RunMatcherTest(OtherMatcher, Strings, 0, 0, 6); // flags 1 and 2 set
@@ -484,11 +519,13 @@ begin
    TestBase64Encoder();
    TestMatcher();
    TestLists();
-   TestMechanics5.TestMechanics5();
+   TestMechanics6.TestMechanics6();
    TestMechanics4.TestMechanics4();
+   TestMechanics5.TestMechanics5();
    TestMechanics3.TestMechanics3();
    TestMechanics2.TestMechanics2();
    TestMechanics1.TestMechanics1();
    TestPlot();
+   TestClient();
    Writeln('CuddlyWorld Tests complete.');
 end.

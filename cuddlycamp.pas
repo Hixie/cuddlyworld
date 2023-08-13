@@ -16,7 +16,7 @@ function InitEden: TWorld; { create the initial locations }
 implementation
 
 uses
-   storable, grammarian, locations, things, player, sysutils, threshold;
+   storable, grammarian, locations, things, player, sysutils, threshold, stairs;
 
 type
    TCuddlyWorld = class(TWorld) // @RegisterStorableClass
@@ -61,13 +61,14 @@ var
    World: TCuddlyWorld;
    Tunnel, TunnelEnd, Bedroom, Cave: TLocation;
    Thing, Bed, Pillow, Stars, Ceiling: TThing;
+   DoorFrame: TDoorWay;
 begin
    World := TCuddlyWorld.Create();
 
-   Tunnel := TGroundLocation.Create('Tunnel Trail', 'a tunnel trail', 'the tunnel trail', 'The tunnel has many turns.', CreateEarthSurface());
-   TunnelEnd := TGroundLocation.Create('Tunnel End', 'a tunnel end', 'the tunnel end', 'The tunnel end room has white walls.', CreateEarthSurface());
+   Tunnel := TGroundLocation.Create('Tunnel Trail', 'the tunnel trail', 'a tunnel trail', 'The tunnel has many turns.', CreateEarthSurface());
+   TunnelEnd := TGroundLocation.Create('Tunnel End', 'the tunnel end', 'a tunnel end', 'The tunnel end room has white walls.', CreateEarthSurface());
 
-   Bedroom := TGroundLocation.Create('Bedroom', 'a bedroom', 'the bedroom', 'The bedroom is a large room. On the ceiling are some stars.', CreateStoneSurface());
+   Bedroom := TGroundLocation.Create('Bedroom', 'the bedroom', 'a bedroom', 'The bedroom is a large room. On the ceiling are some stars.', CreateStoneSurface());
    Bed := TDescribedPhysicalThing.Create('bed', 'bed/beds', 'The bed is medium-sized bed.', tmPonderous, tsBig);
    Pillow := TDescribedPhysicalThing.Create('pillow', '((car? pillow/pillows) car/cars)@', 'The pillow has drawings of cars on it.', tmLight, tsSmall);
    Stars := TFeature.Create('stars', '(ceiling/ceilings star/stars)#', 'The ceiling has stars on it.');
@@ -81,10 +82,10 @@ begin
    Bedroom.GetSurface().Add(TDescribedPhysicalThing.Create('make block', '((green make word block/blocks)& word/words)@', 'This block is green and says "make".', tmLight, tsSmall), tpOn);
    Bedroom.Add(Stars, tpPartOfImplicit);
 
-   Cave := TGroundLocation.Create('Cave', 'a cave', 'the cave', 'The cave is round and dark.', CreateEarthSurface());
+   Cave := TGroundLocation.Create('Cave', 'the cave', 'a cave', 'The cave is round and dark.', CreateEarthSurface());
    Ceiling := TScenery.Create('ceiling', '(round dark)* (ceiling/ceilings roof/rooves roof/roofs)@', 'The ceiling is dark and round, just like the rest of the cave.');
    Cave.Add(Ceiling, tpPartOfImplicit);
-   Cave.AddLandmark(cdUp, Ceiling, [loPermissibleNavigationTarget, loConsiderDirectionUnimportantWhenFindingChildren]);
+   Cave.AddLandmark(cdUp, Ceiling, [loPermissibleNavigationTarget]);
    Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);
    Cave.GetSurface().Add(Thing, tpOn);
    Thing.Add(TDescribedPhysicalThing.Create('clove of garlic', '((clove/cloves of garlic) (garlic clove/cloves)&)@', 'There''s nothing special about the clove of garlic.', tmLight, tsSmall), tpIn);
@@ -110,10 +111,15 @@ begin
    Thing.Add(TDescribedPhysicalThing.Create('silver spoon', '(silver (spoon/spoons utensil/utensils (silverware set/sets)&)@)&', 'The spoon is made of silver.', tmLight, tsSmall), tpOn);
    Cave.GetSurface().Add(TSpade.Create(), tpOn);
 
-   Bedroom.GetSurface().Add(TOpening.Create('stairs', 'stair/stairs', 'The stairs lead down.', Cave, tsGigantic), tpSurfaceOpening);
-   Ceiling.Add(TOpening.Create('stairs', 'stair/stairs', 'The stairs lead up.', Bedroom, tsGigantic), tpSurfaceOpening);
+   DoorFrame := TDoorWay.Create('door frame', '(door frame/frames)', 'The door frame is a frame around where a door would go.', cdNorth,
+                                TDoor.Create('door', 'flat? door/doors',
+                                             TDoorSide.Create('side', '(flat front)* door? side/sides', 'the front side of the door is flat.'),
+                                             TDoorSide.Create('side', '(flat back)* door? side/sides', 'the back side of the door is flat.')));
+   DoorFrame.Door.Description := 'The door is flat.';
+   World.AddLocation(ConnectThreshold(Tunnel, TunnelEnd, DoorFrame));
 
-   ConnectLocations(Tunnel, cdSouth, TunnelEnd, [loPermissibleNavigationTarget, loAutoDescribe]);
+   World.AddLocation(ConnectStairs(Cave, Bedroom));
+   
    ConnectLocations(Tunnel, cdWest, Cave, [loPermissibleNavigationTarget, loAutoDescribe]);
 
    World.AddLocation(Tunnel);

@@ -41,7 +41,9 @@ const
    cdAllDirections = [Low(TCardinalDirection) .. High(TCardinalDirection)];
    cdCompassDirection = [cdNorth .. cdNorthWest];
    cdPhysicalDirections = [cdNorth .. cdDown];
+   cdVerticalDirections = [cdUp, cdDown];
    cdReverse: array [TCardinalDirection] of TCardinalDirection = (cdSouth, cdSouthWest, cdWest, cdNorthWest, cdNorth, cdNorthEast, cdEast, cdSouthEast, cdDown, cdUp, cdIn, cdOut);
+   cdOrderedCardinalDirections: array of TCardinalDirection = (cdNorth, cdSouth, cdWest, cdEast, cdNorthWest, cdSouthWest, cdNorthEast, cdSouthEast, cdDown, cdUp, cdOut, cdIn);
 
 type
    { Ambiguous means that the placement is made explicit in the name (e.g. "rim" + "of bag") }
@@ -61,11 +63,13 @@ const
    tpAutoDescribeDirectional = [tpDirectionalOpening, tpDirectionalPath]; { things that should be included in the main description of a location, with a direction (these also have to be part of the FDirectionalLandmarks arrays, and not tpContained in something else) }
    tpScenery = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpDirectionalOpening, tpDirectionalPath, tpSurfaceOpening, tpAt]; { parent includes the mass of these children already, and conceptually these children essentially _are_ the parent, or at least part of it }
    tpObtrusive = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpIn, tpEmbedded, tpCarried]; { used by GetObtrusiveObstacles(); these are things that can be shaken loose or that can block doors }
+   tpNoticeable = [tpAt, tpOn]; { things that one might comment on, e.g. when walking past them }
+   tpPertinent = [tpPartOfImplicit, tpOnImplicit, tpPlantedInImplicit, tpSurfaceOpening, tpOn, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpCarried]; { ways for things to be related to other things that are important when describing their place in a horizon description }
    tpCountsForAll = [tpOnImplicit, tpOn, tpIn, tpCarried]; { things that should be included when listing 'all', as in "take all" }
    tpSeparate = [tpAroundImplicit, tpAtImplicit, tpAt, tpInstalledIn, tpIn, tpCarried]; { affects how things are pushed around }
-   tpContained = [tpInstalledIn, tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest }
+   tpContained = [tpIn, tpEmbedded]; { things that shouldn't be aware of goings-on outside, if the parent is closed; count towards InsideSizeManifest; also, things that treat cdOut as meaning "go to parent" }
    tpOpening = [tpSurfaceOpening, tpDirectionalOpening];
-   tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpAt, tpOn, tpPlantedIn, tpDirectionalPath]; { things that the user can refer to as being "on" then parent }
+   tpArguablyOn = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpAroundImplicit, tpAtImplicit, tpOnImplicit, tpPlantedInImplicit, tpInstalledIn, tpAt, tpOn, tpPlantedIn, tpDirectionalPath]; { things that the user can refer to as being "on" then parent; "down" will try to climb down }
    tpArguablyOf = [tpPartOfImplicit, tpAmbiguousPartOfImplicit, tpOnImplicit, tpPlantedInImplicit, tpDirectionalOpening, tpSurfaceOpening, tpAt, tpPlantedIn, tpInstalledIn, tpEmbedded, tpCarried]; // positions for children that should by found by "find child of parent"
    tpArguablyInside = [tpPlantedInImplicit, tpPlantedIn, tpInstalledIn, tpIn, tpEmbedded, tpDirectionalOpening, tpSurfaceOpening]; { things that the user can refer to as being "in" their parent }
    tpOutside = [tpPlantedInImplicit, tpOn, tpPlantedIn, tpCarried]; { things that count towards OutsideSizeManifest }
@@ -105,6 +109,7 @@ function Capitalise(Phrase: UTF8String): UTF8String; inline;
 function TernaryConditional(FalseResult, TrueResult: UTF8String; Condition: Boolean): UTF8String; inline;
 function WithSpaces(const Sentences: array of UTF8String): UTF8String;
 function WithSpaceIfNotEmpty(const S: UTF8String): UTF8String; inline;
+function ParentheticallyIfNotEmpty(const S: UTF8String): UTF8String; inline;
 function WithTrailingSpaceIfNotEmpty(const S: UTF8String): UTF8String; inline;
 function WithNewlineIfNotEmpty(const S: UTF8String): UTF8String; inline;
 function WithNewlineIfMultiline(const S: UTF8String): UTF8String; inline; // prefaces with a space if not multiline, a newline if multiline
@@ -475,6 +480,14 @@ begin
       Result := ' ' + S;
 end;
 
+function ParentheticallyIfNotEmpty(const S: UTF8String): UTF8String;
+begin
+   if (S = '') then
+      Result := ''
+   else
+      Result := '(' + S + ')';
+end;
+
 function WithTrailingSpaceIfNotEmpty(const S: UTF8String): UTF8String;
 begin
    if (S = '') then
@@ -494,7 +507,7 @@ end;
 function WithNewlineIfMultiline(const S: UTF8String): UTF8String;
 begin
    if (Pos(#10, S) = 0) then
-      Result := ' ' + S
+      Result := WithSpaceIfNotEmpty(S)
    else
       Result := #10 + S;
 end;

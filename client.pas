@@ -33,6 +33,10 @@ type
       constructor Create(APort: Word; AWorld: TWorld);
    end;
 
+{$IFOPT C+}
+procedure TestClient();
+{$ENDIF}
+      
 implementation
 
 uses
@@ -174,5 +178,11 @@ function TCuddlyWorldServer.CreateNetworkSocket(AListenerSocket: TListenerSocket
 begin
    Result := TCuddlyWorldClient.Create(AListenerSocket, FWorld);
 end;
+
+{$IFOPT C+}
+procedure TestClient();
+begin
+end;
+{$ENDIF}
 
 end.

@@ -10,6 +10,7 @@ uses
    physics, grammarian;
 
 type
+   { Ending clauses allow the collector to distingish "put [foo on bar]" from "put [foo] on bar". }
    TEndingClauseKind = (eckNormal, eckIn, eckOn);
    TEndingClauseKinds = set of TEndingClauseKind;
 
@@ -1556,9 +1557,9 @@ begin
       if ((FSelectionMechanism = tsmPickWithoutArticle) or (not (cfHadArticle in FFlags))) then
       begin
          if (cfSingular in FFlags) then
-            Fail('Which ' + GetFragment() + ' do you want to ' + Verb + ' first, ' + FThings.GetLongDefiniteString(Perspective, 'or') + '?')
+            Fail('Which ' + GetFragment() + ' do you want to ' + Verb + ', ' + FThings.GetLongDefiniteString(Perspective, 'or') + '? Let''s focus on one at at time.')
          else
-            Fail('Which of the ' + GetFragment() + ' do you want to ' + Verb + ' first, ' + FThings.GetLongDefiniteString(Perspective, 'or') + '?');
+            Fail('Which of the ' + GetFragment() + ' do you want to ' + Verb + ', ' + FThings.GetLongDefiniteString(Perspective, 'or') + '? Let''s focus on one at a time.');
       end
       else
       begin
@@ -1917,7 +1918,7 @@ var
             FCurrentBestLength := 0;
             FCurrentBestGrammaticalNumber := [];
             try
-               Perspective.GetSurroundingsRoot(FromOutside).EnumerateExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, @Add);
+               Perspective.GetSurroundingsRoot(FromOutside).EnumerateExplicitlyReferencedThings(Tokens, CurrentToken, Perspective, FromOutside, False, cdAllDirections, @Add);
             except
                FCurrentBestThingList.Empty();
                raise;
@@ -2176,31 +2177,31 @@ var
       {$IFOPT C+} TokenIndex, LastLength: Cardinal; {$ENDIF}
       {$IFOPT C+} FoundEOT: Boolean; {$ENDIF}
    begin
-{$IFOPT C+}
-LastLength := MaxTokensInClause;
-for Index := Low(ClauseConfigurations) to High(ClauseConfigurations) do
-begin
-   Assert(ClauseConfigurations[Index].Tokens[0] <> EOT);
-   Assert(ClauseConfigurations[Index].Tokens[MaxTokensInClause] = EOT);
-   FoundEOT := False;
-   for TokenIndex := 1 to MaxTokensInClause-1 do
-   begin
-      if (FoundEOT) then
-      begin
-         Assert(ClauseConfigurations[Index].Tokens[TokenIndex] = EOT);
-      end
-      else
-      begin
-         Assert(TokenIndex <= LastLength);
-         if (ClauseConfigurations[Index].Tokens[TokenIndex] = EOT) then
-         begin
-            FoundEOT := True;
-            LastLength := TokenIndex;
-         end;
-      end;
-   end;
-end;
-{$ENDIF}
+      {$IFOPT C+}
+          LastLength := MaxTokensInClause;
+          for Index := Low(ClauseConfigurations) to High(ClauseConfigurations) do
+          begin
+             Assert(ClauseConfigurations[Index].Tokens[0] <> EOT);
+             Assert(ClauseConfigurations[Index].Tokens[MaxTokensInClause] = EOT);
+             FoundEOT := False;
+             for TokenIndex := 1 to MaxTokensInClause-1 do
+             begin
+                if (FoundEOT) then
+                begin
+                   Assert(ClauseConfigurations[Index].Tokens[TokenIndex] = EOT);
+                end
+                else
+                begin
+                   Assert(TokenIndex <= LastLength);
+                   if (ClauseConfigurations[Index].Tokens[TokenIndex] = EOT) then
+                   begin
+                      FoundEOT := True;
+                      LastLength := TokenIndex;
+                   end;
+                end;
+             end;
+          end;
+      {$ENDIF}
       for Index := Low(ClauseConfigurations) to High(ClauseConfigurations) do
       begin
          if ((not (ClauseConfigurations[Index].EndingClauseKind in Ends)) and
@@ -2253,9 +2254,9 @@ begin
                else
                   Writeln('collecting continuing at end');
                {$ENDIF}
-                   until ((CurrentToken > Length(Tokens)) or
-                          (not TryClauses(NextClauseClass, NextClauseLength)) or
-                          (not CollectArticleAndThings(NextClauseClass, NextClauseLength)));
+            until ((CurrentToken > Length(Tokens)) or
+                   (not TryClauses(NextClauseClass, NextClauseLength)) or
+                   (not CollectArticleAndThings(NextClauseClass, NextClauseLength)));
             Assert(FTokenCount = 0);
             Assert(not FDisambiguate);
             Assert(not Assigned(FThingList));

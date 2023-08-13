@@ -23,9 +23,9 @@ type
 
    TActionVerb = (avNone,
                   avLook, avLookDirectional, avLookAt, avExamine, avRead, avLookUnder, avLookIn, avInventory, avFind,
-                  avGo, avEnter, avClimbOn,
+                  avGo, avEnter, avClimbOn, avUseTransportation,
                   avTake, avPut, avMove, avPush, avPushTo, avRemove, avPress, avShake, avDig, avDigDirection, avOpen, avClose,
-                  avTalk, avDance,
+                  avTalk, avDance, avPronouns,
                   {$IFDEF DEBUG} avDebugStatus, avDebugLocation, avDebugLocations, avDebugThings, avDebugThing, avDebugTeleport,
                                  avDebugMake, avDebugConnect, avDebugListClasses, avDebugDescribeClass, avDebugDescribeEnum, {$ENDIF}
                   avHelp, avQuit);
@@ -45,6 +45,7 @@ type
       avGo: (GoDirection: TCardinalDirection);
       avEnter: (EnterSubject: TThing; EnterRequiredAbilities: TNavigationAbilities);
       avClimbOn: (ClimbOnSubject: TThing; ClimbOnRequiredAbilities: TNavigationAbilities);
+      avUseTransportation: (UseTransportationInstruction: TTransportationInstruction);
       avTake: (TakeSubject: TThingList);
       avPut: (PutSubject: TThingList; PutTarget: TAtom; PutPosition: TThingPosition; PutCare: TPlacementStyle);
       avMove: (MoveSubject: TThingList; MoveTarget: TThing; case MoveAmbiguous: Boolean of False: (MovePosition: TThingPosition));
@@ -57,6 +58,7 @@ type
       avClose: (CloseTarget: TThing);
       avTalk: (TalkTarget: TThing; TalkMessage: PUTF8String; TalkVolume: TTalkVolume);
       avDance: ();
+      avPronouns: (Pronouns: TPronouns);
       {$IFDEF DEBUG}
       avDebugStatus: ();
       avDebugLocations: ();
@@ -135,6 +137,7 @@ type
       procedure DoLookUnder(Subject: TThing);
       procedure DoNavigation(Target: TThing; ThingPosition: TThingPosition; RequiredAbilities: TNavigationAbilities);
       procedure DoNavigation(Direction: TCardinalDirection);
+      procedure DoNavigation(Instruction: TTransportationInstruction);
       procedure DoTake(Subject: TThingList);
       procedure DoPut(Subject: TThingList; Target: TAtom; ThingPosition: TThingPosition; Care: TPlacementStyle);
       procedure DoMove(Subject: TThingList; Target: TThing; PositionAmbiguous: Boolean; ThingPosition: TThingPosition);
@@ -148,6 +151,7 @@ type
       procedure DoClose(Subject: TThing);
       procedure DoTalk(Target: TThing; Message: UTF8String; Volume: TTalkVolume);
       procedure DoDance();
+      procedure DoSetPronouns(Pronouns: TPronouns);
       {$IFDEF DEBUG}
       procedure DoDebugStatus();
       procedure DoDebugLocation();
@@ -186,7 +190,7 @@ begin
    FPassword := APassword;
    FPronouns := APronouns;
    Bag := TBag.Create('bag of holding', '(embroidered (bag/bags (of holding)?) (labeled ' + Capitalise(AName) + '))&', 'The bag has the name "' + Capitalise(AName) + '" embroidered around its rim.', tsLudicrous);
-   Bag.Add(TScenery.Create('rim', '(rim/rims (bag? rim/rims))@', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '".'), tpAmbiguousPartOfImplicit); { the weird pattern is to avoid putting "bag" in the canonical description }
+   Bag.Add(TScenery.Create('rim', '(rim/rims (bag? rim/rims))@', 'Around the bag''s rim is embroidered the name "' + Capitalise(AName) + '".'), tpAmbiguousPartOfImplicit); { the weird pattern is to avoid putting "bag" in the canonical description, as in, "the bag rim of the bag of holding" }
    Add(Bag, tpCarried);
 end;
 
@@ -215,6 +219,7 @@ end;
 
 procedure TPlayer.DoLook();
 begin
+   Assert((not (FPosition in tpContained)) or (FParent.GetRepresentative() = FParent)); // otherwise we'd look outside our parent
    SendMessage(FParent.GetRepresentative().GetLook(Self));
 end;
 
@@ -251,51 +256,8 @@ begin
 end;
 
 procedure TPlayer.DoDebugLocation();
-
-   function PresenceModeToString(const PresenceMode: TGetPresenceStatementMode): UTF8String;
-   begin
-      case (PresenceMode) of
-         psThereIsAThingHere { look }: Result := 'psThereIsAThingHere';
-         psThereIsAThingThere { look north }: Result := 'psThereIsAThingThere';
-         psOnThatThingIsAThing { nested look }: Result := 'psOnThatThingIsAThing';
-         psTheThingIsOnThatThing { find }: Result := 'psTheThingIsOnThatThing';
-         psOnThatSpecialThing { find (something far away) -- only if parent is TThing, not TLocation }: Result := 'psOnThatSpecialThing';
-      end;
-   end;
-
-var
-   Location: TLocation;
-   Direction: TCardinalDirection;
-   PresenceMode: TGetPresenceStatementMode;
 begin
-   Location := DebugGetCurrentLocation();
-   SendMessage('GetLook:' + WithNewlineIfMultiline(Location.GetLook(Self)));
-   SendMessage('GetLookAt:' + WithNewlineIfMultiline(Location.GetLookAt(Self)));
-   SendMessage('GetLookTowardsDirection:');
-   for Direction in TCardinalDirection do
-     SendMessage('  ' + CardinalDirectionToString(Direction) + ':' + WithNewlineIfMultiline(Location.GetLookTowardsDirection(Self, Direction)));
-   SendMessage('GetBasicDescription:');
-   for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do
-     SendMessage('  ' + PresenceModeToString(PresenceMode) + ':' + WithNewlineIfMultiline(Location.GetBasicDescription(Self, PresenceMode)));
-   SendMessage('GetHorizonDescription:' + WithNewlineIfMultiline(Location.GetHorizonDescription(Self, nil)));
-   SendMessage('GetDescriptionForHorizon:' + WithNewlineIfMultiline(Location.GetDescriptionForHorizon(Self, nil)));
-   SendMessage('GetDescriptionSelf:' + WithNewlineIfMultiline(Location.GetDescriptionSelf(Self)));
-   SendMessage('GetDescriptionState:' + WithNewlineIfMultiline(Location.GetDescriptionState(Self)));
-   SendMessage('GetDescriptionHere:');
-   for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do
-     SendMessage('  ' + PresenceModeToString(PresenceMode) + ':' + WithNewlineIfMultiline( Location.GetDescriptionHere(Self, PresenceMode)));
-   SendMessage('GetDescriptionOn:');
-   SendMessage('  []:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [])));
-   SendMessage('  [optDeepOn]:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [optDeepOn])));
-   SendMessage('  [optPrecise]:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [optPrecise])));
-   SendMessage('  [optDeepOn, optPrecise]:' + WithNewlineIfMultiline(Location.GetDescriptionOn(Self, [optDeepOn, optPrecise])));
-   SendMessage('GetDescriptionChildren (all options enabled):' + WithNewlineIfMultiline(Location.GetDescriptionChildren(Self, [optDeepChildren, optFar, optThorough, optOmitPerspective])));
-   // these are commented out because some locations only have defined remote descriptions for certain directions
-   // SendMessage('GetDescriptionRemoteBrief:');
-   // for PresenceMode in [psThereIsAThingThere, psThereIsAThingHere] do
-   //   SendMessage('  ' + PresenceModeToString(PresenceMode) + ':' + WithNewlineIfMultiline(Location.GetDescriptionRemoteBrief(Self, PresenceMode, cdIn)));
-   // SendMessage('GetDescriptionRemoteDetailed:' + WithNewlineIfMultiline(Location.GetDescriptionRemoteDetailed(Self, cdIn)));
-   // XXX we should list all the landmarks with their options
+   SendMessage(DebugGetCurrentLocation().Debug(Self));
 end;
 
 procedure TPlayer.DoDebugThings(Things: TThingList);
@@ -315,9 +277,8 @@ begin
          if (FromOutside) then
             Include(FindMatchingThingsOptions, fomFromOutside);
          Root.FindMatchingThings(Self, FindMatchingThingsOptions, tpEverything, [], Things);
-         { there's always at least one thing: us }
       end;
-      Assert(Things.Length > 0);
+      Assert(Things.Length > 0); { there's always at least one thing: us }
       SendMessage('Things:');
       for Thing in Things do
          SendMessage(' - ' + Thing.GetName(Self) + ': ' + Thing.GetLongDefiniteName(Self));
@@ -329,7 +290,7 @@ end;
 
 procedure TPlayer.DoDebugThing(Thing: TThing);
 begin
-   SendMessage(Thing.Debug());
+   SendMessage(Thing.Debug(Self));
 end;
 
 procedure TPlayer.DoDebugTeleport(Target: TAtom);
@@ -408,14 +369,20 @@ begin
    Assert(Message.IsValid);
    if ((RequiredAbilities - [naWalk, naJump]) <> []) then
    begin
+      Assert((RequiredAbilities - [naFly, naDebugTeleport]) = []);
       if (naFly in RequiredAbilities) then
       begin
          Result := False;
          Message := TMessage.Create(mkCannotFly, '_ cannot fly.', [Capitalise(GetDefiniteName(Perspective))]);
       end
       else
+      if (RequiredAbilities - [naDebugTeleport] = []) then
       begin
-         Assert((RequiredAbilities - [naFly, naDebugTeleport]) <> []);
+         Result := False;
+         Message := TMessage.Create(mkNotReachable, '_ cannot reach _.', [Capitalise(GetDefiniteName(Perspective)), Destination.GetDefiniteName(Perspective)]);
+      end
+      else
+      begin
          Result := inherited;
       end;
    end
@@ -432,7 +399,7 @@ end;
 
 function TPlayer.GetIntrinsicSize(): TThingSize;
 begin
-   Result := tsMassive;
+   Result := tsBig;
 end;
 
 function TPlayer.GetName(Perspective: TAvatar): UTF8String;
@@ -674,6 +641,7 @@ procedure TPlayer.DoNavigation(Target: TThing; ThingPosition: TThingPosition; Re
 var 
    Message: TMessage;
 begin
+   Assert(ThingPosition in [tpIn, tpOn], 'DoNavigation called with a ThingPosition that isn''t supported by ForceTravel');
    Message := TMessage.Create();
    if (not CanReach(Target, Self, Message)) then
    begin
@@ -717,7 +685,8 @@ begin
    begin
       Assert(Message.AsKind = mkSuccess);
       Assert(Message.AsText = '');
-      if (not HasAbilityToTravelTo(Instructions.Target, Instructions.RequiredAbilities, Self, Message)) then
+      Assert(Instructions.TargetAtom = Instructions.TargetThing);
+      if (not HasAbilityToTravelTo(Instructions.TargetAtom, Instructions.RequiredAbilities, Self, Message)) then
       begin
          Assert(Message.AsKind <> mkSuccess);
          Assert(Message.AsText <> '');
@@ -728,12 +697,21 @@ begin
          Assert(Message.AsKind = mkSuccess);
          Assert(Message.AsText = '');
          case Instructions.TravelType of
-            ttByPosition: ForceTravel(Self, Instructions.Target, Instructions.Position, Self);
-            ttByDirection: ForceTravel(Self, Instructions.Target, Instructions.Direction, Self);
+            ttByPosition: ForceTravel(Self, Instructions.TargetThing, Instructions.Position, Self);
+            ttByDirection: ForceTravel(Self, Instructions.TargetAtom, Instructions.Direction, Self);
          else
             Assert(False);
          end;
       end;
+   end;
+end;
+
+procedure TPlayer.DoNavigation(Instruction: TTransportationInstruction);
+begin
+   case Instruction.TravelType of
+      ttNone: Assert(False);
+      ttByPosition: DoNavigation(Instruction.TargetThing, Instruction.Position, Instruction.RequiredAbilities);
+      ttByDirection: DoNavigation(Instruction.Direction);
    end;
 end;
 
@@ -774,7 +752,8 @@ begin
                                           MP(Self, M('tries to'), M('try to')), SP,
                                           M('pick'), SP,
                                           M(@GetReflexivePronoun), SP,
-                                          M('up, but end up'), SP,
+                                          M('up, but'), SP,
+                                          MP(Self, M('ends up'), M('end up')), SP,
                                           M(ThingPositionToString(Position)), SP,
                                           M(@TargetSurface.GetDefiniteName), M('.')]);
                SendMessage('You try to pick yourself up but end up ' + ThingPositionToString(Position) + ' ' + TargetSurface.GetDefiniteName(Self) + '.');
@@ -936,7 +915,13 @@ begin
          Assert((Message.AsKind = mkSuccess) = Success);
          SendMessage(Message.AsText);
          if (Success) then
+         begin
+            if (ThingPosition = tpIn) then
+            begin
+               Target := Target.GetInside(ThingPosition);
+            end;
             Target.Put(CurrentSubject, ThingPosition, Care, Self);
+         end;
       end;
    end;
 end;
@@ -1177,7 +1162,13 @@ begin
                   Assert((Message.AsKind = mkSuccess) = Success);
                   SendMessage(Message.AsText);
                   if (Success) then
+                  begin
+                     if (ThingPosition = tpIn) then
+                     begin
+                        SurrogateTarget := SurrogateTarget.GetInside(ThingPosition);
+                     end;
                      SurrogateTarget.Put(CurrentSubject, ThingPosition, psCarefully, Self);
+                  end;
                end;
             end;
          end;
@@ -1266,6 +1257,10 @@ begin
                         begin
                            for CurrentNotifiee in NotificationList do
                               CurrentNotifiee.HandlePassedThrough(CurrentSubject, CurrentSubject.Parent, Destination, ThingPosition, Self);
+                           if (ThingPosition = tpIn) then
+                           begin
+                              Destination := Destination.GetInside(ThingPosition);
+                           end;
                            Destination.Put(CurrentSubject, ThingPosition, psRoughly, Self);
                         end;
                      end
@@ -1453,7 +1448,13 @@ begin
                   Assert((Message.AsKind = mkSuccess) = Success);
                   SendMessage(Message.AsText);
                   if (Success) then
+                  begin
+                     if (DestinationPosition = tpIn) then
+                     begin
+                        Destination := Destination.GetInside(DestinationPosition);
+                     end;
                      Destination.Put(CurrentSubject, DestinationPosition, psCarefully, Self);
+                  end;
                end;
             end;
          end;
@@ -1673,6 +1674,12 @@ begin
    SendMessage(Capitalise(GetDefiniteName(Self)) + ' ' + TernaryConditional('dances', 'dance', IsPlural(Self)) + '.');
 end;
 
+procedure TPlayer.DoSetPronouns(Pronouns: TPronouns);
+begin
+   FPronouns := Pronouns;
+   SendMessage('Noted.');
+end;
+
 procedure TPlayer.HandleAdd(Thing: TThing; Blame: TAvatar);
 var
    Masses, CandidateMass, ThisMass: TThingMassManifest;
@@ -1719,7 +1726,7 @@ begin
       DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
       {$IFOPT C+}
         Message := TMessage.Create();
-        Assert(FParent.CanPut(Candidate, tpOn, psRoughly, Self, Message));
+        Assert(FParent.CanPut(Candidate, tpOn, psRoughly, Self, Message), 'Cannot put on parent.');
         Assert(Message.AsKind = mkSuccess);
       {$ENDIF};
       FParent.Put(Candidate, tpOn, psRoughly, Self);

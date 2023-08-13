@@ -7,8 +7,9 @@ interface
 type
    TMessageKind = (mkSuccess, mkNoOp, mkEffect,
                    mkBogus, mkTooHeavy, mkTooBig, mkNotReachable, mkDuplicate, mkInHole, mkImmovable, mkNoOpening, mkClosed, mkInappropriateTool,
-                   mkCannotTakeBecausePile, mkCannotMoveBecauseLocation, mkCannotMoveBecauseCustom, mkCannotLeaveLocation, mkCannotFly, mkCannotWalk,
-                   mkNoDoor, mkRedundant, mkBlocked, mkCannotPutOnBecauseInstalled, mkThingsFall);
+                   mkCannotTakeBecausePile, mkCannotMoveBecauseLocation, mkCannotMoveBecauseCustom, mkCannotLeaveLocation,
+                   mkCannotFly, mkCannotWalk,
+                   mkNoDoor, mkRedundant, mkBlocked, mkCannotPutOnBecauseInstalled, mkThingsFall, mkAvoidingBurialAlive);
 
 const
    mkSuccesses = [mkSuccess, mkNoOp, mkThingsFall];

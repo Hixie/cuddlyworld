@@ -24,7 +24,7 @@
       constructor Read(Stream: TReadStream); override;
       procedure Write(Stream: TWriteStream); override;
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
-      procedure EnumerateObtrusiveObstacles(List: TThingList); override;
+      procedure EnumerateChildren(List: TThingList; const PositionFilter: TThingPositionFilter); override;
       function GetSurface(): TThing; override;
    end;
 
@@ -81,7 +81,7 @@ begin
           Properties.specialize HandleUniqueEnumProperty<TThingPosition>(pnPosition, Position) and {BOGUS Hint: Local variable "Position" does not seem to be initialized}
           TThing.HandleUniqueThingProperty(Properties, pnGround, Ground, TThing) and {BOGUS Hint: Local variable "Ground" does not seem to be initialized}
           HandleLandmarkProperties(Properties, StreamedLandmarks)) then
-       Properties.FailUnknownProperty();
+         Properties.FailUnknownProperty();
    end;
    Properties.EnsureSeen([pnSource, pnPosition, pnGround]);
    Result := Create(Source, Position, Ground);
@@ -110,10 +110,10 @@ begin
 {$ENDIF}
 end;
       
-procedure SUBCLASS.EnumerateObtrusiveObstacles(List: TThingList);
+procedure SUBCLASS.EnumerateChildren(List: TThingList; const PositionFilter: TThingPositionFilter);
 begin
    inherited;
-   FSurface.EnumerateObtrusiveObstacles(List);
+   FSurface.EnumerateChildren(List, PositionFilter);
 end;
 
 function SUBCLASS.GetSurface(): TThing;

@@ -60,7 +60,7 @@ type
     public
       function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      procedure Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
+      procedure Put(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
    end;
 
    TBackdrop = class(TProxyLocation) // @RegisterStorableClass
@@ -258,14 +258,14 @@ begin
       Result := inherited; // at time of writing, this would always throw, since the superclass asserts that ThingPosition is tpOn or tpIn
 end;
 
-procedure TAirLocation.Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar);
+procedure TAirLocation.Put(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar);
 var
    Below: TAtom;
 begin
    Below := GetBelow();
    Assert(Assigned(Below));
    DoBroadcastAll([Perspective, Self, Thing, Below], [C(M(@Thing.GetDefiniteName)), SP, MP(Thing, M('falls to'), M('fall to')), SP, M(@Below.GetDefiniteName)]);
-   Below.Put(Thing, Position, Care, Perspective);
+   Below.Put(Thing, ThingPosition, Care, Perspective);
 end;
 
 function TAirLocation.GetBelow(): TAtom;

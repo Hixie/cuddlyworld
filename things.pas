@@ -26,7 +26,7 @@ type
       function GetLongName(Perspective: TAvatar): UTF8String; override;
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
-      {$IFDEF DEBUG} function Debug(): UTF8String; override; {$ENDIF}
+      {$IFDEF DEBUG} function Debug(Perspective: TAvatar): UTF8String; override; {$ENDIF}
       property Plural: Boolean read FPlural write FPlural;
    end;
 
@@ -107,7 +107,7 @@ type
    end;
 
    // Things that don't change and don't move but that provide a portal to other locations
-   TLocationProxy = class(TScenery)
+   TLocationProxy = class abstract(TScenery)
     protected
       FDestination: TLocation;
       class function CreateFromProperties(Properties: TTextStreamProperties): TLocationProxy; override;
@@ -117,18 +117,27 @@ type
       procedure Write(Stream: TWriteStream); override;
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetDescriptionDirectional(Perspective: TAvatar; Mode: TGetPresenceStatementMode; Direction: TCardinalDirection): UTF8String; override;
-      function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
-      function GetInside(var PositionOverride: TThingPosition): TThing; override;
-      function IsOpen(): Boolean; override;
+   end;
+
+   TPath = class(TLocationProxy) // @RegisterStorableClass
+    protected
+      class function CreateFromProperties(Properties: TTextStreamProperties): TPath; override;
+    public
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
+      function GetTransportationDestination(Perspective: TAvatar): TTransportationInstruction; override;
    end;
 
    TOpening = class(TLocationProxy) // @RegisterStorableClass
     protected
       class function CreateFromProperties(Properties: TTextStreamProperties): TOpening; override;
+      function CanEnter(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): Boolean; virtual;
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
+      function GetInside(var PositionOverride: TThingPosition): TThing; override;
+      function IsOpen(): Boolean; override;
       function GetLookUnder(Perspective: TAvatar): UTF8String; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -138,6 +147,7 @@ type
    end;
 
    // The ground, mainly
+   // consider making this inherit from TFeature
    TSurface = class(TDescribedPhysicalThing) // @RegisterStorableClass
     protected
       class function CreateFromProperties(Properties: TTextStreamProperties): TSurface; override;
@@ -145,7 +155,6 @@ type
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; AMass: TThingMass = tmLudicrous; ASize: TThingSize = tsLudicrous);
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
-      function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var MEssage: TMessage): TNavigationInstruction; override;
       function GetRepresentative(): TAtom; override;
    end;
 
@@ -238,6 +247,7 @@ type
       procedure Write(Stream: TWriteStream); override;
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
       function GetTitle(Perspective: TAvatar): UTF8String; override;
+      function GetHorizonDescription(Perspective: TAvatar): UTF8String; override;
       function GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String; override;
       function GetDescriptionState(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionClosed(Perspective: TAvatar): UTF8String; override;
@@ -433,7 +443,7 @@ begin
 end;
 
 {$IFDEF DEBUG}
-function TNamedThing.Debug(): UTF8String;
+function TNamedThing.Debug(Perspective: TAvatar): UTF8String;
 begin
    Result := inherited;
    Result := Result + #10 +
@@ -748,9 +758,10 @@ begin
       Message := TMessage.Create(mkCannotMoveBecauseCustom, FCannotMoveExcuse)
    else
    if (FPosition = tpPartOfImplicit) then
-      Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ part of _.',
+      Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ _ _.',
                                                               [Capitalise(GetDefiniteName(Perspective)),
                                                                IsAre(IsPlural(Perspective)),
+                                                               ThingPositionToString(FPosition),
                                                                FParent.GetDefiniteName(Perspective)])
    else
    if (FPosition in tpOpening) then
@@ -843,28 +854,69 @@ begin
    Result := Capitalise(GetIndefiniteName(Perspective)) + ' ' + TernaryConditional('leads', 'lead', IsPlural(Perspective)) + ' ' + CardinalDirectionToString(Direction) + '.';
 end;
 
-function TLocationProxy.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
+
+constructor TPath.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; Destination: TLocation; ASize: TThingSize);
 begin
-   Assert(Message.IsValid);
-   DisambiguationOpening := Self;       
-   Result := inherited;
+   inherited Create(Name, Pattern, Description, Destination, tmLudicrous, ASize);
 end;
 
-function TLocationProxy.GetInside(var PositionOverride: TThingPosition): TThing;
+class function TPath.CreateFromProperties(Properties: TTextStreamProperties): TPath;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description, UnderDescriptionValue, FindDescriptionValue, CannotMoveExcuseValue: UTF8String;
+   Destination: TLocation;
+   SizeValue: TThingSize;
+   OpenedValue: Boolean = False;
+   StreamedChildren: TStreamedChildren;
 begin
-   Assert(Assigned(FDestination));
-   Result := FDestination.GetInside(PositionOverride);
-   if (not Assigned(Result)) then
+   while (not Properties.Done) do
    begin
-      Result := FDestination.GetSurface();
-      Assert(Assigned(Result));
-      PositionOverride := tpOn;
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          TLocation.HandleUniqueLocationProperty(Properties, pnDestination, Destination) and {BOGUS Hint: Local variable "Destination" does not seem to be initialized}
+          Properties.HandleUniqueStringProperty(pnUnderDescription, UnderDescriptionValue) and
+          Properties.HandleUniqueStringProperty(pnFindDescription, FindDescriptionValue) and
+          Properties.HandleUniqueStringProperty(pnCannotMoveExcuse, CannotMoveExcuseValue) and
+          Properties.HandleUniqueBooleanProperty(pnOpened, OpenedValue) and
+          Properties.specialize HandleUniqueEnumProperty<TThingSize>(pnSize, SizeValue) and {BOGUS Hint: Local variable "SizeValue" does not seem to be initialized}
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
    end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnSize, pnDestination]);
+   if (Properties.Seen(pnUnderDescription)) then
+      Result.UnderDescription := UnderDescriptionValue;
+   if (Properties.Seen(pnFindDescription)) then
+      Result.FindDescription := FindDescriptionValue;
+   if (Properties.Seen(pnCannotMoveExcuse)) then
+      Result.CannotMoveExcuse := CannotMoveExcuseValue;
+   if (Properties.Seen(pnOpened)) then
+      Result.Opened := OpenedValue;
+   Result := Create(Name, Pattern, Description, Destination, SizeValue);
+   StreamedChildren.Apply(Result);
 end;
 
-function TLocationProxy.IsOpen(): Boolean;
+class procedure TPath.DescribeProperties(Describer: TPropertyDescriber);
 begin
-   Result := True;
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnDestination, ptLocation);
+   Describer.AddProperty(pnUnderDescription, ptString);
+   Describer.AddProperty(pnFindDescription, ptString);
+   Describer.AddProperty(pnCannotMoveExcuse, ptString);
+   Describer.AddProperty(pnOpened, ptBoolean);
+   Describer.AddProperty(pnSize, ptSize);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
+function TPath.GetTransportationDestination(Perspective: TAvatar): TTransportationInstruction;
+begin
+   Result.TravelType := ttByPosition;
+   Result.TargetThing := FDestination.GetSurface();
+   Result.Position := tpOn;
+   Result.RequiredAbilities := [naWalk];
 end;
 
 
@@ -907,20 +959,50 @@ begin
    Describer.AddProperty(pnChild, ptChild);
 end;
 
-function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
+function TOpening.CanEnter(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Assert(Message.IsValid);
    Assert(Assigned(Traveller));
-   if (not CanInsideHold(Traveller.GetOutsideSizeManifest())) then
+   Result := CanInsideHold(Traveller.GetOutsideSizeManifest());
+   if (not Result) then
    begin
-      Result := nil;
       Message := TMessage.Create(mkTooBig, '_ _ too big to fit in _.',
                                            [Capitalise(Traveller.GetDefiniteName(Perspective)),
                                             IsAre(Traveller.IsPlural(Perspective)),
                                             GetDefiniteName(Perspective)]);
+   end;
+end;
+
+function TOpening.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;
+begin
+   Assert(Message.IsValid);
+   Assert(Assigned(Traveller));
+   if (CanEnter(Traveller, Direction, Perspective, Message)) then
+   begin
+      DisambiguationOpening := Self;       
+      Result := inherited; // defers to GetInside() below; TLocation.GetInside() gets the FDestination surface
    end
    else
-      Result := inherited; // defers to GetInside(); TLocation.GetInside() gets the FDestination surface
+   begin
+      Result := nil;
+   end;
+end;
+
+function TOpening.GetInside(var PositionOverride: TThingPosition): TThing;
+begin
+   Assert(Assigned(FDestination));
+   Result := FDestination.GetInside(PositionOverride);
+   if (not Assigned(Result)) then
+   begin
+      Result := FDestination.GetSurface();
+      Assert(Assigned(Result), 'Destination has no surface.');
+      PositionOverride := tpOn;
+   end;
+end;
+
+function TOpening.IsOpen(): Boolean;
+begin
+   Result := True;
 end;
 
 function TOpening.GetLookUnder(Perspective: TAvatar): UTF8String;
@@ -1012,18 +1094,11 @@ begin
    Assert(Message.IsValid);
    Assert(Assigned(FParent));
    Result := False;
-   Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ part of _.',
-                                                           [Capitalise(GetDefiniteName(Perspective)),
-                                                            IsAre(IsPlural(Perspective)),
-                                                            FParent.GetDefiniteName(Perspective)]);
-end;
-
-function TSurface.GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction;
-begin
-   Assert(Message.IsValid);
-   // always defer to parent, so that "get out" doesn't try to get out of the TSurface and into the TLocation!
-   Assert(Assigned(FParent));
-   Result := FParent.GetNavigationInstructions(Direction, Self, Perspective, Message);
+   Message := TMessage.Create(mkCannotMoveBecauseLocation, '_ _ _ _.',
+                              [Capitalise(GetDefiniteName(Perspective)),
+                               IsAre(IsPlural(Perspective)),
+                               ThingPositionToString(Position),
+                               FParent.GetDefiniteName(Perspective)]);
 end;
 
 function TSurface.GetRepresentative(): TAtom;
@@ -1385,6 +1460,11 @@ begin
    Result := 'hole in ' + FParent.GetDefiniteName(Perspective);
 end;
 
+function THole.GetHorizonDescription(Perspective: TAvatar): UTF8String;
+begin
+   Result := ''; // we're in a hole, let's not talk about what's outside the hole
+end;
+
 function THole.GetPresenceStatement(Perspective: TAvatar; Mode: TGetPresenceStatementMode): UTF8String;
 var
    Child: TThing;
@@ -1572,6 +1652,51 @@ begin
 end;
 
 procedure THole.HandleAdd(Thing: TThing; Blame: TAvatar);
+
+   procedure AvoidBuryingAlive(Parent: TThing; Target: TAtom);
+   var
+      Avatars: TThingList;
+
+      procedure HandleChild(Child: TThing);
+      begin
+         if (Child is TAvatar) then
+         begin
+            if (not Assigned(Avatars)) then
+               Avatars := TThingList.Create();
+            Avatars.AppendItem(Child);
+         end
+         else
+         begin
+            Child.WalkChildren(@HandleChild);
+         end;
+      end;
+
+   var
+      Child: TThing;
+      Avatar: TAvatar;
+   begin
+      Avatars := nil;
+      Parent.WalkChildren(@HandleChild);
+      if (Assigned(Avatars)) then
+      begin
+         Assert(Avatars.Length > 0);
+         try
+            for Child in Avatars do
+            begin
+               Avatar := Child as TAvatar;
+               Avatar.AvatarMessage(TMessage.Create(mkAvoidingBurialAlive, '_ barely _ being buried alive by _.',
+                                                    [Capitalise(Avatar.GetDefiniteName(Avatar)),
+                                                     TernaryConditional('avoids', 'avoid', Avatar.IsPlural(Avatar)),
+                                                     Blame.GetDefiniteName(Avatar)]));
+               DoBroadcast([FParent], Avatar, [C(M(@Avatar.GetDefiniteName)), SP, M('barely'), SP, MP(Avatar, M('avoids'), M('avoid')), SP, M('being buried alive by'), SP, M(@Blame.GetDefiniteName), M('.')]);
+               ForceTravel(Avatar, Target, cdOut, Avatar);
+            end;
+         finally
+            Avatars.Free();
+         end;
+      end;
+   end;
+
 var
    Child: TThing;
    E: TThingList.TEnumerator;
@@ -1597,10 +1722,8 @@ begin
                PileSize := PileSize + Child.GetOutsideSizeManifest();
          if (PileSize >= FSize) then
          begin
-            // { Check all descendants for TAvatars, to avoid burying them alive }
-            // for Child in Descendants do
-            //    if Child is TAvatar do
-            //       ForceTravel(Child, Avatar.FParent, FParent.GetRepresentative(), cdOut, [], Child);
+            { Check all descendants for TAvatars, to avoid burying them alive }
+            AvoidBuryingAlive(Self, FParent.GetRepresentative());
             { Fill hole and bury treasure }
             DoBroadcast([FParent], nil, [C(M(@Blame.GetDefiniteName)), SP, MP(Blame, M('fills'), M('fill')), SP, M(@GetDefiniteName), M(' with '), M(@Thing.GetDefiniteName), M('.')]);
             OldParent := FParent;
@@ -1654,7 +1777,7 @@ begin
    begin
       Thing.Position := tpIn;
       if (GetInsideSizeManifest() < FSize) then
-         DoBroadcast([Self], nil, [C(M(@Thing.GetDefiniteName)), SP, MP(Self, M('falls'), M('fall')), M(' into '), M(@GetDefiniteName), M('.')]);
+         DoBroadcast([Self], nil, [C(M(@Thing.GetDefiniteName)), SP, MP(Thing, M('falls'), M('fall')), M(' into '), M(@GetDefiniteName), M('.')]);
       { else well the hole is full and this is just piling on top of the hole,
         so though we pretend like it's in the hole, it's not like it fell in }
    end; { else it covers the hole }
@@ -1680,13 +1803,13 @@ begin
    Assert(Message.IsValid);
    Result.TravelType := ttNone;
    Assert(FParent is TEarthGround);
-   Assert(Child.Position = tpIn); // if this fires, then we need to make sure we handle navigation while on a filled pile by deferring to parent
+   Assert(Child.Position = tpIn); // we try to AvoidBuryingAlive so that this should never be possible
    case Direction of
      cdUp, cdOut:
         begin
            Result.TravelType := ttByDirection;
            Result.RequiredAbilities := [naJump];
-           Result.Target := FParent.GetRepresentative();
+           Result.TargetAtom := FParent.GetRepresentative();
            Result.Direction := cdUp;
         end;
     else

@@ -419,6 +419,7 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
          'This is a pretty conventional MUD. You can move around using cardinal directions, e.g. "north", "east", "south", "west". You can shorten these to "n", "e", "s", "w". To look around, you can say "look", which can be shortened to "l". ' + 'To see what you''re holding, ask for your "inventory", which can be shortened to "i".' + #10 +
          'More elaborate constructions are also possible. You can "take something", or "put something in something else", for instance.' + #10 +
          'You can talk to other people by using "say", e.g. "say ''how are you?'' to Fred".' + #10 +
+         'You can set your pronouns using "i use ... pronouns"; supported pronouns are he/him, she/her, it/its, ze/zer, they/them, and plural they/them.' + #10 +
          'If you find a bug, you can report it by saying "bug ''something''", for example, "bug ''the description of the camp says i can go north, but when i got north it says i cannot''". ' + 'Please be descriptive and include as much information as possible about how to reproduce the bug. Thanks!' + #10 +
          'Have fun!'
       );
@@ -432,7 +433,7 @@ procedure TWorld.ExecuteAction(const Action: TAction; Player: TPlayer);
 begin
    case Action.Verb of
     avLook: Player.DoLook();
-    avLookDirectional: Player.SendMessage(Player.Parent.GetRepresentative().GetLookTowardsDirection(Player, Action.LookDirection));
+    avLookDirectional: Player.SendMessage(Player.GetLookTowardsDirection(Player, Action.LookDirection));
     avLookAt: Player.SendMessage(Action.LookAtSubject.GetLookAt(Player));
     avExamine: Player.SendMessage(Action.ExamineSubject.GetExamine(Player));
     avRead: Player.SendMessage(Action.ReadSubject.GetDescriptionWriting(Player));
@@ -443,6 +444,7 @@ begin
     avGo: Player.DoNavigation(Action.GoDirection);
     avEnter: Player.DoNavigation(Action.EnterSubject, tpIn, Action.EnterRequiredAbilities);
     avClimbOn: Player.DoNavigation(Action.ClimbOnSubject, tpOn, Action.ClimbOnRequiredAbilities);
+    avUseTransportation: Player.DoNavigation(Action.UseTransportationInstruction);
     avTake: Player.DoTake(Action.TakeSubject);
     avPut: Player.DoPut(Action.PutSubject, Action.PutTarget, Action.PutPosition, Action.PutCare);
     avMove: Player.DoMove(Action.MoveSubject, Action.MoveTarget, Action.MoveAmbiguous, Action.MovePosition);
@@ -456,6 +458,7 @@ begin
     avClose: Player.DoClose(Action.CloseTarget);
     avTalk: Player.DoTalk(Action.TalkTarget, Action.TalkMessage^, Action.TalkVolume);
     avDance: Player.DoDance();
+    avPronouns: Player.DoSetPronouns(Action.Pronouns);
     {$IFDEF DEBUG}
     avDebugStatus: Player.DoDebugStatus();
     avDebugLocations: DoDebugLocations();
