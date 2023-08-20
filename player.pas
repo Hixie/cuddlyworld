@@ -8,13 +8,14 @@ uses
    storable, physics, grammarian, messages, lists, thingdim, thingseeker, typinfo;
 
 const
-   MaxCarryMass = tmPonderous; { not inclusive }
+   MaxCarryMass = tmPonderous; { inclusive }
    MaxCarrySize = tsGigantic; { not inclusive }
    MaxPushMass = tmLudicrous; { not inclusive }
    MaxPushSize = tsLudicrous; { not inclusive }
-   MaxShakeMass = tmLudicrous; { not inclusive }
-   MaxShakeSize = tsGigantic; { not inclusive }
-   MaxCarryCount = 10; { not inclusive }
+   MaxShakeMass = tmHeavy; { inclusive }
+   MaxShakeSize = tsMassive; { inclusive }
+   MaxCarryCount = 10; { inclusive }
+   MaxBalanceCount = 1; { inclusive }
 
 type
    TPronouns = (pHe, pShe, pSingularThey, pPluralThey, pIt, pZe);
@@ -126,6 +127,7 @@ type
       procedure AnnounceDeparture(Destination: TAtom); override; {BOGUS Hint: Value parameter "Destination" is assigned but never used}
       procedure AnnounceArrival(Source: TAtom; Direction: TCardinalDirection); override; {BOGUS Hint: Value parameter "Source" is assigned but never used}
       procedure AnnounceArrival(Source: TAtom); override; {BOGUS Hint: Value parameter "Source" is assigned but never used}
+      function CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       function HasConnectedPlayer(): Boolean; override;
       function IsReadyForRemoval(): Boolean; override;
@@ -1193,7 +1195,7 @@ procedure TPlayer.DoPush(Subject: TThingList; Direction: TCardinalDirection);
 var
    Multiple, Success: Boolean;
    CurrentSubject, DisambiguationOpening: TThing;
-   Destination, CurrentNotifiee: TAtom;
+   Destination, CurrentNotifiee, Ancestor: TAtom;
    Location: TLocation;
    ThingPosition: TThingPosition;
    Message: TMessage;
@@ -1215,77 +1217,88 @@ begin
          end
          else
          begin
-            Assert(Assigned(CurrentSubject.Parent));
-            Destination := CurrentSubject.Parent.GetRepresentative();
-            Message := TMessage.Create(mkImmovable, '_ _ immovable.',
-                                                    [Capitalise(CurrentSubject.GetDefiniteName(Self)),
-                                                     IsAre(CurrentSubject.IsPlural(Self))]);
-            if (CurrentSubject = Self) then
+            Ancestor := FParent;
+            while ((Ancestor is TThing) and (Ancestor <> CurrentSubject)) do
+               Ancestor := (Ancestor as TThing).Parent;
+            if (Ancestor = CurrentSubject) then
             begin
-               SendMessage('You try to push yourself but find that a closed system cannot have any unbalanced internal forces.');
+               { we're (possibly indirectly) standing on it }
+               SendMessage('Given your current position, that would be quite difficult.');
             end
             else
-            if (Destination is TLocation) then
             begin
-               Location := Destination as TLocation;
-               Destination := Location.GetAtomForDirectionalNavigation(Direction);
-               if (not Assigned(Destination)) then
+               Assert(Assigned(CurrentSubject.Parent));
+               Destination := CurrentSubject.Parent.GetRepresentative();
+               Message := TMessage.Create(mkImmovable, '_ _ immovable.',
+                                                       [Capitalise(CurrentSubject.GetDefiniteName(Self)),
+                                                        IsAre(CurrentSubject.IsPlural(Self))]);
+               if (CurrentSubject = Self) then
                begin
-                  Location.FailNavigation(Direction, Self, Message);
-                  Assert(Message.AsKind <> mkSuccess);
-                  Assert(Message.AsText <> '');
-                  AvatarMessage(Message);
+                  SendMessage('You try to push yourself but find that a closed system cannot have any unbalanced internal forces.');
+               end
+               else
+               if (Destination is TLocation) then
+               begin
+                  Location := Destination as TLocation;
+                  Destination := Location.GetAtomForDirectionalNavigation(Direction);
+                  if (not Assigned(Destination)) then
+                  begin
+                     Location.FailNavigation(Direction, Self, Message);
+                     Assert(Message.AsKind <> mkSuccess);
+                     Assert(Message.AsText <> '');
+                     AvatarMessage(Message);
+                  end
+                  else
+                  begin
+                     ThingPosition := tpOn;
+                     DisambiguationOpening := nil;
+                     Message := TMessage.Create(mkSuccess, 'Pushed.');
+                     NotificationList := TAtomList.Create();
+                     try
+                        Destination := Destination.GetEntrance(CurrentSubject, Direction, Self, ThingPosition, DisambiguationOpening, Message, NotificationList);
+                        if (Assigned(Destination)) then
+                        begin
+                           Assert(Message.AsKind = mkSuccess);
+                           if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
+                              AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Self));
+                           Success := CanPushThing(CurrentSubject, Message) and
+                                      Destination.CanPut(CurrentSubject, ThingPosition, psRoughly, Self, Message);
+                           Assert((Message.AsKind = mkSuccess) = Success);
+                           SendMessage(Message.AsText);
+                           if (Success) then
+                           begin
+                              for CurrentNotifiee in NotificationList do
+                                 CurrentNotifiee.HandlePassedThrough(CurrentSubject, CurrentSubject.Parent, Destination, ThingPosition, Self);
+                              if (ThingPosition = tpIn) then
+                              begin
+                                 Destination := Destination.GetInside(ThingPosition);
+                              end;
+                              Destination.Put(CurrentSubject, ThingPosition, psRoughly, Self);
+                           end;
+                        end
+                        else
+                        begin
+                           SendMessage(Message.AsText);
+                        end;
+                     finally
+                        NotificationList.Free();
+                     end;
+                  end;
+               end
+               else
+               if (CurrentSubject.Position = tpOn) then
+               begin
+                  SendMessage('You would have to push ' + CurrentSubject.GetDefiniteName(Self) + ' off ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
+               end
+               else
+               if (CurrentSubject.Position = tpIn) then
+               begin
+                  SendMessage('You would have to move ' + CurrentSubject.GetDefiniteName(Self) + ' out of ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
                end
                else
                begin
-                  ThingPosition := tpOn;
-                  DisambiguationOpening := nil;
-                  Message := TMessage.Create(mkSuccess, 'Pushed.');
-                  NotificationList := TAtomList.Create();
-                  try
-                     Destination := Destination.GetEntrance(CurrentSubject, Direction, Self, ThingPosition, DisambiguationOpening, Message, NotificationList);
-                     if (Assigned(Destination)) then
-                     begin
-                        Assert(Message.AsKind = mkSuccess);
-                        if (Assigned(DisambiguationOpening) and (DisambiguationOpening <> Destination)) then
-                           AutoDisambiguated('through ' + DisambiguationOpening.GetDefiniteName(Self));
-                        Success := CanPushThing(CurrentSubject, Message) and
-                                   Destination.CanPut(CurrentSubject, ThingPosition, psRoughly, Self, Message);
-                        Assert((Message.AsKind = mkSuccess) = Success);
-                        SendMessage(Message.AsText);
-                        if (Success) then
-                        begin
-                           for CurrentNotifiee in NotificationList do
-                              CurrentNotifiee.HandlePassedThrough(CurrentSubject, CurrentSubject.Parent, Destination, ThingPosition, Self);
-                           if (ThingPosition = tpIn) then
-                           begin
-                              Destination := Destination.GetInside(ThingPosition);
-                           end;
-                           Destination.Put(CurrentSubject, ThingPosition, psRoughly, Self);
-                        end;
-                     end
-                     else
-                     begin
-                        SendMessage(Message.AsText);
-                     end;
-                  finally
-                     NotificationList.Free();
-                  end;
+                  SendMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '. It is not clear how to move ' + CurrentSubject.GetObjectPronoun(Self) + '.');
                end;
-            end
-            else
-            if (CurrentSubject.Position = tpOn) then
-            begin
-               SendMessage('You would have to push ' + CurrentSubject.GetDefiniteName(Self) + ' off ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
-            end
-            else
-            if (CurrentSubject.Position = tpIn) then
-            begin
-               SendMessage('You would have to move ' + CurrentSubject.GetDefiniteName(Self) + ' out of ' + CurrentSubject.Parent.GetDefiniteName(Self) + ' first.');
-            end
-            else
-            begin
-               SendMessage(Capitalise(CurrentSubject.GetDefiniteName(Self)) + ' ' + IsAre(CurrentSubject.IsPlural(Self)) + ' ' + ThingPositionToString(CurrentSubject.Position) + ' ' + CurrentSubject.Parent.GetDefiniteName(Self) + '. It is not clear how to move ' + CurrentSubject.GetObjectPronoun(Self) + '.');
             end;
          end;
       end;
@@ -1680,57 +1693,84 @@ begin
    SendMessage('Noted.');
 end;
 
-procedure TPlayer.HandleAdd(Thing: TThing; Blame: TAvatar);
+function TPlayer.CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 var
-   Masses, CandidateMass, ThisMass: TThingMassManifest;
-   Sizes, CandidateSize, ThisSize: TThingSizeManifest;
    Count: Cardinal;
    Child: TThing;
-   Candidate: TThing;
-   {$IFOPT C+} Message: TMessage; {$ENDIF}
 begin
-   Zero(Masses);
-   Zero(Sizes);
+   Assert(GetSurface() = Self);
    Count := 0;
    for Child in FChildren do
    begin
-      if (Child.Position in [tpCarried]) then
+      if (Child.Position in [tpOn]) then
       begin
-         Masses := Masses + Child.GetMassManifest();
-         Sizes := Sizes + Child.GetOutsideSizeManifest();
          Assert(Count < High(Count)); // this would be a ludicrous number of objects
          Count := Count + 1; // $R-
       end;
    end;
-   while ((Masses > MaxCarryMass) or (Sizes > MaxCarrySize) or (Count > MaxCarryCount)) do
+   if (Count + ManifestCount > MaxBalanceCount) then
    begin
-      Assert(Assigned(FChildren));
-      Zero(CandidateMass);
-      Zero(CandidateSize);
+      Result := False;
+   end
+   else
+   begin
+      Result := inherited;
+   end;
+end;
+
+procedure TPlayer.HandleAdd(Thing: TThing; Blame: TAvatar);
+
+   procedure CheckInventory();
+   var
+      Masses, CandidateMass, ThisMass: TThingMassManifest;
+      Sizes, CandidateSize, ThisSize: TThingSizeManifest;
+      Count: Cardinal;
+      Child: TThing;
+      Candidate: TThing;
+   begin
+      // TODO: check if Thing.Position is not tpCarried
+      Zero(Masses);
+      Zero(Sizes);
+      Count := 0;
       for Child in FChildren do
       begin
-         ThisMass := Child.GetMassManifest();
-         ThisSize := Child.GetOutsideSizeManifest();
-         if ((ThisMass > CandidateMass) or (ThisSize > CandidateSize)) then
+         if (Child.Position in [tpCarried]) then
          begin
-            Candidate := Child;
-            CandidateMass := ThisMass;
-            CandidateSize := ThisSize;
+            Masses := Masses + Child.GetMassManifest();
+            Sizes := Sizes + Child.GetOutsideSizeManifest();
+            Assert(Count < High(Count)); // this would be a ludicrous number of objects
+            Count := Count + 1; // $R-
          end;
       end;
-      Assert(Assigned(Candidate));
-      Masses := Masses - CandidateMass;
-      Sizes := Sizes - CandidateSize;
-      Assert(MaxCarryCount >= 0);
-      Count := Count - 1; // can't go negative since Count > MaxCarryCount and MaxCarryCount >= 0 // $R-
-      DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
-      {$IFOPT C+}
-        Message := TMessage.Create();
-        Assert(FParent.CanPut(Candidate, tpOn, psRoughly, Self, Message), 'Cannot put on parent.');
-        Assert(Message.AsKind = mkSuccess);
-      {$ENDIF};
-      FParent.Put(Candidate, tpOn, psRoughly, Self);
+      while ((Masses > MaxCarryMass) or (Sizes >= MaxCarrySize) or (Count > MaxCarryCount)) do
+      begin
+         Assert(Assigned(FChildren));
+         Zero(CandidateMass);
+         Zero(CandidateSize);
+         for Child in FChildren do
+         begin
+            ThisMass := Child.GetMassManifest();
+            ThisSize := Child.GetOutsideSizeManifest();
+            if ((ThisMass > CandidateMass) or (ThisSize > CandidateSize)) then
+            begin
+               Candidate := Child;
+               CandidateMass := ThisMass;
+               CandidateSize := ThisSize;
+            end;
+         end;
+         Assert(Assigned(Candidate));
+         Masses := Masses - CandidateMass;
+         Sizes := Sizes - CandidateSize;
+         Assert(MaxCarryCount >= 0);
+         Count := Count - 1; // can't go negative since Count > MaxCarryCount and MaxCarryCount >= 0 // $R-
+         DoBroadcast([Self], nil, [C(M(@GetDefiniteName)), SP, MP(Self, M('fumbles'), M('fumble')), SP, M(@Candidate.GetDefiniteName), M('.')]);
+         FParent.Put(Candidate, tpOn, psRoughly, Self);
+      end;
    end;
+
+begin
+   CheckInventory();
+   inherited;
 end;
 
 function TPlayer.CanCarryThing(Thing: TThing; var Message: TMessage): Boolean;
@@ -1749,7 +1789,7 @@ begin
                                               IsAre(Thing.IsPlural(Self))]);
    end
    else
-   if (Thing.GetOutsideSizeManifest() > MaxCarrySize) then
+   if (Thing.GetOutsideSizeManifest() >= MaxCarrySize) then
    begin
       Result := False;
       Message := TMessage.Create(mkTooBig, '_ _ far too big.',
@@ -1797,18 +1837,18 @@ begin
       Result := False;
    end
    else
-   if (Thing.GetMassManifest() >= MaxShakeMass) then
+   if (Thing.GetMassManifest() > MaxShakeMass) then
    begin
       Result := False;
-      Message := TMessage.Create(mkTooHeavy, '_ _ far too heavy.',
+      Message := TMessage.Create(mkTooHeavy, '_ _ too heavy to shake.',
                                              [Capitalise(Thing.GetDefiniteName(Self)),
                                               IsAre(Thing.IsPlural(Self))]);
    end
    else
-   if (Thing.GetOutsideSizeManifest() >= MaxShakeSize) then
+   if (Thing.GetOutsideSizeManifest() > MaxShakeSize) then
    begin
       Result := False;
-      Message := TMessage.Create(mkTooBig, '_ _ far too big',
+      Message := TMessage.Create(mkTooBig, '_ _ too big to shake.',
                                            [Capitalise(Thing.GetDefiniteName(Self)),
                                             IsAre(Thing.IsPlural(Self))]);
    end

@@ -58,7 +58,7 @@ type
     protected
       function GetBelow(): TAtom; virtual;
     public
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       procedure Put(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); override;
    end;
@@ -244,9 +244,9 @@ end;
 {$UNDEF SUPERCLASS}
 {$UNDEF PART}
 
-function TAirLocation.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TAirLocation.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
-   Result := CanSurfaceHold(Manifest);
+   Result := CanSurfaceHold(Manifest, ManifestCount);
 end;
 
 function TAirLocation.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;

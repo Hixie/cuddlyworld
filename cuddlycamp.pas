@@ -66,12 +66,20 @@ begin
    World := TCuddlyWorld.Create();
 
    Tunnel := TGroundLocation.Create('Tunnel Trail', 'the tunnel trail', 'a tunnel trail', 'The tunnel has many turns.', CreateEarthSurface());
+   Tunnel.Add(TFeature.Create('many tunnel turns', 'many? tunnel? (turn/turns twist/twists)@', 'The tunnel twists in many directions, leading to a cave when going generally westward, and leading to the end of the tunnel in a northern direction.'), tpPartOfImplicit);
+   
    TunnelEnd := TGroundLocation.Create('Tunnel End', 'the tunnel end', 'a tunnel end', 'The tunnel end room has white walls.', CreateEarthSurface());
+   Tunnel.Add(TStructure.Create('north wall', '(white (north northern)@)* wall/walls', 'The northern wall of the tunnel end room is white.', 'There does not seem to be any way to attach things to the wall.'), tpPartOfImplicit);
+   Tunnel.Add(TStructure.Create('east wall', '(white (east eastern)@)* wall/walls', 'The eastern wall of the tunnel end room is white.', 'There does not seem to be any way to attach things to the wall.'), tpPartOfImplicit);
+   Tunnel.Add(TStructure.Create('west wall', '(white (west western)@)* wall/walls', 'The western wall of the tunnel end room is white.', 'There does not seem to be any way to attach things to the wall.'), tpPartOfImplicit);
 
    Bedroom := TGroundLocation.Create('Bedroom', 'the bedroom', 'a bedroom', 'The bedroom is a large room. On the ceiling are some stars.', CreateStoneSurface());
    Bed := TDescribedPhysicalThing.Create('bed', 'bed/beds', 'The bed is medium-sized bed.', tmPonderous, tsBig);
    Pillow := TDescribedPhysicalThing.Create('pillow', '((car? pillow/pillows) car/cars)@', 'The pillow has drawings of cars on it.', tmLight, tsSmall);
-   Stars := TFeature.Create('stars', '(ceiling/ceilings star/stars)#', 'The ceiling has stars on it.');
+   Stars := TFeature.Create('stars', 'pretty? ceiling? star/stars', 'The ceiling has stars on it.');
+   Ceiling := TStructure.Create('ceiling', 'pretty? starry? ceiling/ceilings', 'The ceiling has some pretty stars on it.', 'Putting things on a ceiling seems like an exercise in futility.');
+   Bedroom.Add(Ceiling, tpPartOfImplicit);
+   Ceiling.Add(Stars, tpPartOfImplicit);
 
    Bedroom.GetSurface().Add(Bed, tpOn);
    Bed.GetSurface().Add(Pillow, tpOn);
@@ -80,10 +88,9 @@ begin
    Bedroom.GetSurface().Add(TDescribedPhysicalThing.Create('is block', '((orange is word block/blocks)& word/words)@', 'This block is orange and says "is".', tmLight, tsSmall), tpOn);
    Bedroom.GetSurface().Add(TDescribedPhysicalThing.Create('hat block', '((red hat word block/blocks)& word/words)@', 'This block is red and says "hat".', tmLight, tsSmall), tpOn);
    Bedroom.GetSurface().Add(TDescribedPhysicalThing.Create('make block', '((green make word block/blocks)& word/words)@', 'This block is green and says "make".', tmLight, tsSmall), tpOn);
-   Bedroom.Add(Stars, tpPartOfImplicit);
 
    Cave := TGroundLocation.Create('Cave', 'the cave', 'a cave', 'The cave is round and dark.', CreateEarthSurface());
-   Ceiling := TScenery.Create('ceiling', '(round dark)* (ceiling/ceilings roof/rooves roof/roofs)@', 'The ceiling is dark and round, just like the rest of the cave.');
+   Ceiling := TStructure.Create('ceiling', '(round dark)* (ceiling/ceilings roof/rooves roof/roofs)@', 'The ceiling is dark and round, just like the rest of the cave.', 'Putting things on a ceiling seems like an exercise in futility.');
    Cave.Add(Ceiling, tpPartOfImplicit);
    Cave.AddLandmark(cdUp, Ceiling, [loPermissibleNavigationTarget]);
    Thing := TBag.Create('brown sack', '(elongated brown (sack/sacks bag/bags)@)&', 'The sack is brown.', tsBig);

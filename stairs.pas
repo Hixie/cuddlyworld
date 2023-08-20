@@ -234,6 +234,7 @@ begin
    for Direction := Low(FDirectionalLandmarks) to High(FDirectionalLandmarks) do
       if (Length(FDirectionalLandmarks[Direction]) > 0) then
          FDirectionalLandmarks[Direction][0].Atom.GetNearbyThingsByClass(List, True, Filter);
+   inherited;
 end;
 
 function TVerticalPathLocation.GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom;

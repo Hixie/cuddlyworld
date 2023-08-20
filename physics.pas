@@ -154,7 +154,7 @@ type
       procedure Add(Thing: TThingList.TEnumerator; Position: TThingPosition);
       procedure Remove(Thing: TThing);
       procedure Remove(Thing: TThingList.TEnumerator);
-      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // whether Thing can be put on/in this Atom (only supports tpOn, tpIn)
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; virtual; // whether Thing can be put on/in this Atom (only supports tpOn, tpIn) without things falling
       procedure Put(Thing: TThing; Position: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar); virtual;
       function GetMassManifest(): TThingMassManifest; virtual; { self and children that are not tpScenery }
       function GetOutsideSizeManifest(): TThingSizeManifest; virtual; { external size of the object (e.g. to decide if it fits inside another): self and children that are tpOutside; add tpContained children if container is flexible }
@@ -162,11 +162,11 @@ type
       function GetSurfaceSizeManifest(): TThingSizeManifest; virtual; { children that are tpSurface (e.g. to decide if something else can be added to the object's surface or if the surface is full already) }
       function GetRepresentative(): TAtom; virtual; { the TAtom that is responsible for high-level dealings for this one (opposite of GetSurface, maybe a TLocation); this must not be a descendant, since otherwise we'll loop forever in GetContext }
       function GetSurface(): TThing; virtual; { the TThing that is responsible for the minutiae of where things dropped on this one actually go (opposite of GetRepresentative) }
-      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; virtual; abstract;
+      function CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; virtual; abstract;
       function GetInside(var PositionOverride: TThingPosition): TThing; virtual; { returns nil if there's no inside to speak of }
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; virtual;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; virtual;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); virtual; { use this for magic doors, falling down tunnels, etc }
-      procedure HandleAdd(Thing: TThing; Blame: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things (and make CanPut() always allow tpOn in that case) }
+      procedure HandleAdd(Thing: TThing; Perspective: TAvatar); virtual; { use this to fumble things or to cause things to fall off other things }
       function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; virtual; abstract; // Perspective is the traveller; Child is the ancestor of Perspective (originally Perspective itself) that's a child of Self that we're dealing with now
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; virtual; abstract;
 
@@ -243,7 +243,8 @@ type
       function GetMassManifest(): TThingMassManifest; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function GetSurface(): TThing; override;
-      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
+      procedure HandleAdd(Thing: TThing; Perspective: TAvatar); override;
       function GetDefaultDestination(out Position: TThingPosition): TThing; virtual; // for "move bar to foo", where do we actually put the thing and in what position?
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
       function GetTransportationDestination(Perspective: TAvatar): TTransportationInstruction; virtual; // for "take stairs" or "take train" or "travel by boat", where do we end up? nil means this TThing is not a form of transportation.
@@ -330,7 +331,7 @@ type
       function IsPlural(Perspective: TAvatar): Boolean; override;
       function GetName(Perspective: TAvatar): UTF8String; override;
       function GetDescriptionSelf(Perspective: TAvatar): UTF8String; override;
-      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function IsExplicitlyReferencedThing(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; out Count: Cardinal; out GrammaticalNumber: TGrammaticalNumber): Boolean; override;
@@ -389,7 +390,7 @@ type
       function GetNavigationInstructions(Direction: TCardinalDirection; Child: TThing; Perspective: TAvatar; var Message: TMessage): TNavigationInstruction; override;
       procedure FailNavigation(Direction: TCardinalDirection; Perspective: TAvatar; out Message: TMessage); { also called when trying to dig in and push something in this direction }
       function GetEntrance(Traveller: TThing; Direction: TCardinalDirection; Perspective: TAvatar; var PositionOverride: TThingPosition; var DisambiguationOpening: TThing; var Message: TMessage; NotificationList: TAtomList): TAtom; override;
-      function CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       procedure EnumerateExplicitlyReferencedThings(Tokens: TTokens; Start: Cardinal; Perspective: TAvatar; FromOutside, FromFarAway: Boolean; Directions: TCardinalDirectionSet; Reporter: TThingReporter); override;
       procedure FindMatchingThings(Perspective: TAvatar; Options: TFindMatchingThingsOptions; PositionFilter: TThingPositionFilter; PropertyFilter: TThingFeatures; List: TThingList); override;
       function FindThing(Thing: TThing; Perspective: TAvatar; Options: TFindThingOptions; out SubjectiveInformation: TSubjectiveInformation): Boolean; override;
@@ -904,7 +905,7 @@ begin
    Assert(Message.IsValid);
    if (ThingPosition = tpOn) then
    begin
-      Result := CanSurfaceHold(Thing.GetIntrinsicSize());
+      Result := CanSurfaceHold(Thing.GetIntrinsicSize(), 1);
       if (not Result) then
          Message := TMessage.Create(mkTooBig, 'There is not enough room on _ for _.',
                                               [GetDefiniteName(Perspective),
@@ -913,7 +914,7 @@ begin
    else
    if (ThingPosition = tpIn) then
    begin
-      Result := CanInsideHold(Thing.GetOutsideSizeManifest());
+      Result := CanInsideHold(Thing.GetOutsideSizeManifest(), 1);
       if (not Result) then
       begin
          if ((not Assigned(GetInside(ThingPosition))) and (Self is TThing)) then
@@ -1010,7 +1011,7 @@ begin
    end;
 end;
 
-function TAtom.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TAtom.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 var
    Inside: TThing;
    Position: TThingPosition;
@@ -1021,10 +1022,10 @@ begin
    begin
       Assert(Inside <> Self, 'If you make GetInside() return the element proper, then you must override CanInsideHold() also.');
       if (Position = tpIn) then
-         Result := Inside.CanInsideHold(Manifest)
+         Result := Inside.CanInsideHold(Manifest, ManifestCount)
       else
       if (Position = tpOn) then
-         Result := Inside.CanSurfaceHold(Manifest)
+         Result := Inside.CanSurfaceHold(Manifest, ManifestCount)
       else
          raise Exception.Create('Unexpected or unknown overriding inside thing position ' + IntToStr(Cardinal(Position)));
    end
@@ -1036,7 +1037,7 @@ procedure TAtom.HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPos
 begin
 end;
 
-procedure TAtom.HandleAdd(Thing: TThing; Blame: TAvatar);
+procedure TAtom.HandleAdd(Thing: TThing; Perspective: TAvatar);
 begin
 end;
 
@@ -1392,16 +1393,55 @@ begin
    Result := Self;
 end;
 
-function TThing.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
+function TThing.CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 var
    Surface: TThing;
 begin
    Surface := GetSurface();
    Assert(Assigned(Surface));
    if (Surface <> Self) then
-      Result := Surface.CanSurfaceHold(Manifest)
+      Result := Surface.CanSurfaceHold(Manifest, ManifestCount)
    else
       Result := (GetSurfaceSizeManifest() + Manifest) <= (GetIntrinsicSize());
+end;
+
+procedure TThing.HandleAdd(Thing: TThing; Perspective: TAvatar);
+var
+   Nothing: TThingSizeManifest;
+   SelectedSlideChild, Candidate, Target: TThing;
+begin
+   Zero(Nothing);
+   Target := FParent.GetSurface();
+   if (Assigned(Target) and (Target <> Self)) then // otherwise no point trying, we have nowhere to slide the stuff to
+   begin
+      while (not CanSurfaceHold(Nothing, 0)) do
+      begin
+         SelectedSlideChild := nil;
+         for Candidate in FChildren do
+         begin
+            if (Candidate.Position = tpOn) then
+            begin
+               if (Assigned(SelectedSlideChild)) then
+               begin
+                  if (((not (SelectedSlideChild is TAvatar)) and (SelectedSlideChild.GetSurfaceSizeManifest() < Candidate.GetSurfaceSizeManifest())) or (Candidate is TAvatar)) then
+                  begin
+                     continue;
+                  end;
+               end;
+               SelectedSlideChild := Candidate;
+            end;
+         end;
+         if (Assigned(SelectedSlideChild)) then
+         begin
+            DoBroadcast([Self], nil, [C(M(@SelectedSlideChild.GetDefiniteName)), SP, MP(SelectedSlideChild, M('slides'), M('slide')), SP, M('off'), SP, M(@GetDefiniteName), M('.')]);
+            Target.Put(SelectedSlideChild, tpOn, psRoughly, Perspective);
+         end
+         else
+         begin
+            break;
+         end;
+      end;
+   end;
 end;
 
 function TThing.GetDefaultDestination(out Position: TThingPosition): TThing;
@@ -2334,9 +2374,9 @@ begin
    Result := '';
 end;
 
-function TDummyAvatar.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
+function TDummyAvatar.CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
-   Result := False;
+   Result := ManifestCount = 0;
 end;
 
 function TDummyAvatar.GetIntrinsicMass(): TThingMass;
@@ -2757,13 +2797,13 @@ begin
    end;
 end;
 
-function TLocation.CanSurfaceHold(const Manifest: TThingSizeManifest): Boolean;
+function TLocation.CanSurfaceHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 var
    Surface: TThing;
 begin
    Surface := GetSurface();
    if (Assigned(Surface)) then
-      Result := Surface.CanSurfaceHold(Manifest)
+      Result := Surface.CanSurfaceHold(Manifest, ManifestCount)
    else
       Result := False;
 end;

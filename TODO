@@ -22,6 +22,7 @@ CODE HEALTH
    for how to describe what the player can see
  + if loVisibleFromFarAway forms a loop, seeking things will crash with stack overflow (simplest case is reflexive
    landmarks with that flag, but it could be a longer cycle too)
+ + the Properties stuff should be refactored to use inheritance rather than duplicating all fields at each level
 
 NAVIGATION
  + "find <name of neighboring location>" doesn't work
@@ -198,6 +199,7 @@ THINGS
  + "cover" a hole
  + TPile.CanTake() should hint if there's something in the pile. "Your fingers brush against something metalic." -- all things would need a GetDescriptionAdjective() or something
  + digging a pile of earth should reveal all the things in the pile and put them on the ground next to the pile
+ + putting things in a pile then filling a hole with the pile causes the things to disappear permanently; they should end up in the ground
  + "empty x" should be like "move all from x out"
  + "remove"
  + "put all in x" should look everywhere, not just in hands
@@ -211,7 +213,6 @@ THINGS
  + "push pile and spade in hole" asserts because when it tries to move the spade, the pile no longer exists (or rather, has no parent)
  + "push leaves into bag; push leaves out of bag" - the out of part fails (but "move out of" would work) - should be an avRemove
  + "take a leaf" as a way to take a leaf from pile?
- + "take all from pile", "take all in pile", "move pile from hole to ground" should work - GetReferencedThings() should support the "from X", "in X" modifiers [solved with thingseeker?]
  + "move all but inventory" should work
  + "move foo to bar", if bar is not nearby but is far away (e.g. in a threshold), should probably just move foo next to bar, rather than into bar or onto bar
  + 'look under' should move things if they are bigger than what they are on

@@ -4,7 +4,7 @@ program tests;
 uses
    {$IFDEF DEBUG} debug, {$ENDIF}
    sysutils, storable, matcher, lists, physics, player, locations, things, grammarian, cuddlycamp, world, threshold,
-   testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4, testmechanics5, testmechanics6,
+   testmechanics, testmechanics1, testmechanics2, testmechanics3, testmechanics4, testmechanics5, testmechanics6, testmechanics7,
    base64encoder, client; // client is used just to make sure it gets compiled when compiling tests
 
 const
@@ -519,6 +519,7 @@ begin
    TestBase64Encoder();
    TestMatcher();
    TestLists();
+   TestMechanics7.TestMechanics7();
    TestMechanics6.TestMechanics6();
    TestMechanics4.TestMechanics4();
    TestMechanics5.TestMechanics5();

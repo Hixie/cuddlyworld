@@ -68,7 +68,7 @@ type
       procedure HandleAdd(Thing: TThing; Blame: TAvatar); override;
       procedure HandlePassedThrough(Traveller: TThing; AFrom, ATo: TAtom; AToPosition: TThingPosition; Perspective: TAvatar); override;
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function GetDefaultDestination(out ThingPosition: TThingPosition): TThing; override;
       function GetLookIn(Perspective: TAvatar): UTF8String; override;
       function GetLookThrough(Perspective: TAvatar): UTF8String; virtual; // this gives the answer regardless of whether there's a door, it's open, or whatever
@@ -190,7 +190,7 @@ end;
 
 constructor TThresholdThing.Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String; FrontFacesDirection: TCardinalDirection);
 begin
-   inherited Create(Name, Pattern, Description, tmPonderous, tsMassive);
+   inherited Create(Name, Pattern, Description, tmHeavy, tsMassive);
    FFrontSideFacesDirection := FrontFacesDirection;
 end;
 
@@ -663,7 +663,7 @@ begin
    Result := Self;
 end;
 
-function TDoorWay.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TDoorWay.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;

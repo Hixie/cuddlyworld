@@ -8,6 +8,7 @@ const // keywords used as property names in "debug make" commands
    pnBackDescription = 'backDescription';
    pnBackSide = 'backSide';
    pnCannotMoveExcuse = 'cannotMoveExcuse';
+   pnCannotPlaceExcuse = 'cannotPlaceExcuse';
    pnChild = 'child';
    pnDefiniteName = 'definiteName';
    pnDescription = 'description';

@@ -80,6 +80,7 @@ type
     public
       constructor Create(Name: UTF8String; Pattern: UTF8String; Description: UTF8String);
       class procedure DescribeProperties(Describer: TPropertyDescriber); override;
+      function GetSurface(): TThing; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
    end;
 
@@ -143,7 +144,7 @@ type
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetFeatures(): TThingFeatures; override;
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
    end;
 
    // The ground, mainly
@@ -173,7 +174,7 @@ type
       function GetFeatures(): TThingFeatures; override;
       function Dig(Spade: TThing; Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function GetDescriptionNoInside(Perspective: TAvatar): UTF8String; override;
       procedure Removed(Thing: TThing); override;
    end;
@@ -182,7 +183,7 @@ type
    TContainer = class(TDescribedPhysicalThing) // @RegisterStorableClass
      public
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function IsOpen(): Boolean; override;
       function GetFeatures(): TThingFeatures; override;
    end;
@@ -213,6 +214,18 @@ type
    TTree = class(TScenery) // @RegisterStorableClass
    end;
 
+   TStructure = class(TScenery) // @RegisterStorableClass
+    protected
+      FCannotPlaceExcuse: UTF8String;
+      class function CreateFromProperties(Properties: TTextStreamProperties): TStructure; override;
+    public
+      constructor Create(Name: UTF8String; Pattern: UTF8String; Description, CannotPlaceExcuse: UTF8String);
+      constructor Read(Stream: TReadStream); override;
+      procedure Write(Stream: TWriteStream); override;
+      class procedure DescribeProperties(Describer: TPropertyDescriber); override;
+      function CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean; override;
+   end;
+
 
    // More complicated things
 
@@ -229,7 +242,7 @@ type
       function GetIntrinsicSize(): TThingSize; override;
       function GetOutsideSizeManifest(): TThingSizeManifest; override;
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function IsOpen(): Boolean; override;
       function GetFeatures(): TThingFeatures; override;
    end;
@@ -256,7 +269,7 @@ type
       function GetIntrinsicMass(): TThingMass; override;
       function GetIntrinsicSize(): TThingSize; override;
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function CanMove(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function CanShake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
@@ -284,7 +297,7 @@ type
       function GetDescriptionEmpty(Perspective: TAvatar): UTF8String; override;
       function CanTake(Perspective: TAvatar; var Message: TMessage): Boolean; override;
       function GetInside(var PositionOverride: TThingPosition): TThing; override;
-      function CanInsideHold(const Manifest: TThingSizeManifest): Boolean; override;
+      function CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean; override;
       function IsOpen(): Boolean; override;
    end;
 
@@ -630,6 +643,18 @@ begin
    inherited Create(Name, Pattern, Description, tmLudicrous, tsLudicrous);
 end;
 
+function TFeature.GetSurface(): TThing;
+begin
+   if (FParent is TThing) then
+   begin
+      Result := FParent as TThing;
+   end
+   else
+   begin
+      Result := nil;
+   end;
+end;
+
 function TFeature.CanMove(Perspective: TAvatar; var Message: TMessage): Boolean;
 begin
    Assert(Message.IsValid);
@@ -963,7 +988,7 @@ function TOpening.CanEnter(Traveller: TThing; Direction: TCardinalDirection; Per
 begin
    Assert(Message.IsValid);
    Assert(Assigned(Traveller));
-   Result := CanInsideHold(Traveller.GetOutsideSizeManifest());
+   Result := CanInsideHold(Traveller.GetOutsideSizeManifest(), 1);
    if (not Result) then
    begin
       Message := TMessage.Create(mkTooBig, '_ _ too big to fit in _.',
@@ -1043,7 +1068,7 @@ begin
    Result := Result + [tfCanHaveThingsPushedOn, tfCanHaveThingsPushedIn];
 end;
 
-function TOpening.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TOpening.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
@@ -1237,10 +1262,10 @@ begin
       Result := Self;
 end;
 
-function TEarthGround.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TEarthGround.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
    if (Assigned(FHole)) then
-      Result := FHole.CanInsideHold(Manifest)
+      Result := FHole.CanInsideHold(Manifest, ManifestCount)
    else
       Result := False;
 end;
@@ -1263,7 +1288,7 @@ begin
    Result := Self;
 end;
 
-function TContainer.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TContainer.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
@@ -1384,7 +1409,7 @@ begin
    Result := Self;
 end;
 
-function TBag.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TBag.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
    Result := (GetInsideSizeManifest() + Manifest) < FMaxSize;
 end;
@@ -1578,7 +1603,7 @@ begin
    Result := Self;
 end;
 
-function THole.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function THole.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
@@ -1988,7 +2013,7 @@ begin
    Result := Self;
 end;
 
-function TPile.CanInsideHold(const Manifest: TThingSizeManifest): Boolean;
+function TPile.CanInsideHold(const Manifest: TThingSizeManifest; const ManifestCount: Integer): Boolean;
 begin
    Result := (GetInsideSizeManifest() + Manifest) < FSize;
 end;
@@ -2091,6 +2116,69 @@ end;
 function TSign.GetDescriptionWriting(Perspective: TAvatar): UTF8String;
 begin
    Result := 'On ' + GetDefiniteName(Perspective) + ' is written "' + FWriting + '".';
+end;
+
+
+constructor TStructure.Create(Name: UTF8String; Pattern: UTF8String; Description, CannotPlaceExcuse: UTF8String);
+begin
+   inherited Create(Name, Pattern, Description);
+   FCannotPlaceExcuse := CannotPlaceExcuse;
+end;
+
+constructor TStructure.Read(Stream: TReadStream);
+begin
+   inherited;
+   FCannotPlaceExcuse := Stream.ReadString();
+end;
+
+procedure TStructure.Write(Stream: TWriteStream);
+begin
+   inherited;
+   Stream.WriteString(FCannotPlaceExcuse);
+end;
+
+class function TStructure.CreateFromProperties(Properties: TTextStreamProperties): TStructure;
+var
+   Name: UTF8String;
+   Pattern: UTF8String;
+   Description, CannotPlaceExcuse: UTF8String;
+   StreamedChildren: TStreamedChildren;
+begin
+   while (not Properties.Done) do
+   begin
+      if (Properties.HandleUniqueStringProperty(pnName, Name) and
+          Properties.HandleUniqueStringProperty(pnPattern, Pattern) and
+          Properties.HandleUniqueStringProperty(pnDescription, Description) and
+          Properties.HandleUniqueStringProperty(pnCannotPlaceExcuse, CannotPlaceExcuse) and
+          HandleChildProperties(Properties, StreamedChildren)) then
+         Properties.FailUnknownProperty();
+   end;
+   Properties.EnsureSeen([pnName, pnPattern, pnDescription, pnCannotPlaceExcuse]);
+   Result := Create(Name, Pattern, Description, CannotPlaceExcuse);
+   StreamedChildren.Apply(Result);
+end;
+
+class procedure TStructure.DescribeProperties(Describer: TPropertyDescriber);
+begin
+   Describer.AddProperty(pnName, ptString);
+   Describer.AddProperty(pnPattern, ptPattern);
+   Describer.AddProperty(pnDescription, ptString);
+   Describer.AddProperty(pnCannotPlaceExcuse, ptString);
+   Describer.AddProperty(pnChild, ptChild);
+end;
+
+function TStructure.CanPut(Thing: TThing; ThingPosition: TThingPosition; Care: TPlacementStyle; Perspective: TAvatar; var Message: TMessage): Boolean;
+begin
+   Assert(Message.IsValid);
+   if (ThingPosition = tpOn) then
+   begin
+      Result := False;
+      Message := TMessage.Create(mkBogus, FCannotPlaceExcuse);
+   end
+   else
+   begin
+      Result := inherited;
+   end;
 end;
 
 
